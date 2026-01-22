@@ -83,7 +83,7 @@ docker-compose up -d
     ```
 
 3.  运行开发服务器:
-    ```bash
+    ```bashwQ57Fw8xKHfSpFn178
     npm run dev
     ```
 
