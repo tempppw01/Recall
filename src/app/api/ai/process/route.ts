@@ -3,7 +3,7 @@ import { generateEmbedding } from '@/lib/embeddings';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || 'sk-placeholder',
   baseURL: process.env.OPENAI_BASE_URL || 'https://ai.shuaihong.fun/v1',
 });
 
