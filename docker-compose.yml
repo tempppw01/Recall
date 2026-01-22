@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  # Next.js Application
+  app:
+    container_name: recall_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ai.shuaihong.fun/v1}
+      # Set to 'local' to use transformers.js, or 'openai' for API
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+    networks:
+      - recall_network
+
+networks:
+  recall_network:
+    driver: bridge
