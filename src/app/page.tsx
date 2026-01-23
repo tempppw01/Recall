@@ -186,24 +186,29 @@ export default function Home() {
     let title = raw.replace(/#([^\s#]+)/g, '').trim();
     let dueDate: string | undefined;
 
-    const dateMatch = title.match(/ (\d{4})[./-](\d{1,2})[./-](\d{1,2}) /);
+    // 匹配日期格式 YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+    // 允许日期出现在字符串的任何位置，但要求日期前后是边界（空格或字符串首尾）
+    const dateMatch = title.match(/(?:^|\s)(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?:\s|$)/);
     if (dateMatch) {
       const [, year, month, day] = dateMatch;
       const normalizedMonth = String(month).padStart(2, '0');
       const normalizedDay = String(day).padStart(2, '0');
       dueDate = `${year}-${normalizedMonth}-${normalizedDay}T00:00:00.000Z`;
-      title = title.replace(dateMatch[0], '').trim();
+      // 移除匹配到的日期字符串，注意要处理可能捕获的前后空格，这里直接用匹配到的原文替换
+      title = title.replace(dateMatch[0], ' ').trim();
     }
 
     if (!dueDate) {
-      if (title.includes('今天') || / today /i.test(title)) {
+      // 匹配 "today" 或 "tomorrow"，要求前后是边界
+      // 中文 "今天"、"明天" 不需要边界
+      if (title.includes('今天') || /(?:^|\s)today(?:\s|$)/i.test(title)) {
         dueDate = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z';
-        title = title.replace(/今天/g, '').replace(/today/ig, '').trim();
-      } else if (title.includes('明天') || / tomorrow /i.test(title)) {
+        title = title.replace(/今天/g, ' ').replace(/(?:^|\s)today(?:\s|$)/ig, ' ').trim();
+      } else if (title.includes('明天') || /(?:^|\s)tomorrow(?:\s|$)/i.test(title)) {
         const date = new Date();
         date.setDate(date.getDate() + 1);
         dueDate = date.toISOString().split('T')[0] + 'T00:00:00.000Z';
-        title = title.replace(/明天/g, '').replace(/tomorrow/ig, '').trim();
+        title = title.replace(/明天/g, ' ').replace(/(?:^|\s)tomorrow(?:\s|$)/ig, ' ').trim();
       }
     }
 
