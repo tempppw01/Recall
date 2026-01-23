@@ -16,8 +16,7 @@ const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 
 const parseModelList = (text: string) =>
   text
-    .split(/[ 
-,]/)
+    .split(/[\s,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 
@@ -106,8 +105,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_BASE_URL);
-  const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('
-'));
+  const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('\n'));
   const [chatModel, setChatModel] = useState(DEFAULT_MODEL_LIST[0]);
   const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
@@ -569,8 +567,7 @@ export default function Home() {
                 <textarea
                   value={modelListText}
                   onChange={(e) => setModelListText(e.target.value)}
-                  placeholder={DEFAULT_MODEL_LIST.join('
-')}
+                  placeholder={DEFAULT_MODEL_LIST.join('\n')}
                   rows={4}
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
