@@ -2,19 +2,57 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateEmbedding } from '@/lib/embeddings';
 import OpenAI from 'openai';
 
+const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
+const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+
+type ParsedTask = {
+  title?: string;
+  dueDate?: string;
+  priority?: number;
+  tags?: string[];
+};
+
+const DEFAULT_TASK = {
+  title: 'Untitled',
+  dueDate: undefined as string | undefined,
+  priority: 0,
+  tags: [] as string[],
+};
+
+function normalizeTask(data: ParsedTask) {
+  const title = typeof data.title === 'string' && data.title.trim().length > 0 ? data.title.trim() : DEFAULT_TASK.title;
+  const priority = typeof data.priority === 'number' && Number.isFinite(data.priority)
+    ? Math.max(0, Math.min(2, Math.round(data.priority)))
+    : DEFAULT_TASK.priority;
+  const tags = Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0) : DEFAULT_TASK.tags;
+  const dueDate = typeof data.dueDate === 'string' && data.dueDate.trim().length > 0 ? data.dueDate : DEFAULT_TASK.dueDate;
+
+  return {
+    title,
+    dueDate,
+    priority,
+    tags,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, apiKey } = await req.json();
+    const { input, mode, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
+
+    const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
+    const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
+    const resolvedEmbeddingModel = embeddingModel || process.env.OPENAI_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
 
     // 如果前端传了 apiKey，使用新的实例；否则使用默认
     const client = apiKey
       ? new OpenAI({
           apiKey,
-          baseURL: process.env.OPENAI_BASE_URL || 'https://ai.shuaihong.fun/v1'
+          baseURL: resolvedBaseUrl
         })
       : new OpenAI({
           apiKey: process.env.OPENAI_API_KEY || 'sk-placeholder',
-          baseURL: process.env.OPENAI_BASE_URL || 'https://ai.shuaihong.fun/v1',
+          baseURL: resolvedBaseUrl,
         });
 
     if (!input) {
@@ -23,20 +61,13 @@ export async function POST(req: NextRequest) {
 
     if (mode === 'search') {
       // 仅生成 Embedding 用于搜索
-      // TODO: generateEmbedding 目前是硬编码使用默认 client 的，需要重构以支持自定义 client
-      // 暂时用 client 直接调用 embedding 接口
-      const response = await client.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: input,
-        encoding_format: 'float',
-      });
-      const embedding = response.data[0].embedding;
+      const embedding = await generateEmbedding(input, { client, model: resolvedEmbeddingModel });
       return NextResponse.json({ embedding });
     }
 
     // 默认模式：Magic Input (意图识别 + Embedding)
     const completion = await client.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: resolvedChatModel,
       messages: [
         {
           role: 'system',
@@ -48,16 +79,11 @@ export async function POST(req: NextRequest) {
       response_format: { type: "json_object" },
     });
 
-    const taskData = JSON.parse(completion.choices[0].message.content || '{}');
-    const textToEmbed = `${taskData.title} ${taskData.tags?.join(' ')}`;
+    const rawTask = JSON.parse(completion.choices[0].message.content || '{}') as ParsedTask;
+    const taskData = normalizeTask(rawTask);
+    const textToEmbed = `${taskData.title} ${taskData.tags.join(' ')}`.trim();
     
-    // 同样使用 client 生成 embedding
-    const embedRes = await client.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: textToEmbed,
-      encoding_format: 'float',
-    });
-    const embedding = embedRes.data[0].embedding;
+    const embedding = await generateEmbedding(textToEmbed, { client, model: resolvedEmbeddingModel });
 
     return NextResponse.json({
       task: {
@@ -66,7 +92,7 @@ export async function POST(req: NextRequest) {
         createdAt: new Date().toISOString(),
         status: 'todo'
       },
-      embedding 
+      embedding
     });
 
   } catch (error) {

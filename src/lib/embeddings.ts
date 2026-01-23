@@ -8,20 +8,30 @@ const openai = new OpenAI({
   baseURL: process.env.OPENAI_BASE_URL || 'https://ai.shuaihong.fun/v1',
 });
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const provider = process.env.EMBEDDING_PROVIDER || 'openai';
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+
+type EmbeddingOptions = {
+  client?: OpenAI;
+  provider?: 'openai' | 'local';
+  model?: string;
+};
+
+export async function generateEmbedding(text: string, options: EmbeddingOptions = {}): Promise<number[]> {
+  const provider = options.provider || process.env.EMBEDDING_PROVIDER || 'openai';
 
   if (provider === 'local') {
     return generateLocalEmbedding(text);
-  } else {
-    return generateOpenAIEmbedding(text);
   }
+
+  const client = options.client || openai;
+  const model = options.model || DEFAULT_EMBEDDING_MODEL;
+  return generateOpenAIEmbedding(text, client, model);
 }
 
-async function generateOpenAIEmbedding(text: string): Promise<number[]> {
+async function generateOpenAIEmbedding(text: string, client: OpenAI, model: string): Promise<number[]> {
   try {
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small', // 或 text-embedding-ada-002
+    const response = await client.embeddings.create({
+      model, // 或 text-embedding-ada-002
       input: text,
       encoding_format: 'float',
     });

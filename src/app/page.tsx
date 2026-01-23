@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { taskStore, Task } from '@/lib/store';
 import {
   Settings, Command, Send, Search, Plus,
@@ -8,6 +8,16 @@ import {
   Menu, X, CheckCircle2, Circle, MoreVertical,
   AlignLeft, Flag, Tag as TagIcon, Hash
 } from 'lucide-react';
+
+const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
+const DEFAULT_MODEL_LIST = ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+
+const parseModelList = (text: string) =>
+  text
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 
 // ---------------------------
 // Components
@@ -93,14 +103,42 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_BASE_URL);
+  const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('\n'));
+  const [chatModel, setChatModel] = useState(DEFAULT_MODEL_LIST[0]);
+  const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
   const [showSettings, setShowSettings] = useState(false);
   const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed
+
+  const persistSettings = (next: {
+    apiKey: string;
+    apiBaseUrl: string;
+    modelListText: string;
+    chatModel: string;
+    embeddingModel: string;
+  }) => {
+    localStorage.setItem('recall_api_key', next.apiKey);
+    localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
+    localStorage.setItem('recall_model_list', next.modelListText);
+    localStorage.setItem('recall_chat_model', next.chatModel);
+    localStorage.setItem('recall_embedding_model', next.embeddingModel);
+  };
 
   // Load Initial Data
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedKey = localStorage.getItem('recall_api_key');
+      const storedBaseUrl = localStorage.getItem('recall_api_base_url');
+      const storedModelList = localStorage.getItem('recall_model_list');
+      const storedChatModel = localStorage.getItem('recall_chat_model');
+      const storedEmbeddingModel = localStorage.getItem('recall_embedding_model');
+
       if (storedKey) setApiKey(storedKey);
+      if (storedBaseUrl) setApiBaseUrl(storedBaseUrl);
+      if (storedModelList) setModelListText(storedModelList);
+      if (storedChatModel) setChatModel(storedChatModel);
+      if (storedEmbeddingModel) setEmbeddingModel(storedEmbeddingModel);
+
       refreshTasks();
     }
   }, []);
@@ -112,6 +150,7 @@ export default function Home() {
 
   // Filter Logic
   const filteredTasks = tasks.filter(t => {
+    if (activeFilter === 'search') return true;
     if (activeFilter === 'completed') return t.status === 'completed';
     if (t.status === 'completed') return false; // Hide completed in other views
     
@@ -126,14 +165,22 @@ export default function Home() {
 
   const handleMagicInput = async () => {
     if (!input.trim()) return;
-    if (!apiKey) return setShowSettings(true);
 
     setLoading(true);
     try {
       const isSearch = input.toLowerCase().startsWith('recall') || input.includes('?');
+      const payload = {
+        input,
+        mode: isSearch ? 'search' : 'create',
+        ...(apiKey ? { apiKey } : {}),
+        apiBaseUrl: apiBaseUrl?.trim() || undefined,
+        chatModel: chatModel?.trim() || undefined,
+        embeddingModel: embeddingModel?.trim() || undefined,
+      };
       const res = await fetch('/api/ai/process', {
         method: 'POST',
-        body: JSON.stringify({ input, mode: isSearch ? 'search' : 'create', apiKey }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -141,16 +188,18 @@ export default function Home() {
         // Search Mode
         const results = taskStore.search(data.embedding);
         setTasks(results); // Replace list with search results temporarily
-        setActiveFilter('search'); 
+        setActiveFilter('search');
       } else if (data.task) {
-        // Create Mode
-        taskStore.add(data.task);
+        // Create Mode (persist embedding for Recall)
+        const taskWithEmbedding = { ...data.task, embedding: data.embedding };
+        taskStore.add(taskWithEmbedding);
         refreshTasks();
         setInput('');
       }
     } catch (e) {
       console.error(e);
       alert('Failed. Check API Key.');
+      if (!apiKey) setShowSettings(true);
     } finally {
       setLoading(false);
     }
@@ -366,24 +415,75 @@ export default function Home() {
             <h2 className="text-lg font-semibold mb-4">Settings</h2>
             <div className="space-y-4">
               <div>
+                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API Base URL</label>
+                <input
+                  type="text"
+                  value={apiBaseUrl}
+                  onChange={(e) => setApiBaseUrl(e.target.value)}
+                  placeholder={DEFAULT_BASE_URL}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API Key</label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-..."
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">模型列表 (逗号或换行分隔)</label>
+                <textarea
+                  value={modelListText}
+                  onChange={(e) => setModelListText(e.target.value)}
+                  placeholder={DEFAULT_MODEL_LIST.join('\n')}
+                  rows={4}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
+                <select
+                  value={chatModel}
+                  onChange={(e) => setChatModel(e.target.value)}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                >
+                  {parseModelList(modelListText).map((model) => (
+                    <option key={model} value={model}>{model}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">Embedding 模型</label>
+                <input
+                  type="text"
+                  value={embeddingModel}
+                  onChange={(e) => setEmbeddingModel(e.target.value)}
+                  placeholder={DEFAULT_EMBEDDING_MODEL}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+              </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button 
+                <button
                   onClick={() => setShowSettings(false)}
                   className="px-4 py-2 text-sm text-[#AAAAAA] hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
-                  onClick={() => { localStorage.setItem('recall_api_key', apiKey); setShowSettings(false); }}
+                <button
+                  onClick={() => {
+                    persistSettings({
+                      apiKey,
+                      apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
+                      modelListText,
+                      chatModel,
+                      embeddingModel,
+                    });
+                    setShowSettings(false);
+                  }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors"
                 >
                   Save Changes

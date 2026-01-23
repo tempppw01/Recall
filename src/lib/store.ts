@@ -21,7 +21,9 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
     normA += vecA[i] * vecA[i];
     normB += vecB[i] * vecB[i];
   }
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  if (!denominator) return 0;
+  return dotProduct / denominator;
 }
 
 export const taskStore = {
