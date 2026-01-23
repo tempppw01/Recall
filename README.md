@@ -34,10 +34,6 @@ https://recall.shuaihong.fun/
 8. 计划加入非流式调用模式。
 9. 计划加入 AI 一键整理当前所有任务清单功能。
 
-## 📣 广告
-
-sh api：低价调用大模型，稳定高可用。如需接入可联系维护方获取接口与价格。
-
 ## 技术栈
 
 *   **Frontend/Fullstack**: Next.js 14+ (App Router), TypeScript
@@ -63,18 +59,6 @@ services:
     restart: always
     ports:
       - "3789:3789"
-    environment:
-      # [可选] OpenAI API Key
-      # 如果不填，将使用默认的占位符，可能无法使用 AI 功能，或者您可以配置自己的 Base URL 使用免费/兼容的接口
-      - OPENAI_API_KEY=your_api_key_here
-      
-      # [可选] OpenAI Base URL
-      # 默认为 https://ai.shuaihong.fun/v1，您也可以修改为官方 api.openai.com 或其他兼容接口
-      - OPENAI_BASE_URL=https://ai.shuaihong.fun/v1
-      
-      # [可选] Embedding Provider
-      # 默认为 'openai'。如果设置为 'local'，将尝试使用本地 transformers.js (需更多内存)
-      - EMBEDDING_PROVIDER=openai
 ```
 
 ### 2. 启动服务
