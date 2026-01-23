@@ -3,21 +3,27 @@ import { generateEmbedding } from '@/lib/embeddings';
 import OpenAI from 'openai';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
+const DEFAULT_CHAT_COMPLETIONS_URL = 'https://ai.shuaihong.fun/v1/chat/completions';
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 
 type ParsedTask = {
   title?: string;
   dueDate?: string;
   priority?: number;
+  category?: string;
   tags?: string[];
+  subtasks?: { title?: string }[];
 };
 
 const DEFAULT_TASK = {
   title: 'Untitled',
   dueDate: undefined as string | undefined,
   priority: 0,
+  category: '生活',
   tags: [] as string[],
+  subtasks: [] as { title: string }[],
 };
 
 function normalizeTask(data: ParsedTask) {
@@ -25,15 +31,56 @@ function normalizeTask(data: ParsedTask) {
   const priority = typeof data.priority === 'number' && Number.isFinite(data.priority)
     ? Math.max(0, Math.min(2, Math.round(data.priority)))
     : DEFAULT_TASK.priority;
+  const category = typeof data.category === 'string' && data.category.trim().length > 0
+    ? data.category.trim()
+    : DEFAULT_TASK.category;
   const tags = Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0) : DEFAULT_TASK.tags;
   const dueDate = typeof data.dueDate === 'string' && data.dueDate.trim().length > 0 ? data.dueDate : DEFAULT_TASK.dueDate;
+  const subtasks = Array.isArray(data.subtasks)
+    ? data.subtasks
+        .map((item) => ({ title: typeof item?.title === 'string' ? item.title.trim() : '' }))
+        .filter((item) => item.title.length > 0)
+    : DEFAULT_TASK.subtasks;
 
   return {
     title,
     dueDate,
     priority,
+    category,
     tags,
+    subtasks,
   };
+}
+
+function classifyCategory(input: string) {
+  const text = input.toLowerCase();
+  const rules: Record<string, string[]> = {
+    工作: ['工作', '客户', '项目', '会议', '需求', '汇报', '报告', '同事', '合同', '岗位', '绩效', '加班'],
+    学习: ['学习', '课程', '作业', '复习', '考试', '读书', '练习', '题', '笔记', '培训'],
+    健康: ['健身', '运动', '跑步', '瑜伽', '饮食', '体检', '睡眠', '药', '恢复', '步数'],
+    家庭: ['家人', '孩子', '父母', '家务', '亲戚', '育儿', '家庭', '看娃'],
+    财务: ['报销', '预算', '账单', '发票', '理财', '投资', '缴费', '工资', '税', '贷款'],
+    社交: ['聚会', '朋友', '社交', '邀请', '约', '聊天', '沟通', '拜访'],
+  };
+  for (const [category, keywords] of Object.entries(rules)) {
+    if (keywords.some((word) => text.includes(word))) {
+      return category;
+    }
+  }
+  return DEFAULT_TASK.category;
+}
+
+function evaluatePriority(dueDate?: string, subtaskCount = 0) {
+  if (dueDate) {
+    const due = new Date(dueDate).getTime();
+    const now = Date.now();
+    const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 1) return 2;
+    if (diffDays <= 3) return 1;
+  }
+  if (subtaskCount >= 5) return 2;
+  if (subtaskCount >= 3) return 1;
+  return DEFAULT_TASK.priority;
 }
 
 export async function POST(req: NextRequest) {
@@ -41,6 +88,7 @@ export async function POST(req: NextRequest) {
     const { input, mode, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
+    const resolvedChatCompletionsUrl = process.env.OPENAI_CHAT_COMPLETIONS_URL || DEFAULT_CHAT_COMPLETIONS_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
     const resolvedEmbeddingModel = embeddingModel || process.env.OPENAI_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
 
@@ -66,21 +114,39 @@ export async function POST(req: NextRequest) {
     }
 
     // 默认模式：Magic Input (意图识别 + Embedding)
-    const completion = await client.chat.completions.create({
-      model: resolvedChatModel,
-      messages: [
-        {
-          role: 'system',
-          content: `You are a GTD assistant. Extract task details from the user input.
-          Return JSON format: { "title": string, "dueDate": string (ISO), "priority": int (0-2), "tags": string[] }`
-        },
-        { role: 'user', content: input }
-      ],
-      response_format: { type: "json_object" },
+    const completionResponse = await fetch(resolvedChatCompletionsUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
+      },
+      body: JSON.stringify({
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取）。\n4) 如果输入包含日期/时间，请转换为 ISO 格式的 dueDate。\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }`,
+          },
+          { role: 'user', content: input },
+        ],
+        response_format: { type: 'json_object' },
+      }),
     });
 
-    const rawTask = JSON.parse(completion.choices[0].message.content || '{}') as ParsedTask;
+    if (!completionResponse.ok) {
+      const errorText = await completionResponse.text();
+      throw new Error(`Chat completion failed: ${errorText}`);
+    }
+
+    const completionPayload = await completionResponse.json();
+    const rawTask = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as ParsedTask;
     const taskData = normalizeTask(rawTask);
+    const normalizedCategory = CATEGORY_OPTIONS.includes(taskData.category || '')
+      ? taskData.category
+      : classifyCategory(`${taskData.title} ${input}`);
+    const normalizedPriority = taskData.priority === DEFAULT_TASK.priority
+      ? evaluatePriority(taskData.dueDate, taskData.subtasks.length)
+      : taskData.priority;
     const textToEmbed = `${taskData.title} ${taskData.tags.join(' ')}`.trim();
     
     const embedding = await generateEmbedding(textToEmbed, { client, model: resolvedEmbeddingModel });
@@ -88,9 +154,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       task: {
         ...taskData,
+        category: normalizedCategory,
+        priority: normalizedPriority,
         id: Math.random().toString(36).substring(2, 9),
         createdAt: new Date().toISOString(),
-        status: 'todo'
+        status: 'todo',
+        subtasks: taskData.subtasks.map((subtask) => ({
+          id: Math.random().toString(36).substring(2, 9),
+          title: subtask.title,
+          completed: false,
+        }))
       },
       embedding
     });

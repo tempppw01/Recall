@@ -3,10 +3,18 @@ export interface Task {
   title: string;
   dueDate?: string;
   priority: number;
+  category?: string;
   status: 'todo' | 'in_progress' | 'completed';
   tags: string[];
+  subtasks?: Subtask[];
   embedding?: number[]; // 存储向量
   createdAt: string;
+}
+
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
 }
 
 const STORAGE_KEY = 'recall_tasks_v1';

@@ -1,24 +1,63 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { taskStore, Task } from '@/lib/store';
+import { taskStore, Task, Subtask } from '@/lib/store';
 import {
   Settings, Command, Send, Search, Plus,
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle, MoreVertical,
-  AlignLeft, Flag, Tag as TagIcon, Hash
+  AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_MODEL_LIST = ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
+const PRIORITY_LABELS = ['低', '中', '高'];
+const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 
 const parseModelList = (text: string) =>
   text
     .split(/[\s,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const getPriorityColor = (priority: number) => {
+  if (priority === 2) return 'text-red-400';
+  if (priority === 1) return 'text-yellow-400';
+  return 'text-emerald-400';
+};
+
+const classifyCategory = (input: string) => {
+  const text = input.toLowerCase();
+  const rules: Record<string, string[]> = {
+    工作: ['工作', '客户', '项目', '会议', '需求', '汇报', '报告', '同事', '合同', '岗位', '绩效', '加班'],
+    学习: ['学习', '课程', '作业', '复习', '考试', '读书', '练习', '题', '笔记', '培训'],
+    健康: ['健身', '运动', '跑步', '瑜伽', '饮食', '体检', '睡眠', '药', '恢复', '步数'],
+    家庭: ['家人', '孩子', '父母', '家务', '亲戚', '育儿', '家庭', '看娃'],
+    财务: ['报销', '预算', '账单', '发票', '理财', '投资', '缴费', '工资', '税', '贷款'],
+    社交: ['聚会', '朋友', '社交', '邀请', '约', '聊天', '沟通', '拜访'],
+  };
+  for (const [category, keywords] of Object.entries(rules)) {
+    if (keywords.some((word) => text.includes(word))) {
+      return category;
+    }
+  }
+  return '生活';
+};
+
+const evaluatePriority = (dueDate?: string, subtaskCount = 0) => {
+  if (dueDate) {
+    const due = new Date(dueDate).getTime();
+    const now = Date.now();
+    const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 1) return 2;
+    if (diffDays <= 3) return 1;
+  }
+  if (subtaskCount >= 5) return 2;
+  if (subtaskCount >= 3) return 1;
+  return 0;
+};
 
 // ---------------------------
 // Components
@@ -72,14 +111,20 @@ const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
       </div>
       
       <div className="flex items-center gap-2 mt-1.5">
-        {task.priority > 0 && (
-          <span className={`text-[10px] flex items-center gap-0.5 ${
-            task.priority === 2 ? 'text-red-400' : 'text-yellow-400'
-          }`}>
-            <Flag className="w-3 h-3 fill-current" />
-            P{task.priority}
+        <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
+          <Flag className="w-3 h-3 fill-current" />
+          {PRIORITY_LABELS[task.priority] || PRIORITY_LABELS[0]}
+        </span>
+        {task.category && (
+          <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
+            {task.category}
           </span>
         )}
+        {task.subtasks?.length ? (
+          <span className="text-[10px] text-[#666666]">
+            {task.subtasks.filter((subtask: Subtask) => subtask.completed).length}/{task.subtasks.length} 子任务
+          </span>
+        ) : null}
         {task.dueDate && (
           <span className="text-[10px] text-[#888888] flex items-center gap-1">
             <Calendar className="w-3 h-3" />
@@ -110,8 +155,17 @@ export default function Home() {
   const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed
+  const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, search, calendar
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
 
   const persistSettings = (next: {
     apiKey: string;
@@ -154,6 +208,10 @@ export default function Home() {
       refreshTasks();
     }
   }, []);
+
+  useEffect(() => {
+    setNewSubtaskTitle('');
+  }, [selectedTask?.id]);
 
   const refreshTasks = () => {
     const all = taskStore.getAll();
@@ -219,13 +277,17 @@ export default function Home() {
 
   const createLocalTaskFromInput = (raw: string) => {
     const parsed = parseLocalTaskInput(raw);
+    const category = classifyCategory(raw);
+    const priority = evaluatePriority(parsed.dueDate, 0);
     const task: Task = {
       id: Math.random().toString(36).substring(2, 9),
       title: parsed.title,
       dueDate: parsed.dueDate,
-      priority: 0,
+      priority,
+      category,
       status: 'todo',
       tags: parsed.tags,
+      subtasks: [],
       createdAt: new Date().toISOString(),
     };
     taskStore.add(task);
@@ -315,6 +377,101 @@ export default function Home() {
     }
   };
 
+  const handleSearch = async () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    setSearchLoading(true);
+
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: query,
+          mode: 'search',
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          embeddingModel: embeddingModel?.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Request failed');
+      }
+
+      if (data.embedding) {
+        const results = taskStore.search(data.embedding);
+        setTasks(results);
+        setActiveFilter('search');
+        setShowSearch(false);
+        setSelectedTask(null);
+      }
+    } catch (e) {
+      console.error(e);
+      const fallback = taskStore.getAll().filter((task) => {
+        const keyword = query.toLowerCase();
+        return (
+          task.title.toLowerCase().includes(keyword) ||
+          task.tags?.some((tag) => tag.toLowerCase().includes(keyword))
+        );
+      });
+      setTasks(fallback);
+      setActiveFilter('search');
+      setShowSearch(false);
+      setSelectedTask(null);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const toggleSubtask = (taskId: string, subtaskId: string) => {
+    const all = taskStore.getAll();
+    const target = all.find((task) => task.id === taskId);
+    if (!target) return;
+    const updatedSubtasks = (target.subtasks || []).map((subtask) =>
+      subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
+    );
+    updateTask({ ...target, subtasks: updatedSubtasks });
+  };
+
+  const addSubtask = () => {
+    if (!selectedTask) return;
+    const title = newSubtaskTitle.trim();
+    if (!title) return;
+    const nextSubtasks = [
+      ...(selectedTask.subtasks || []),
+      { id: Math.random().toString(36).substring(2, 9), title, completed: false },
+    ];
+    updateTask({ ...selectedTask, subtasks: nextSubtasks });
+    setNewSubtaskTitle('');
+  };
+
+  const updatePriority = (priority: number) => {
+    if (!selectedTask) return;
+    updateTask({ ...selectedTask, priority });
+  };
+
+  const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, task) => {
+    if (task.dueDate) {
+      const key = task.dueDate.split('T')[0];
+      acc[key] = acc[key] ? [...acc[key], task] : [task];
+    }
+    return acc;
+  }, {});
+
+  const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  const monthEnd = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+  const daysInMonth = monthEnd.getDate();
+  const leadingEmpty = monthStart.getDay();
+  const monthLabel = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}`;
+  const calendarDays: (number | null)[] = [
+    ...Array.from({ length: leadingEmpty }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, idx) => idx + 1),
+  ];
+  const todayKey = new Date().toISOString().split('T')[0];
+  const selectedCalendarTasks = selectedCalendarDate ? (tasksByDate[selectedCalendarDate] || []) : [];
+
   return (
     <div className="flex h-screen bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative">
       
@@ -387,7 +544,7 @@ export default function Home() {
       )}
 
       {/* 2. Main Task List */}
-      <section className="flex-1 flex flex-col min-w-0 bg-[#1A1A1A]">
+      <section className={`flex-1 flex-col min-w-0 bg-[#1A1A1A] ${selectedTask ? 'hidden lg:flex' : 'flex'}`}>
         <header className="h-14 border-b border-[#333333] flex items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <button 
@@ -465,6 +622,13 @@ export default function Home() {
       {selectedTask && (
         <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[350px] lg:relative lg:w-[300px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200">
           <div className="h-14 border-b border-[#333333] flex items-center justify-between px-4 shrink-0">
+            <button
+              onClick={() => setSelectedTask(null)}
+              className="lg:hidden text-[#666666] hover:text-white flex items-center gap-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              返回
+            </button>
             <div className="flex items-center gap-2 text-[#666666]">
               <span className="text-xs">Created {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
             </div>
@@ -514,12 +678,44 @@ export default function Home() {
 
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[#555555] uppercase">Priority</label>
-                <div className="flex items-center gap-2 text-sm text-[#CCCCCC]">
-                  <Flag className={`w-4 h-4 ${
-                    selectedTask.priority === 2 ? 'text-red-500' : 
-                    selectedTask.priority === 1 ? 'text-yellow-500' : 'text-[#666666]'
-                  }`} />
-                  {['None', 'Medium', 'High'][selectedTask.priority]}
+                <div className="flex flex-wrap gap-2">
+                  {[0, 1, 2].map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => updatePriority(level)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors ${
+                        selectedTask.priority === level
+                          ? 'bg-[#333333] border-[#555555] text-white'
+                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                      }`}
+                    >
+                      <Flag
+                        className={`w-3 h-3 ${
+                          level === 2 ? 'text-red-500' : level === 1 ? 'text-yellow-500' : 'text-emerald-400'
+                        }`}
+                      />
+                      {PRIORITY_LABELS[level]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-[#555555] uppercase">Category</label>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORY_OPTIONS.map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => updateTask({ ...selectedTask, category })}
+                      className={`text-xs px-2 py-1 rounded border transition-colors ${
+                        selectedTask.category === category
+                          ? 'bg-indigo-500/20 border-indigo-400 text-white'
+                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  ))}
                 </div>
               </div>
 
