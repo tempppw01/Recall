@@ -10,12 +10,14 @@ import {
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
-const DEFAULT_MODEL_LIST = ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
+const DEFAULT_MODEL_LIST = ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 
 const parseModelList = (text: string) =>
   text
-    .split(/[\n,]/)
+    .split(/[ 
+,]/)
     .map((item) => item.trim())
     .filter(Boolean);
 
@@ -82,7 +84,7 @@ const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
         {task.dueDate && (
           <span className="text-[10px] text-[#888888] flex items-center gap-1">
             <Calendar className="w-3 h-3" />
-            {new Date(task.dueDate).toLocaleDateString()}
+            {task.dueDate.split('T')[0]}
           </span>
         )}
         {task.tags?.map((tag: string) => (
@@ -104,11 +106,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_BASE_URL);
-  const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('\n'));
+  const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('
+'));
   const [chatModel, setChatModel] = useState(DEFAULT_MODEL_LIST[0]);
   const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
+  const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [showSettings, setShowSettings] = useState(false);
   const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const persistSettings = (next: {
     apiKey: string;
@@ -116,12 +121,14 @@ export default function Home() {
     modelListText: string;
     chatModel: string;
     embeddingModel: string;
+    fallbackTimeoutSec: number;
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
     localStorage.setItem('recall_model_list', next.modelListText);
     localStorage.setItem('recall_chat_model', next.chatModel);
     localStorage.setItem('recall_embedding_model', next.embeddingModel);
+    localStorage.setItem('recall_fallback_timeout_sec', String(next.fallbackTimeoutSec));
   };
 
   // Load Initial Data
@@ -132,12 +139,19 @@ export default function Home() {
       const storedModelList = localStorage.getItem('recall_model_list');
       const storedChatModel = localStorage.getItem('recall_chat_model');
       const storedEmbeddingModel = localStorage.getItem('recall_embedding_model');
+      const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
 
       if (storedKey) setApiKey(storedKey);
       if (storedBaseUrl) setApiBaseUrl(storedBaseUrl);
       if (storedModelList) setModelListText(storedModelList);
       if (storedChatModel) setChatModel(storedChatModel);
       if (storedEmbeddingModel) setEmbeddingModel(storedEmbeddingModel);
+      if (storedFallbackTimeout) {
+        const parsed = Number(storedFallbackTimeout);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          setFallbackTimeoutSec(parsed);
+        }
+      }
 
       refreshTasks();
     }
@@ -156,52 +170,136 @@ export default function Home() {
     
     if (activeFilter === 'today') {
       if (!t.dueDate) return false;
-      const today = new Date().toDateString();
-      return new Date(t.dueDate).toDateString() === today;
+      const today = new Date().toISOString().split('T')[0];
+      return t.dueDate.split('T')[0] === today;
     }
-    // ... add more filters as needed
     return true; // Default Inbox
   });
+
+  const normalizeTimeoutSec = (value: number) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_FALLBACK_TIMEOUT_SEC;
+    return Math.round(numeric);
+  };
+
+  const parseLocalTaskInput = (raw: string) => {
+    const tagMatches = Array.from(raw.matchAll(/#([^\s#]+)/g));
+    const tags = tagMatches.map((match) => match[1]);
+    let title = raw.replace(/#([^\s#]+)/g, '').trim();
+    let dueDate: string | undefined;
+
+    const dateMatch = title.match(/ (\d{4})[./-](\d{1,2})[./-](\d{1,2}) /);
+    if (dateMatch) {
+      const [, year, month, day] = dateMatch;
+      const normalizedMonth = String(month).padStart(2, '0');
+      const normalizedDay = String(day).padStart(2, '0');
+      dueDate = `${year}-${normalizedMonth}-${normalizedDay}T00:00:00.000Z`;
+      title = title.replace(dateMatch[0], '').trim();
+    }
+
+    if (!dueDate) {
+      if (title.includes('今天') || / today /i.test(title)) {
+        dueDate = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z';
+        title = title.replace(/今天/g, '').replace(/today/ig, '').trim();
+      } else if (title.includes('明天') || / tomorrow /i.test(title)) {
+        const date = new Date();
+        date.setDate(date.getDate() + 1);
+        dueDate = date.toISOString().split('T')[0] + 'T00:00:00.000Z';
+        title = title.replace(/明天/g, '').replace(/tomorrow/ig, '').trim();
+      }
+    }
+
+    if (!title) title = 'Untitled';
+
+    return { title, tags, dueDate };
+  };
+
+  const createLocalTaskFromInput = (raw: string) => {
+    const parsed = parseLocalTaskInput(raw);
+    const task: Task = {
+      id: Math.random().toString(36).substring(2, 9),
+      title: parsed.title,
+      dueDate: parsed.dueDate,
+      priority: 0,
+      status: 'todo',
+      tags: parsed.tags,
+      createdAt: new Date().toISOString(),
+    };
+    taskStore.add(task);
+    refreshTasks();
+    setInput('');
+  };
 
   const handleMagicInput = async () => {
     if (!input.trim()) return;
 
+    const rawInput = input.trim();
     setLoading(true);
+
+    const isSearch = rawInput.toLowerCase().startsWith('recall') || rawInput.includes('?');
+    const payload = {
+      input: rawInput,
+      mode: isSearch ? 'search' : 'create',
+      ...(apiKey ? { apiKey } : {}),
+      apiBaseUrl: apiBaseUrl?.trim() || undefined,
+      chatModel: chatModel?.trim() || undefined,
+      embeddingModel: embeddingModel?.trim() || undefined,
+    };
+
+    const controller = new AbortController();
+    const timeoutSec = normalizeTimeoutSec(fallbackTimeoutSec);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    if (!isSearch) {
+      timeoutId = setTimeout(() => controller.abort(), timeoutSec * 1000);
+    }
+
     try {
-      const isSearch = input.toLowerCase().startsWith('recall') || input.includes('?');
-      const payload = {
-        input,
-        mode: isSearch ? 'search' : 'create',
-        ...(apiKey ? { apiKey } : {}),
-        apiBaseUrl: apiBaseUrl?.trim() || undefined,
-        chatModel: chatModel?.trim() || undefined,
-        embeddingModel: embeddingModel?.trim() || undefined,
-      };
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
       const data = await res.json();
 
+      if (!res.ok) {
+        throw new Error(data?.error || 'Request failed');
+      }
+
       if (isSearch && data.embedding) {
-        // Search Mode
         const results = taskStore.search(data.embedding);
-        setTasks(results); // Replace list with search results temporarily
+        setTasks(results);
         setActiveFilter('search');
-      } else if (data.task) {
-        // Create Mode (persist embedding for Recall)
+      } else if (!isSearch && data.task) {
         const taskWithEmbedding = { ...data.task, embedding: data.embedding };
         taskStore.add(taskWithEmbedding);
         refreshTasks();
         setInput('');
+      } else if (!isSearch) {
+        createLocalTaskFromInput(rawInput);
+      } else {
+        throw new Error('Missing embedding');
       }
     } catch (e) {
       console.error(e);
-      alert('Failed. Check API Key.');
-      if (!apiKey) setShowSettings(true);
+      if (isSearch) {
+        alert('Failed. Check API Key.');
+        if (!apiKey) setShowSettings(true);
+      } else {
+        createLocalTaskFromInput(rawInput);
+      }
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
+    }
+  };
+
+  const updateTask = (updatedTask: Task) => {
+    taskStore.update(updatedTask);
+    refreshTasks();
+    if (selectedTask?.id === updatedTask.id) {
+      setSelectedTask(updatedTask);
     }
   };
 
@@ -209,44 +307,50 @@ export default function Home() {
     const all = taskStore.getAll();
     const target = all.find(t => t.id === id);
     if (target) {
-      target.status = target.status === 'completed' ? 'todo' : 'completed';
-      localStorage.setItem('recall_tasks_v1', JSON.stringify(all));
-      refreshTasks();
+      const updated: Task = { ...target, status: target.status === 'completed' ? 'todo' : 'completed' };
+      updateTask(updated);
     }
   };
 
   return (
-    <div className="flex h-screen bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative">
       
       {/* 1. Sidebar */}
-      <aside className="w-[240px] flex flex-col bg-[#222222] border-r border-[#333333]">
-        {/* User Profile */}
-        <div className="p-4 flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
-            R
+      <aside className={`
+        fixed inset-y-0 left-0 z-40 w-[240px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:relative lg:translate-x-0
+      `}>
+        <div className="p-4 flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+              R
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold">Recall AI</h1>
+              <p className="text-xs text-[#666666]">轻量 AI 待办</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-sm font-semibold">Recall AI</h1>
-            <p className="text-xs text-[#666666]">Pro Plan</p>
-          </div>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#666666]">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-2 space-y-1">
           <SidebarItem 
             icon={Inbox} label="Inbox" count={tasks.filter(t => t.status !== 'completed').length} 
             active={activeFilter === 'inbox'} 
-            onClick={() => { setActiveFilter('inbox'); refreshTasks(); }} 
+            onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
             icon={Sun} label="Today" count={0} 
             active={activeFilter === 'today'} 
-            onClick={() => { setActiveFilter('today'); refreshTasks(); }} 
+            onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
             icon={Calendar} label="Next 7 Days" count={0} 
             active={activeFilter === 'next7'} 
-            onClick={() => { setActiveFilter('next7'); refreshTasks(); }} 
+            onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
           
           <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
@@ -261,30 +365,47 @@ export default function Home() {
           <SidebarItem icon={TagIcon} label="shopping" count={0} />
         </nav>
 
-        {/* Bottom Actions */}
         <div className="p-2 border-t border-[#333333]">
-          <SidebarItem icon={Trash2} label="Trash" onClick={() => setActiveFilter('completed')} active={activeFilter === 'completed'} />
+          <SidebarItem 
+            icon={CheckCircle2} 
+            label="已完成" 
+            onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
+            active={activeFilter === 'completed'} 
+          />
           <SidebarItem icon={Settings} label="Settings" onClick={() => setShowSettings(true)} />
         </div>
       </aside>
 
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* 2. Main Task List */}
       <section className="flex-1 flex flex-col min-w-0 bg-[#1A1A1A]">
-        {/* Header */}
-        <header className="h-14 border-b border-[#333333] flex items-center justify-between px-6">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
-            {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
-            {activeFilter === 'search' && <Search className="w-5 h-5 text-purple-500" />}
-            {activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}
-          </h2>
+        <header className="h-14 border-b border-[#333333] flex items-center justify-between px-4 lg:px-6">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-1 -ml-1 text-[#888888] hover:text-[#CCCCCC]"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
+              {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
+              {activeFilter === 'search' && <Search className="w-5 h-5 text-purple-500" />}
+              {activeFilter === 'completed' ? '已完成' : (activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1))}
+            </h2>
+          </div>
           <div className="flex items-center gap-4 text-[#666666]">
             <AlignLeft className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]" />
             <MoreVertical className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]" />
           </div>
         </header>
 
-        {/* Magic Input */}
         <div className="px-6 py-4">
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
@@ -315,7 +436,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Task List Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-10">
           <div className="space-y-1">
             {filteredTasks.length === 0 ? (
@@ -340,8 +460,8 @@ export default function Home() {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="w-[300px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200">
-          <div className="h-14 border-b border-[#333333] flex items-center justify-between px-4">
+        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[350px] lg:relative lg:w-[300px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="h-14 border-b border-[#333333] flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-2 text-[#666666]">
               <span className="text-xs">Created {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
             </div>
@@ -372,9 +492,20 @@ export default function Home() {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[#555555] uppercase">Date</label>
-                <div className="flex items-center gap-2 text-sm text-[#CCCCCC]">
-                  <Calendar className="w-4 h-4 text-[#666666]" />
-                  {selectedTask.dueDate ? new Date(selectedTask.dueDate).toDateString() : 'No Date'}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666] pointer-events-none" />
+                    <input 
+                      type="date"
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-9 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      value={selectedTask.dueDate ? selectedTask.dueDate.split('T')[0] : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const date = val ? val + 'T00:00:00.000Z' : undefined;
+                        updateTask({ ...selectedTask, dueDate: date });
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -408,7 +539,6 @@ export default function Home() {
         </aside>
       )}
 
-      {/* Settings Modal Overlay */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-6">
@@ -439,7 +569,8 @@ export default function Home() {
                 <textarea
                   value={modelListText}
                   onChange={(e) => setModelListText(e.target.value)}
-                  placeholder={DEFAULT_MODEL_LIST.join('\n')}
+                  placeholder={DEFAULT_MODEL_LIST.join('
+')}
                   rows={4}
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
@@ -466,6 +597,18 @@ export default function Home() {
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={fallbackTimeoutSec}
+                  onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
+                  placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+                <p className="text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
+              </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={() => setShowSettings(false)}
@@ -475,12 +618,15 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => {
+                    const normalizedTimeout = normalizeTimeoutSec(fallbackTimeoutSec);
+                    setFallbackTimeoutSec(normalizedTimeout);
                     persistSettings({
                       apiKey,
                       apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
                       modelListText,
                       chatModel,
                       embeddingModel,
+                      fallbackTimeoutSec: normalizedTimeout,
                     });
                     setShowSettings(false);
                   }}
@@ -494,6 +640,7 @@ export default function Home() {
         </div>
       )}
 
+      <div className="fixed bottom-3 right-4 text-xs text-[#555555]">v1.0.0</div>
     </div>
   );
 }

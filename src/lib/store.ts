@@ -39,6 +39,15 @@ export const taskStore = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   },
 
+  update: (updatedTask: Task) => {
+    const tasks = taskStore.getAll();
+    const index = tasks.findIndex(t => t.id === updatedTask.id);
+    if (index !== -1) {
+      tasks[index] = updatedTask;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }
+  },
+
   search: (queryEmbedding: number[], threshold = 0.7): Task[] => {
     const tasks = taskStore.getAll();
     return tasks
