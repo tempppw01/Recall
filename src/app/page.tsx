@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { taskStore, Task, Subtask } from '@/lib/store';
+import PomodoroTimer from '@/app/components/PomodoroTimer';
 import {
   Settings, Command, Send, Search, Plus,
   Calendar, Inbox, Sun, Star, Trash2,
@@ -961,6 +962,8 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          ) : activeFilter === 'pomodoro' ? (
+            <PomodoroTimer />
           ) : (
             <div className="space-y-1">
               {filteredTasks.length === 0 ? (
