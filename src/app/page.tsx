@@ -700,7 +700,12 @@ export default function Home() {
     ...Array.from({ length: daysInMonth }, (_, idx) => idx + 1),
   ];
   const todayKey = new Date().toISOString().split('T')[0];
-  const selectedCalendarTasks = selectedCalendarDate ? (tasksByDate[selectedCalendarDate] || []) : [];
+  const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+  const effectiveCalendarDate = selectedCalendarDate || todayKey;
+  const selectedCalendarTasks = tasksByDate[effectiveCalendarDate] || [];
+  const handleMonthChange = (offset: number) => {
+    setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1));
+  };
 
   return (
     <div className="flex h-screen bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative">
@@ -872,24 +877,110 @@ export default function Home() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pb-10">
-          <div className="space-y-1">
-            {filteredTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-[#444444]">
-                <Inbox className="w-16 h-16 mb-4 opacity-20" />
-                <p>暂无任务</p>
+          {activeFilter === 'calendar' ? (
+            <div className="space-y-6">
+              <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={() => handleMonthChange(-1)}
+                    className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div className="text-sm font-semibold text-[#DDDDDD]">{monthLabel}</div>
+                  <button
+                    onClick={() => handleMonthChange(1)}
+                    className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 text-[11px] text-[#666666] mb-2">
+                  {weekdayLabels.map((label) => (
+                    <div key={label} className="text-center">{label}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-sm">
+                  {calendarDays.map((day, idx) => {
+                    if (!day) {
+                      return <div key={`empty-${idx}`} className="h-9" />;
+                    }
+                    const dateKey = `${monthLabel}-${String(day).padStart(2, '0')}`;
+                    const isToday = dateKey === todayKey;
+                    const isSelected = dateKey === effectiveCalendarDate;
+                    const hasTasks = (tasksByDate[dateKey] || []).length > 0;
+                    return (
+                      <button
+                        key={dateKey}
+                        onClick={() => setSelectedCalendarDate(dateKey)}
+                        className={`h-9 rounded-lg flex flex-col items-center justify-center text-xs transition-colors border ${
+                          isSelected
+                            ? 'bg-blue-600/20 border-blue-500 text-white'
+                            : 'border-transparent hover:bg-[#2A2A2A]'
+                        } ${isToday ? 'text-blue-300' : 'text-[#CCCCCC]'}`}
+                      >
+                        <span className="leading-none">{day}</span>
+                        <span className={`mt-1 w-1.5 h-1.5 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`} />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            ) : (
-              filteredTasks.map(task => (
-                <TaskItem 
-                  key={task.id} 
-                  task={task} 
-                  selected={selectedTask?.id === task.id}
-                  onClick={() => setSelectedTask(task)}
-                  onToggle={toggleStatus}
-                />
-              ))
-            )}
-          </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-[#DDDDDD]">
+                    {selectedCalendarDate ? `${selectedCalendarDate} 任务` : `今天 (${todayKey}) 任务`}
+                  </h3>
+                  {selectedCalendarDate && (
+                    <button
+                      onClick={() => setSelectedCalendarDate(null)}
+                      className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+                    >
+                      返回今天
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  {selectedCalendarTasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
+                      <Calendar className="w-12 h-12 mb-3 opacity-20" />
+                      <p className="text-sm">这一天没有任务</p>
+                    </div>
+                  ) : (
+                    selectedCalendarTasks.map((task) => (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        selected={selectedTask?.id === task.id}
+                        onClick={() => setSelectedTask(task)}
+                        onToggle={toggleStatus}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {filteredTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-[#444444]">
+                  <Inbox className="w-16 h-16 mb-4 opacity-20" />
+                  <p>暂无任务</p>
+                </div>
+              ) : (
+                filteredTasks.map(task => (
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    selected={selectedTask?.id === task.id}
+                    onClick={() => setSelectedTask(task)}
+                    onToggle={toggleStatus}
+                  />
+                ))
+              )}
+            </div>
+          )}
         </div>
       </section>
 
