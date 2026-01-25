@@ -83,6 +83,8 @@ const getPriorityColor = (priority: number) => {
   return 'text-emerald-400';
 };
 
+const getPriorityLabel = (priority: number) => PRIORITY_LABELS[priority] || PRIORITY_LABELS[0];
+
 const isTaskOverdue = (task: Task) => {
   if (!task.dueDate) return false;
   if (task.status === 'completed') return false;
@@ -256,7 +258,9 @@ const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
           : 'border-[#555555] hover:border-[#888888]'
       }`}
     >
-      {task.status === 'completed' && <CheckCircle2 className="w-3.5 h-3.5" />}
+      {task.status === 'completed' && (
+        <CheckCircle2 className="w-3.5 h-3.5 animate-[pop-in_280ms_ease-out]" />
+      )}
     </button>
     
     <div className="flex-1 min-w-0">
@@ -276,7 +280,7 @@ const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
       <div className="flex items-center gap-2 mt-1.5">
         <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
           <Flag className="w-3 h-3 fill-current" />
-          {PRIORITY_LABELS[task.priority] || PRIORITY_LABELS[0]}
+          {getPriorityLabel(task.priority)}
         </span>
         {task.category && (
           <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
@@ -346,6 +350,9 @@ export default function Home() {
   // AI 一键整理状态
   const [isOrganizing, setIsOrganizing] = useState(false);
   const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
+  const recommendedPriority = selectedTask
+    ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
+    : 0;
 
   const persistSettings = (next: {
     apiKey: string;
@@ -946,7 +953,12 @@ export default function Home() {
         setTasks(results);
         setActiveFilter('search');
       } else if (!isSearch && data.task) {
-        const taskWithEmbedding = { ...data.task, embedding: data.embedding };
+        const recommendedPriority = evaluatePriority(data.task?.dueDate, data.task?.subtasks?.length ?? 0);
+        const taskWithEmbedding = {
+          ...data.task,
+          priority: typeof data.task?.priority === 'number' ? data.task.priority : recommendedPriority,
+          embedding: data.embedding,
+        };
         taskStore.add(taskWithEmbedding);
         refreshTasks();
         setInput('');
@@ -1609,7 +1621,9 @@ export default function Home() {
                     : 'border-[#555555]'
                 }`}
               >
-                {selectedTask.status === 'completed' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                {selectedTask.status === 'completed' && (
+                  <CheckCircle2 className="w-3.5 h-3.5 animate-[pop-in_280ms_ease-out]" />
+                )}
               </button>
               <h3 className={`text-xl font-semibold leading-snug ${
                 selectedTask.status === 'completed' ? 'line-through text-[#666666]' : ''
@@ -1645,6 +1659,9 @@ export default function Home() {
 
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[#555555] uppercase">优先级</label>
+                <div className="text-[11px] text-[#666666]">
+                  推荐：{getPriorityLabel(recommendedPriority)}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {[0, 1, 2].map((level) => (
                     <button

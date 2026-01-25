@@ -22,6 +22,21 @@ body.theme-light {
   filter: invert(1) hue-rotate(180deg);
 }
 
+@keyframes pop-in {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
