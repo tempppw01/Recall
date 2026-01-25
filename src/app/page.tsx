@@ -241,6 +241,19 @@ export default function Home() {
     setNewSubtaskTitle('');
   }, [selectedTask?.id]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    if (isSidebarOpen) {
+      const previousOverflow = body.style.overflow;
+      body.style.overflow = 'hidden';
+      return () => {
+        body.style.overflow = previousOverflow;
+      };
+    }
+    body.style.overflow = '';
+  }, [isSidebarOpen]);
+
   const refreshTasks = () => {
     const all = taskStore.getAll();
     setTasks(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
@@ -680,9 +693,9 @@ export default function Home() {
       
       {/* 1. Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-[240px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col
+        fixed inset-y-0 left-0 z-40 w-[78vw] max-w-[300px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:relative lg:translate-x-0
+        lg:relative lg:translate-x-0 lg:w-[240px] lg:shadow-none
       `}>
         <div className="p-4 flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
@@ -741,7 +754,7 @@ export default function Home() {
 
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-30 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
