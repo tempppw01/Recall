@@ -12,9 +12,11 @@ import {
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
-const DEFAULT_MODEL_LIST = ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
+const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
+const SEARCH_HISTORY_KEY = 'recall_search_history';
+const MAX_SEARCH_HISTORY = 8;
 const PRIORITY_LABELS = ['低', '中', '高'];
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 const REPEAT_OPTIONS: { value: RepeatType; label: string }[] = [
@@ -311,6 +313,7 @@ export default function Home() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -318,8 +321,9 @@ export default function Home() {
   });
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [newTagInput, setNewTagInput] = useState('');
   const [listItems, setListItems] = useState(['工作', '个人']);
-  const [tagItems, setTagItems] = useState(['购物']);
+  const [tagItems, setTagItems] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
@@ -375,6 +379,21 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem(SEARCH_HISTORY_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setSearchHistory(parsed.filter((item) => typeof item === 'string'));
+        }
+      } catch (error) {
+        console.error('Failed to parse search history', error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (typeof document === 'undefined') return;
     const body = document.body;
     if (themeMode === 'light') {
@@ -390,6 +409,20 @@ export default function Home() {
   useEffect(() => {
     setNewSubtaskTitle('');
   }, [selectedTask?.id]);
+
+  useEffect(() => {
+    setNewTagInput('');
+  }, [selectedTask?.id]);
+
+  useEffect(() => {
+    const nextTags = Array.from(
+      new Set(tasks.flatMap((task) => (task.tags || []).filter(Boolean)))
+    );
+    setTagItems(nextTags);
+    if (activeTag && !nextTags.includes(activeTag)) {
+      setActiveTag(null);
+    }
+  }, [tasks, activeTag]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -429,7 +462,6 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     const nextName = window.prompt('重命名标签', oldName)?.trim();
     if (!nextName || nextName === oldName) return;
-    setTagItems((prev) => prev.map((item) => (item === oldName ? nextName : item)));
     taskStore.getAll().forEach((task) => {
       if (!task.tags?.length) return;
       if (task.tags.includes(oldName)) {
@@ -470,6 +502,21 @@ export default function Home() {
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_FALLBACK_TIMEOUT_SEC;
     return Math.round(numeric);
+  };
+
+  const pushSearchHistory = (query: string) => {
+    const normalized = query.trim();
+    if (!normalized) return;
+    setSearchHistory((prev) => {
+      const next = [
+        normalized,
+        ...prev.filter((item) => item.toLowerCase() !== normalized.toLowerCase()),
+      ].slice(0, MAX_SEARCH_HISTORY);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
   };
 
   // 触发 AI 整理：发送当前任务给后端并覆盖本地任务
@@ -903,10 +950,12 @@ export default function Home() {
     }
   };
 
-  const handleSearch = async () => {
-    const query = searchQuery.trim();
+  const handleSearch = async (rawQuery?: string) => {
+    const query = (rawQuery ?? searchQuery).trim();
     if (!query) return;
+    setSearchQuery(query);
     setSearchLoading(true);
+    pushSearchHistory(query);
 
     try {
       const res = await fetch('/api/ai/process', {
@@ -958,7 +1007,13 @@ export default function Home() {
     const updatedSubtasks = (target.subtasks || []).map((subtask) =>
       subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
     );
-    updateTask({ ...target, subtasks: updatedSubtasks });
+    const allCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every((subtask) => subtask.completed);
+    const nextStatus = allCompleted
+      ? 'completed'
+      : target.status === 'completed'
+      ? 'todo'
+      : target.status;
+    updateTask({ ...target, subtasks: updatedSubtasks, status: nextStatus });
   };
 
   const addSubtask = () => {
@@ -969,8 +1024,24 @@ export default function Home() {
       ...(selectedTask.subtasks || []),
       { id: Math.random().toString(36).substring(2, 9), title, completed: false },
     ];
-    updateTask({ ...selectedTask, subtasks: nextSubtasks });
+    const nextStatus = selectedTask.status === 'completed' ? 'todo' : selectedTask.status;
+    updateTask({ ...selectedTask, subtasks: nextSubtasks, status: nextStatus });
     setNewSubtaskTitle('');
+  };
+
+  const addTagToTask = () => {
+    if (!selectedTask) return;
+    const tag = newTagInput.trim();
+    if (!tag) return;
+    const nextTags = Array.from(new Set([...(selectedTask.tags || []), tag]));
+    updateTask({ ...selectedTask, tags: nextTags });
+    setNewTagInput('');
+  };
+
+  const removeTagFromTask = (tag: string) => {
+    if (!selectedTask) return;
+    const nextTags = (selectedTask.tags || []).filter((item) => item !== tag);
+    updateTask({ ...selectedTask, tags: nextTags });
   };
 
   const updatePriority = (priority: number) => {
@@ -1473,10 +1544,32 @@ export default function Home() {
                 <label className="text-xs font-semibold text-[#555555] uppercase">标签</label>
                 <div className="flex flex-wrap gap-2">
                   {selectedTask.tags?.length ? selectedTask.tags.map(tag => (
-                    <span key={tag} className="text-xs bg-[#333333] px-2 py-1 rounded text-[#CCCCCC]">
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => removeTagFromTask(tag)}
+                      className="text-xs bg-[#333333] px-2 py-1 rounded text-[#CCCCCC] hover:bg-[#3A3A3A]"
+                      title="点击移除标签"
+                    >
                       #{tag}
-                    </span>
+                    </button>
                   )) : <span className="text-sm text-[#666666]">暂无标签</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addTagToTask()}
+                    placeholder="添加标签（回车确认）"
+                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={addTagToTask}
+                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-500"
+                  >
+                    添加
+                  </button>
                 </div>
               </div>
 
@@ -1619,7 +1712,14 @@ export default function Home() {
 
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 py-6 sm:px-6">
-          <div className="bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowSettings(false)}
+          />
+          <div
+            className="bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h2 className="text-base sm:text-lg font-semibold mb-3">设置</h2>
             <div className="space-y-3 sm:space-y-4 text-sm">
               <div>
@@ -1739,6 +1839,23 @@ export default function Home() {
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
+              {searchHistory.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs text-[#888888] uppercase">最近搜索</div>
+                  <div className="flex flex-wrap gap-2">
+                    {searchHistory.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => handleSearch(item)}
+                        className="text-xs px-2 py-1 rounded bg-[#1F1F1F] border border-[#333333] text-[#BBBBBB] hover:border-blue-500 hover:text-white"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => { setShowSearch(false); setSearchQuery(''); }}
@@ -1747,7 +1864,7 @@ export default function Home() {
                   取消
                 </button>
                 <button
-                  onClick={handleSearch}
+                  onClick={() => handleSearch()}
                   disabled={searchLoading || !searchQuery.trim()}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
