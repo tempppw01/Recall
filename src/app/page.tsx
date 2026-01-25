@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { taskStore, Task, Subtask } from '@/lib/store';
+import { taskStore, Task, Subtask, RepeatType, TaskRepeatRule } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import {
   Settings, Command, Send, Search, Plus,
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle, MoreVertical,
   AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -17,6 +17,14 @@ const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const PRIORITY_LABELS = ['低', '中', '高'];
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
+const REPEAT_OPTIONS: { value: RepeatType; label: string }[] = [
+  { value: 'none', label: '不重复' },
+  { value: 'daily', label: '每天' },
+  { value: 'weekly', label: '每周' },
+  { value: 'monthly', label: '每月' },
+  { value: 'custom', label: '自定义间隔' },
+];
+const REPEAT_WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 const FILTER_LABELS: Record<string, string> = {
   todo: '待办',
   calendar: '日历',
@@ -73,6 +81,12 @@ const getPriorityColor = (priority: number) => {
   return 'text-emerald-400';
 };
 
+const isTaskOverdue = (task: Task) => {
+  if (!task.dueDate) return false;
+  if (task.status === 'completed') return false;
+  return new Date(task.dueDate).getTime() < Date.now();
+};
+
 const classifyCategory = (input: string) => {
   const text = input.toLowerCase();
   const rules: Record<string, string[]> = {
@@ -102,6 +116,67 @@ const evaluatePriority = (dueDate?: string, subtaskCount = 0) => {
   if (subtaskCount >= 5) return 2;
   if (subtaskCount >= 3) return 1;
   return 0;
+};
+
+const createId = () => Math.random().toString(36).substring(2, 9);
+
+const getDefaultRepeatRule = (type: RepeatType, task: Task): TaskRepeatRule => {
+  const baseDate = task.dueDate ? new Date(task.dueDate) : new Date();
+  switch (type) {
+    case 'daily':
+      return { type: 'daily' };
+    case 'weekly':
+      return { type: 'weekly', weekdays: [baseDate.getDay()] };
+    case 'monthly':
+      return { type: 'monthly', monthDay: baseDate.getDate() };
+    case 'custom':
+      return { type: 'custom', interval: 1 };
+    default:
+      return { type: 'none' };
+  }
+};
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const getNextRepeatDate = (task: Task): Date | null => {
+  const rule = task.repeat;
+  if (!rule || rule.type === 'none') return null;
+  const base = task.dueDate ? new Date(task.dueDate) : new Date();
+
+  switch (rule.type) {
+    case 'daily':
+      return addDays(base, 1);
+    case 'weekly': {
+      const weekdays = rule.weekdays?.length ? rule.weekdays : [base.getDay()];
+      for (let offset = 1; offset <= 7; offset += 1) {
+        const candidate = (base.getDay() + offset) % 7;
+        if (weekdays.includes(candidate)) {
+          return addDays(base, offset);
+        }
+      }
+      return addDays(base, 7);
+    }
+    case 'monthly': {
+      const targetDay = rule.monthDay ?? base.getDate();
+      const year = base.getFullYear();
+      const nextMonthIndex = base.getMonth() + 1;
+      const daysInNextMonth = new Date(year, nextMonthIndex + 1, 0).getDate();
+      const safeDay = Math.min(targetDay, daysInNextMonth);
+      const next = new Date(year, nextMonthIndex, safeDay);
+      next.setHours(base.getHours(), base.getMinutes(), base.getSeconds(), base.getMilliseconds());
+      return next;
+    }
+    case 'custom': {
+      const interval = Math.max(1, rule.interval ?? 1);
+      return addDays(base, interval);
+    }
+    default:
+      return null;
+  }
 };
 
 // ---------------------------
@@ -198,7 +273,11 @@ const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
           </span>
         ) : null}
         {task.dueDate && (
-          <span className="text-[10px] text-[#888888] flex items-center gap-1">
+          <span
+            className={`text-[10px] flex items-center gap-1 ${
+              isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]'
+            }`}
+          >
             <Calendar className="w-3 h-3" />
             {task.dueDate.split('T')[0]}
           </span>
@@ -232,6 +311,7 @@ export default function Home() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -245,6 +325,7 @@ export default function Home() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   // AI 一键整理状态
   const [isOrganizing, setIsOrganizing] = useState(false);
+  const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
 
   const persistSettings = (next: {
     apiKey: string;
@@ -442,6 +523,7 @@ export default function Home() {
           category: task.category || original?.category,
           tags: Array.isArray(task.tags) ? task.tags : [],
           status: original?.status || 'todo',
+          repeat: original?.repeat,
           embedding: original?.embedding,
           createdAt: original?.createdAt || new Date().toISOString(),
           subtasks: Array.isArray(task.subtasks)
@@ -792,8 +874,32 @@ export default function Home() {
     const all = taskStore.getAll();
     const target = all.find(t => t.id === id);
     if (target) {
-      const updated: Task = { ...target, status: target.status === 'completed' ? 'todo' : 'completed' };
+      const isCompleting = target.status !== 'completed';
+      const updated: Task = { ...target, status: isCompleting ? 'completed' : 'todo' };
+      let nextTask: Task | null = null;
+      if (isCompleting) {
+        const nextDate = getNextRepeatDate(target);
+        if (nextDate) {
+          nextTask = {
+            ...target,
+            id: createId(),
+            status: 'todo',
+            dueDate: nextDate.toISOString(),
+            createdAt: new Date().toISOString(),
+            subtasks: (target.subtasks || []).map((subtask) => ({
+              ...subtask,
+              id: createId(),
+              completed: false,
+            })),
+          };
+        }
+      }
+
       updateTask(updated);
+      if (nextTask) {
+        taskStore.add(nextTask);
+        refreshTasks();
+      }
     }
   };
 
@@ -870,6 +976,20 @@ export default function Home() {
   const updatePriority = (priority: number) => {
     if (!selectedTask) return;
     updateTask({ ...selectedTask, priority });
+  };
+
+  const updateRepeat = (rule: TaskRepeatRule) => {
+    if (!selectedTask) return;
+    updateTask({ ...selectedTask, repeat: rule.type === 'none' ? undefined : rule });
+  };
+
+  const toggleRepeatWeekday = (weekday: number) => {
+    if (!selectedTask) return;
+    const current = repeatRule.weekdays ?? [];
+    const next = current.includes(weekday)
+      ? current.filter((day) => day !== weekday)
+      : [...current, weekday];
+    updateRepeat({ ...repeatRule, type: 'weekly', weekdays: next });
   };
 
   const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, task) => {
@@ -965,24 +1085,37 @@ export default function Home() {
             onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
 
-          <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
-            快捷入口
-          </div>
-          <SidebarItem 
-            icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length} 
-            active={activeFilter === 'inbox'} 
-            onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }} 
-          />
-          <SidebarItem 
-            icon={Sun} label="今日" count={0} 
-            active={activeFilter === 'today'} 
-            onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }} 
-          />
-          <SidebarItem 
-            icon={Calendar} label="未来 7 天" count={0} 
-            active={activeFilter === 'next7'} 
-            onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }} 
-          />
+          <button
+            type="button"
+            onClick={() => setIsQuickAccessOpen((prev) => !prev)}
+            className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
+          >
+            <span>快捷入口</span>
+            {isQuickAccessOpen ? (
+              <ChevronUp className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
+          </button>
+          {isQuickAccessOpen && (
+            <div className="space-y-1">
+              <SidebarItem 
+                icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length} 
+                active={activeFilter === 'inbox'} 
+                onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }} 
+              />
+              <SidebarItem 
+                icon={Sun} label="今日" count={0} 
+                active={activeFilter === 'today'} 
+                onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }} 
+              />
+              <SidebarItem 
+                icon={Calendar} label="未来 7 天" count={0} 
+                active={activeFilter === 'next7'} 
+                onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }} 
+              />
+            </div>
+          )}
           
           <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
             列表
@@ -1270,7 +1403,12 @@ export default function Home() {
 
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">日期</label>
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#555555] uppercase">
+                  日期
+                  {isTaskOverdue(selectedTask) && (
+                    <span className="text-[11px] text-red-400">已逾期</span>
+                  )}
+                </label>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666] pointer-events-none" />
@@ -1340,6 +1478,87 @@ export default function Home() {
                     </span>
                   )) : <span className="text-sm text-[#666666]">暂无标签</span>}
                 </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-xs font-semibold text-[#555555] uppercase">重复</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {REPEAT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => updateRepeat(getDefaultRepeatRule(option.value, selectedTask))}
+                      className={`px-2 py-1 rounded border text-xs transition-colors text-center ${
+                        repeatRule.type === option.value
+                          ? 'bg-blue-500/20 border-blue-400 text-white'
+                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                {repeatRule.type === 'weekly' && (
+                  <div className="flex flex-wrap gap-2">
+                    {REPEAT_WEEKDAYS.map((label, index) => {
+                      const active = repeatRule.weekdays?.includes(index) ?? false;
+                      return (
+                        <button
+                          key={label}
+                          onClick={() => toggleRepeatWeekday(index)}
+                          className={`w-8 h-8 rounded-full text-xs border transition-colors ${
+                            active
+                              ? 'bg-blue-500/20 border-blue-400 text-white'
+                              : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {repeatRule.type === 'monthly' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#777777]">每月</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={repeatRule.monthDay ?? 1}
+                      onChange={(event) =>
+                        updateRepeat({
+                          ...repeatRule,
+                          type: 'monthly',
+                          monthDay: Math.min(31, Math.max(1, Number(event.target.value) || 1)),
+                        })
+                      }
+                      className="w-16 bg-[#1A1A1A] border border-[#333333] rounded px-2 py-1 text-xs text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                    />
+                    <span className="text-xs text-[#777777]">日</span>
+                  </div>
+                )}
+
+                {repeatRule.type === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#777777]">每隔</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={repeatRule.interval ?? 1}
+                      onChange={(event) =>
+                        updateRepeat({
+                          ...repeatRule,
+                          type: 'custom',
+                          interval: Math.max(1, Number(event.target.value) || 1),
+                        })
+                      }
+                      className="w-16 bg-[#1A1A1A] border border-[#333333] rounded px-2 py-1 text-xs text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                    />
+                    <span className="text-xs text-[#777777]">天</span>
+                  </div>
+                )}
               </div>
 
               {/* 子任务管理 */}

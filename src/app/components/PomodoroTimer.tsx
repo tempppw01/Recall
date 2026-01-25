@@ -18,6 +18,7 @@ const PHASE_DURATIONS: Record<PomodoroPhase, number> = {
 };
 
 const cycleOrder: PomodoroPhase[] = ['focus', 'shortBreak', 'focus', 'shortBreak', 'focus', 'longBreak'];
+const STORAGE_KEY = 'recall_pomodoro_state';
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -33,6 +34,56 @@ export default function PomodoroTimer() {
   const phase = cycleOrder[phaseIndex] ?? 'focus';
   const totalSeconds = PHASE_DURATIONS[phase];
   const progress = useMemo(() => 100 - Math.round((remaining / totalSeconds) * 100), [remaining, totalSeconds]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as {
+        phaseIndex: number;
+        remaining: number;
+        isRunning: boolean;
+        lastUpdated: number;
+      };
+      if (typeof parsed.phaseIndex !== 'number' || typeof parsed.remaining !== 'number') {
+        return;
+      }
+
+      let nextPhaseIndex = parsed.phaseIndex;
+      let nextRemaining = parsed.remaining;
+      let nextIsRunning = parsed.isRunning;
+
+      if (parsed.isRunning && typeof parsed.lastUpdated === 'number') {
+        const elapsed = Math.floor((Date.now() - parsed.lastUpdated) / 1000);
+        if (elapsed >= nextRemaining) {
+          const advancedIndex = (nextPhaseIndex + 1) % cycleOrder.length;
+          nextPhaseIndex = advancedIndex;
+          nextRemaining = PHASE_DURATIONS[cycleOrder[advancedIndex]];
+          nextIsRunning = false;
+        } else if (elapsed > 0) {
+          nextRemaining = Math.max(nextRemaining - elapsed, 0);
+        }
+      }
+
+      setPhaseIndex(nextPhaseIndex);
+      setRemaining(nextRemaining);
+      setIsRunning(nextIsRunning);
+    } catch (error) {
+      console.error('Failed to restore pomodoro state', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const payload = {
+      phaseIndex,
+      remaining,
+      isRunning,
+      lastUpdated: Date.now(),
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [phaseIndex, remaining, isRunning]);
 
   useEffect(() => {
     if (!isRunning) return;

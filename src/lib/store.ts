@@ -7,8 +7,18 @@ export interface Task {
   status: 'todo' | 'in_progress' | 'completed';
   tags: string[];
   subtasks?: Subtask[];
+  repeat?: TaskRepeatRule;
   embedding?: number[]; // 存储向量
   createdAt: string;
+}
+
+export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+
+export interface TaskRepeatRule {
+  type: RepeatType;
+  interval?: number; // 自定义间隔天数
+  weekdays?: number[]; // 0(日) - 6(六)
+  monthDay?: number; // 1-31
 }
 
 export interface Subtask {
