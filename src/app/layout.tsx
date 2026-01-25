@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   description: "AI-driven personal Getting Things Done system",
   manifest: "/manifest.webmanifest",
   themeColor: "#1A1A1A",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    viewportFit: "cover",
+  },
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",

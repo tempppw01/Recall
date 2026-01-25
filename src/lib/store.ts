@@ -74,7 +74,7 @@ export const taskStore = {
 
   add: (task: Task) => {
     const tasks = taskStore.getAll();
-    tasks.push(task);
+    tasks.unshift(task);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   },
 

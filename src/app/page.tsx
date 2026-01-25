@@ -204,7 +204,7 @@ const getNextRepeatDate = (task: Task): Date | null => {
 const SidebarItem = ({ icon: Icon, label, count, active, onClick }: any) => (
   <button 
     onClick={onClick}
-    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+    className={`w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors ${
       active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
     }`}
   >
@@ -219,7 +219,7 @@ const SidebarItem = ({ icon: Icon, label, count, active, onClick }: any) => (
 const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit }: any) => (
   <div
     onClick={onClick}
-    className={`group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
+    className={`group w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors cursor-pointer ${
       active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
     }`}
   >
@@ -243,7 +243,7 @@ const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit
   </div>
 );
 
-const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
+const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, onDragOver, onDrop, isDragging }: any) => {
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
   const isHorizontalRef = useRef<boolean | null>(null);
@@ -310,7 +310,20 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg"
+      className={`relative overflow-hidden rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(task.id);
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        onDragOver?.(task.id);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        onDrop?.(task.id);
+      }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -330,7 +343,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
       </div>
       <div
         onClick={handleClick}
-        className={`group flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors border-b border-[#222222] ${
+        className={`group flex items-start gap-3 p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[#1F1F1F]/80 hover:bg-[#232323] ${
           selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
         }`}
         style={{
@@ -340,24 +353,39 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
       >
         <button 
           onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-          className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+          className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors ${
             task.status === 'completed' 
               ? 'bg-[#5E5E5E] border-[#5E5E5E] text-white' 
               : 'border-[#555555] hover:border-[#888888]'
           }`}
         >
           {task.status === 'completed' && (
-            <CheckCircle2 className="w-3.5 h-3.5 animate-[pop-in_280ms_ease-out]" />
+            <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-[pop-in_280ms_ease-out]" />
           )}
         </button>
         
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start">
-            <p className={`text-sm leading-snug ${
+          <div className="flex flex-wrap justify-between items-start gap-2">
+            <p className={`text-[13px] sm:text-sm leading-snug ${
               task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
             }`}>
               {task.title}
             </p>
+            <button
+              type="button"
+              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
+              onMouseDown={(event) => {
+                event.stopPropagation();
+                onDragStart?.(task.id);
+              }}
+              onTouchStart={(event) => {
+                event.stopPropagation();
+                onDragStart?.(task.id);
+              }}
+              title="拖动排序"
+            >
+              拖动排序
+            </button>
             {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
               <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
                 {Math.round((task as any).similarity * 100)}%
@@ -365,7 +393,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
             )}
           </div>
           
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
               <Flag className="w-3 h-3 fill-current" />
               {getPriorityLabel(task.priority)}
@@ -406,7 +434,11 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [draggingSubtaskId, setDraggingSubtaskId] = useState<string | null>(null);
+  const [dragOverSubtaskId, setDragOverSubtaskId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -559,7 +591,7 @@ export default function Home() {
 
   const refreshTasks = () => {
     const all = taskStore.getAll();
-    setTasks(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    setTasks(all);
   };
 
   const refreshHabits = () => {
@@ -731,6 +763,16 @@ export default function Home() {
 
     return true; // Default (todo/inbox/other views use full list for now)
   });
+
+  // 统计：完成率 & 拖延指数（仅用于概览展示）
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((task) => task.status === 'completed').length;
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const activeDueTasks = tasks.filter((task) => task.status !== 'completed' && task.dueDate);
+  const overdueTasks = activeDueTasks.filter((task) => isTaskOverdue(task)).length;
+  const procrastinationIndex = activeDueTasks.length > 0
+    ? Math.round((overdueTasks / activeDueTasks.length) * 100)
+    : 0;
 
   const normalizeTimeoutSec = (value: number) => {
     const numeric = Number(value);
@@ -1188,13 +1230,76 @@ export default function Home() {
           };
         }
       }
-
       updateTask(updated);
       if (nextTask) {
         taskStore.add(nextTask);
         refreshTasks();
       }
     }
+  };
+
+  const handleTaskDragStart = (taskId: string) => {
+    setDraggingTaskId(taskId);
+  };
+
+  const handleTaskDragOver = (taskId: string) => {
+    if (dragOverTaskId === taskId) return;
+    setDragOverTaskId(taskId);
+  };
+
+  const handleTaskDrop = (taskId: string) => {
+    if (!draggingTaskId) return;
+    reorderTasks(draggingTaskId, taskId);
+    setDraggingTaskId(null);
+    setDragOverTaskId(null);
+  };
+
+  const reorderTasks = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const current = taskStore.getAll();
+    const sourceIndex = current.findIndex((task) => task.id === sourceId);
+    const targetIndex = current.findIndex((task) => task.id === targetId);
+    if (sourceIndex === -1 || targetIndex === -1) return;
+    const next = [...current];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    taskStore.replaceAll(next);
+    setTasks(next);
+  };
+
+  const reorderSubtasks = (taskId: string, sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const all = taskStore.getAll();
+    const target = all.find((task) => task.id === taskId);
+    if (!target || !target.subtasks) return;
+    const sourceIndex = target.subtasks.findIndex((subtask) => subtask.id === sourceId);
+    const targetIndex = target.subtasks.findIndex((subtask) => subtask.id === targetId);
+    if (sourceIndex === -1 || targetIndex === -1) return;
+    const nextSubtasks = [...target.subtasks];
+    const [moved] = nextSubtasks.splice(sourceIndex, 1);
+    nextSubtasks.splice(targetIndex, 0, moved);
+    const updatedTask = { ...target, subtasks: nextSubtasks };
+    taskStore.update(updatedTask);
+    setTasks((prev) => prev.map((item) => (item.id === taskId ? updatedTask : item)));
+    if (selectedTask?.id === taskId) {
+      setSelectedTask(updatedTask);
+    }
+  };
+
+  const handleSubtaskDragStart = (subtaskId: string) => {
+    setDraggingSubtaskId(subtaskId);
+  };
+
+  const handleSubtaskDragOver = (subtaskId: string) => {
+    if (dragOverSubtaskId === subtaskId) return;
+    setDragOverSubtaskId(subtaskId);
+  };
+
+  const handleSubtaskDrop = (subtaskId: string) => {
+    if (!selectedTask || !draggingSubtaskId) return;
+    reorderSubtasks(selectedTask.id, draggingSubtaskId, subtaskId);
+    setDraggingSubtaskId(null);
+    setDragOverSubtaskId(null);
   };
 
   const handleSearch = async (rawQuery?: string) => {
@@ -1342,7 +1447,7 @@ export default function Home() {
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
 
   return (
-    <div className="flex h-screen bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative">
+    <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative">
       
       {/* 1. Sidebar */}
       <aside className={`
@@ -1499,7 +1604,7 @@ export default function Home() {
 
       {/* 2. Main Task List */}
       <section className={`flex-1 flex-col min-w-0 bg-[#1A1A1A] ${selectedTask ? 'hidden lg:flex' : 'flex'}`}>
-        <header className="h-14 border-b border-[#333333] flex items-center justify-between px-4 lg:px-6">
+        <header className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(true)}
@@ -1519,14 +1624,14 @@ export default function Home() {
             <button
               onClick={handleOrganizeTasks}
               disabled={isOrganizing}
-              className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC] disabled:opacity-50 disabled:cursor-not-allowed"
               title="一键整理"
             >
               <Wand2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={() => setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'))}
-              className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
+              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
               title={themeMode === 'light' ? '切换夜间模式' : '切换日间模式'}
             >
               {themeMode === 'light' ? (
@@ -1537,16 +1642,28 @@ export default function Home() {
             </button>
             <AlignLeft
               onClick={() => setShowSearch(true)}
-              className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
+              className="w-5 h-5 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
             />
             <MoreVertical
               onClick={() => setShowSettings(true)}
-              className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
+              className="w-5 h-5 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
             />
           </div>
         </header>
 
-        <div className="px-4 sm:px-6 py-3 sm:py-4">
+        <div className="px-3 sm:px-6 py-3 sm:py-4">
+          {/* 紧凑统计条：不占空间，仅在有任务时展示 */}
+          {totalTasks > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-[#777777]">
+              <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
+                完成率：<span className="text-[#DDDDDD]">{completionRate}%</span>
+              </span>
+              <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
+                拖延指数：<span className="text-[#DDDDDD]">{procrastinationIndex}%</span>
+              </span>
+              <span className="text-[#555555]">别担心，它只是提醒你别太完美。</span>
+            </div>
+          )}
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
             <div className="relative flex items-center gap-3 bg-[#262626] border border-[#333333] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm focus-within:border-[#444444] focus-within:ring-1 focus-within:ring-[#444444] transition-all">
@@ -1576,7 +1693,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:pb-10">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:pb-10">
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
@@ -1832,7 +1949,9 @@ export default function Home() {
               {filteredTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-[#444444]">
                   <Inbox className="w-16 h-16 mb-4 opacity-20" />
-                  <p>暂无任务</p>
+                  {/* 空状态：加入一点幽默元素 */}
+                  <p className="text-sm">暂无任务，今天可以安心摸鱼 😎</p>
+                  <p className="text-xs text-[#555555] mt-2">要不要来点新任务，让我也有点存在感？</p>
                 </div>
               ) : (
                 filteredTasks.map(task => (
@@ -1853,8 +1972,8 @@ export default function Home() {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[350px] lg:relative lg:w-[300px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200">
-          <div className="h-14 border-b border-[#333333] flex items-center justify-between px-4 shrink-0">
+        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[320px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 shrink-0">
             <button
               onClick={() => setSelectedTask(null)}
               className="lg:hidden text-[#666666] hover:text-white flex items-center gap-1"
@@ -1870,7 +1989,7 @@ export default function Home() {
             </button>
           </div>
           
-          <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6 flex-1 overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
             <div className="flex items-start gap-3 mb-6">
               <button 
                 onClick={() => toggleStatus(selectedTask.id)}
@@ -2354,7 +2473,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] right-4 text-xs text-[#555555]">v0.5.1</div>
+      <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] right-4 text-xs text-[#555555]">v0.5.2</div>
     </div>
   );
 }
