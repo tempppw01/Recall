@@ -33,6 +33,7 @@ const FILTER_LABELS: Record<string, string> = {
   quadrant: '四象限',
   countdown: '倒数日',
   habit: '习惯打卡',
+  agent: 'AI 助手',
   search: '搜索',
   pomodoro: '番茄时钟',
   category: '列表',
@@ -463,7 +464,7 @@ export default function Home() {
   const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, search, calendar
+  const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, search, calendar, agent
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -765,6 +766,7 @@ export default function Home() {
   // Filter Logic
   const filteredTasks = tasks.filter(t => {
     if (activeFilter === 'search') return true;
+    if (activeFilter === 'agent') return true;
     if (activeFilter === 'completed') return t.status === 'completed';
     if (t.status === 'completed') return false; // Hide completed in other views
 
@@ -1616,6 +1618,11 @@ export default function Home() {
             active={activeFilter === 'pomodoro'} 
             onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
+          <SidebarItem 
+            icon={Command} label="AI 助手" count={agentItems.length} 
+            active={activeFilter === 'agent'} 
+            onClick={() => { setActiveFilter('agent'); setIsSidebarOpen(false); }} 
+          />
 
           <button
             type="button"
@@ -1968,6 +1975,93 @@ export default function Home() {
             </div>
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
+          ) : activeFilter === 'agent' ? (
+            <div className="flex flex-col gap-4">
+              <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手</h3>
+                    <p className="text-xs text-[#666666] mt-1">描述你的计划，我帮你拆成待办清单</p>
+                  </div>
+                  <span className="text-[11px] text-[#555555]">todo-agent</span>
+                </div>
+                <div className="mt-3 space-y-3">
+                  <div className="max-h-[40vh] overflow-y-auto space-y-2 pr-1">
+                    {agentMessages.length === 0 ? (
+                      <div className="text-sm text-[#555555]">先告诉我：想完成什么事情？</div>
+                    ) : (
+                      agentMessages.map((message, idx) => (
+                        <div
+                          key={`${message.role}-${idx}`}
+                          className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                            message.role === 'user'
+                              ? 'bg-blue-600/20 text-blue-100 ml-auto'
+                              : 'bg-[#2A2A2A] text-[#DDDDDD]'
+                          }`}
+                        >
+                          {message.content}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={agentInput}
+                      onChange={(e) => setAgentInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAgentSend()}
+                      placeholder="例如：帮我规划本周的工作安排"
+                      className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      disabled={agentLoading}
+                    />
+                    <button
+                      onClick={handleAgentSend}
+                      disabled={agentLoading || !agentInput.trim()}
+                      className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {agentLoading ? '整理中…' : '发送'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {agentItems.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议待办</h4>
+                  <div className="grid gap-3">
+                    {agentItems.map((item) => (
+                      <div key={item.id} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
+                            {item.dueDate && (
+                              <p className="text-xs text-[#777777] mt-1">日期：{item.dueDate.split('T')[0]}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleAddAgentItem(item)}
+                            className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
+                              addedAgentItemIds.has(item.id)
+                                ? 'border-[#333333] text-[#666666]'
+                                : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                            }`}
+                          >
+                            {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
+                          </button>
+                        </div>
+                        {item.subtasks?.length ? (
+                          <ul className="mt-3 space-y-1 text-xs text-[#777777] list-disc list-inside">
+                            {item.subtasks.map((subtask, index) => (
+                              <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : activeFilter === 'habit' ? (
             <div className="space-y-5 sm:space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 sm:p-5">
