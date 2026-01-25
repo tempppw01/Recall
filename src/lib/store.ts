@@ -27,7 +27,19 @@ export interface Subtask {
   completed: boolean;
 }
 
+export interface HabitLog {
+  date: string; // YYYY-MM-DD
+}
+
+export interface Habit {
+  id: string;
+  title: string;
+  createdAt: string;
+  logs: HabitLog[];
+}
+
 const STORAGE_KEY = 'recall_tasks_v1';
+const HABIT_STORAGE_KEY = 'recall_habits_v1';
 
 // 计算余弦相似度
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -82,4 +94,17 @@ export const taskStore = {
       .filter(item => item.similarity > threshold)
       .sort((a, b) => b.similarity - a.similarity);
   }
+};
+
+export const habitStore = {
+  getAll: (): Habit[] => {
+    if (typeof window === 'undefined') return [];
+    const data = localStorage.getItem(HABIT_STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  },
+
+  replaceAll: (habits: Habit[]) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(HABIT_STORAGE_KEY, JSON.stringify(habits));
+  },
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { taskStore, Task, Subtask, RepeatType, TaskRepeatRule } from '@/lib/store';
+import { taskStore, habitStore, Task, Subtask, RepeatType, TaskRepeatRule, Habit } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import {
   Settings, Command, Send, Search, Plus,
@@ -142,6 +142,20 @@ const addDays = (date: Date, days: number) => {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+};
+
+const formatDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayKey = () => formatDateKey(new Date());
+
+const getRecentDays = (count: number) => {
+  const today = new Date();
+  return Array.from({ length: count }, (_, index) => formatDateKey(addDays(today, -count + 1 + index)));
 };
 
 const getNextRepeatDate = (task: Task): Date | null => {
@@ -314,6 +328,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [newHabitTitle, setNewHabitTitle] = useState('');
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -375,6 +391,7 @@ export default function Home() {
       }
 
       refreshTasks();
+      refreshHabits();
     }
   }, []);
 
@@ -440,6 +457,49 @@ export default function Home() {
   const refreshTasks = () => {
     const all = taskStore.getAll();
     setTasks(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  };
+
+  const refreshHabits = () => {
+    const all = habitStore.getAll();
+    setHabits(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  };
+
+  const createHabit = () => {
+    const title = newHabitTitle.trim();
+    if (!title) return;
+    const habit: Habit = {
+      id: createId(),
+      title,
+      createdAt: new Date().toISOString(),
+      logs: [],
+    };
+    const next = [...habits, habit];
+    habitStore.replaceAll(next);
+    setHabits(next);
+    setNewHabitTitle('');
+  };
+
+  const toggleHabitToday = (habitId: string) => {
+    const today = getTodayKey();
+    const next = habits.map((habit) => {
+      if (habit.id !== habitId) return habit;
+      const hasLogged = habit.logs.some((log) => log.date === today);
+      if (hasLogged) return habit;
+      return { ...habit, logs: [...habit.logs, { date: today }] };
+    });
+    habitStore.replaceAll(next);
+    setHabits(next);
+  };
+
+  const getHabitStreak = (habit: Habit) => {
+    const logSet = new Set(habit.logs.map((log) => log.date));
+    let streak = 0;
+    let cursor = new Date();
+    while (logSet.has(formatDateKey(cursor))) {
+      streak += 1;
+      cursor = addDays(cursor, -1);
+    }
+    return streak;
   };
 
   const renameCategory = (oldName: string) => {
@@ -1143,7 +1203,7 @@ export default function Home() {
           <SidebarItem 
             icon={Flame} label="习惯打卡" count={0} 
             active={activeFilter === 'habit'} 
-            onClick={() => { setActiveFilter('habit'); refreshTasks(); setIsSidebarOpen(false); }} 
+            onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
             icon={Search} label="搜索" count={0} 
@@ -1264,6 +1324,7 @@ export default function Home() {
               {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
               {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
               {activeFilter === 'search' && <Search className="w-5 h-5 text-purple-500" />}
+              {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
               {headerTitle}
             </h2>
           </div>
@@ -1411,6 +1472,91 @@ export default function Home() {
             </div>
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
+          ) : activeFilter === 'habit' ? (
+            <div className="space-y-5 sm:space-y-6">
+              <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#DDDDDD]">创建新习惯</h3>
+                    <p className="text-xs text-[#666666] mt-1">像签到一样，坚持每日打卡</p>
+                  </div>
+                  <div className="text-[11px] text-[#555555]">今天 {getTodayKey().slice(5)}</div>
+                </div>
+                <div className="mt-3 flex flex-col gap-3">
+                  <input
+                    type="text"
+                    value={newHabitTitle}
+                    onChange={(e) => setNewHabitTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && createHabit()}
+                    placeholder="例如：学英语"
+                    className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2.5 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={createHabit}
+                    className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500"
+                  >
+                    创建习惯
+                  </button>
+                </div>
+              </div>
+
+              {habits.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-56 text-[#444444]">
+                  <Flame className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-sm">还没有习惯，先创建一个吧</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {habits.map((habit) => {
+                    const today = getTodayKey();
+                    const hasToday = habit.logs.some((log) => log.date === today);
+                    const streak = getHabitStreak(habit);
+                    const recentDays = getRecentDays(7);
+                    const logSet = new Set(habit.logs.map((log) => log.date));
+                    return (
+                      <div key={habit.id} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-300 text-sm font-semibold">
+                              {habit.title.slice(0, 1)}
+                            </div>
+                            <div>
+                              <h4 className="text-base font-semibold text-[#EEEEEE]">{habit.title}</h4>
+                              <p className="text-xs text-[#666666] mt-1">连续 {streak} 天</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => toggleHabitToday(habit.id)}
+                            disabled={hasToday}
+                            className={`w-full sm:w-auto px-3 py-2 text-sm rounded-lg border transition-colors ${
+                              hasToday
+                                ? 'border-[#444444] text-[#777777] bg-[#2A2A2A]'
+                                : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                            }`}
+                          >
+                            {hasToday ? '已打卡' : '今日打卡'}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-2 sm:gap-3">
+                          {recentDays.map((day) => (
+                            <div key={day} className="flex flex-col items-center gap-1">
+                              <div
+                                className={`w-4 h-4 rounded-full border ${
+                                  logSet.has(day)
+                                    ? 'bg-blue-500 border-blue-500'
+                                    : 'border-[#444444]'
+                                }`}
+                              />
+                              <span className="text-[10px] text-[#666666]">{day.slice(5)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="space-y-1">
               {filteredTasks.length === 0 ? (
