@@ -159,17 +159,13 @@ export async function POST(req: NextRequest) {
 
       const completionPayload = await completionResponse.json();
       const rawResult = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as { tasks?: ParsedTask[] };
-      // 统一字段并校验 id 是否存在
+      // 统一字段并尽量保留原始 id
       const normalizedTasks = Array.isArray(rawResult?.tasks)
         ? rawResult.tasks.map((task) => normalizeTask(task))
         : [];
-      const missingIdTasks = normalizedTasks.filter((task) => !task.id);
-      if (missingIdTasks.length > 0) {
-        return NextResponse.json({ error: 'Organize response missing task id' }, { status: 500 });
-      }
-
-      const normalizedCategoryTasks = normalizedTasks.map((task) => ({
+      const normalizedCategoryTasks = normalizedTasks.map((task, index) => ({
         ...task,
+        id: task.id || tasksToOrganize[index]?.id || Math.random().toString(36).substring(2, 9),
         category: CATEGORY_OPTIONS.includes(task.category || '')
           ? task.category
           : classifyCategory(`${task.title}`),

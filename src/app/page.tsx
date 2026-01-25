@@ -516,7 +516,7 @@ export default function Home() {
   };
 
   const parseRelativeDayInput = (raw: string) => {
-    const match = raw.match(/(大后天|后天|今天|明天|今晚|明早|明天早上|明天上午|明天中午|明天下午|明天晚上|下下周([一二三四五六日天])?|月底|月末)/);
+    const match = raw.match(/(下个月(?:初|底)?|下月(?:初|底)?|大后天|后天|今天|明天|今晚|明早|明天早上|明天上午|明天中午|明天下午|明天晚上|下下周([一二三四五六日天])?|月底|月末)/);
     if (!match) return { text: raw };
 
     const now = new Date();
@@ -527,6 +527,16 @@ export default function Home() {
       const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
       end.setHours(9, 0, 0, 0);
       base = end;
+    } else if (keyword.startsWith('下个月') || keyword.startsWith('下月')) {
+      const targetMonth = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+      if (keyword.includes('底')) {
+        const end = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+        end.setHours(9, 0, 0, 0);
+        base = end;
+      } else {
+        const day = keyword.includes('初') ? 1 : 1;
+        base = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), day, 9, 0, 0, 0);
+      }
     } else if (keyword.includes('今天') || keyword.includes('今晚')) {
       base = new Date(now);
     } else if (keyword.includes('明天')) {
@@ -1327,6 +1337,48 @@ export default function Home() {
                       #{tag}
                     </span>
                   )) : <span className="text-sm text-[#666666]">暂无标签</span>}
+                </div>
+              </div>
+
+              {/* 子任务管理 */}
+              <div className="space-y-3">
+                <label className="text-xs font-semibold text-[#555555] uppercase">子任务</label>
+                <div className="space-y-2">
+                  {(selectedTask.subtasks || []).length === 0 ? (
+                    <p className="text-sm text-[#666666]">暂无子任务</p>
+                  ) : (
+                    (selectedTask.subtasks || []).map((subtask) => (
+                      <div key={subtask.id} className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
+                          className={`w-4 h-4 rounded border flex items-center justify-center ${
+                            subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[#555555]'
+                          }`}
+                        >
+                          {subtask.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        </button>
+                        <span className={`text-sm ${subtask.completed ? 'line-through text-[#666666]' : 'text-[#CCCCCC]'}`}>
+                          {subtask.title}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
+                    placeholder="新增子任务"
+                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={addSubtask}
+                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-500"
+                  >
+                    添加
+                  </button>
                 </div>
               </div>
             </div>
