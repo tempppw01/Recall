@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, TouchEvent as ReactTouchEvent } from 'react';
-import { taskStore, habitStore, Task, Subtask, RepeatType, TaskRepeatRule, Habit } from '@/lib/store';
+import { taskStore, habitStore, countdownStore, Task, Subtask, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import {
   Settings, Command, Send, Search, Plus,
@@ -245,33 +245,59 @@ const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit
 
 const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
   const startXRef = useRef<number | null>(null);
+  const startYRef = useRef<number | null>(null);
+  const isHorizontalRef = useRef<boolean | null>(null);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const maxOffset = 84;
 
+  useEffect(() => {
+    setOffsetX(0);
+    setIsSwiping(false);
+    startXRef.current = null;
+    startYRef.current = null;
+    isHorizontalRef.current = null;
+  }, [task.id]);
+
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (event.touches.length !== 1) return;
     startXRef.current = event.touches[0].clientX;
+    startYRef.current = event.touches[0].clientY;
+    isHorizontalRef.current = null;
   };
 
   const handleTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
-    if (startXRef.current === null) return;
+    if (startXRef.current === null || startYRef.current === null) return;
     const currentX = event.touches[0].clientX;
-    const delta = currentX - startXRef.current;
-    if (delta >= 0) {
+    const currentY = event.touches[0].clientY;
+    const deltaX = currentX - startXRef.current;
+    const deltaY = currentY - startYRef.current;
+
+    if (isHorizontalRef.current === null) {
+      if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return;
+      isHorizontalRef.current = Math.abs(deltaX) > Math.abs(deltaY);
+    }
+
+    if (!isHorizontalRef.current) return;
+
+    if (deltaX >= 0) {
       setOffsetX(0);
+      setIsSwiping(true);
       return;
     }
     setIsSwiping(true);
-    setOffsetX(Math.max(-maxOffset, delta));
+    setOffsetX(Math.max(-maxOffset, deltaX));
   };
 
   const handleTouchEnd = () => {
-    if (!isSwiping) return;
-    const shouldOpen = Math.abs(offsetX) > maxOffset / 2;
-    setOffsetX(shouldOpen ? -maxOffset : 0);
+    if (isHorizontalRef.current) {
+      const shouldOpen = Math.abs(offsetX) > maxOffset / 2;
+      setOffsetX(shouldOpen ? -maxOffset : 0);
+    }
     setIsSwiping(false);
     startXRef.current = null;
+    startYRef.current = null;
+    isHorizontalRef.current = null;
   };
 
   const handleClick = () => {
@@ -288,6 +314,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      style={{ touchAction: 'pan-y' }}
     >
       <div className="absolute inset-y-0 right-0 w-[84px] bg-red-600 flex items-center justify-center">
         <button
@@ -396,6 +423,11 @@ export default function Home() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [countdowns, setCountdowns] = useState<Countdown[]>([]);
+  const [showCountdownForm, setShowCountdownForm] = useState(false);
+  const [editingCountdown, setEditingCountdown] = useState<Countdown | null>(null);
+  const [countdownTitle, setCountdownTitle] = useState('');
+  const [countdownDate, setCountdownDate] = useState('');
   const [newHabitTitle, setNewHabitTitle] = useState('');
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -462,6 +494,7 @@ export default function Home() {
 
       refreshTasks();
       refreshHabits();
+      refreshCountdowns();
     }
   }, []);
 
@@ -534,6 +567,15 @@ export default function Home() {
     setHabits(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
   };
 
+  const refreshCountdowns = () => {
+    const all = countdownStore.getAll();
+    const sorted = [...all].sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime();
+    });
+    setCountdowns(sorted);
+  };
+
   const createHabit = () => {
     const title = newHabitTitle.trim();
     if (!title) return;
@@ -547,6 +589,68 @@ export default function Home() {
     habitStore.replaceAll(next);
     setHabits(next);
     setNewHabitTitle('');
+  };
+
+  const resetCountdownForm = () => {
+    setCountdownTitle('');
+    setCountdownDate('');
+    setEditingCountdown(null);
+  };
+
+  const openCountdownForm = (item?: Countdown) => {
+    if (item) {
+      setEditingCountdown(item);
+      setCountdownTitle(item.title);
+      setCountdownDate(item.targetDate.split('T')[0]);
+    } else {
+      resetCountdownForm();
+    }
+    setShowCountdownForm(true);
+  };
+
+  const saveCountdown = () => {
+    const title = countdownTitle.trim();
+    if (!title || !countdownDate) return;
+    if (editingCountdown) {
+      countdownStore.update({
+        ...editingCountdown,
+        title,
+        targetDate: countdownDate,
+      });
+    } else {
+      countdownStore.add({
+        id: createId(),
+        title,
+        targetDate: countdownDate,
+        pinned: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    refreshCountdowns();
+    setShowCountdownForm(false);
+    resetCountdownForm();
+  };
+
+  const toggleCountdownPinned = (item: Countdown) => {
+    countdownStore.update({ ...item, pinned: !item.pinned });
+    refreshCountdowns();
+  };
+
+  const removeCountdown = (itemId: string) => {
+    countdownStore.remove(itemId);
+    refreshCountdowns();
+    if (editingCountdown?.id === itemId) {
+      resetCountdownForm();
+    }
+  };
+
+  const getCountdownDays = (targetDate: string) => {
+    const target = new Date(targetDate);
+    const today = new Date();
+    target.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
   };
 
   const toggleHabitToday = (habitId: string) => {
@@ -1279,9 +1383,9 @@ export default function Home() {
             onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
-            icon={Timer} label="倒数日" count={0} 
+            icon={Timer} label="倒数日" count={countdowns.length} 
             active={activeFilter === 'countdown'} 
-            onClick={() => { setActiveFilter('countdown'); refreshTasks(); setIsSidebarOpen(false); }} 
+            onClick={() => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
             icon={Flame} label="习惯打卡" count={0} 
@@ -1403,45 +1507,49 @@ export default function Home() {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
               {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
               {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
               {activeFilter === 'search' && <Search className="w-5 h-5 text-purple-500" />}
               {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
-              {headerTitle}
+              <span className="truncate">{headerTitle}</span>
             </h2>
           </div>
-          <div className="flex items-center gap-4 text-[#666666]">
+          <div className="flex items-center gap-3 sm:gap-4 text-[#666666]">
             <button
               onClick={handleOrganizeTasks}
               disabled={isOrganizing}
               className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC] disabled:opacity-50 disabled:cursor-not-allowed"
               title="一键整理"
             >
-              <Wand2 className="w-5 h-5" />
+              <Wand2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={() => setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'))}
               className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
               title={themeMode === 'light' ? '切换夜间模式' : '切换日间模式'}
             >
-              {themeMode === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              {themeMode === 'light' ? (
+                <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
+              ) : (
+                <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
+              )}
             </button>
             <AlignLeft
               onClick={() => setShowSearch(true)}
-              className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]"
+              className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
             />
             <MoreVertical
               onClick={() => setShowSettings(true)}
-              className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]"
+              className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
             />
           </div>
         </header>
 
-        <div className="px-6 py-4">
+        <div className="px-4 sm:px-6 py-3 sm:py-4">
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
-            <div className="relative flex items-center gap-3 bg-[#262626] border border-[#333333] rounded-lg px-4 py-3 shadow-sm focus-within:border-[#444444] focus-within:ring-1 focus-within:ring-[#444444] transition-all">
+            <div className="relative flex items-center gap-3 bg-[#262626] border border-[#333333] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm focus-within:border-[#444444] focus-within:ring-1 focus-within:ring-[#444444] transition-all">
               {loading ? (
                 <div className="w-5 h-5 border-2 border-[#444444] border-t-blue-500 rounded-full animate-spin" />
               ) : (
@@ -1468,7 +1576,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-10">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:pb-10">
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
@@ -1553,6 +1661,84 @@ export default function Home() {
                   )}
                 </div>
               </div>
+            </div>
+          ) : activeFilter === 'countdown' ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日</h3>
+                  <p className="text-xs text-[#666666] mt-1">置顶优先，按到期日期排序</p>
+                </div>
+                <button
+                  onClick={() => openCountdownForm()}
+                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-500"
+                >
+                  新建倒数日
+                </button>
+              </div>
+
+              {countdowns.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
+                  <Timer className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-sm">还没有倒数日</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {countdowns.map((item) => {
+                    const diff = getCountdownDays(item.targetDate);
+                    const isPast = diff < 0;
+                    const displayDays = Math.abs(diff);
+                    return (
+                      <div
+                        key={item.id}
+                        className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-base font-semibold text-[#EEEEEE]">{item.title}</h4>
+                              {item.pinned && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">置顶</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-[#777777] mt-1">目标日期：{item.targetDate}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-2xl font-semibold ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
+                              {displayDays}
+                            </p>
+                            <p className="text-[11px] text-[#666666]">{isPast ? '已过期天数' : '天后'}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => toggleCountdownPinned(item)}
+                            className={`px-2.5 py-1 text-xs rounded border transition-colors ${
+                              item.pinned
+                                ? 'border-yellow-500 text-yellow-300 bg-yellow-500/10'
+                                : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                            }`}
+                          >
+                            {item.pinned ? '取消置顶' : '置顶'}
+                          </button>
+                          <button
+                            onClick={() => openCountdownForm(item)}
+                            className="px-2.5 py-1 text-xs rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                          >
+                            编辑
+                          </button>
+                          <button
+                            onClick={() => removeCountdown(item.id)}
+                            className="px-2.5 py-1 text-xs rounded border border-red-500/40 text-red-300 hover:bg-red-500/10"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
@@ -1684,7 +1870,7 @@ export default function Home() {
             </button>
           </div>
           
-          <div className="p-6 flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
             <div className="flex items-start gap-3 mb-6">
               <button 
                 onClick={() => toggleStatus(selectedTask.id)}
@@ -2053,6 +2239,62 @@ export default function Home() {
         </div>
       )}
 
+      {showCountdownForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0"
+            onClick={() => {
+              setShowCountdownForm(false);
+              resetCountdownForm();
+            }}
+          />
+          <div
+            className="bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-5 relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold mb-4">{editingCountdown ? '编辑倒数日' : '新建倒数日'}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] uppercase text-[#888888] mb-2">标题</label>
+                <input
+                  type="text"
+                  value={countdownTitle}
+                  onChange={(event) => setCountdownTitle(event.target.value)}
+                  placeholder="例如：毕业典礼"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] uppercase text-[#888888] mb-2">目标日期</label>
+                <input
+                  type="date"
+                  value={countdownDate}
+                  onChange={(event) => setCountdownDate(event.target.value)}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowCountdownForm(false);
+                    resetCountdownForm();
+                  }}
+                  className="px-3 py-2 text-sm text-[#AAAAAA] hover:text-white"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={saveCountdown}
+                  className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500"
+                >
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSearch && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
@@ -2112,7 +2354,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="fixed bottom-3 right-4 text-xs text-[#555555]">v0.5.1</div>
+      <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] right-4 text-xs text-[#555555]">v0.5.1</div>
     </div>
   );
 }

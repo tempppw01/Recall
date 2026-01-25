@@ -38,8 +38,17 @@ export interface Habit {
   logs: HabitLog[];
 }
 
+export interface Countdown {
+  id: string;
+  title: string;
+  targetDate: string; // YYYY-MM-DD 或 ISO
+  pinned: boolean;
+  createdAt: string;
+}
+
 const STORAGE_KEY = 'recall_tasks_v1';
 const HABIT_STORAGE_KEY = 'recall_habits_v1';
+const COUNTDOWN_STORAGE_KEY = 'recall_countdowns_v1';
 
 // 计算余弦相似度
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -111,5 +120,38 @@ export const habitStore = {
   replaceAll: (habits: Habit[]) => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(HABIT_STORAGE_KEY, JSON.stringify(habits));
+  },
+};
+
+export const countdownStore = {
+  getAll: (): Countdown[] => {
+    if (typeof window === 'undefined') return [];
+    const data = localStorage.getItem(COUNTDOWN_STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  },
+
+  add: (countdown: Countdown) => {
+    const all = countdownStore.getAll();
+    all.push(countdown);
+    localStorage.setItem(COUNTDOWN_STORAGE_KEY, JSON.stringify(all));
+  },
+
+  update: (updatedCountdown: Countdown) => {
+    const all = countdownStore.getAll();
+    const index = all.findIndex(item => item.id === updatedCountdown.id);
+    if (index !== -1) {
+      all[index] = updatedCountdown;
+      localStorage.setItem(COUNTDOWN_STORAGE_KEY, JSON.stringify(all));
+    }
+  },
+
+  remove: (id: string) => {
+    const next = countdownStore.getAll().filter(item => item.id !== id);
+    localStorage.setItem(COUNTDOWN_STORAGE_KEY, JSON.stringify(next));
+  },
+
+  replaceAll: (countdowns: Countdown[]) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(COUNTDOWN_STORAGE_KEY, JSON.stringify(countdowns));
   },
 };
