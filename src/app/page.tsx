@@ -194,7 +194,7 @@ const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
         )}
         {task.subtasks?.length ? (
           <span className="text-[10px] text-[#666666]">
-            {task.subtasks.filter((subtask: Subtask) => subtask.completed).length}/{task.subtasks.length} 子任务
+            {task.subtasks.filter((subtask: Subtask) => subtask.completed).length}/{task.subtasks.length} 已完成
           </span>
         ) : null}
         {task.dueDate && (
@@ -908,31 +908,32 @@ export default function Home() {
       
       {/* 1. Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-[78vw] max-w-[300px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl
+        fixed inset-y-0 left-0 z-40 w-[78vw] max-w-[300px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:relative lg:translate-x-0 lg:w-[240px] lg:shadow-none
       `}>
-        <div className="p-4 flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
-              R
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="p-4 flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                R
+              </div>
+              <div>
+                <h1 className="text-sm font-semibold">Recall AI</h1>
+                <p className="text-xs text-[#666666]">轻量 AI 待办</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-sm font-semibold">Recall AI</h1>
-              <p className="text-xs text-[#666666]">轻量 AI 待办</p>
-            </div>
+            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#666666]">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#666666]">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        <nav className="flex-1 px-2 space-y-1">
-          <SidebarItem 
-            icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length} 
-            active={activeFilter === 'todo'} 
-            onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }} 
-          />
+          <nav className="px-2 space-y-1">
+            <SidebarItem 
+              icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length} 
+              active={activeFilter === 'todo'} 
+              onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }} 
+            />
           <SidebarItem 
             icon={Calendar} label="日历" count={0} 
             active={activeFilter === 'calendar'} 
@@ -1024,16 +1025,17 @@ export default function Home() {
               onEdit={() => renameTag(item)}
             />
           ))}
-        </nav>
+          </nav>
 
-        <div className="p-2 border-t border-[#333333]">
-          <SidebarItem 
-            icon={CheckCircle2} 
-            label="已完成" 
-            onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
-            active={activeFilter === 'completed'} 
-          />
-          <SidebarItem icon={Settings} label="设置" onClick={() => setShowSettings(true)} />
+          <div className="p-2 border-t border-[#333333] mt-3">
+            <SidebarItem 
+              icon={CheckCircle2} 
+              label="已完成" 
+              onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
+              active={activeFilter === 'completed'} 
+            />
+            <SidebarItem icon={Settings} label="设置" onClick={() => setShowSettings(true)} />
+          </div>
         </div>
       </aside>
 
@@ -1343,6 +1345,12 @@ export default function Home() {
               {/* 子任务管理 */}
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-[#555555] uppercase">子任务</label>
+                <div className="flex items-center gap-2 text-xs text-[#666666]">
+                  <span>
+                    {(selectedTask.subtasks || []).filter((subtask) => subtask.completed).length}
+                    /{(selectedTask.subtasks || []).length} 已完成
+                  </span>
+                </div>
                 <div className="space-y-2">
                   {(selectedTask.subtasks || []).length === 0 ? (
                     <p className="text-sm text-[#666666]">暂无子任务</p>
@@ -1391,46 +1399,46 @@ export default function Home() {
       )}
 
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-6">
-            <h2 className="text-lg font-semibold mb-4">设置</h2>
-            <div className="space-y-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 py-6 sm:px-6">
+          <div className="bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-base sm:text-lg font-semibold mb-3">设置</h2>
+            <div className="space-y-3 sm:space-y-4 text-sm">
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
                 <input
                   type="text"
                   value={apiBaseUrl}
                   onChange={(e) => setApiBaseUrl(e.target.value)}
                   placeholder={DEFAULT_BASE_URL}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
                 <input
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-..."
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">模型列表 (逗号或换行分隔)</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">模型列表 (逗号或换行分隔)</label>
                 <textarea
                   value={modelListText}
                   onChange={(e) => setModelListText(e.target.value)}
                   placeholder={DEFAULT_MODEL_LIST.join('\n')}
                   rows={4}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
                 <select
                   value={chatModel}
                   onChange={(e) => setChatModel(e.target.value)}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 >
                   {parseModelList(modelListText).map((model) => (
                     <option key={model} value={model}>{model}</option>
@@ -1438,31 +1446,31 @@ export default function Home() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">Embedding 模型</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">Embedding 模型</label>
                 <input
                   type="text"
                   value={embeddingModel}
                   onChange={(e) => setEmbeddingModel(e.target.value)}
                   placeholder={DEFAULT_EMBEDDING_MODEL}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
                 <input
                   type="number"
                   min={1}
                   value={fallbackTimeoutSec}
                   onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
                   placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
-                <p className="text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
+                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
               </div>
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="flex justify-end gap-3 mt-5">
                 <button
                   onClick={() => setShowSettings(false)}
-                  className="px-4 py-2 text-sm text-[#AAAAAA] hover:text-white transition-colors"
+                  className="px-3 py-2 text-[13px] sm:text-sm text-[#AAAAAA] hover:text-white transition-colors"
                 >
                   取消
                 </button>
@@ -1480,7 +1488,7 @@ export default function Home() {
                     });
                     setShowSettings(false);
                   }}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors"
+                  className="bg-blue-600 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm font-medium hover:bg-blue-500 transition-colors"
                 >
                   保存
                 </button>

@@ -91,6 +91,20 @@ function evaluatePriority(dueDate?: string, subtaskCount = 0) {
   return DEFAULT_TASK.priority;
 }
 
+function isCookingTask(text: string) {
+  return /(做|炒|煮|炖|蒸|烤|煎|焯|凉拌|菜谱|食谱|做菜|下厨|烧菜|拌|切)/.test(text);
+}
+
+function buildCookingSubtasks(title: string) {
+  const cleaned = title.trim();
+  return [
+    { title: `准备食材（${cleaned}）` },
+    { title: '处理食材：清洗/切配/腌制' },
+    { title: '下锅烹饪并控制火候' },
+    { title: '调味出锅并装盘' },
+  ];
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { input, mode, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
@@ -208,13 +222,20 @@ export async function POST(req: NextRequest) {
 
     const completionPayload = await completionResponse.json();
     const rawTask = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as ParsedTask;
-    const taskData = normalizeTask(rawTask);
+    let taskData = normalizeTask(rawTask);
     const normalizedCategory = CATEGORY_OPTIONS.includes(taskData.category || '')
       ? taskData.category
       : classifyCategory(`${taskData.title} ${input}`);
     const normalizedPriority = taskData.priority === DEFAULT_TASK.priority
       ? evaluatePriority(taskData.dueDate, taskData.subtasks.length)
       : taskData.priority;
+    const sourceText = `${taskData.title} ${input}`.trim();
+    if ((!taskData.subtasks || taskData.subtasks.length === 0) && isCookingTask(sourceText)) {
+      taskData = {
+        ...taskData,
+        subtasks: buildCookingSubtasks(taskData.title || input),
+      };
+    }
     const textToEmbed = `${taskData.title} ${taskData.tags.join(' ')}`.trim();
     
     const embedding = await generateEmbedding(textToEmbed, { client, model: resolvedEmbeddingModel });
