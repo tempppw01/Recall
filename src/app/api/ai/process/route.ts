@@ -22,6 +22,20 @@ type OrganizePayload = {
   tasks?: ParsedTask[];
 };
 
+type AgentItem = {
+  title?: string;
+  dueDate?: string;
+  priority?: number;
+  category?: string;
+  tags?: string[];
+  subtasks?: { title?: string }[];
+};
+
+type AgentPayload = {
+  reply?: string;
+  items?: AgentItem[];
+};
+
 const DEFAULT_TASK = {
   title: 'Untitled',
   dueDate: undefined as string | undefined,
@@ -193,6 +207,61 @@ export async function POST(req: NextRequest) {
       // 仅生成 Embedding 用于搜索
       const embedding = await generateEmbedding(input, { client, model: resolvedEmbeddingModel });
       return NextResponse.json({ embedding });
+    }
+
+    if (mode === 'todo-agent') {
+      // todo-agent：返回聊天回复 + 待办清单
+      const completionResponse = await fetch(resolvedChatCompletionsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
+        },
+        body: JSON.stringify({
+          model: resolvedChatModel,
+          messages: [
+            {
+              role: 'system',
+              content: `你是 todo-agent 助理，负责和用户聊天并输出可执行待办清单。请遵循：
+1) 用简短中文回复用户，字段名 reply。
+2) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks。
+3) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
+4) dueDate 可为空，优先解析中文相对时间并转 ISO 字符串。
+5) subtasks 仅保留 title。
+6) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }]}。`,
+            },
+            { role: 'user', content: input },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (!completionResponse.ok) {
+        const errorText = await completionResponse.text();
+        throw new Error(`Chat completion failed: ${errorText}`);
+      }
+
+      const completionPayload = await completionResponse.json();
+      const rawResult = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as AgentPayload;
+      const normalizedItems = Array.isArray(rawResult?.items)
+        ? rawResult.items.map((item) => normalizeTask(item))
+        : [];
+      const normalizedCategoryItems = normalizedItems.map((item) => ({
+        ...item,
+        category: CATEGORY_OPTIONS.includes(item.category || '')
+          ? item.category
+          : classifyCategory(`${item.title}`),
+        priority: typeof item.priority === 'number'
+          ? item.priority
+          : evaluatePriority(item.dueDate, item.subtasks?.length || 0),
+      }));
+
+      return NextResponse.json({
+        reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
+          ? rawResult.reply.trim()
+          : '已整理成待办清单，点一下即可加入。',
+        items: normalizedCategoryItems,
+      });
     }
 
     // 默认模式：Magic Input (意图识别 + Embedding)

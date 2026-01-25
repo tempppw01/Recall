@@ -85,6 +85,21 @@ const getPriorityColor = (priority: number) => {
 
 const getPriorityLabel = (priority: number) => PRIORITY_LABELS[priority] || PRIORITY_LABELS[0];
 
+type AgentItem = {
+  id: string;
+  title: string;
+  dueDate?: string;
+  priority?: number;
+  category?: string;
+  tags?: string[];
+  subtasks?: { title?: string }[];
+};
+
+type AgentMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 const isTaskOverdue = (task: Task) => {
   if (!task.dueDate) return false;
   if (task.status === 'completed') return false;
@@ -476,6 +491,12 @@ export default function Home() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   // AI 一键整理状态
   const [isOrganizing, setIsOrganizing] = useState(false);
+  // todo-agent 聊天状态
+  const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
+  const [agentInput, setAgentInput] = useState('');
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
+  const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
   const recommendedPriority = selectedTask
     ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
@@ -778,6 +799,94 @@ export default function Home() {
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_FALLBACK_TIMEOUT_SEC;
     return Math.round(numeric);
+  };
+
+  const createTaskFromAgentItem = (item: AgentItem) => {
+    const title = item.title?.trim() || 'Untitled';
+    const category = item.category && CATEGORY_OPTIONS.includes(item.category)
+      ? item.category
+      : classifyCategory(title);
+    const priority = typeof item.priority === 'number'
+      ? item.priority
+      : evaluatePriority(item.dueDate, item.subtasks?.length || 0);
+    const task: Task = {
+      id: createId(),
+      title,
+      dueDate: item.dueDate || undefined,
+      priority,
+      category,
+      status: 'todo',
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      subtasks: Array.isArray(item.subtasks)
+        ? item.subtasks
+            .map((subtask) => ({
+              id: createId(),
+              title: subtask.title?.trim() || '',
+              completed: false,
+            }))
+            .filter((subtask) => subtask.title.length > 0)
+        : [],
+      createdAt: new Date().toISOString(),
+    };
+    taskStore.add(task);
+    refreshTasks();
+  };
+
+  const handleAgentSend = async () => {
+    const content = agentInput.trim();
+    if (!content || agentLoading) return;
+    setAgentLoading(true);
+    setAgentMessages((prev) => [...prev, { role: 'user', content }]);
+    setAgentInput('');
+
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'todo-agent',
+          input: content,
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          chatModel: chatModel?.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'todo-agent request failed');
+      }
+      const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
+        ? data.reply.trim()
+        : '已整理成待办清单，点一下即可加入。';
+      const nextItems: AgentItem[] = Array.isArray(data?.items)
+        ? data.items.map((item: AgentItem) => ({
+            ...item,
+            id: item.id || createId(),
+            title: item.title?.trim() || 'Untitled',
+          }))
+        : [];
+      setAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+      setAgentItems(nextItems);
+      setAddedAgentItemIds(new Set());
+    } catch (error) {
+      console.error(error);
+      setAgentMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: '我这边没连上服务，稍后再试试？' },
+      ]);
+    } finally {
+      setAgentLoading(false);
+    }
+  };
+
+  const handleAddAgentItem = (item: AgentItem) => {
+    if (addedAgentItemIds.has(item.id)) return;
+    createTaskFromAgentItem(item);
+    setAddedAgentItemIds((prev) => {
+      const next = new Set(prev);
+      next.add(item.id);
+      return next;
+    });
   };
 
   const pushSearchHistory = (query: string) => {
@@ -1447,11 +1556,11 @@ export default function Home() {
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative">
+    <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top">
       
       {/* 1. Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-[78vw] max-w-[300px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden
+        fixed inset-y-0 left-0 z-40 w-[78vw] max-w-[300px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden pb-[calc(0.5rem+env(safe-area-inset-bottom))]
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:relative lg:translate-x-0 lg:w-[240px] lg:shadow-none
       `}>
@@ -1693,7 +1802,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:pb-10">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10">
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
@@ -1972,7 +2081,7 @@ export default function Home() {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[320px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200">
+        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[320px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           <div className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 shrink-0">
             <button
               onClick={() => setSelectedTask(null)}
@@ -2252,7 +2361,7 @@ export default function Home() {
       )}
 
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 py-6 sm:px-6">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6">
           <div
             className="absolute inset-0"
             onClick={() => setShowSettings(false)}
@@ -2359,7 +2468,7 @@ export default function Home() {
       )}
 
       {showCountdownForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div
             className="absolute inset-0"
             onClick={() => {
@@ -2416,7 +2525,7 @@ export default function Home() {
 
       {showSearch && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1rem+env(safe-area-inset-bottom))]"
           onClick={() => { setShowSearch(false); setSearchQuery(''); }}
         >
           <div
@@ -2473,7 +2582,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] right-4 text-xs text-[#555555]">v0.5.2</div>
+      <div className="fixed bottom-[calc(0.5rem+env(safe-area-inset-bottom))] right-3 sm:right-4 text-[10px] sm:text-xs text-[#555555]">v0.5.2</div>
     </div>
   );
 }

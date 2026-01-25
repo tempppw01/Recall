@@ -15,6 +15,7 @@ body {
   color: var(--foreground);
   background: var(--background);
   min-height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom);
   transition: background-color 0.2s ease, color 0.2s ease, filter 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
@@ -29,6 +30,18 @@ select,
 textarea,
 button {
   font: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
 }
 
 @media (max-width: 640px) {
