@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取）。\n4) 如果输入包含日期/时间，请转换为 ISO 格式的 dueDate。\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }`,
+            content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取）。\n4) 如果输入包含日期/时间，请转换为 ISO 格式的 dueDate（包含时分秒），优先解析中文相对时间，并遵循模糊时间默认规则：\n- 早上/上午 → 09:00\n- 中午 → 12:00\n- 下午 → 15:00\n- 晚上/今晚 → 20:00\n- 凌晨 → 00:00\n例如：\n- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间\n- “周三上午开会” → 周三 09:00 的 ISO 时间\n- “今晚八点” → 今日 20:00 的 ISO 时间\n- “后天上午9点” → 后天 09:00 的 ISO 时间\n- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间\n- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间\n- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间\n- “下午三点到四点开会” → 取开始时间 15:00\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }`,
           },
           { role: 'user', content: input },
         ],

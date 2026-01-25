@@ -15,6 +15,34 @@ const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const PRIORITY_LABELS = ['低', '中', '高'];
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
+const WEEKDAY_MAP: Record<string, number> = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  日: 0,
+  天: 0,
+};
+const PERIOD_DEFAULT_HOUR: Record<string, number> = {
+  上午: 9,
+  中午: 12,
+  下午: 15,
+  晚上: 20,
+  今晚: 20,
+  早上: 9,
+  凌晨: 0,
+};
+const HOLIDAY_MAP: Record<string, (year: number) => Date> = {
+  元旦: (year) => new Date(year, 0, 1),
+  春节: (year) => new Date(year, 1, 1),
+  清明: (year) => new Date(year, 3, 4),
+  劳动节: (year) => new Date(year, 4, 1),
+  端午: (year) => new Date(year, 5, 10),
+  中秋: (year) => new Date(year, 8, 17),
+  国庆: (year) => new Date(year, 9, 1),
+};
 
 const parseModelList = (text: string) =>
   text
@@ -238,6 +266,133 @@ export default function Home() {
     return Math.round(numeric);
   };
 
+  const parseChineseWeekdayInput = (raw: string) => {
+    const match = raw.match(
+      /(下周|本周)?(周|星期)([一二三四五六日天])\s*(上午|下午|晚上|中午)?\s*(\d{1,2})?(?:[:：点](\d{1,2}))?(?:分)?/,
+    );
+    if (!match) {
+      return { text: raw };
+    }
+
+    const [, weekPrefix, , weekdayCn, period, hourText, minuteText] = match;
+    const targetWeekday = WEEKDAY_MAP[weekdayCn];
+    const now = new Date();
+    const currentWeekday = now.getDay();
+    let diff = (targetWeekday - currentWeekday + 7) % 7;
+
+    if (weekPrefix === '下周') {
+      diff += 7;
+    } else if (!weekPrefix && diff === 0) {
+      diff = 7;
+    }
+
+    let hours = 0;
+    let minutes = 0;
+    if (hourText) {
+      hours = Number(hourText);
+      minutes = minuteText ? Number(minuteText) : 0;
+      if ((period === '下午' || period === '晚上') && hours < 12) {
+        hours += 12;
+      } else if (period === '中午' && hours < 11) {
+        hours += 12;
+      }
+    } else if (period) {
+      hours = PERIOD_DEFAULT_HOUR[period] ?? 9;
+    }
+
+    const date = new Date(now);
+    date.setDate(now.getDate() + diff);
+    date.setHours(hours, minutes, 0, 0);
+    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+
+    return { dueDate: date.toISOString(), text: cleaned };
+  };
+
+  const parseRelativeDayInput = (raw: string) => {
+    const match = raw.match(/(大后天|后天|今天|明天|今晚|明早|明天早上|明天上午|明天中午|明天下午|明天晚上|下下周([一二三四五六日天])?|月底|月末)/);
+    if (!match) return { text: raw };
+
+    const now = new Date();
+    let base = new Date(now);
+    const keyword = match[1];
+
+    if (keyword === '月底' || keyword === '月末') {
+      const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+      end.setHours(9, 0, 0, 0);
+      base = end;
+    } else if (keyword.includes('今天') || keyword.includes('今晚')) {
+      base = new Date(now);
+    } else if (keyword.includes('明天')) {
+      base.setDate(base.getDate() + 1);
+    } else if (keyword.includes('后天')) {
+      base.setDate(base.getDate() + 2);
+    } else if (keyword.includes('大后天')) {
+      base.setDate(base.getDate() + 3);
+    } else if (keyword.startsWith('下下周')) {
+      const weekdayMatch = raw.match(/下下周([一二三四五六日天])/);
+      if (weekdayMatch) {
+        const weekday = WEEKDAY_MAP[weekdayMatch[1]];
+        const current = base.getDay();
+        let diff = (weekday - current + 7) % 7;
+        diff += 14;
+        base.setDate(base.getDate() + diff);
+      } else {
+        base.setDate(base.getDate() + 14);
+      }
+    }
+
+    if (keyword !== '月底' && keyword !== '月末') {
+      const periodMatch = raw.match(/(凌晨|早上|上午|中午|下午|晚上|今晚|明早)/);
+      const defaultHour = periodMatch ? PERIOD_DEFAULT_HOUR[periodMatch[1]] : 9;
+      base.setHours(defaultHour, 0, 0, 0);
+    }
+
+    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+    return { dueDate: base.toISOString(), text: cleaned };
+  };
+
+  const parseTimeRangeInput = (raw: string) => {
+    const match = raw.match(/(\d{1,2})(?:[:：点](\d{1,2}))?\s*(?:到|\-|~)\s*(\d{1,2})(?:[:：点](\d{1,2}))?/);
+    if (!match) return { text: raw };
+    const [, startHour, startMin, endHour, endMin] = match;
+    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+    return {
+      timeRange: {
+        startHour: Number(startHour),
+        startMinute: startMin ? Number(startMin) : 0,
+        endHour: Number(endHour),
+        endMinute: endMin ? Number(endMin) : 0,
+      },
+      text: cleaned,
+    };
+  };
+
+  const parseFuzzyPeriodOnly = (raw: string) => {
+    const periodMatch = raw.match(/(凌晨|早上|上午|中午|下午|晚上|今晚|明早)/);
+    if (!periodMatch) return { text: raw };
+    const cleaned = raw.replace(periodMatch[0], ' ').replace(/\s+/g, ' ').trim();
+    const defaultHour = PERIOD_DEFAULT_HOUR[periodMatch[1]] ?? 9;
+    const base = new Date();
+    base.setHours(defaultHour, 0, 0, 0);
+    return { dueDate: base.toISOString(), text: cleaned };
+  };
+
+  const parseHolidayInput = (raw: string) => {
+    const match = raw.match(/(元旦|春节|清明|劳动节|端午|中秋|国庆)/);
+    if (!match) return { text: raw };
+    const now = new Date();
+    const year = now.getFullYear();
+    const holiday = HOLIDAY_MAP[match[1]];
+    const date = holiday ? holiday(year) : null;
+    if (!date) return { text: raw };
+    if (date.getTime() < now.getTime()) {
+      date.setFullYear(year + 1);
+    }
+    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+    date.setHours(9, 0, 0, 0);
+    return { dueDate: date.toISOString(), text: cleaned };
+  };
+
   const parseLocalTaskInput = (raw: string) => {
     const tagMatches = Array.from(raw.matchAll(/#([^\s#]+)/g));
     const tags = tagMatches.map((match) => match[1]);
@@ -257,6 +412,52 @@ export default function Home() {
     }
 
     if (!dueDate) {
+      const weekdayParsed = parseChineseWeekdayInput(title);
+      if (weekdayParsed.dueDate) {
+        dueDate = weekdayParsed.dueDate;
+        title = weekdayParsed.text || title;
+      }
+    }
+
+    if (!dueDate) {
+      const relativeParsed = parseRelativeDayInput(title);
+      if (relativeParsed.dueDate) {
+        dueDate = relativeParsed.dueDate;
+        title = relativeParsed.text || title;
+      }
+    }
+
+    const timeRangeParsed = parseTimeRangeInput(title);
+    if (timeRangeParsed.timeRange) {
+      title = timeRangeParsed.text || title;
+      if (!dueDate) {
+        const base = new Date();
+        base.setHours(timeRangeParsed.timeRange.startHour, timeRangeParsed.timeRange.startMinute, 0, 0);
+        dueDate = base.toISOString();
+      } else {
+        const base = new Date(dueDate);
+        base.setHours(timeRangeParsed.timeRange.startHour, timeRangeParsed.timeRange.startMinute, 0, 0);
+        dueDate = base.toISOString();
+      }
+    }
+
+    if (!dueDate) {
+      const holidayParsed = parseHolidayInput(title);
+      if (holidayParsed.dueDate) {
+        dueDate = holidayParsed.dueDate;
+        title = holidayParsed.text || title;
+      }
+    }
+
+    if (!dueDate) {
+      const fuzzyParsed = parseFuzzyPeriodOnly(title);
+      if (fuzzyParsed.dueDate) {
+        dueDate = fuzzyParsed.dueDate;
+        title = fuzzyParsed.text || title;
+      }
+    }
+
+    if (!dueDate) {
       // 匹配 "today" 或 "tomorrow"，要求前后是边界
       // 中文 "今天"、"明天" 不需要边界
       if (title.includes('今天') || /(?:^|\s)today(?:\s|$)/i.test(title)) {
@@ -269,6 +470,8 @@ export default function Home() {
         title = title.replace(/明天/g, ' ').replace(/(?:^|\s)tomorrow(?:\s|$)/ig, ' ').trim();
       }
     }
+
+    title = title.replace(/提醒我|帮我提醒|请提醒/g, ' ').replace(/\s+/g, ' ').trim();
 
     if (!title) title = 'Untitled';
 
