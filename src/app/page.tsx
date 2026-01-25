@@ -6,7 +6,8 @@ import {
   Settings, Command, Send, Search, Plus,
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle, MoreVertical,
-  AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight
+  AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
+  CheckSquare, LayoutGrid, Timer, Flame
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -15,6 +16,19 @@ const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const PRIORITY_LABELS = ['低', '中', '高'];
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
+const FILTER_LABELS: Record<string, string> = {
+  todo: '待办',
+  calendar: '日历',
+  quadrant: '四象限',
+  countdown: '倒数日',
+  habit: '习惯打卡',
+  search: '搜索',
+  pomodoro: '番茄时钟',
+  inbox: '收件箱',
+  today: '今日',
+  next7: '未来7天',
+  completed: '已完成',
+};
 const WEEKDAY_MAP: Record<string, number> = {
   一: 1,
   二: 2,
@@ -270,7 +284,7 @@ export default function Home() {
       const today = new Date().toISOString().split('T')[0];
       return t.dueDate.split('T')[0] === today;
     }
-    return true; // Default Inbox
+    return true; // Default (todo/inbox/other views use full list for now)
   });
 
   const normalizeTimeoutSec = (value: number) => {
@@ -714,31 +728,70 @@ export default function Home() {
 
         <nav className="flex-1 px-2 space-y-1">
           <SidebarItem 
-            icon={Inbox} label="Inbox" count={tasks.filter(t => t.status !== 'completed').length} 
+            icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length} 
+            active={activeFilter === 'todo'} 
+            onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={Calendar} label="日历" count={0} 
+            active={activeFilter === 'calendar'} 
+            onClick={() => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={LayoutGrid} label="四象限" count={0} 
+            active={activeFilter === 'quadrant'} 
+            onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={Timer} label="倒数日" count={0} 
+            active={activeFilter === 'countdown'} 
+            onClick={() => { setActiveFilter('countdown'); refreshTasks(); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={Flame} label="习惯打卡" count={0} 
+            active={activeFilter === 'habit'} 
+            onClick={() => { setActiveFilter('habit'); refreshTasks(); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={Search} label="搜索" count={0} 
+            active={activeFilter === 'search'} 
+            onClick={() => { setActiveFilter('search'); setShowSearch(true); }} 
+          />
+          <SidebarItem 
+            icon={Timer} label="番茄时钟" count={0} 
+            active={activeFilter === 'pomodoro'} 
+            onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
+          />
+
+          <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
+            快捷入口
+          </div>
+          <SidebarItem 
+            icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length} 
             active={activeFilter === 'inbox'} 
             onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
-            icon={Sun} label="Today" count={0} 
+            icon={Sun} label="今日" count={0} 
             active={activeFilter === 'today'} 
             onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
-            icon={Calendar} label="Next 7 Days" count={0} 
+            icon={Calendar} label="未来 7 天" count={0} 
             active={activeFilter === 'next7'} 
             onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }} 
           />
           
           <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
-            Lists
+            列表
           </div>
-          <SidebarItem icon={Hash} label="Work" count={0} />
-          <SidebarItem icon={Hash} label="Personal" count={0} />
+          <SidebarItem icon={Hash} label="工作" count={0} />
+          <SidebarItem icon={Hash} label="个人" count={0} />
           
           <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
-            Tags
+            标签
           </div>
-          <SidebarItem icon={TagIcon} label="shopping" count={0} />
+          <SidebarItem icon={TagIcon} label="购物" count={0} />
         </nav>
 
         <div className="p-2 border-t border-[#333333]">
@@ -748,7 +801,7 @@ export default function Home() {
             onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
             active={activeFilter === 'completed'} 
           />
-          <SidebarItem icon={Settings} label="Settings" onClick={() => setShowSettings(true)} />
+          <SidebarItem icon={Settings} label="设置" onClick={() => setShowSettings(true)} />
         </div>
       </aside>
 
@@ -773,12 +826,18 @@ export default function Home() {
               {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
               {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
               {activeFilter === 'search' && <Search className="w-5 h-5 text-purple-500" />}
-              {activeFilter === 'completed' ? '已完成' : (activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1))}
+              {FILTER_LABELS[activeFilter] ?? '待办'}
             </h2>
           </div>
           <div className="flex items-center gap-4 text-[#666666]">
-            <AlignLeft className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]" />
-            <MoreVertical className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]" />
+            <AlignLeft
+              onClick={() => setShowSearch(true)}
+              className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]"
+            />
+            <MoreVertical
+              onClick={() => setShowSettings(true)}
+              className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]"
+            />
           </div>
         </header>
 
@@ -796,7 +855,7 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleMagicInput()}
-                placeholder="Add a task... (e.g., 'Remind me to call John tomorrow #work')"
+                placeholder="新增任务…（例如：明天提醒我给小王打电话 #工作）"
                 className="flex-1 bg-transparent border-none outline-none text-sm placeholder-[#555555]"
                 disabled={loading}
               />
@@ -817,7 +876,7 @@ export default function Home() {
             {filteredTasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-[#444444]">
                 <Inbox className="w-16 h-16 mb-4 opacity-20" />
-                <p>All clear</p>
+                <p>暂无任务</p>
               </div>
             ) : (
               filteredTasks.map(task => (
@@ -846,7 +905,7 @@ export default function Home() {
               返回
             </button>
             <div className="flex items-center gap-2 text-[#666666]">
-              <span className="text-xs">Created {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
+              <span className="text-xs">创建于 {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
             </div>
             <button onClick={() => setSelectedTask(null)} className="text-[#666666] hover:text-white">
               <X className="w-5 h-5" />
@@ -874,7 +933,7 @@ export default function Home() {
 
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">Date</label>
+                <label className="text-xs font-semibold text-[#555555] uppercase">日期</label>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666] pointer-events-none" />
@@ -893,7 +952,7 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">Priority</label>
+                <label className="text-xs font-semibold text-[#555555] uppercase">优先级</label>
                 <div className="flex flex-wrap gap-2">
                   {[0, 1, 2].map((level) => (
                     <button
@@ -917,7 +976,7 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">Category</label>
+                <label className="text-xs font-semibold text-[#555555] uppercase">分类</label>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORY_OPTIONS.map((category) => (
                     <button
@@ -936,13 +995,13 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">Tags</label>
+                <label className="text-xs font-semibold text-[#555555] uppercase">标签</label>
                 <div className="flex flex-wrap gap-2">
                   {selectedTask.tags?.length ? selectedTask.tags.map(tag => (
                     <span key={tag} className="text-xs bg-[#333333] px-2 py-1 rounded text-[#CCCCCC]">
                       #{tag}
                     </span>
-                  )) : <span className="text-sm text-[#666666]">No tags</span>}
+                  )) : <span className="text-sm text-[#666666]">暂无标签</span>}
                 </div>
               </div>
             </div>
@@ -957,10 +1016,10 @@ export default function Home() {
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-6">
-            <h2 className="text-lg font-semibold mb-4">Settings</h2>
+            <h2 className="text-lg font-semibold mb-4">设置</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API Base URL</label>
+                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
                 <input
                   type="text"
                   value={apiBaseUrl}
@@ -970,7 +1029,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API Key</label>
+                <label className="block text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
                 <input
                   type="password"
                   value={apiKey}
@@ -1028,7 +1087,7 @@ export default function Home() {
                   onClick={() => setShowSettings(false)}
                   className="px-4 py-2 text-sm text-[#AAAAAA] hover:text-white transition-colors"
                 >
-                  Cancel
+                  取消
                 </button>
                 <button
                   onClick={() => {
@@ -1046,7 +1105,7 @@ export default function Home() {
                   }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors"
                 >
-                  Save Changes
+                  保存
                 </button>
               </div>
             </div>
@@ -1054,7 +1113,43 @@ export default function Home() {
         </div>
       )}
 
-      <div className="fixed bottom-3 right-4 text-xs text-[#555555]">v1.0.0</div>
+      {showSearch && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-6">
+            <h2 className="text-lg font-semibold mb-4">搜索任务</h2>
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="输入关键词搜索任务"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                  className="px-4 py-2 text-sm text-[#AAAAAA] hover:text-white transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSearch}
+                  disabled={searchLoading || !searchQuery.trim()}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {searchLoading ? '搜索中...' : '搜索'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="fixed bottom-3 right-4 text-xs text-[#555555]">v0.5.1</div>
     </div>
   );
 }
