@@ -56,6 +56,12 @@ export const taskStore = {
     }
   },
 
+  // 批量覆盖任务（用于 AI 整理后整体替换）
+  replaceAll: (tasks: Task[]) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  },
+
   search: (queryEmbedding: number[], threshold = 0.7): Task[] => {
     const tasks = taskStore.getAll();
     return tasks

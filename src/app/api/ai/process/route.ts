@@ -9,12 +9,17 @@ const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 
 type ParsedTask = {
+  id?: string;
   title?: string;
   dueDate?: string;
   priority?: number;
   category?: string;
   tags?: string[];
   subtasks?: { title?: string }[];
+};
+
+type OrganizePayload = {
+  tasks?: ParsedTask[];
 };
 
 const DEFAULT_TASK = {
@@ -26,6 +31,7 @@ const DEFAULT_TASK = {
   subtasks: [] as { title: string }[],
 };
 
+// 规范化 AI 返回的任务字段
 function normalizeTask(data: ParsedTask) {
   const title = typeof data.title === 'string' && data.title.trim().length > 0 ? data.title.trim() : DEFAULT_TASK.title;
   const priority = typeof data.priority === 'number' && Number.isFinite(data.priority)
@@ -41,8 +47,10 @@ function normalizeTask(data: ParsedTask) {
         .map((item) => ({ title: typeof item?.title === 'string' ? item.title.trim() : '' }))
         .filter((item) => item.title.length > 0)
     : DEFAULT_TASK.subtasks;
+  const id = typeof data.id === 'string' && data.id.trim().length > 0 ? data.id.trim() : undefined;
 
   return {
+    id,
     title,
     dueDate,
     priority,
@@ -105,6 +113,70 @@ export async function POST(req: NextRequest) {
 
     if (!input) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
+    }
+
+    if (mode === 'organize') {
+      // 一键整理：传入任务数组，返回整理后的任务数组（保留 id）
+      const payload = typeof input === 'string' ? JSON.parse(input) as OrganizePayload : input as OrganizePayload;
+      const tasksToOrganize = Array.isArray(payload?.tasks) ? payload.tasks : [];
+
+      if (tasksToOrganize.length === 0) {
+        return NextResponse.json({ error: 'Tasks are required for organize mode' }, { status: 400 });
+      }
+
+      const completionResponse = await fetch(resolvedChatCompletionsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
+        },
+        body: JSON.stringify({
+          model: resolvedChatModel,
+          messages: [
+            {
+              role: 'system',
+              content: `你是一个任务整理助手。请对用户提供的任务列表进行整理：
+1) 保留每个任务的 id。
+2) 优化 title 的可读性，必要时合并/拆分重复任务。
+3) 校正 priority(0-2)、category(只可从 ${CATEGORY_OPTIONS.join(' / ')})、tags。
+4) dueDate 若无则保持 null。
+5) subtasks 仅保留 title。
+请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }] }`,
+            },
+            {
+              role: 'user',
+              content: JSON.stringify({ tasks: tasksToOrganize }),
+            },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (!completionResponse.ok) {
+        const errorText = await completionResponse.text();
+        throw new Error(`Chat completion failed: ${errorText}`);
+      }
+
+      const completionPayload = await completionResponse.json();
+      const rawResult = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as { tasks?: ParsedTask[] };
+      // 统一字段并校验 id 是否存在
+      const normalizedTasks = Array.isArray(rawResult?.tasks)
+        ? rawResult.tasks.map((task) => normalizeTask(task))
+        : [];
+      const missingIdTasks = normalizedTasks.filter((task) => !task.id);
+      if (missingIdTasks.length > 0) {
+        return NextResponse.json({ error: 'Organize response missing task id' }, { status: 500 });
+      }
+
+      const normalizedCategoryTasks = normalizedTasks.map((task) => ({
+        ...task,
+        category: CATEGORY_OPTIONS.includes(task.category || '')
+          ? task.category
+          : classifyCategory(`${task.title}`),
+        priority: typeof task.priority === 'number' ? task.priority : evaluatePriority(task.dueDate, task.subtasks?.length || 0),
+      }));
+
+      return NextResponse.json({ tasks: normalizedCategoryTasks });
     }
 
     if (mode === 'search') {

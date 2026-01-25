@@ -8,7 +8,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle, MoreVertical,
   AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -243,6 +243,8 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+  // AI 一键整理状态
+  const [isOrganizing, setIsOrganizing] = useState(false);
 
   const persistSettings = (next: {
     apiKey: string;
@@ -387,6 +389,88 @@ export default function Home() {
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_FALLBACK_TIMEOUT_SEC;
     return Math.round(numeric);
+  };
+
+  // 触发 AI 整理：发送当前任务给后端并覆盖本地任务
+  const handleOrganizeTasks = async () => {
+    if (isOrganizing) return;
+    if (!tasks.length) return;
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm('将把当前任务发送给 AI 并覆盖本地任务，是否继续？')
+      : false;
+    if (!confirmed) return;
+
+    setIsOrganizing(true);
+
+    try {
+      const payloadTasks = tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        dueDate: task.dueDate ?? null,
+        priority: task.priority,
+        category: task.category,
+        tags: task.tags,
+        subtasks: (task.subtasks || []).map((subtask) => ({ title: subtask.title })),
+      }));
+
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'organize',
+          input: { tasks: payloadTasks },
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          chatModel: chatModel?.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Organize request failed');
+      }
+
+      const updatedTasks = Array.isArray(data?.tasks) ? data.tasks : [];
+      const originIndex = new Map(tasks.map((task) => [task.id, task]));
+      const nextTasks: Task[] = updatedTasks.map((task: any) => {
+        const original = originIndex.get(task.id);
+        return {
+          id: task.id,
+          title: task.title,
+          dueDate: task.dueDate || undefined,
+          priority: typeof task.priority === 'number' ? task.priority : 0,
+          category: task.category || original?.category,
+          tags: Array.isArray(task.tags) ? task.tags : [],
+          status: original?.status || 'todo',
+          embedding: original?.embedding,
+          createdAt: original?.createdAt || new Date().toISOString(),
+          subtasks: Array.isArray(task.subtasks)
+            ? task.subtasks.map((subtask: any) => ({
+                id: Math.random().toString(36).substring(2, 9),
+                title: subtask.title,
+                completed: false,
+              }))
+            : [],
+        };
+      });
+
+      // 覆盖本地存储并刷新任务列表
+      taskStore.replaceAll(nextTasks);
+      setTasks(nextTasks);
+
+      // 同步更新侧边栏分类与标签列表
+      const nextCategories = Array.from(new Set(nextTasks.map((task) => task.category).filter(Boolean))) as string[];
+      const nextTags = Array.from(new Set(nextTasks.flatMap((task) => task.tags || [])));
+      if (nextCategories.length) setListItems(nextCategories);
+      if (nextTags.length) setTagItems(nextTags);
+    } catch (error) {
+      console.error(error);
+      if (typeof window !== 'undefined') {
+        window.alert('AI 整理失败，请稍后重试');
+      }
+    } finally {
+      setIsOrganizing(false);
+    }
   };
 
   const parseChineseWeekdayInput = (raw: string) => {
@@ -968,6 +1052,14 @@ export default function Home() {
             </h2>
           </div>
           <div className="flex items-center gap-4 text-[#666666]">
+            <button
+              onClick={handleOrganizeTasks}
+              disabled={isOrganizing}
+              className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC] disabled:opacity-50 disabled:cursor-not-allowed"
+              title="一键整理"
+            >
+              <Wand2 className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'))}
               className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
