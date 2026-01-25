@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import PWARegister from "@/app/components/PWARegister";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Recall - AI GTD",
   description: "AI-driven personal Getting Things Done system",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#1A1A1A",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -13,7 +20,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <PWARegister />
+        {children}
+      </body>
     </html>
   );
 }

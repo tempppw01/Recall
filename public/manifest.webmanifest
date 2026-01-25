@@ -1,0 +1,17 @@
+{
+  "name": "Recall - AI GTD",
+  "short_name": "Recall",
+  "description": "AI-driven personal GTD system",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1A1A1A",
+  "theme_color": "#1A1A1A",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
