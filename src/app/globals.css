@@ -15,6 +15,11 @@ body {
   color: var(--foreground);
   background: var(--background);
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease, filter 0.2s ease;
+}
+
+body.theme-light {
+  filter: invert(1) hue-rotate(180deg);
 }
 
 /* Custom Scrollbar */

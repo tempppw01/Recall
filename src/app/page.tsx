@@ -8,7 +8,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle, MoreVertical,
   AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -25,6 +25,8 @@ const FILTER_LABELS: Record<string, string> = {
   habit: '习惯打卡',
   search: '搜索',
   pomodoro: '番茄时钟',
+  category: '列表',
+  tag: '标签',
   inbox: '收件箱',
   today: '今日',
   next7: '未来7天',
@@ -121,6 +123,33 @@ const SidebarItem = ({ icon: Icon, label, count, active, onClick }: any) => (
   </button>
 );
 
+const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit }: any) => (
+  <div
+    onClick={onClick}
+    className={`group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
+      active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <Icon className="w-4 h-4" />
+      <span>{label}</span>
+    </div>
+    <div className="flex items-center gap-2">
+      {count > 0 && <span className="text-xs text-[#666666]">{count}</span>}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit?.();
+        }}
+        className="opacity-0 group-hover:opacity-100 text-[#666666] hover:text-[#AAAAAA] transition-opacity"
+      >
+        <Pencil className="w-3 h-3" />
+      </button>
+    </div>
+  </div>
+);
+
 const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
   <div 
     onClick={onClick}
@@ -209,6 +238,11 @@ export default function Home() {
   });
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [listItems, setListItems] = useState(['工作', '个人']);
+  const [tagItems, setTagItems] = useState(['购物']);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
 
   const persistSettings = (next: {
     apiKey: string;
@@ -248,9 +282,27 @@ export default function Home() {
         }
       }
 
+      const storedTheme = localStorage.getItem('recall_theme');
+      if (storedTheme === 'light') {
+        setThemeMode('light');
+      }
+
       refreshTasks();
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    if (themeMode === 'light') {
+      body.classList.add('theme-light');
+    } else {
+      body.classList.remove('theme-light');
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('recall_theme', themeMode);
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     setNewSubtaskTitle('');
@@ -274,17 +326,60 @@ export default function Home() {
     setTasks(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
   };
 
+  const renameCategory = (oldName: string) => {
+    if (typeof window === 'undefined') return;
+    const nextName = window.prompt('重命名列表', oldName)?.trim();
+    if (!nextName || nextName === oldName) return;
+    setListItems((prev) => prev.map((item) => (item === oldName ? nextName : item)));
+    taskStore.getAll().forEach((task) => {
+      if (task.category === oldName) {
+        taskStore.update({ ...task, category: nextName });
+      }
+    });
+    if (activeCategory === oldName) {
+      setActiveCategory(nextName);
+    }
+    refreshTasks();
+  };
+
+  const renameTag = (oldName: string) => {
+    if (typeof window === 'undefined') return;
+    const nextName = window.prompt('重命名标签', oldName)?.trim();
+    if (!nextName || nextName === oldName) return;
+    setTagItems((prev) => prev.map((item) => (item === oldName ? nextName : item)));
+    taskStore.getAll().forEach((task) => {
+      if (!task.tags?.length) return;
+      if (task.tags.includes(oldName)) {
+        const updatedTags = task.tags.map((tag) => (tag === oldName ? nextName : tag));
+        taskStore.update({ ...task, tags: updatedTags });
+      }
+    });
+    if (activeTag === oldName) {
+      setActiveTag(nextName);
+    }
+    refreshTasks();
+  };
+
   // Filter Logic
   const filteredTasks = tasks.filter(t => {
     if (activeFilter === 'search') return true;
     if (activeFilter === 'completed') return t.status === 'completed';
     if (t.status === 'completed') return false; // Hide completed in other views
-    
+
     if (activeFilter === 'today') {
       if (!t.dueDate) return false;
       const today = new Date().toISOString().split('T')[0];
       return t.dueDate.split('T')[0] === today;
     }
+
+    if (activeFilter === 'category') {
+      return activeCategory ? t.category === activeCategory : true;
+    }
+
+    if (activeFilter === 'tag') {
+      return activeTag ? (t.tags || []).includes(activeTag) : true;
+    }
+
     return true; // Default (todo/inbox/other views use full list for now)
   });
 
@@ -707,6 +802,12 @@ export default function Home() {
   const handleMonthChange = (offset: number) => {
     setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1));
   };
+  const headerTitle = activeFilter === 'category'
+    ? (activeCategory ?? FILTER_LABELS.category)
+    : activeFilter === 'tag'
+    ? (activeTag ? `#${activeTag}` : FILTER_LABELS.tag)
+    : (FILTER_LABELS[activeFilter] ?? '待办');
+  const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
 
   return (
     <div className="flex h-screen bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative">
@@ -791,13 +892,44 @@ export default function Home() {
           <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
             列表
           </div>
-          <SidebarItem icon={Hash} label="工作" count={0} />
-          <SidebarItem icon={Hash} label="个人" count={0} />
+          {listItems.map((item) => (
+            <EditableSidebarItem
+              key={item}
+              icon={Hash}
+              label={item}
+              count={tasks.filter((task) => task.category === item && task.status !== 'completed').length}
+              active={activeFilter === 'category' && activeCategory === item}
+              onClick={() => {
+                setActiveFilter('category');
+                setActiveCategory(item);
+                setActiveTag(null);
+                refreshTasks();
+                setIsSidebarOpen(false);
+              }}
+              onEdit={() => renameCategory(item)}
+            />
+          ))}
           
           <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
             标签
           </div>
-          <SidebarItem icon={TagIcon} label="购物" count={0} />
+          {tagItems.map((item) => (
+            <EditableSidebarItem
+              key={item}
+              icon={TagIcon}
+              label={item}
+              count={tasks.filter((task) => (task.tags || []).includes(item) && task.status !== 'completed').length}
+              active={activeFilter === 'tag' && activeTag === item}
+              onClick={() => {
+                setActiveFilter('tag');
+                setActiveTag(item);
+                setActiveCategory(null);
+                refreshTasks();
+                setIsSidebarOpen(false);
+              }}
+              onEdit={() => renameTag(item)}
+            />
+          ))}
         </nav>
 
         <div className="p-2 border-t border-[#333333]">
@@ -832,10 +964,17 @@ export default function Home() {
               {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
               {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
               {activeFilter === 'search' && <Search className="w-5 h-5 text-purple-500" />}
-              {FILTER_LABELS[activeFilter] ?? '待办'}
+              {headerTitle}
             </h2>
           </div>
           <div className="flex items-center gap-4 text-[#666666]">
+            <button
+              onClick={() => setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'))}
+              className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
+              title={themeMode === 'light' ? '切换夜间模式' : '切换日间模式'}
+            >
+              {themeMode === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            </button>
             <AlignLeft
               onClick={() => setShowSearch(true)}
               className="w-5 h-5 cursor-pointer hover:text-[#AAAAAA]"
@@ -1072,7 +1211,7 @@ export default function Home() {
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[#555555] uppercase">分类</label>
                 <div className="flex flex-wrap gap-2">
-                  {CATEGORY_OPTIONS.map((category) => (
+                  {categoryButtons.map((category) => (
                     <button
                       key={category}
                       onClick={() => updateTask({ ...selectedTask, category })}
@@ -1208,8 +1347,14 @@ export default function Home() {
       )}
 
       {showSearch && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-6">
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
+          onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+        >
+          <div
+            className="bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h2 className="text-lg font-semibold mb-4">搜索任务</h2>
             <div className="space-y-4">
               <div className="relative">
