@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, TouchEvent as ReactTouchEvent } from 'react';
 import { taskStore, habitStore, Task, Subtask, RepeatType, TaskRepeatRule, Habit } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import {
@@ -243,72 +243,135 @@ const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit
   </div>
 );
 
-const TaskItem = ({ task, selected, onClick, onToggle }: any) => (
-  <div 
-    onClick={onClick}
-    className={`group flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors border-b border-[#222222] ${
-      selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
-    }`}
-  >
-    <button 
-      onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-      className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border transition-colors ${
-        task.status === 'completed' 
-          ? 'bg-[#5E5E5E] border-[#5E5E5E] text-white' 
-          : 'border-[#555555] hover:border-[#888888]'
-      }`}
+const TaskItem = ({ task, selected, onClick, onToggle, onDelete }: any) => {
+  const startXRef = useRef<number | null>(null);
+  const [offsetX, setOffsetX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const maxOffset = 84;
+
+  const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 1) return;
+    startXRef.current = event.touches[0].clientX;
+  };
+
+  const handleTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
+    if (startXRef.current === null) return;
+    const currentX = event.touches[0].clientX;
+    const delta = currentX - startXRef.current;
+    if (delta >= 0) {
+      setOffsetX(0);
+      return;
+    }
+    setIsSwiping(true);
+    setOffsetX(Math.max(-maxOffset, delta));
+  };
+
+  const handleTouchEnd = () => {
+    if (!isSwiping) return;
+    const shouldOpen = Math.abs(offsetX) > maxOffset / 2;
+    setOffsetX(shouldOpen ? -maxOffset : 0);
+    setIsSwiping(false);
+    startXRef.current = null;
+  };
+
+  const handleClick = () => {
+    if (offsetX !== 0) {
+      setOffsetX(0);
+      return;
+    }
+    onClick?.();
+  };
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-lg"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
-      {task.status === 'completed' && (
-        <CheckCircle2 className="w-3.5 h-3.5 animate-[pop-in_280ms_ease-out]" />
-      )}
-    </button>
-    
-    <div className="flex-1 min-w-0">
-      <div className="flex justify-between items-start">
-        <p className={`text-sm leading-snug ${
-          task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
-        }`}>
-          {task.title}
-        </p>
-        {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
-          <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
-            {Math.round((task as any).similarity * 100)}%
-          </span>
-        )}
+      <div className="absolute inset-y-0 right-0 w-[84px] bg-red-600 flex items-center justify-center">
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            setOffsetX(0);
+            onDelete?.(task.id);
+          }}
+          className="text-sm font-semibold text-white"
+        >
+          删除
+        </button>
       </div>
-      
-      <div className="flex items-center gap-2 mt-1.5">
-        <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
-          <Flag className="w-3 h-3 fill-current" />
-          {getPriorityLabel(task.priority)}
-        </span>
-        {task.category && (
-          <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
-            {task.category}
-          </span>
-        )}
-        {task.subtasks?.length ? (
-          <span className="text-[10px] text-[#666666]">
-            {task.subtasks.filter((subtask: Subtask) => subtask.completed).length}/{task.subtasks.length} 已完成
-          </span>
-        ) : null}
-        {task.dueDate && (
-          <span
-            className={`text-[10px] flex items-center gap-1 ${
-              isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]'
-            }`}
-          >
-            <Calendar className="w-3 h-3" />
-            {task.dueDate.split('T')[0]}
-          </span>
-        )}
-        {task.tags?.map((tag: string) => (
-          <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
-        ))}
+      <div
+        onClick={handleClick}
+        className={`group flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors border-b border-[#222222] ${
+          selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
+        }`}
+        style={{
+          transform: `translateX(${offsetX}px)`,
+          transition: isSwiping ? 'none' : 'transform 180ms ease',
+        }}
+      >
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
+          className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+            task.status === 'completed' 
+              ? 'bg-[#5E5E5E] border-[#5E5E5E] text-white' 
+              : 'border-[#555555] hover:border-[#888888]'
+          }`}
+        >
+          {task.status === 'completed' && (
+            <CheckCircle2 className="w-3.5 h-3.5 animate-[pop-in_280ms_ease-out]" />
+          )}
+        </button>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+            <p className={`text-sm leading-snug ${
+              task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+            }`}>
+              {task.title}
+            </p>
+            {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
+              <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
+                {Math.round((task as any).similarity * 100)}%
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
+              <Flag className="w-3 h-3 fill-current" />
+              {getPriorityLabel(task.priority)}
+            </span>
+            {task.category && (
+              <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
+                {task.category}
+              </span>
+            )}
+            {task.subtasks?.length ? (
+              <span className="text-[10px] text-[#666666]">
+                {task.subtasks.filter((subtask: Subtask) => subtask.completed).length}/{task.subtasks.length} 已完成
+              </span>
+            ) : null}
+            {task.dueDate && (
+              <span
+                className={`text-[10px] flex items-center gap-1 ${
+                  isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]'
+                }`}
+              >
+                <Calendar className="w-3 h-3" />
+                {task.dueDate.split('T')[0]}
+              </span>
+            )}
+            {task.tags?.map((tag: string) => (
+              <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ---------------------------
 // Main Layout
@@ -989,6 +1052,14 @@ export default function Home() {
     }
   };
 
+  const removeTask = (taskId: string) => {
+    taskStore.remove(taskId);
+    refreshTasks();
+    if (selectedTask?.id === taskId) {
+      setSelectedTask(null);
+    }
+  };
+
   const toggleStatus = (id: string) => {
     const all = taskStore.getAll();
     const target = all.find(t => t.id === id);
@@ -1476,6 +1547,7 @@ export default function Home() {
                         selected={selectedTask?.id === task.id}
                         onClick={() => setSelectedTask(task)}
                         onToggle={toggleStatus}
+                        onDelete={removeTask}
                       />
                     ))
                   )}
@@ -1584,6 +1656,7 @@ export default function Home() {
                     selected={selectedTask?.id === task.id}
                     onClick={() => setSelectedTask(task)}
                     onToggle={toggleStatus}
+                    onDelete={removeTask}
                   />
                 ))
               )}

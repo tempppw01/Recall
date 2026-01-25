@@ -78,6 +78,11 @@ export const taskStore = {
     }
   },
 
+  remove: (id: string) => {
+    const tasks = taskStore.getAll().filter(task => task.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  },
+
   // 批量覆盖任务（用于 AI 整理后整体替换）
   replaceAll: (tasks: Task[]) => {
     if (typeof window === 'undefined') return;
