@@ -8,7 +8,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle, MoreVertical,
   AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2, ChevronDown, ChevronUp
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2, ChevronDown, ChevronUp, Terminal
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -565,6 +565,16 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState<
+    {
+      id: string;
+      level: 'info' | 'success' | 'warning' | 'error';
+      message: string;
+      detail?: string;
+      timestamp: string;
+    }[]
+  >([]);
   // AI 一键整理状态
   const [isOrganizing, setIsOrganizing] = useState(false);
   // todo-agent 聊天状态
@@ -577,6 +587,21 @@ export default function Home() {
   const recommendedPriority = selectedTask
     ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
     : 0;
+
+  const pushLog = (
+    level: 'info' | 'success' | 'warning' | 'error',
+    message: string,
+    detail?: string,
+  ) => {
+    const entry = {
+      id: createId(),
+      level,
+      message,
+      detail,
+      timestamp: new Date().toLocaleString('zh-CN', { hour12: false }),
+    };
+    setLogs((prev) => [entry, ...prev].slice(0, 200));
+  };
 
   const persistSettings = (next: {
     apiKey: string;
@@ -641,6 +666,10 @@ export default function Home() {
         }
       }
     }
+  }, []);
+
+  useEffect(() => {
+    pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
   }, []);
 
   useEffect(() => {
@@ -929,6 +958,7 @@ export default function Home() {
   const handleAgentSend = async () => {
     const content = agentInput.trim();
     if (!content || agentLoading) return;
+    pushLog('info', 'todo-agent 请求发送', content);
     setAgentLoading(true);
     setAgentMessages((prev) => [...prev, { role: 'user', content }]);
 
@@ -961,12 +991,14 @@ export default function Home() {
       setAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
       setAgentItems(nextItems);
       setAddedAgentItemIds(new Set());
+      pushLog('success', 'todo-agent 返回成功', `建议待办 ${nextItems.length} 条`);
     } catch (error) {
       console.error(error);
       setAgentMessages((prev) => [
         ...prev,
         { role: 'assistant', content: '我这边没连上服务，稍后再试试？' },
       ]);
+      pushLog('error', 'todo-agent 请求失败', String((error as Error)?.message || error));
     } finally {
       setAgentInput('');
       setAgentLoading(false);
@@ -1022,6 +1054,7 @@ export default function Home() {
       : false;
     if (!confirmed) return;
 
+    pushLog('info', 'AI 整理开始', `任务数量 ${tasks.length}`);
     setIsOrganizing(true);
 
     try {
@@ -1086,11 +1119,13 @@ export default function Home() {
       const nextTags = Array.from(new Set(nextTasks.flatMap((task) => task.tags || [])));
       if (nextCategories.length) setListItems(nextCategories);
       if (nextTags.length) setTagItems(nextTags);
+      pushLog('success', 'AI 整理完成', `输出任务 ${nextTasks.length} 条`);
     } catch (error) {
       console.error(error);
       if (typeof window !== 'undefined') {
         window.alert('AI 整理失败，请稍后重试');
       }
+      pushLog('error', 'AI 整理失败', String((error as Error)?.message || error));
     } finally {
       setIsOrganizing(false);
     }
@@ -1528,6 +1563,7 @@ export default function Home() {
     setSearchQuery(query);
     setSearchLoading(true);
     pushSearchHistory(query);
+    pushLog('info', '搜索请求发送', query);
 
     try {
       const res = await fetch('/api/ai/process', {
@@ -1553,6 +1589,7 @@ export default function Home() {
         setActiveFilter('search');
         setShowSearch(false);
         setSelectedTask(null);
+        pushLog('success', '搜索完成', `命中 ${results.length} 条任务`);
       }
     } catch (e) {
       console.error(e);
@@ -1567,6 +1604,7 @@ export default function Home() {
       setActiveFilter('search');
       setShowSearch(false);
       setSelectedTask(null);
+      pushLog('warning', '搜索走本地兜底', `命中 ${fallback.length} 条任务`);
     } finally {
       setSearchLoading(false);
     }
@@ -1897,6 +1935,13 @@ export default function Home() {
             </h2>
           </div>
           <div className="mobile-toolbar flex items-center gap-3 sm:gap-4 text-[#666666]">
+            <button
+              onClick={() => setShowLogs(true)}
+              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
+              title="运行日志"
+            >
+              <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
             <button
               onClick={handleOrganizeTasks}
               disabled={isOrganizing}
@@ -2833,6 +2878,75 @@ export default function Home() {
                   {searchLoading ? '搜索中...' : '搜索'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLogs && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+          onClick={() => setShowLogs(false)}
+        >
+          <div
+            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-5 sm:p-6 relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-base sm:text-lg font-semibold">运行日志</h2>
+              <button
+                onClick={() => setShowLogs(false)}
+                className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+              >
+                关闭
+              </button>
+            </div>
+            <div className="space-y-2 text-xs text-[#777777] mb-4">
+              <div>数据存储：浏览器 localStorage</div>
+              <div>数据库：未配置</div>
+              <div>AI 接口：{apiBaseUrl || DEFAULT_BASE_URL}</div>
+            </div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs uppercase text-[#666666]">最近日志</span>
+              <button
+                onClick={() => setLogs([])}
+                className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+              >
+                清空
+              </button>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto mobile-scroll space-y-2 pr-1">
+              {logs.length === 0 ? (
+                <div className="text-sm text-[#555555]">暂无日志</div>
+              ) : (
+                logs.map((item) => (
+                  <div
+                    key={item.id}
+                    className="border border-[#333333] rounded-lg px-3 py-2 bg-[#1F1F1F]"
+                  >
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-[#666666]">
+                      <span>{item.timestamp}</span>
+                      <span
+                        className={
+                          item.level === 'error'
+                            ? 'text-red-400'
+                            : item.level === 'warning'
+                            ? 'text-yellow-400'
+                            : item.level === 'success'
+                            ? 'text-emerald-400'
+                            : 'text-blue-400'
+                        }
+                      >
+                        {item.level.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="text-sm text-[#DDDDDD] mt-1">{item.message}</div>
+                    {item.detail && (
+                      <div className="text-xs text-[#777777] mt-1 whitespace-pre-wrap">{item.detail}</div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
