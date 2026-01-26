@@ -538,6 +538,9 @@ export default function Home() {
   const [countdownDate, setCountdownDate] = useState('');
   const [newHabitTitle, setNewHabitTitle] = useState('');
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(true);
+  const [isListsOpen, setIsListsOpen] = useState(true);
+  const [isTagsOpen, setIsTagsOpen] = useState(true);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -594,7 +597,9 @@ export default function Home() {
       const storedEmbeddingModel = localStorage.getItem('recall_embedding_model');
       const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
 
-      if (storedKey) setApiKey(storedKey);
+      if (storedKey) {
+        setApiKey(storedKey);
+      }
       if (storedBaseUrl) setApiBaseUrl(storedBaseUrl);
       if (storedModelList) setModelListText(storedModelList);
       if (storedChatModel) setChatModel(storedChatModel);
@@ -614,6 +619,15 @@ export default function Home() {
       refreshTasks();
       refreshHabits();
       refreshCountdowns();
+
+      if (!storedKey) {
+        const inputKey = window.prompt('未检测到 AI 令牌，可输入以启用完整功能（可跳过）');
+        if (inputKey && inputKey.trim()) {
+          const normalizedKey = inputKey.trim();
+          setApiKey(normalizedKey);
+          localStorage.setItem('recall_api_key', normalizedKey);
+        }
+      }
     }
   }, []);
 
@@ -1624,14 +1638,6 @@ export default function Home() {
     : (FILTER_LABELS[activeFilter] ?? '待办');
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
-  const hasQuadrantTasks = tasks.length > 0;
-  const hasCountdowns = countdowns.length > 0;
-  const hasHabits = habits.length > 0;
-  const hasPomodoroTasks = tasks.length > 0;
-  const hasSearchable = tasks.length > 0;
-  const hasQuickAccess = tasks.length > 0;
-  const hasLists = listItems.length > 0;
-  const hasTags = tagItems.length > 0;
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top">
@@ -1669,133 +1675,160 @@ export default function Home() {
               active={activeFilter === 'todo'} 
               onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }} 
             />
-          {hasCalendarTasks && (
-            <SidebarItem 
-              icon={Calendar} label="日历" count={0} 
-              active={activeFilter === 'calendar'} 
-              onClick={() => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }} 
-            />
-          )}
-          {hasQuadrantTasks && (
-            <SidebarItem 
-              icon={LayoutGrid} label="四象限" count={0} 
-              active={activeFilter === 'quadrant'} 
-              onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }} 
-            />
-          )}
-          {hasCountdowns && (
-            <SidebarItem 
-              icon={Timer} label="倒数日" count={countdowns.length} 
-              active={activeFilter === 'countdown'} 
-              onClick={() => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }} 
-            />
-          )}
-          {hasHabits && (
-            <SidebarItem 
-              icon={Flame} label="习惯打卡" count={0} 
-              active={activeFilter === 'habit'} 
-              onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }} 
-            />
-          )}
-          {hasSearchable && (
-            <SidebarItem 
-              icon={Search} label="搜索" count={0} 
-              active={activeFilter === 'search'} 
-              onClick={() => { setActiveFilter('search'); setShowSearch(true); }} 
-            />
-          )}
-          {hasPomodoroTasks && (
-            <SidebarItem 
-              icon={Timer} label="番茄时钟" count={0} 
-              active={activeFilter === 'pomodoro'} 
-              onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
-            />
-          )}
-
-          {hasQuickAccess && (
-            <>
-              <button
-                type="button"
-                onClick={() => setIsQuickAccessOpen((prev) => !prev)}
-                className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
-              >
-                <span>快捷入口</span>
-                {isQuickAccessOpen ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-              </button>
-              {isQuickAccessOpen && (
-                <div className="space-y-1">
-                  <SidebarItem 
-                    icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length} 
-                    active={activeFilter === 'inbox'} 
-                    onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }} 
-                  />
-                  <SidebarItem 
-                    icon={Sun} label="今日" count={0} 
-                    active={activeFilter === 'today'} 
-                    onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }} 
-                  />
-                  <SidebarItem 
-                    icon={Calendar} label="未来 7 天" count={0} 
-                    active={activeFilter === 'next7'} 
-                    onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }} 
-                  />
-                </div>
+            <button
+              type="button"
+              onClick={() => setIsToolsOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
+            >
+              <span>功能</span>
+              {isToolsOpen ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
               )}
-            </>
-          )}
-          {hasLists && (
-            <>
-              <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
-                列表
-              </div>
-              {listItems.map((item) => (
-                <EditableSidebarItem
-                  key={item}
-                  icon={Hash}
-                  label={item}
-                  count={tasks.filter((task) => task.category === item && task.status !== 'completed').length}
-                  active={activeFilter === 'category' && activeCategory === item}
-                  onClick={() => {
-                    setActiveFilter('category');
-                    setActiveCategory(item);
-                    setActiveTag(null);
-                    refreshTasks();
-                    setIsSidebarOpen(false);
-                  }}
-                  onEdit={() => renameCategory(item)}
+            </button>
+            {isToolsOpen && (
+              <div className="space-y-1">
+                <SidebarItem 
+                  icon={Calendar} label="日历" count={hasCalendarTasks ? 0 : 0} 
+                  active={activeFilter === 'calendar'} 
+                  onClick={() => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }} 
                 />
-              ))}
-            </>
-          )}
+                <SidebarItem 
+                  icon={LayoutGrid} label="四象限" count={0} 
+                  active={activeFilter === 'quadrant'} 
+                  onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }} 
+                />
+                <SidebarItem 
+                  icon={Timer} label="倒数日" count={countdowns.length} 
+                  active={activeFilter === 'countdown'} 
+                  onClick={() => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }} 
+                />
+                <SidebarItem 
+                  icon={Flame} label="习惯打卡" count={0} 
+                  active={activeFilter === 'habit'} 
+                  onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }} 
+                />
+                <SidebarItem 
+                  icon={Search} label="搜索" count={0} 
+                  active={activeFilter === 'search'} 
+                  onClick={() => { setActiveFilter('search'); setShowSearch(true); }} 
+                />
+                <SidebarItem 
+                  icon={Timer} label="番茄时钟" count={0} 
+                  active={activeFilter === 'pomodoro'} 
+                  onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsQuickAccessOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
+            >
+              <span>快捷入口</span>
+              {isQuickAccessOpen ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+            {isQuickAccessOpen && (
+              <div className="space-y-1">
+                <SidebarItem 
+                  icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length} 
+                  active={activeFilter === 'inbox'} 
+                  onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }} 
+                />
+                <SidebarItem 
+                  icon={Sun} label="今日" count={0} 
+                  active={activeFilter === 'today'} 
+                  onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }} 
+                />
+                <SidebarItem 
+                  icon={Calendar} label="未来 7 天" count={0} 
+                  active={activeFilter === 'next7'} 
+                  onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }} 
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsListsOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
+            >
+              <span>列表</span>
+              {isListsOpen ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+            {isListsOpen && (
+              <div className="space-y-1">
+                {listItems.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-[#555555]">暂无列表</div>
+                ) : (
+                  listItems.map((item) => (
+                    <EditableSidebarItem
+                      key={item}
+                      icon={Hash}
+                      label={item}
+                      count={tasks.filter((task) => task.category === item && task.status !== 'completed').length}
+                      active={activeFilter === 'category' && activeCategory === item}
+                      onClick={() => {
+                        setActiveFilter('category');
+                        setActiveCategory(item);
+                        setActiveTag(null);
+                        refreshTasks();
+                        setIsSidebarOpen(false);
+                      }}
+                      onEdit={() => renameCategory(item)}
+                    />
+                  ))
+                )}
+              </div>
+            )}
           
-          {hasTags && (
-            <>
-              <div className="pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider">
-                标签
+            <button
+              type="button"
+              onClick={() => setIsTagsOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
+            >
+              <span>标签</span>
+              {isTagsOpen ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+            {isTagsOpen && (
+              <div className="space-y-1">
+                {tagItems.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-[#555555]">暂无标签</div>
+                ) : (
+                  tagItems.map((item) => (
+                    <EditableSidebarItem
+                      key={item}
+                      icon={TagIcon}
+                      label={item}
+                      count={tasks.filter((task) => (task.tags || []).includes(item) && task.status !== 'completed').length}
+                      active={activeFilter === 'tag' && activeTag === item}
+                      onClick={() => {
+                        setActiveFilter('tag');
+                        setActiveTag(item);
+                        setActiveCategory(null);
+                        refreshTasks();
+                        setIsSidebarOpen(false);
+                      }}
+                      onEdit={() => renameTag(item)}
+                    />
+                  ))
+                )}
               </div>
-              {tagItems.map((item) => (
-                <EditableSidebarItem
-                  key={item}
-                  icon={TagIcon}
-                  label={item}
-                  count={tasks.filter((task) => (task.tags || []).includes(item) && task.status !== 'completed').length}
-                  active={activeFilter === 'tag' && activeTag === item}
-                  onClick={() => {
-                    setActiveFilter('tag');
-                    setActiveTag(item);
-                    setActiveCategory(null);
-                    refreshTasks();
-                    setIsSidebarOpen(false);
-                  }}
-                  onEdit={() => renameTag(item)}
-                />
-              ))}
-            </>
-          )}
+            )}
           </nav>
 
           <div className="p-2 border-t border-[#333333] mt-3">
