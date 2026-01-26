@@ -15,6 +15,8 @@ const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
+const APP_VERSION = '0.5.3';
+const APP_VERSION_KEY = 'recall_app_version';
 const SEARCH_HISTORY_KEY = 'recall_search_history';
 const MAX_SEARCH_HISTORY = 8;
 const PRIORITY_LABELS = ['低', '中', '高'];
@@ -522,6 +524,11 @@ export default function Home() {
   // Load Initial Data
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const cachedVersion = localStorage.getItem(APP_VERSION_KEY);
+      if (cachedVersion !== APP_VERSION) {
+        localStorage.clear();
+        localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
+      }
       const storedKey = localStorage.getItem('recall_api_key');
       const storedBaseUrl = localStorage.getItem('recall_api_base_url');
       const storedModelList = localStorage.getItem('recall_model_list');
@@ -1584,6 +1591,11 @@ export default function Home() {
 
           <nav className="px-2 space-y-1">
             <SidebarItem 
+              icon={Command} label="AI 助手" count={agentItems.length} 
+              active={activeFilter === 'agent'} 
+              onClick={() => { setActiveFilter('agent'); setIsSidebarOpen(false); }} 
+            />
+            <SidebarItem 
               icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length} 
               active={activeFilter === 'todo'} 
               onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }} 
@@ -1617,11 +1629,6 @@ export default function Home() {
             icon={Timer} label="番茄时钟" count={0} 
             active={activeFilter === 'pomodoro'} 
             onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
-          />
-          <SidebarItem 
-            icon={Command} label="AI 助手" count={agentItems.length} 
-            active={activeFilter === 'agent'} 
-            onClick={() => { setActiveFilter('agent'); setIsSidebarOpen(false); }} 
           />
 
           <button
@@ -1767,47 +1774,49 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
-          {/* 紧凑统计条：不占空间，仅在有任务时展示 */}
-          {totalTasks > 0 && (
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-[#777777]">
-              <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
-                完成率：<span className="text-[#DDDDDD]">{completionRate}%</span>
-              </span>
-              <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
-                拖延指数：<span className="text-[#DDDDDD]">{procrastinationIndex}%</span>
-              </span>
-              <span className="text-[#555555]">别担心，它只是提醒你别太完美。</span>
-            </div>
-          )}
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
-            <div className="relative flex items-center gap-3 bg-[#262626] border border-[#333333] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm focus-within:border-[#444444] focus-within:ring-1 focus-within:ring-[#444444] transition-all">
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-[#444444] border-t-blue-500 rounded-full animate-spin" />
-              ) : (
-                <Plus className="w-5 h-5 text-blue-500" />
-              )}
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleMagicInput()}
-                placeholder="新增任务…（例如：明天提醒我给小王打电话 #工作）"
-                className="flex-1 bg-transparent border-none outline-none text-sm placeholder-[#555555]"
-                disabled={loading}
-              />
-              {input && (
-                <button 
-                  onClick={handleMagicInput}
-                  className="bg-blue-600 text-white p-1 rounded hover:bg-blue-500 transition-colors"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              )}
+        {!['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit'].includes(activeFilter) && (
+          <div className="px-3 sm:px-6 py-3 sm:py-4">
+            {/* 紧凑统计条：不占空间，仅在有任务时展示 */}
+            {totalTasks > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-[#777777]">
+                <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
+                  完成率：<span className="text-[#DDDDDD]">{completionRate}%</span>
+                </span>
+                <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
+                  拖延指数：<span className="text-[#DDDDDD]">{procrastinationIndex}%</span>
+                </span>
+                <span className="text-[#555555]">别担心，它只是提醒你别太完美。</span>
+              </div>
+            )}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
+              <div className="relative flex items-center gap-3 bg-[#262626] border border-[#333333] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm focus-within:border-[#444444] focus-within:ring-1 focus-within:ring-[#444444] transition-all">
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-[#444444] border-t-blue-500 rounded-full animate-spin" />
+                ) : (
+                  <Plus className="w-5 h-5 text-blue-500" />
+                )}
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleMagicInput()}
+                  placeholder="新增任务…（例如：明天提醒我给小王打电话 #工作）"
+                  className="flex-1 bg-transparent border-none outline-none text-sm placeholder-[#555555]"
+                  disabled={loading}
+                />
+                {input && (
+                  <button 
+                    onClick={handleMagicInput}
+                    className="bg-blue-600 text-white p-1 rounded hover:bg-blue-500 transition-colors"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10">
           {activeFilter === 'calendar' ? (
@@ -2676,7 +2685,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="fixed bottom-[calc(0.5rem+env(safe-area-inset-bottom))] right-3 sm:right-4 text-[10px] sm:text-xs text-[#555555]">v0.5.2</div>
+      <div className="fixed bottom-[calc(0.5rem+env(safe-area-inset-bottom))] right-3 sm:right-4 text-[10px] sm:text-xs text-[#555555]">v{APP_VERSION}</div>
     </div>
   );
 }
