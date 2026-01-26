@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw } from 'lucide-react';
 
 type PomodoroPhase = 'focus' | 'shortBreak' | 'longBreak';
@@ -30,6 +30,8 @@ export default function PomodoroTimer() {
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [remaining, setRemaining] = useState(PHASE_DURATIONS[cycleOrder[0]]);
   const [isRunning, setIsRunning] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const previousRemainingRef = useRef(remaining);
 
   const phase = cycleOrder[phaseIndex] ?? 'focus';
   const totalSeconds = PHASE_DURATIONS[phase];
@@ -99,6 +101,53 @@ export default function PomodoroTimer() {
     return () => clearInterval(timer);
   }, [isRunning]);
 
+  const ensureAudioContext = () => {
+    if (typeof window === 'undefined') return;
+    if (!audioContextRef.current) {
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      audioContextRef.current = new AudioContextCtor();
+    }
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  };
+
+  const playTickSound = () => {
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(1200, now);
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.035, now + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.08);
+  };
+
+  useEffect(() => {
+    if (!isRunning) {
+      previousRemainingRef.current = remaining;
+      return;
+    }
+    if (remaining > 0 && remaining < previousRemainingRef.current) {
+      playTickSound();
+    }
+    previousRemainingRef.current = remaining;
+  }, [isRunning, remaining]);
+
+  useEffect(() => {
+    return () => {
+      audioContextRef.current?.close();
+      audioContextRef.current = null;
+    };
+  }, []);
+
   const handleNextPhase = () => {
     const nextIndex = (phaseIndex + 1) % cycleOrder.length;
     setPhaseIndex(nextIndex);
@@ -145,7 +194,10 @@ export default function PomodoroTimer() {
 
           <div className="mt-6 flex items-center gap-3">
             <button
-              onClick={() => setIsRunning((prev) => !prev)}
+              onClick={() => {
+                ensureAudioContext();
+                setIsRunning((prev) => !prev);
+              }}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors"
             >
               {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}

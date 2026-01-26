@@ -16,6 +16,12 @@ https://recall.shuaihong.fun/
 
 ## 🧾 更新日志
 
+### v0.5.3
+
+*   新增番茄时钟滴答音效，专注节奏更清晰。
+*   侧边栏入口支持按数据折叠展示，移动端层级更清爽。
+*   底部信息区补充项目主页、微信联系方式与版权提示。
+
 ### v0.5.1
 
 *   新增自动分类（工作/生活/健康/学习/家庭/财务/社交），AI 优先判断，规则兜底。
@@ -25,20 +31,24 @@ https://recall.shuaihong.fun/
 ## 🚧 已知问题与待办
 
 1. ✅ 复杂自然语言解析（如“下周五下午三点提醒我给车买保险”）已完成优化。
-2. 搜索功能目前不可用。
-3. 尚未接入 MySQL 数据库，后续补充。
-4. 未加入页面登录与加密功能。
-5. 子任务功能尚未完善。
-6. 移动端 UI 仍需进一步适配优化。
-7. AI 大模型未能稳定成功调用。
-8. 计划加入非流式调用模式。
-9. 计划加入 AI 一键整理当前所有任务清单功能。
+2. 🟡 搜索功能依赖 Embedding 服务，未配置时仅走关键词兜底。
+3. ⏳ 尚未接入 MySQL/云端同步，后续补充。
+4. ⏳ 未加入页面登录与加密功能。
+5. 🟡 子任务进阶能力仍待完善（如批量操作/提醒）。
+6. 🟡 移动端 UI 持续适配优化中。
+7. 🟡 AI 大模型调用稳定性待提升。
+8. ⏳ 计划加入非流式调用模式。
+9. ✅ 已加入 AI 一键整理当前任务清单功能。
+10. ✅ 番茄时钟滴答音效已完成。
 
-## 技术栈
+## 技术框架
 
-*   **Frontend/Fullstack**: Next.js 14+ (App Router), TypeScript
-*   **UI Framework**: Tailwind CSS, ShadcnUI
-*   **AI/Vector**: OpenAI Compatible API, Local Vector Search (Cosine Similarity)
+*   **Frontend/Fullstack**: Next.js 14+ (App Router), React 18, TypeScript
+*   **UI Framework**: Tailwind CSS, Lucide Icons
+*   **AI/Vector**: OpenAI Compatible API, 本地向量检索 (Cosine Similarity)
+*   **Storage**: Browser LocalStorage (MVP)
+*   **PWA**: Web App Manifest + Service Worker 注册
+*   **Audio**: Web Audio API (番茄时钟滴答音效)
 *   **Deployment**: Docker (Alpine Linux based)
 
 ## 🚀 快速部署 (Docker Compose)

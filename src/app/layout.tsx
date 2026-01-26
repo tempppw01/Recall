@@ -29,6 +29,22 @@ export default function RootLayout({
       <body>
         <PWARegister />
         {children}
+        <footer className="app-footer">
+          <div className="app-footer__content">
+            <span>
+              项目主页：
+              <a
+                href="https://github.com/tempppw01/Recall"
+                target="_blank"
+                rel="noreferrer"
+              >
+                https://github.com/tempppw01/Recall
+              </a>
+            </span>
+            <span>微信：Ethan_BravoEcho</span>
+            <span>版权所有 © Recall Team</span>
+          </div>
+        </footer>
       </body>
     </html>
   );
