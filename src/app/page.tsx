@@ -566,6 +566,7 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+  const [isSystemTheme, setIsSystemTheme] = useState(true);
   const [wallpaperUrl, setWallpaperUrl] = useState('');
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<
@@ -659,6 +660,14 @@ export default function Home() {
       const storedTheme = localStorage.getItem('recall_theme');
       if (storedTheme === 'light') {
         setThemeMode('light');
+        setIsSystemTheme(false);
+      } else if (storedTheme === 'dark') {
+        setThemeMode('dark');
+        setIsSystemTheme(false);
+      } else if (typeof window !== 'undefined') {
+        const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+        setThemeMode(systemPrefersDark ? 'dark' : 'light');
+        setIsSystemTheme(true);
       }
 
       refreshTasks();
@@ -704,9 +713,36 @@ export default function Home() {
       body.classList.remove('theme-light');
     }
     if (typeof window !== 'undefined') {
-      localStorage.setItem('recall_theme', themeMode);
+      if (isSystemTheme) {
+        localStorage.removeItem('recall_theme');
+      } else {
+        localStorage.setItem('recall_theme', themeMode);
+      }
     }
-  }, [themeMode]);
+  }, [themeMode, isSystemTheme]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isSystemTheme) return;
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySystemTheme = (isDark: boolean) => {
+      setThemeMode(isDark ? 'dark' : 'light');
+    };
+    applySystemTheme(media.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      applySystemTheme(event.matches);
+    };
+
+    if (media.addEventListener) {
+      media.addEventListener('change', handleChange);
+      return () => media.removeEventListener('change', handleChange);
+    }
+
+    media.addListener(handleChange);
+    return () => media.removeListener(handleChange);
+  }, [isSystemTheme]);
 
   useEffect(() => {
     setNewSubtaskTitle('');
@@ -1737,8 +1773,12 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto overscroll-contain">
           <div className="p-4 flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
-                R
+              <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm">
+                <img
+                  src="/icon.svg"
+                  alt="Recall"
+                  className="w-6 h-6 rounded-full"
+                />
               </div>
               <div>
                 <h1 className="text-sm font-semibold">Recall AI</h1>
@@ -1971,7 +2011,10 @@ export default function Home() {
               <Wand2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
-              onClick={() => setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'))}
+              onClick={() => {
+                setIsSystemTheme(false);
+                setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
+              }}
               className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
               title={themeMode === 'light' ? '切换夜间模式' : '切换日间模式'}
             >
