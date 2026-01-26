@@ -7,6 +7,13 @@ const DEFAULT_CHAT_COMPLETIONS_URL = 'https://ai.shuaihong.fun/v1/chat/completio
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
+const TIME_SOURCES = [
+  'https://www.ntsc.ac.cn',
+  'http://www.bjtime.cn',
+  'https://www.baidu.com',
+  'https://www.taobao.com',
+  'https://www.360.cn',
+];
 
 type ParsedTask = {
   id?: string;
@@ -93,9 +100,14 @@ function classifyCategory(input: string) {
 }
 
 function evaluatePriority(dueDate?: string, subtaskCount = 0) {
+  const baseNow = Date.now();
+  return evaluatePriorityWithNow(dueDate, subtaskCount, baseNow);
+}
+
+function evaluatePriorityWithNow(dueDate: string | undefined, subtaskCount = 0, nowMs: number) {
   if (dueDate) {
     const due = new Date(dueDate).getTime();
-    const now = Date.now();
+    const now = nowMs;
     const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
     if (diffDays <= 1) return 2;
     if (diffDays <= 3) return 1;
@@ -103,6 +115,48 @@ function evaluatePriority(dueDate?: string, subtaskCount = 0) {
   if (subtaskCount >= 5) return 2;
   if (subtaskCount >= 3) return 1;
   return DEFAULT_TASK.priority;
+}
+
+function formatShanghaiDateTime(date: Date) {
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${pick('year')}-${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')}:${pick('second')}`;
+}
+
+async function getNetworkTime() {
+  for (const url of TIME_SOURCES) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const response = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0',
+        },
+      });
+      clearTimeout(timeoutId);
+      const dateHeader = response.headers.get('date');
+      if (!dateHeader) continue;
+      const parsed = new Date(dateHeader);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+  return new Date();
 }
 
 function isCookingTask(text: string) {
@@ -138,6 +192,14 @@ export async function POST(req: NextRequest) {
           apiKey: process.env.OPENAI_API_KEY || 'sk-placeholder',
           baseURL: resolvedBaseUrl,
         });
+
+    if (mode === 'time') {
+      const networkNow = await getNetworkTime();
+      return NextResponse.json({
+        serverTime: networkNow.toISOString(),
+        serverTimeText: formatShanghaiDateTime(networkNow),
+      });
+    }
 
     if (!input) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
@@ -197,7 +259,9 @@ export async function POST(req: NextRequest) {
         category: CATEGORY_OPTIONS.includes(task.category || '')
           ? task.category
           : classifyCategory(`${task.title}`),
-        priority: typeof task.priority === 'number' ? task.priority : evaluatePriority(task.dueDate, task.subtasks?.length || 0),
+        priority: typeof task.priority === 'number'
+          ? task.priority
+          : evaluatePriority(task.dueDate, task.subtasks?.length || 0),
       }));
 
       return NextResponse.json({ tasks: normalizedCategoryTasks });
@@ -210,6 +274,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (mode === 'todo-agent') {
+      const networkNow = await getNetworkTime();
+      const serverTimeText = formatShanghaiDateTime(networkNow);
       // todo-agent：返回聊天回复 + 待办清单
       const completionResponse = await fetch(resolvedChatCompletionsUrl, {
         method: 'POST',
@@ -226,7 +292,7 @@ export async function POST(req: NextRequest) {
 1) 用简短中文回复用户，字段名 reply。
 2) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks。
 3) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
-4) dueDate 可为空，优先解析中文相对时间并转 ISO 字符串。
+4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 字符串。
 5) subtasks 仅保留 title。
 6) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }]}。`,
             },
@@ -253,7 +319,7 @@ export async function POST(req: NextRequest) {
           : classifyCategory(`${item.title}`),
         priority: typeof item.priority === 'number'
           ? item.priority
-          : evaluatePriority(item.dueDate, item.subtasks?.length || 0),
+          : evaluatePriorityWithNow(item.dueDate, item.subtasks?.length || 0, networkNow.getTime()),
       }));
 
       return NextResponse.json({
@@ -261,10 +327,14 @@ export async function POST(req: NextRequest) {
           ? rawResult.reply.trim()
           : '已整理成待办清单，点一下即可加入。',
         items: normalizedCategoryItems,
+        serverTime: networkNow.toISOString(),
+        serverTimeText,
       });
     }
 
     // 默认模式：Magic Input (意图识别 + Embedding)
+    const networkNow = await getNetworkTime();
+    const serverTimeText = formatShanghaiDateTime(networkNow);
     const completionResponse = await fetch(resolvedChatCompletionsUrl, {
       method: 'POST',
       headers: {
@@ -276,7 +346,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取）。\n4) 如果输入包含日期/时间，请转换为 ISO 格式的 dueDate（包含时分秒），优先解析中文相对时间，并遵循模糊时间默认规则：\n- 早上/上午 → 09:00\n- 中午 → 12:00\n- 下午 → 15:00\n- 晚上/今晚 → 20:00\n- 凌晨 → 00:00\n例如：\n- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间\n- “周三上午开会” → 周三 09:00 的 ISO 时间\n- “今晚八点” → 今日 20:00 的 ISO 时间\n- “后天上午9点” → 后天 09:00 的 ISO 时间\n- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间\n- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间\n- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间\n- “下午三点到四点开会” → 取开始时间 15:00\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }`,
+            content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取）。\n4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8）。如果输入包含日期/时间，请转换为 ISO 格式的 dueDate（包含时分秒），优先解析中文相对时间，并遵循模糊时间默认规则：\n- 早上/上午 → 09:00\n- 中午 → 12:00\n- 下午 → 15:00\n- 晚上/今晚 → 20:00\n- 凌晨 → 00:00\n例如：\n- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间\n- “周三上午开会” → 周三 09:00 的 ISO 时间\n- “今晚八点” → 今日 20:00 的 ISO 时间\n- “后天上午9点” → 后天 09:00 的 ISO 时间\n- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间\n- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间\n- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间\n- “下午三点到四点开会” → 取开始时间 15:00\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }`,
           },
           { role: 'user', content: input },
         ],
@@ -296,7 +366,7 @@ export async function POST(req: NextRequest) {
       ? taskData.category
       : classifyCategory(`${taskData.title} ${input}`);
     const normalizedPriority = taskData.priority === DEFAULT_TASK.priority
-      ? evaluatePriority(taskData.dueDate, taskData.subtasks.length)
+      ? evaluatePriorityWithNow(taskData.dueDate, taskData.subtasks.length, networkNow.getTime())
       : taskData.priority;
     const sourceText = `${taskData.title} ${input}`.trim();
     if ((!taskData.subtasks || taskData.subtasks.length === 0) && isCookingTask(sourceText)) {
@@ -315,7 +385,7 @@ export async function POST(req: NextRequest) {
         category: normalizedCategory,
         priority: normalizedPriority,
         id: Math.random().toString(36).substring(2, 9),
-        createdAt: new Date().toISOString(),
+        createdAt: networkNow.toISOString(),
         status: 'todo',
         subtasks: taskData.subtasks.map((subtask) => ({
           id: Math.random().toString(36).substring(2, 9),

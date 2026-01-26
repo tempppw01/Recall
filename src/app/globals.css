@@ -18,6 +18,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
   transition: background-color 0.2s ease, color 0.2s ease, filter 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
 }
 
@@ -44,11 +45,28 @@ button {
   padding-top: env(safe-area-inset-top);
 }
 
+.mobile-modal {
+  max-height: 85dvh;
+  overscroll-behavior: contain;
+}
+
+.mobile-modal-body {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
 @media (max-width: 640px) {
   input,
   select,
   textarea {
     font-size: 16px;
+  }
+
+  .mobile-modal {
+    border-radius: 16px;
+  }
+
+  .mobile-toolbar {
+    gap: 0.5rem;
   }
 }
 

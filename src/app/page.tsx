@@ -109,6 +109,26 @@ const isTaskOverdue = (task: Task) => {
   return new Date(task.dueDate).getTime() < Date.now();
 };
 
+const normalizeAgentDueDate = (value?: string) => {
+  if (!value) {
+    return { normalized: undefined, isValid: false, isProvided: false };
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return { normalized: undefined, isValid: false, isProvided: true };
+  }
+  const now = new Date();
+  const min = new Date(now);
+  min.setDate(min.getDate() - 1);
+  min.setHours(0, 0, 0, 0);
+  const max = new Date(now);
+  max.setFullYear(max.getFullYear() + 2);
+  if (parsed < min || parsed > max) {
+    return { normalized: undefined, isValid: false, isProvided: true };
+  }
+  return { normalized: parsed.toISOString(), isValid: true, isProvided: true };
+};
+
 const classifyCategory = (input: string) => {
   const text = input.toLowerCase();
   const rules: Record<string, string[]> = {
@@ -127,10 +147,10 @@ const classifyCategory = (input: string) => {
   return '生活';
 };
 
-const evaluatePriority = (dueDate?: string, subtaskCount = 0) => {
+const evaluatePriority = (dueDate?: string, subtaskCount = 0, nowMs?: number) => {
+  const now = nowMs ?? Date.now();
   if (dueDate) {
     const due = new Date(dueDate).getTime();
-    const now = Date.now();
     const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
     if (diffDays <= 1) return 2;
     if (diffDays <= 3) return 1;
@@ -138,6 +158,29 @@ const evaluatePriority = (dueDate?: string, subtaskCount = 0) => {
   if (subtaskCount >= 5) return 2;
   if (subtaskCount >= 3) return 1;
   return 0;
+};
+
+const fetchServerTime = async () => {
+  try {
+    const res = await fetch('/api/ai/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'time' }),
+    });
+    if (!res.ok) {
+      throw new Error('time fetch failed');
+    }
+    const data = await res.json();
+    if (data?.serverTime) {
+      const parsed = new Date(data.serverTime);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch server time', error);
+  }
+  return new Date();
 };
 
 const createId = () => Math.random().toString(36).substring(2, 9);
@@ -261,12 +304,13 @@ const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit
   </div>
 );
 
-const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, onDragOver, onDrop, isDragging }: any) => {
+const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, onDragOver, onDrop, isDragging, onDragEnd }: any) => {
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
   const isHorizontalRef = useRef<boolean | null>(null);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [isPointerDragging, setIsPointerDragging] = useState(false);
   const maxOffset = 84;
 
   useEffect(() => {
@@ -282,6 +326,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
     startXRef.current = event.touches[0].clientX;
     startYRef.current = event.touches[0].clientY;
     isHorizontalRef.current = null;
+    setIsPointerDragging(false);
   };
 
   const handleTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
@@ -296,7 +341,14 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
       isHorizontalRef.current = Math.abs(deltaX) > Math.abs(deltaY);
     }
 
-    if (!isHorizontalRef.current) return;
+    if (!isHorizontalRef.current) {
+      setIsPointerDragging(true);
+      return;
+    }
+
+    if (Math.abs(deltaX) > 4) {
+      setIsPointerDragging(true);
+    }
 
     if (deltaX >= 0) {
       setOffsetX(0);
@@ -319,6 +371,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
   };
 
   const handleClick = () => {
+    if (isPointerDragging) return;
     if (offsetX !== 0) {
       setOffsetX(0);
       return;
@@ -329,8 +382,9 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
   return (
     <div
       className={`relative overflow-hidden rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
-      draggable
+      draggable={Boolean(onDragStart)}
       onDragStart={(event) => {
+        setIsPointerDragging(true);
         event.dataTransfer.effectAllowed = 'move';
         onDragStart?.(task.id);
       }}
@@ -341,6 +395,10 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
       onDrop={(event) => {
         event.preventDefault();
         onDrop?.(task.id);
+      }}
+      onDragEnd={() => {
+        setIsPointerDragging(false);
+        onDragEnd?.();
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -810,14 +868,15 @@ export default function Home() {
     return Math.round(numeric);
   };
 
-  const createTaskFromAgentItem = (item: AgentItem) => {
+  const createTaskFromAgentItem = async (item: AgentItem) => {
+    const networkNow = await fetchServerTime();
     const title = item.title?.trim() || 'Untitled';
     const category = item.category && CATEGORY_OPTIONS.includes(item.category)
       ? item.category
       : classifyCategory(title);
     const priority = typeof item.priority === 'number'
       ? item.priority
-      : evaluatePriority(item.dueDate, item.subtasks?.length || 0);
+      : evaluatePriority(item.dueDate, item.subtasks?.length || 0, networkNow.getTime());
     const task: Task = {
       id: createId(),
       title,
@@ -835,7 +894,7 @@ export default function Home() {
             }))
             .filter((subtask) => subtask.title.length > 0)
         : [],
-      createdAt: new Date().toISOString(),
+      createdAt: networkNow.toISOString(),
     };
     taskStore.add(task);
     refreshTasks();
@@ -888,9 +947,9 @@ export default function Home() {
     }
   };
 
-  const handleAddAgentItem = (item: AgentItem) => {
+  const handleAddAgentItem = async (item: AgentItem) => {
     if (addedAgentItemIds.has(item.id)) return;
-    createTaskFromAgentItem(item);
+    await createTaskFromAgentItem(item);
     setAddedAgentItemIds((prev) => {
       const next = new Set(prev);
       next.add(item.id);
@@ -996,7 +1055,7 @@ export default function Home() {
     }
   };
 
-  const parseChineseWeekdayInput = (raw: string) => {
+  const parseChineseWeekdayInput = (raw: string, baseNow = new Date()) => {
     const match = raw.match(
       /(下周|本周)?(周|星期)([一二三四五六日天])\s*(上午|下午|晚上|中午)?\s*(\d{1,2})?(?:[:：点](\d{1,2}))?(?:分)?/,
     );
@@ -1006,7 +1065,7 @@ export default function Home() {
 
     const [, weekPrefix, , weekdayCn, period, hourText, minuteText] = match;
     const targetWeekday = WEEKDAY_MAP[weekdayCn];
-    const now = new Date();
+    const now = new Date(baseNow);
     const currentWeekday = now.getDay();
     let diff = (targetWeekday - currentWeekday + 7) % 7;
 
@@ -1038,11 +1097,11 @@ export default function Home() {
     return { dueDate: date.toISOString(), text: cleaned };
   };
 
-  const parseRelativeDayInput = (raw: string) => {
+  const parseRelativeDayInput = (raw: string, baseNow = new Date()) => {
     const match = raw.match(/(下个月(?:初|底)?|下月(?:初|底)?|大后天|后天|今天|明天|今晚|明早|明天早上|明天上午|明天中午|明天下午|明天晚上|下下周([一二三四五六日天])?|月底|月末)/);
     if (!match) return { text: raw };
 
-    const now = new Date();
+    const now = new Date(baseNow);
     let base = new Date(now);
     const keyword = match[1];
 
@@ -1107,20 +1166,20 @@ export default function Home() {
     };
   };
 
-  const parseFuzzyPeriodOnly = (raw: string) => {
+  const parseFuzzyPeriodOnly = (raw: string, baseNow = new Date()) => {
     const periodMatch = raw.match(/(凌晨|早上|上午|中午|下午|晚上|今晚|明早)/);
     if (!periodMatch) return { text: raw };
     const cleaned = raw.replace(periodMatch[0], ' ').replace(/\s+/g, ' ').trim();
     const defaultHour = PERIOD_DEFAULT_HOUR[periodMatch[1]] ?? 9;
-    const base = new Date();
+    const base = new Date(baseNow);
     base.setHours(defaultHour, 0, 0, 0);
     return { dueDate: base.toISOString(), text: cleaned };
   };
 
-  const parseHolidayInput = (raw: string) => {
+  const parseHolidayInput = (raw: string, baseNow = new Date()) => {
     const match = raw.match(/(元旦|春节|清明|劳动节|端午|中秋|国庆)/);
     if (!match) return { text: raw };
-    const now = new Date();
+    const now = new Date(baseNow);
     const year = now.getFullYear();
     const holiday = HOLIDAY_MAP[match[1]];
     const date = holiday ? holiday(year) : null;
@@ -1133,7 +1192,7 @@ export default function Home() {
     return { dueDate: date.toISOString(), text: cleaned };
   };
 
-  const parseLocalTaskInput = (raw: string) => {
+  const parseLocalTaskInput = (raw: string, baseNow = new Date()) => {
     const tagMatches = Array.from(raw.matchAll(/#([^\s#]+)/g));
     const tags = tagMatches.map((match) => match[1]);
     let title = raw.replace(/#([^\s#]+)/g, '').trim();
@@ -1152,7 +1211,7 @@ export default function Home() {
     }
 
     if (!dueDate) {
-      const weekdayParsed = parseChineseWeekdayInput(title);
+      const weekdayParsed = parseChineseWeekdayInput(title, baseNow);
       if (weekdayParsed.dueDate) {
         dueDate = weekdayParsed.dueDate;
         title = weekdayParsed.text || title;
@@ -1160,7 +1219,7 @@ export default function Home() {
     }
 
     if (!dueDate) {
-      const relativeParsed = parseRelativeDayInput(title);
+      const relativeParsed = parseRelativeDayInput(title, baseNow);
       if (relativeParsed.dueDate) {
         dueDate = relativeParsed.dueDate;
         title = relativeParsed.text || title;
@@ -1171,7 +1230,7 @@ export default function Home() {
     if (timeRangeParsed.timeRange) {
       title = timeRangeParsed.text || title;
       if (!dueDate) {
-        const base = new Date();
+        const base = new Date(baseNow);
         base.setHours(timeRangeParsed.timeRange.startHour, timeRangeParsed.timeRange.startMinute, 0, 0);
         dueDate = base.toISOString();
       } else {
@@ -1182,7 +1241,7 @@ export default function Home() {
     }
 
     if (!dueDate) {
-      const holidayParsed = parseHolidayInput(title);
+      const holidayParsed = parseHolidayInput(title, baseNow);
       if (holidayParsed.dueDate) {
         dueDate = holidayParsed.dueDate;
         title = holidayParsed.text || title;
@@ -1190,7 +1249,7 @@ export default function Home() {
     }
 
     if (!dueDate) {
-      const fuzzyParsed = parseFuzzyPeriodOnly(title);
+      const fuzzyParsed = parseFuzzyPeriodOnly(title, baseNow);
       if (fuzzyParsed.dueDate) {
         dueDate = fuzzyParsed.dueDate;
         title = fuzzyParsed.text || title;
@@ -1201,10 +1260,10 @@ export default function Home() {
       // 匹配 "today" 或 "tomorrow"，要求前后是边界
       // 中文 "今天"、"明天" 不需要边界
       if (title.includes('今天') || /(?:^|\s)today(?:\s|$)/i.test(title)) {
-        dueDate = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z';
+        dueDate = new Date(baseNow).toISOString().split('T')[0] + 'T00:00:00.000Z';
         title = title.replace(/今天/g, ' ').replace(/(?:^|\s)today(?:\s|$)/ig, ' ').trim();
       } else if (title.includes('明天') || /(?:^|\s)tomorrow(?:\s|$)/i.test(title)) {
-        const date = new Date();
+        const date = new Date(baseNow);
         date.setDate(date.getDate() + 1);
         dueDate = date.toISOString().split('T')[0] + 'T00:00:00.000Z';
         title = title.replace(/明天/g, ' ').replace(/(?:^|\s)tomorrow(?:\s|$)/ig, ' ').trim();
@@ -1218,10 +1277,11 @@ export default function Home() {
     return { title, tags, dueDate };
   };
 
-  const createLocalTaskFromInput = (raw: string) => {
-    const parsed = parseLocalTaskInput(raw);
+  const createLocalTaskFromInput = async (raw: string) => {
+    const networkNow = await fetchServerTime();
+    const parsed = parseLocalTaskInput(raw, networkNow);
     const category = classifyCategory(raw);
-    const priority = evaluatePriority(parsed.dueDate, 0);
+    const priority = evaluatePriority(parsed.dueDate, 0, networkNow.getTime());
     const task: Task = {
       id: Math.random().toString(36).substring(2, 9),
       title: parsed.title,
@@ -1231,7 +1291,7 @@ export default function Home() {
       status: 'todo',
       tags: parsed.tags,
       subtasks: [],
-      createdAt: new Date().toISOString(),
+      createdAt: networkNow.toISOString(),
     };
     taskStore.add(task);
     refreshTasks();
@@ -1290,7 +1350,7 @@ export default function Home() {
         refreshTasks();
         setInput('');
       } else if (!isSearch) {
-        createLocalTaskFromInput(rawInput);
+        await createLocalTaskFromInput(rawInput);
       } else {
         throw new Error('Missing embedding');
       }
@@ -1300,7 +1360,7 @@ export default function Home() {
         alert('Failed. Check API Key.');
         if (!apiKey) setShowSettings(true);
       } else {
-        createLocalTaskFromInput(rawInput);
+        await createLocalTaskFromInput(rawInput);
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
@@ -1743,7 +1803,7 @@ export default function Home() {
               <span className="truncate">{headerTitle}</span>
             </h2>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4 text-[#666666]">
+          <div className="mobile-toolbar flex items-center gap-3 sm:gap-4 text-[#666666]">
             <button
               onClick={handleOrganizeTasks}
               disabled={isOrganizing}
@@ -2470,7 +2530,7 @@ export default function Home() {
             onClick={() => setShowSettings(false)}
           />
           <div
-            className="bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
+            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
             onClick={(event) => event.stopPropagation()}
           >
             <h2 className="text-base sm:text-lg font-semibold mb-3">设置</h2>
@@ -2580,7 +2640,7 @@ export default function Home() {
             }}
           />
           <div
-            className="bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-5 relative"
+            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-5 relative"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-base font-semibold mb-4">{editingCountdown ? '编辑倒数日' : '新建倒数日'}</h3>
@@ -2632,7 +2692,7 @@ export default function Home() {
           onClick={() => { setShowSearch(false); setSearchQuery(''); }}
         >
           <div
-            className="bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-6"
+            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-6"
             onClick={(event) => event.stopPropagation()}
           >
             <h2 className="text-lg font-semibold mb-4">搜索任务</h2>
