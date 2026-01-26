@@ -18,6 +18,7 @@ const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const APP_VERSION = '0.5.3';
 const APP_VERSION_KEY = 'recall_app_version';
 const SEARCH_HISTORY_KEY = 'recall_search_history';
+const WALLPAPER_KEY = 'recall_wallpaper_url';
 const MAX_SEARCH_HISTORY = 8;
 const PRIORITY_LABELS = ['低', '中', '高'];
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
@@ -565,6 +566,7 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+  const [wallpaperUrl, setWallpaperUrl] = useState('');
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<
     {
@@ -610,6 +612,7 @@ export default function Home() {
     chatModel: string;
     embeddingModel: string;
     fallbackTimeoutSec: number;
+    wallpaperUrl: string;
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
@@ -617,6 +620,7 @@ export default function Home() {
     localStorage.setItem('recall_chat_model', next.chatModel);
     localStorage.setItem('recall_embedding_model', next.embeddingModel);
     localStorage.setItem('recall_fallback_timeout_sec', String(next.fallbackTimeoutSec));
+    localStorage.setItem(WALLPAPER_KEY, next.wallpaperUrl);
   };
 
   // Load Initial Data
@@ -633,6 +637,7 @@ export default function Home() {
       const storedChatModel = localStorage.getItem('recall_chat_model');
       const storedEmbeddingModel = localStorage.getItem('recall_embedding_model');
       const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
+      const storedWallpaper = localStorage.getItem(WALLPAPER_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -646,6 +651,9 @@ export default function Home() {
         if (Number.isFinite(parsed) && parsed > 0) {
           setFallbackTimeoutSec(parsed);
         }
+      }
+      if (storedWallpaper) {
+        setWallpaperUrl(storedWallpaper);
       }
 
       const storedTheme = localStorage.getItem('recall_theme');
@@ -1706,7 +1714,19 @@ export default function Home() {
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top">
+    <div
+      className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top"
+      style={
+        wallpaperUrl
+          ? {
+              backgroundImage: `url(${wallpaperUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }
+          : undefined
+      }
+    >
       
       {/* 1. Sidebar */}
       <aside className={`
@@ -2737,6 +2757,17 @@ export default function Home() {
                 />
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
               </div>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">壁纸图片 URL</label>
+                <input
+                  type="text"
+                  value={wallpaperUrl}
+                  onChange={(e) => setWallpaperUrl(e.target.value)}
+                  placeholder="https://example.com/wallpaper.jpg"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">输入 Web 图片链接，保存后全局背景生效（留空可清除）。</p>
+              </div>
               <div className="flex justify-end gap-3 mt-5">
                 <button
                   onClick={() => setShowSettings(false)}
@@ -2755,6 +2786,7 @@ export default function Home() {
                       chatModel,
                       embeddingModel,
                       fallbackTimeoutSec: normalizedTimeout,
+                      wallpaperUrl,
                     });
                     setShowSettings(false);
                   }}
