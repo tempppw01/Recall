@@ -1972,7 +1972,7 @@ export default function Home() {
           </div>
         </header>
 
-        {!['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit'].includes(activeFilter) && (
+        {!['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent'].includes(activeFilter) && (
           <div className="px-3 sm:px-6 py-3 sm:py-4">
             {/* 紧凑统计条：不占空间，仅在有任务时展示 */}
             {totalTasks > 0 && (
@@ -2218,7 +2218,7 @@ export default function Home() {
                       onChange={(e) => setAgentInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAgentSend()}
                       placeholder="例如：帮我规划本周的工作安排"
-                      className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
                       disabled={agentLoading}
                     />
                     <button
