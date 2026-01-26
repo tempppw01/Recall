@@ -554,6 +554,8 @@ export default function Home() {
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isListsOpen, setIsListsOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(true);
+  const [showAppMenu, setShowAppMenu] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -774,6 +776,13 @@ export default function Home() {
     }
     body.style.overflow = '';
   }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (!showAppMenu) return;
+    const handleClose = () => setShowAppMenu(false);
+    window.addEventListener('click', handleClose);
+    return () => window.removeEventListener('click', handleClose);
+  }, [showAppMenu]);
 
   const refreshTasks = () => {
     const all = taskStore.getAll();
@@ -1773,12 +1782,49 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto overscroll-contain">
           <div className="p-4 flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm">
-                <img
-                  src="/icon.svg"
-                  alt="Recall"
-                  className="w-6 h-6 rounded-full"
-                />
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setShowAppMenu((prev) => !prev);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow"
+                  aria-label="打开应用菜单"
+                >
+                  <img
+                    src="/icon.svg"
+                    alt="Recall"
+                    className="w-6 h-6 rounded-full"
+                  />
+                </button>
+                {showAppMenu && (
+                  <div
+                    className="absolute left-0 top-10 w-40 rounded-xl border border-[#333333] bg-[#1F1F1F] shadow-2xl z-50 overflow-hidden"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAppMenu(false);
+                        setShowSettings(true);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+                    >
+                      设置
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAppMenu(false);
+                        setShowAbout(true);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+                    >
+                      关于
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <h1 className="text-sm font-semibold">Recall AI</h1>
@@ -3022,6 +3068,37 @@ export default function Home() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAbout && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+          onClick={() => setShowAbout(false)}
+        >
+          <div
+            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-5 sm:p-6 relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base sm:text-lg font-semibold">关于 Recall</h2>
+                <p className="text-xs text-[#777777] mt-1">轻量 AI 待办助手</p>
+              </div>
+              <button
+                onClick={() => setShowAbout(false)}
+                className="text-xs text-[#888888] hover:text-white"
+              >
+                关闭
+              </button>
+            </div>
+            <div className="mt-4 text-sm text-[#CCCCCC] space-y-2">
+              <p>版本：v{APP_VERSION}</p>
+              <p>项目主页：<a className="text-blue-300 hover:text-blue-200" href="https://github.com/tempppw01/Recall" target="_blank" rel="noreferrer">https://github.com/tempppw01/Recall</a></p>
+              <p>作者联系：微信 Ethan_BravoEcho</p>
+              <p className="text-xs text-[#666666]">感谢使用 Recall，祝你高效又轻松 ✨</p>
             </div>
           </div>
         </div>
