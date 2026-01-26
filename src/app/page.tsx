@@ -4,11 +4,11 @@ import { useState, useEffect, useRef, TouchEvent as ReactTouchEvent } from 'reac
 import { taskStore, habitStore, countdownStore, Task, Subtask, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import {
-  Settings, Command, Send, Search, Plus,
+  Command, Send, Plus,
   Calendar, Inbox, Sun, Star, Trash2,
-  Menu, X, CheckCircle2, Circle, MoreVertical,
-  AlignLeft, Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2, ChevronDown, ChevronUp, Terminal
+  Menu, X, CheckCircle2, Circle,
+  Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2, ChevronDown, ChevronUp, Terminal, Settings
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -17,9 +17,7 @@ const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const APP_VERSION = '0.5.3';
 const APP_VERSION_KEY = 'recall_app_version';
-const SEARCH_HISTORY_KEY = 'recall_search_history';
 const WALLPAPER_KEY = 'recall_wallpaper_url';
-const MAX_SEARCH_HISTORY = 8;
 const PRIORITY_LABELS = ['低', '中', '高'];
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 const REPEAT_OPTIONS: { value: RepeatType; label: string }[] = [
@@ -537,12 +535,8 @@ export default function Home() {
   const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, search, calendar, agent
+  const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, calendar, agent
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [countdowns, setCountdowns] = useState<Countdown[]>([]);
   const [showCountdownForm, setShowCountdownForm] = useState(false);
@@ -563,7 +557,7 @@ export default function Home() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newTagInput, setNewTagInput] = useState('');
-  const [listItems, setListItems] = useState(['工作', '个人']);
+  const [listItems, setListItems] = useState<string[]>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -691,20 +685,6 @@ export default function Home() {
     pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem(SEARCH_HISTORY_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setSearchHistory(parsed.filter((item) => typeof item === 'string'));
-        }
-      } catch (error) {
-        console.error('Failed to parse search history', error);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -938,7 +918,6 @@ export default function Home() {
 
   // Filter Logic
   const filteredTasks = tasks.filter(t => {
-    if (activeFilter === 'search') return true;
     if (activeFilter === 'agent') return true;
     if (activeFilter === 'completed') return t.status === 'completed';
     if (t.status === 'completed') return false; // Hide completed in other views
@@ -1081,21 +1060,6 @@ export default function Home() {
     } else {
       setTimeout(persistTask, 0);
     }
-  };
-
-  const pushSearchHistory = (query: string) => {
-    const normalized = query.trim();
-    if (!normalized) return;
-    setSearchHistory((prev) => {
-      const next = [
-        normalized,
-        ...prev.filter((item) => item.toLowerCase() !== normalized.toLowerCase()),
-      ].slice(0, MAX_SEARCH_HISTORY);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
-      }
-      return next;
-    });
   };
 
   // 触发 AI 整理：发送当前任务给后端并覆盖本地任务
@@ -1610,58 +1574,6 @@ export default function Home() {
     setDragOverSubtaskId(null);
   };
 
-  const handleSearch = async (rawQuery?: string) => {
-    const query = (rawQuery ?? searchQuery).trim();
-    if (!query) return;
-    setSearchQuery(query);
-    setSearchLoading(true);
-    pushSearchHistory(query);
-    pushLog('info', '搜索请求发送', query);
-
-    try {
-      const res = await fetch('/api/ai/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: query,
-          mode: 'search',
-          ...(apiKey ? { apiKey } : {}),
-          apiBaseUrl: apiBaseUrl?.trim() || undefined,
-          embeddingModel: embeddingModel?.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || 'Request failed');
-      }
-
-      if (data.embedding) {
-        const results = taskStore.search(data.embedding);
-        setTasks(results);
-        setActiveFilter('search');
-        setShowSearch(false);
-        setSelectedTask(null);
-        pushLog('success', '搜索完成', `命中 ${results.length} 条任务`);
-      }
-    } catch (e) {
-      console.error(e);
-      const fallback = taskStore.getAll().filter((task) => {
-        const keyword = query.toLowerCase();
-        return (
-          task.title.toLowerCase().includes(keyword) ||
-          task.tags?.some((tag) => tag.toLowerCase().includes(keyword))
-        );
-      });
-      setTasks(fallback);
-      setActiveFilter('search');
-      setShowSearch(false);
-      setSelectedTask(null);
-      pushLog('warning', '搜索走本地兜底', `命中 ${fallback.length} 条任务`);
-    } finally {
-      setSearchLoading(false);
-    }
-  };
 
   const toggleSubtask = (taskId: string, subtaskId: string) => {
     const all = taskStore.getAll();
@@ -1882,11 +1794,6 @@ export default function Home() {
                   onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }} 
                 />
                 <SidebarItem 
-                  icon={Search} label="搜索" count={0} 
-                  active={activeFilter === 'search'} 
-                  onClick={() => { setActiveFilter('search'); setShowSearch(true); }} 
-                />
-                <SidebarItem 
                   icon={Timer} label="番茄时钟" count={0} 
                   active={activeFilter === 'pomodoro'} 
                   onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
@@ -2035,7 +1942,6 @@ export default function Home() {
             <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
               {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
               {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
-              {activeFilter === 'search' && <Search className="w-5 h-5 text-purple-500" />}
               {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
               <span className="truncate">{headerTitle}</span>
             </h2>
@@ -2070,14 +1976,6 @@ export default function Home() {
                 <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
               )}
             </button>
-            <AlignLeft
-              onClick={() => setShowSearch(true)}
-              className="w-5 h-5 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
-            />
-            <MoreVertical
-              onClick={() => setShowSettings(true)}
-              className="w-5 h-5 sm:w-5 sm:h-5 cursor-pointer hover:text-[#AAAAAA]"
-            />
           </div>
         </header>
 
@@ -2945,64 +2843,6 @@ export default function Home() {
         </div>
       )}
 
-      {showSearch && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1rem+env(safe-area-inset-bottom))]"
-          onClick={() => { setShowSearch(false); setSearchQuery(''); }}
-        >
-          <div
-            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-6"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold mb-4">搜索任务</h2>
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="输入关键词搜索任务"
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
-              </div>
-              {searchHistory.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-xs text-[#888888] uppercase">最近搜索</div>
-                  <div className="flex flex-wrap gap-2">
-                    {searchHistory.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => handleSearch(item)}
-                        className="text-xs px-2 py-1 rounded bg-[#1F1F1F] border border-[#333333] text-[#BBBBBB] hover:border-blue-500 hover:text-white"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => { setShowSearch(false); setSearchQuery(''); }}
-                  className="px-4 py-2 text-sm text-[#AAAAAA] hover:text-white transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={() => handleSearch()}
-                  disabled={searchLoading || !searchQuery.trim()}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {searchLoading ? '搜索中...' : '搜索'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showLogs && (
         <div
