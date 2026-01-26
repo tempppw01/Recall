@@ -894,15 +894,16 @@ export default function Home() {
     return Math.round(numeric);
   };
 
-  const createTaskFromAgentItem = async (item: AgentItem) => {
-    const networkNow = await fetchServerTime();
+  const createTaskFromAgentItem = (item: AgentItem) => {
+    // 优化：不再请求服务器时间，直接使用本地时间，避免点击“加入”时的网络延迟卡顿
+    const now = new Date();
     const title = item.title?.trim() || 'Untitled';
     const category = item.category && CATEGORY_OPTIONS.includes(item.category)
       ? item.category
       : classifyCategory(title);
     const priority = typeof item.priority === 'number'
       ? item.priority
-      : evaluatePriority(item.dueDate, item.subtasks?.length || 0, networkNow.getTime());
+      : evaluatePriority(item.dueDate, item.subtasks?.length || 0, now.getTime());
     const task: Task = {
       id: createId(),
       title,
@@ -920,10 +921,9 @@ export default function Home() {
             }))
             .filter((subtask) => subtask.title.length > 0)
         : [],
-      createdAt: networkNow.toISOString(),
+      createdAt: now.toISOString(),
     };
-    taskStore.add(task);
-    refreshTasks();
+    return task;
   };
 
   const handleAgentSend = async () => {
@@ -973,14 +973,29 @@ export default function Home() {
     }
   };
 
-  const handleAddAgentItem = async (item: AgentItem) => {
+  const handleAddAgentItem = (item: AgentItem) => {
     if (addedAgentItemIds.has(item.id)) return;
-    await createTaskFromAgentItem(item);
+    const task = createTaskFromAgentItem(item);
     setAddedAgentItemIds((prev) => {
       const next = new Set(prev);
       next.add(item.id);
       return next;
     });
+    setTasks((prev) => {
+      if (prev.some((existing) => existing.id === task.id)) return prev;
+      return [task, ...prev];
+    });
+
+    const persistTask = () => {
+      taskStore.add(task);
+      refreshTasks();
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(persistTask, { timeout: 800 });
+    } else {
+      setTimeout(persistTask, 0);
+    }
   };
 
   const pushSearchHistory = (query: string) => {
@@ -1304,10 +1319,11 @@ export default function Home() {
   };
 
   const createLocalTaskFromInput = async (raw: string) => {
-    const networkNow = await fetchServerTime();
-    const parsed = parseLocalTaskInput(raw, networkNow);
+    // 优化：直接使用本地时间，提高响应速度
+    const now = new Date();
+    const parsed = parseLocalTaskInput(raw, now);
     const category = classifyCategory(raw);
-    const priority = evaluatePriority(parsed.dueDate, 0, networkNow.getTime());
+    const priority = evaluatePriority(parsed.dueDate, 0, now.getTime());
     const task: Task = {
       id: Math.random().toString(36).substring(2, 9),
       title: parsed.title,
@@ -1317,7 +1333,7 @@ export default function Home() {
       status: 'todo',
       tags: parsed.tags,
       subtasks: [],
-      createdAt: networkNow.toISOString(),
+      createdAt: now.toISOString(),
     };
     taskStore.add(task);
     refreshTasks();

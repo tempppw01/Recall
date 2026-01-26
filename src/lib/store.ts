@@ -47,6 +47,67 @@ export interface Countdown {
   createdAt: string;
 }
 
+type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns';
+
+const safelyRead = <T>(key: StoreKey, fallback: T): T => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed ?? fallback;
+  } catch (error) {
+    console.error(`Failed to read ${key}`, error);
+    return fallback;
+  }
+};
+
+const safelyWrite = (key: StoreKey, value: unknown) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Failed to write ${key}`, error);
+  }
+};
+
+const createStore = <T extends { id: string }>(key: StoreKey) => {
+  const getAll = (): T[] => safelyRead<T[]>(key, []);
+  const replaceAll = (items: T[]) => safelyWrite(key, items);
+  const add = (item: T) => {
+    const current = getAll();
+    replaceAll([item, ...current]);
+  };
+  const update = (item: T) => {
+    const current = getAll();
+    const next = current.map((existing) => (existing.id === item.id ? item : existing));
+    replaceAll(next);
+  };
+  const remove = (id: string) => {
+    const current = getAll();
+    replaceAll(current.filter((item) => item.id !== id));
+  };
+  return { getAll, replaceAll, add, update, remove };
+};
+
+export const taskStore = {
+  ...createStore<Task>('recall_tasks'),
+  search(embedding: number[]) {
+    const all = safelyRead<Task[]>('recall_tasks', []);
+    return all
+      .map((task) => {
+        const score = task.embedding ? cosineSimilarity(embedding, task.embedding) : 0;
+        return { ...task, similarity: score } as Task & { similarity: number };
+      })
+      .filter((task) => task.similarity > 0)
+      .sort((a, b) => b.similarity - a.similarity);
+  },
+};
+
+export const habitStore = createStore<Habit>('recall_habits');
+
+export const countdownStore = createStore<Countdown>('recall_countdowns');
+
 export const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
   let dotProduct = 0;
   let normA = 0;
