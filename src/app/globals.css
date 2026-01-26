@@ -85,11 +85,21 @@ button {
   padding-bottom: calc(1rem + env(safe-area-inset-bottom));
 }
 
+.mobile-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 @media (max-width: 640px) {
   input,
   select,
   textarea {
     font-size: 16px;
+  }
+
+  .mobile-scroll {
+    scroll-padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   }
 
   .mobile-modal {
@@ -98,6 +108,11 @@ button {
 
   .mobile-toolbar {
     gap: 0.5rem;
+  }
+
+  .app-footer__content {
+    flex-direction: column;
+    gap: 0.35rem;
   }
 
   .app-footer {

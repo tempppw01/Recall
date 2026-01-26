@@ -1971,7 +1971,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10">
+        <div className="flex-1 overflow-y-auto mobile-scroll px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10">
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
@@ -2354,7 +2354,7 @@ export default function Home() {
             </button>
           </div>
           
-          <div className="p-4 sm:p-6 flex-1 overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="p-4 sm:p-6 flex-1 overflow-y-auto mobile-scroll pb-[calc(1rem+env(safe-area-inset-bottom))]">
             <div className="flex items-start gap-3 mb-6">
               <button 
                 onClick={() => toggleStatus(selectedTask.id)}
