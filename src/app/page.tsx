@@ -379,15 +379,25 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
     onClick?.();
   };
 
+  const handleDragStart = (event: any) => {
+    setIsPointerDragging(true);
+    event.dataTransfer?.setData('text/plain', task.id);
+    event.dataTransfer.effectAllowed = 'move';
+    onDragStart?.(task.id);
+  };
+
+  const handleDragEnd = () => {
+    setIsPointerDragging(false);
+    onDragEnd?.();
+  };
+
+  const showDelete = offsetX < -4 || isSwiping;
+
   return (
     <div
       className={`relative overflow-hidden rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
       draggable={Boolean(onDragStart)}
-      onDragStart={(event) => {
-        setIsPointerDragging(true);
-        event.dataTransfer.effectAllowed = 'move';
-        onDragStart?.(task.id);
-      }}
+      onDragStart={handleDragStart}
       onDragOver={(event) => {
         event.preventDefault();
         onDragOver?.(task.id);
@@ -396,16 +406,17 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
         event.preventDefault();
         onDrop?.(task.id);
       }}
-      onDragEnd={() => {
-        setIsPointerDragging(false);
-        onDragEnd?.();
-      }}
+      onDragEnd={handleDragEnd}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{ touchAction: 'pan-y' }}
     >
-      <div className="absolute inset-y-0 right-0 w-[84px] bg-red-600 flex items-center justify-center">
+      <div
+        className={`absolute inset-y-0 right-0 w-[84px] bg-red-600 flex items-center justify-center transition-opacity ${
+          showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
         <button
           onClick={(event) => {
             event.stopPropagation();
@@ -419,7 +430,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
       </div>
       <div
         onClick={handleClick}
-        className={`group flex items-start gap-3 p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[#1F1F1F]/80 hover:bg-[#232323] ${
+        className={`group flex items-start gap-3 p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[#1F1F1F] hover:bg-[#232323] ${
           selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
         }`}
         style={{
@@ -449,14 +460,15 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
             </p>
             <button
               type="button"
+              draggable
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
               className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
               onMouseDown={(event) => {
                 event.stopPropagation();
-                onDragStart?.(task.id);
               }}
               onTouchStart={(event) => {
                 event.stopPropagation();
-                onDragStart?.(task.id);
               }}
               title="拖动排序"
             >

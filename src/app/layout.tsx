@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PWARegister from "@/app/components/PWARegister";
+import Providers from "@/app/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,8 +28,10 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body>
-        <PWARegister />
-        {children}
+        <Providers>
+          <PWARegister />
+          {children}
+        </Providers>
         <footer className="app-footer">
           <div className="app-footer__content">
             <span>
