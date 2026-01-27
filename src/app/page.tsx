@@ -91,6 +91,27 @@ const HOLIDAY_MAP: Record<string, (year: number) => Date> = {
   中秋: (year) => new Date(year, 8, 17),
   国庆: (year) => new Date(year, 9, 1),
 };
+const SOLAR_TERMS = [
+  '小寒', '大寒', '立春', '雨水', '惊蛰', '春分',
+  '清明', '谷雨', '立夏', '小满', '芒种', '夏至',
+  '小暑', '大暑', '立秋', '处暑', '白露', '秋分',
+  '寒露', '霜降', '立冬', '小雪', '大雪', '冬至',
+];
+const LUNAR_FESTIVALS = [
+  '春节', '元宵节', '清明节', '端午节', '七夕', '中元节',
+  '中秋节', '重阳节', '腊八节', '小年', '除夕', '元旦',
+];
+
+const extractCalendarNote = (data: Record<string, any>) => {
+  const direct = data?.['农历节日'] || data?.['节日'] || data?.['节气'] || data?.['节日名称'];
+  if (direct) return String(direct);
+  const text = Object.values(data || {}).join(' ');
+  const term = SOLAR_TERMS.find((item) => text.includes(item));
+  if (term) return term;
+  const festival = LUNAR_FESTIVALS.find((item) => text.includes(item));
+  if (festival) return festival;
+  return '';
+};
 
 const parseModelList = (text: string) =>
   text
@@ -273,6 +294,11 @@ const formatDateKey = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const parseDateKey = (key: string) => {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
 };
 
 const getTodayKey = () => formatDateKey(new Date());
@@ -643,11 +669,13 @@ export default function Home() {
   const [isTagsOpen, setIsTagsOpen] = useState(true);
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
-  const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [calendarNotes, setCalendarNotes] = useState<Record<string, string>>({});
+  const [calendarNoteLoading, setCalendarNoteLoading] = useState(false);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [weekDays, setWeekDays] = useState(() => buildWeekDays(weekStart));
   const [weekLabel, setWeekLabel] = useState(() => buildWeekLabel(weekStart));
@@ -816,6 +844,42 @@ export default function Home() {
       setWeekLabel(buildWeekLabel(start));
     }
   }, [calendarView]);
+
+  useEffect(() => {
+    const fetchNotes = async () => {
+      setCalendarNoteLoading(true);
+      const year = calendarMonth.getFullYear();
+      const month = calendarMonth.getMonth() + 1;
+      const daysInCurrentMonth = new Date(year, month, 0).getDate();
+      const entries: [string, string][] = [];
+
+      for (let day = 1; day <= daysInCurrentMonth; day += 1) {
+        const dateKey = `${year}-${pad2(month)}-${pad2(day)}`;
+        try {
+          const res = await fetch(`/api/countdowns/calendar?year=${year}&month=${month}&day=${day}`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          const note = extractCalendarNote(data);
+          if (note) {
+            entries.push([dateKey, note]);
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+
+      setCalendarNotes((prev) => {
+        const next = { ...prev };
+        for (const [key, note] of entries) {
+          next[key] = note;
+        }
+        return next;
+      });
+      setCalendarNoteLoading(false);
+    };
+
+    fetchNotes();
+  }, [calendarMonth]);
 
 
   useEffect(() => {
@@ -2105,6 +2169,18 @@ export default function Home() {
   const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
   const effectiveCalendarDate = selectedCalendarDate || todayKey;
   const selectedCalendarTasks = tasksByDate[effectiveCalendarDate] || [];
+  const selectedCalendarDateObject = parseDateKey(effectiveCalendarDate);
+  const selectedCalendarLabel = formatDateKey(selectedCalendarDateObject);
+  const dayTasks = selectedCalendarTasks
+    .slice()
+    .sort((a, b) => {
+      const aTime = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+      const bTime = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+      return aTime - bTime;
+    });
+  const agendaTasks = tasks
+    .filter((task) => task.dueDate)
+    .sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime());
   const handleMonthChange = (offset: number) => {
     setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1));
   };
@@ -2491,7 +2567,7 @@ export default function Home() {
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-2 text-xs flex-wrap">
                   <button
                     className={`px-3 py-1 rounded-lg border transition-colors ${
                       calendarView === 'month'
@@ -2512,9 +2588,35 @@ export default function Home() {
                   >
                     周视图
                   </button>
+                  <button
+                    className={`px-3 py-1 rounded-lg border transition-colors ${
+                      calendarView === 'day'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                    onClick={() => setCalendarView('day')}
+                  >
+                    日视图
+                  </button>
+                  <button
+                    className={`px-3 py-1 rounded-lg border transition-colors ${
+                      calendarView === 'agenda'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                    onClick={() => setCalendarView('agenda')}
+                  >
+                    日程视图
+                  </button>
                 </div>
                 <div className="text-[11px] text-[#666666]">
-                  {calendarView === 'month' ? '按月总览' : '按周聚焦'}
+                  {calendarView === 'month'
+                    ? '按月总览'
+                    : calendarView === 'week'
+                    ? '按周聚焦'
+                    : calendarView === 'day'
+                    ? '当日任务'
+                    : '近期日程'}
                 </div>
               </div>
 
@@ -2528,12 +2630,14 @@ export default function Home() {
                       <button
                         onClick={() => handleWeekChange(-1)}
                         className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                        title="上一周"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleWeekChange(1)}
                         className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                        title="下一周"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -2593,6 +2697,74 @@ export default function Home() {
                     })}
                   </div>
                 </div>
+              ) : calendarView === 'day' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-[#DDDDDD]">{selectedCalendarLabel}</div>
+                    {calendarNotes[selectedCalendarLabel] && (
+                      <span className="text-[11px] text-blue-300">
+                        {calendarNotes[selectedCalendarLabel]}
+                      </span>
+                    )}
+                  </div>
+                  {dayTasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
+                      <Calendar className="w-12 h-12 mb-3 opacity-20" />
+                      <p className="text-sm">这一天没有任务</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {dayTasks.map((task) => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          selected={selectedTask?.id === task.id}
+                          onClick={() => setSelectedTask(task)}
+                          onToggle={toggleStatus}
+                          onDelete={removeTask}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : calendarView === 'agenda' ? (
+                <div className="space-y-4">
+                  {agendaTasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
+                      <Calendar className="w-12 h-12 mb-3 opacity-20" />
+                      <p className="text-sm">暂无日程</p>
+                    </div>
+                  ) : (
+                    agendaTasks.map((task) => {
+                      const dateKey = task.dueDate ? formatZonedDate(task.dueDate, getTimezoneOffset(task)) : '';
+                      const timeLabel = task.dueDate
+                        ? formatZonedTime(task.dueDate, getTimezoneOffset(task))
+                        : '未设时间';
+                      return (
+                        <div key={task.id} className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-3">
+                          <div className="flex items-center justify-between text-[11px] text-[#777777]">
+                            <span>{dateKey}</span>
+                            <span>{timeLabel}</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-2">
+                            <div>
+                              <div className="text-sm text-[#EEEEEE]">{task.title}</div>
+                              {task.category && (
+                                <div className="text-[10px] text-indigo-300 mt-1">{task.category}</div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setSelectedTask(task)}
+                              className="text-xs text-blue-300 hover:text-blue-200"
+                            >
+                              查看
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               ) : (
                 <>
                   <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
@@ -2600,6 +2772,7 @@ export default function Home() {
                       <button
                         onClick={() => handleMonthChange(-1)}
                         className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                        title="上个月"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
@@ -2607,6 +2780,7 @@ export default function Home() {
                       <button
                         onClick={() => handleMonthChange(1)}
                         className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                        title="下个月"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -2622,6 +2796,7 @@ export default function Home() {
                           return <div key={`empty-${idx}`} className="h-9" />;
                         }
                         const dateKey = `${monthLabel}-${String(day).padStart(2, '0')}`;
+                        const note = calendarNotes[dateKey];
                         const isToday = dateKey === todayKey;
                         const isSelected = dateKey === effectiveCalendarDate;
                         const hasTasks = (tasksByDate[dateKey] || []).length > 0;
@@ -2629,13 +2804,18 @@ export default function Home() {
                           <button
                             key={dateKey}
                             onClick={() => setSelectedCalendarDate(dateKey)}
-                            className={`h-9 rounded-lg flex flex-col items-center justify-center text-xs transition-colors border ${
+                            className={`relative h-12 rounded-lg flex flex-col items-center justify-center text-xs transition-colors border ${
                               isSelected
                                 ? 'bg-blue-600/20 border-blue-500 text-white'
                                 : 'border-transparent hover:bg-[#2A2A2A]'
                             } ${isToday ? 'text-blue-300' : 'text-[#CCCCCC]'}`}
                           >
                             <span className="leading-none">{day}</span>
+                            {note && (
+                              <span className="absolute top-1 right-1 text-[9px] text-blue-300">
+                                {note}
+                              </span>
+                            )}
                             <span className={`mt-1 w-1.5 h-1.5 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`} />
                           </button>
                         );
