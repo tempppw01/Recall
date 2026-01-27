@@ -8,7 +8,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, Wand2, ChevronDown, ChevronUp, Terminal, Settings
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -959,8 +959,6 @@ export default function Home() {
       timestamp: string;
     }[]
   >([]);
-  // AI 一键整理状态
-  const [isOrganizing, setIsOrganizing] = useState(false);
   // todo-agent 聊天状态
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
   const [agentInput, setAgentInput] = useState('');
@@ -1552,92 +1550,6 @@ export default function Home() {
     }
   };
 
-  // 触发 AI 整理：发送当前任务给后端并覆盖本地任务
-  const handleOrganizeTasks = async () => {
-    if (isOrganizing) return;
-    if (!tasks.length) return;
-    const confirmed = typeof window !== 'undefined'
-      ? window.confirm('将把当前任务发送给 AI 并覆盖本地任务，是否继续？')
-      : false;
-    if (!confirmed) return;
-
-    pushLog('info', 'AI 整理开始', `任务数量 ${tasks.length}`);
-    setIsOrganizing(true);
-
-    try {
-      const payloadTasks = tasks.map((task) => ({
-        id: task.id,
-        title: task.title,
-        dueDate: task.dueDate ?? null,
-        priority: task.priority,
-        category: task.category,
-        tags: task.tags,
-        subtasks: (task.subtasks || []).map((subtask) => ({ title: subtask.title })),
-      }));
-
-      const res = await fetch('/api/ai/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'organize',
-          input: { tasks: payloadTasks },
-          ...(apiKey ? { apiKey } : {}),
-          apiBaseUrl: apiBaseUrl?.trim() || undefined,
-          chatModel: chatModel?.trim() || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Organize request failed');
-      }
-
-      const updatedTasks = Array.isArray(data?.tasks) ? data.tasks : [];
-      const originIndex = new Map(tasks.map((task) => [task.id, task]));
-      const nextTasks: Task[] = updatedTasks.map((task: any) => {
-        const original = originIndex.get(task.id);
-        return {
-          id: task.id,
-          title: task.title,
-          dueDate: task.dueDate || undefined,
-          timezoneOffset: task.timezoneOffset ?? original?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
-          priority: typeof task.priority === 'number' ? task.priority : 0,
-          category: task.category || original?.category,
-          tags: Array.isArray(task.tags) ? task.tags : [],
-          status: original?.status || 'todo',
-          repeat: original?.repeat,
-          embedding: original?.embedding,
-          createdAt: original?.createdAt || new Date().toISOString(),
-          subtasks: Array.isArray(task.subtasks)
-            ? task.subtasks.map((subtask: any) => ({
-                id: Math.random().toString(36).substring(2, 9),
-                title: subtask.title,
-                completed: false,
-              }))
-            : [],
-        };
-      });
-
-      // 覆盖本地存储并刷新任务列表
-      taskStore.replaceAll(nextTasks);
-      setTasks(nextTasks);
-
-      // 同步更新侧边栏分类与标签列表
-      const nextCategories = Array.from(new Set(nextTasks.map((task) => task.category).filter(Boolean))) as string[];
-      const nextTags = Array.from(new Set(nextTasks.flatMap((task) => task.tags || [])));
-      if (nextCategories.length) setListItems(nextCategories);
-      if (nextTags.length) setTagItems(nextTags);
-      pushLog('success', 'AI 整理完成', `输出任务 ${nextTasks.length} 条`);
-    } catch (error) {
-      console.error(error);
-      if (typeof window !== 'undefined') {
-        window.alert('AI 整理失败，请稍后重试');
-      }
-      pushLog('error', 'AI 整理失败', String((error as Error)?.message || error));
-    } finally {
-      setIsOrganizing(false);
-    }
-  };
 
   const buildExportPayload = () => ({
     version: APP_VERSION,
@@ -2800,14 +2712,6 @@ export default function Home() {
               title="运行日志"
             >
               <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-            <button
-              onClick={handleOrganizeTasks}
-              disabled={isOrganizing}
-              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC] disabled:opacity-50 disabled:cursor-not-allowed"
-              title="一键整理"
-            >
-              <Wand2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={() => {
