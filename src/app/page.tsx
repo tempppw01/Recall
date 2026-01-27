@@ -170,6 +170,127 @@ const getPriorityColor = (priority: number) => {
 
 const getPriorityLabel = (priority: number) => PRIORITY_LABELS[priority] || PRIORITY_LABELS[0];
 
+type TaskSortMode = 'priority' | 'dueDate' | 'createdAt' | 'title' | 'manual';
+type TaskGroupMode = 'none' | 'category' | 'priority' | 'dueDate';
+type TaskGroup = { key: string; label: string; items: Task[] };
+
+const TASK_SORT_OPTIONS: { value: TaskSortMode; label: string }[] = [
+  { value: 'priority', label: '优先级' },
+  { value: 'dueDate', label: '截止日期' },
+  { value: 'createdAt', label: '创建时间' },
+  { value: 'title', label: '标题' },
+  { value: 'manual', label: '手动排序' },
+];
+
+const TASK_GROUP_OPTIONS: { value: TaskGroupMode; label: string }[] = [
+  { value: 'none', label: '不分组' },
+  { value: 'category', label: '按分类' },
+  { value: 'priority', label: '按优先级' },
+  { value: 'dueDate', label: '按日期' },
+];
+
+const NO_CATEGORY_LABEL = '未分类';
+const NO_DUE_DATE_LABEL = '未设日期';
+
+const sortTasks = (items: Task[], mode: TaskSortMode) => {
+  if (mode === 'manual') return items;
+  const next = [...items];
+  const getCreatedAt = (task: Task) => new Date(task.createdAt ?? 0).getTime();
+  const getDueTime = (task: Task) => (task.dueDate ? new Date(task.dueDate).getTime() : Infinity);
+
+  next.sort((a, b) => {
+    switch (mode) {
+      case 'dueDate': {
+        const aTime = getDueTime(a);
+        const bTime = getDueTime(b);
+        if (aTime !== bTime) return aTime - bTime;
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return getCreatedAt(b) - getCreatedAt(a);
+      }
+      case 'createdAt': {
+        const aTime = getCreatedAt(a);
+        const bTime = getCreatedAt(b);
+        if (aTime !== bTime) return bTime - aTime;
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return getDueTime(a) - getDueTime(b);
+      }
+      case 'title': {
+        const titleResult = a.title.localeCompare(b.title, 'zh-CN');
+        if (titleResult !== 0) return titleResult;
+        return getCreatedAt(b) - getCreatedAt(a);
+      }
+      case 'priority':
+      default: {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        const aTime = getDueTime(a);
+        const bTime = getDueTime(b);
+        if (aTime !== bTime) return aTime - bTime;
+        return getCreatedAt(b) - getCreatedAt(a);
+      }
+    }
+  });
+  return next;
+};
+
+const getTaskGroupKey = (task: Task, mode: TaskGroupMode) => {
+  switch (mode) {
+    case 'category':
+      return task.category?.trim() || NO_CATEGORY_LABEL;
+    case 'priority':
+      return String(task.priority ?? 0);
+    case 'dueDate':
+      return task.dueDate
+        ? formatZonedDate(task.dueDate, getTimezoneOffset(task))
+        : NO_DUE_DATE_LABEL;
+    default:
+      return 'all';
+  }
+};
+
+const getTaskGroupLabel = (mode: TaskGroupMode, key: string) => {
+  if (mode === 'priority') return getPriorityLabel(Number(key));
+  return key;
+};
+
+const compareGroupKeys = (mode: TaskGroupMode, a: string, b: string) => {
+  switch (mode) {
+    case 'priority':
+      return Number(b) - Number(a);
+    case 'dueDate':
+      if (a === NO_DUE_DATE_LABEL && b === NO_DUE_DATE_LABEL) return 0;
+      if (a === NO_DUE_DATE_LABEL) return 1;
+      if (b === NO_DUE_DATE_LABEL) return -1;
+      return a.localeCompare(b);
+    case 'category':
+      if (a === NO_CATEGORY_LABEL && b === NO_CATEGORY_LABEL) return 0;
+      if (a === NO_CATEGORY_LABEL) return 1;
+      if (b === NO_CATEGORY_LABEL) return -1;
+      return a.localeCompare(b, 'zh-CN');
+    default:
+      return 0;
+  }
+};
+
+const groupTasks = (items: Task[], mode: TaskGroupMode): TaskGroup[] => {
+  if (mode === 'none') {
+    return [{ key: 'all', label: '全部', items }];
+  }
+  const map = new Map<string, Task[]>();
+  items.forEach((task) => {
+    const key = getTaskGroupKey(task, mode);
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
+    map.get(key)?.push(task);
+  });
+  const keys = Array.from(map.keys()).sort((a, b) => compareGroupKeys(mode, a, b));
+  return keys.map((key) => ({
+    key,
+    label: getTaskGroupLabel(mode, key),
+    items: map.get(key) ?? [],
+  }));
+};
+
 type AgentItem = {
   id: string;
   title: string;
@@ -414,7 +535,19 @@ const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit
   </div>
 );
 
-const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, onDragOver, onDrop, isDragging, onDragEnd }: any) => {
+const TaskItem = ({
+  task,
+  selected,
+  onClick,
+  onToggle,
+  onDelete,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging,
+  onDragEnd,
+  dragEnabled = true,
+}: any) => {
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
   const isHorizontalRef = useRef<boolean | null>(null);
@@ -422,6 +555,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPointerDragging, setIsPointerDragging] = useState(false);
   const maxOffset = 84;
+  const canDrag = Boolean(onDragStart) && dragEnabled;
 
   useEffect(() => {
     setOffsetX(0);
@@ -490,6 +624,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
   };
 
   const handleDragStart = (event: any) => {
+    if (!canDrag) return;
     setIsPointerDragging(true);
     event.dataTransfer?.setData('text/plain', task.id);
     event.dataTransfer.effectAllowed = 'move';
@@ -506,7 +641,7 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
   return (
     <div
       className={`relative overflow-hidden rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
-      draggable={Boolean(onDragStart)}
+      draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {
         event.preventDefault();
@@ -568,22 +703,24 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
             }`}>
               {task.title}
             </p>
-            <button
-              type="button"
-              draggable
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
-              onMouseDown={(event) => {
-                event.stopPropagation();
-              }}
-              onTouchStart={(event) => {
-                event.stopPropagation();
-              }}
-              title="拖动排序"
-            >
-              拖动排序
-            </button>
+            {canDrag && (
+              <button
+                type="button"
+                draggable
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                }}
+                onTouchStart={(event) => {
+                  event.stopPropagation();
+                }}
+                title="拖动排序"
+              >
+                拖动排序
+              </button>
+            )}
             {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
               <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
                 {Math.round((task as any).similarity * 100)}%
@@ -650,6 +787,8 @@ export default function Home() {
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [showSettings, setShowSettings] = useState(false);
   const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, calendar, agent
+  const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('priority');
+  const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('none');
   const [webdavUrl, setWebdavUrl] = useState(DEFAULT_WEBDAV_URL);
   const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
   const [webdavUsername, setWebdavUsername] = useState('');
@@ -1135,15 +1274,9 @@ export default function Home() {
       }
 
       return true; // Default (todo/inbox/other views use full list for now)
-    })
-    .sort((a, b) => {
-      // Higher priority first (2 > 1 > 0), then by dueDate, then by createdAt desc
-      if (b.priority !== a.priority) return b.priority - a.priority;
-      const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-      const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-      if (aTime !== bTime) return aTime - bTime;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+  const sortedTasks = sortTasks(filteredTasks, taskSortMode);
+  const groupedTasks = groupTasks(sortedTasks, taskGroupMode);
 
   // 统计：完成率 & 拖延指数（仅用于概览展示）
   const totalTasks = tasks.length;
@@ -2189,6 +2322,8 @@ export default function Home() {
     : activeFilter === 'tag'
     ? (activeTag ? `#${activeTag}` : FILTER_LABELS.tag)
     : (FILTER_LABELS[activeFilter] ?? '待办');
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent'].includes(activeFilter);
+  const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
 
@@ -2517,7 +2652,7 @@ export default function Home() {
           </div>
         </header>
 
-        {!['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent'].includes(activeFilter) && (
+        {isListView && (
           <div className="px-3 sm:px-6 py-3 sm:py-4">
             {/* 紧凑统计条：不占空间，仅在有任务时展示 */}
             {totalTasks > 0 && (
@@ -2549,7 +2684,7 @@ export default function Home() {
                   disabled={loading}
                 />
                 {input && (
-                  <button 
+                  <button
                     onClick={handleMagicInput}
                     className="bg-blue-600 text-white p-1 rounded hover:bg-blue-500 transition-colors"
                   >
@@ -2557,6 +2692,41 @@ export default function Home() {
                   </button>
                 )}
               </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#666666]">
+              <div className="flex items-center gap-2">
+                <label htmlFor="task-sort-mode" className="text-[11px] uppercase text-[#666666]">排序</label>
+                <select
+                  id="task-sort-mode"
+                  value={taskSortMode}
+                  onChange={(event) => setTaskSortMode(event.target.value as TaskSortMode)}
+                  className="bg-[#1F1F1F] border border-[#333333] rounded px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                >
+                  {TASK_SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="task-group-mode" className="text-[11px] uppercase text-[#666666]">分组</label>
+                <select
+                  id="task-group-mode"
+                  value={taskGroupMode}
+                  onChange={(event) => setTaskGroupMode(event.target.value as TaskGroupMode)}
+                  className="bg-[#1F1F1F] border border-[#333333] rounded px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                >
+                  {TASK_GROUP_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {taskSortMode === 'manual' && taskGroupMode !== 'none' && (
+                <span className="text-[11px] text-[#555555]">手动排序在分组时不可拖动</span>
+              )}
             </div>
           </div>
         )}
@@ -3143,8 +3313,8 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="space-y-1">
-              {filteredTasks.length === 0 ? (
+            <div className="space-y-4">
+              {sortedTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-[#444444]">
                   <Inbox className="w-16 h-16 mb-4 opacity-20" />
                   {/* 空状态：加入一点幽默元素 */}
@@ -3152,77 +3322,88 @@ export default function Home() {
                   <p className="text-xs text-[#555555] mt-2">要不要来点新任务，让我也有点存在感？</p>
                 </div>
               ) : (
-                filteredTasks.map(task => (
-                  <div key={task.id} className="space-y-1">
-                    {editingTaskId === task.id ? (
-                      <div className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333333] rounded-2xl px-3 py-2.5">
-                        <input
-                          value={editingTaskTitle}
-                          onChange={(e) => setEditingTaskTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const title = editingTaskTitle.trim();
-                              if (title) {
-                                updateTask({ ...task, title });
-                              }
-                            }
-                            if (e.key === 'Escape') {
-                              setEditingTaskId(null);
-                              setEditingTaskTitle('');
-                            }
-                          }}
-                          autoFocus
-                          className="flex-1 bg-transparent outline-none text-sm text-[#EEEEEE]"
-                          placeholder="编辑任务标题"
-                        />
-                        <button
-                          className="text-xs text-blue-400 hover:text-blue-300"
-                          onClick={() => {
-                            const title = editingTaskTitle.trim();
-                            if (title) {
-                              updateTask({ ...task, title });
-                            }
-                          }}
-                        >
-                          保存
-                        </button>
-                        <button
-                          className="text-xs text-[#888888] hover:text-[#CCCCCC]"
-                          onClick={() => {
-                            setEditingTaskId(null);
-                            setEditingTaskTitle('');
-                          }}
-                        >
-                          取消
-                        </button>
-                      </div>
-                    ) : (
-                      <TaskItem 
-                        task={task} 
-                        selected={selectedTask?.id === task.id}
-                        onClick={() => setSelectedTask(task)}
-                        onToggle={toggleStatus}
-                        onDelete={removeTask}
-                        onDragStart={handleTaskDragStart}
-                        onDragOver={handleTaskDragOver}
-                        onDrop={handleTaskDrop}
-                        isDragging={draggingTaskId === task.id}
-                        onDragEnd={() => setDraggingTaskId(null)}
-                      />
-                    )}
-                    {editingTaskId !== task.id && (
-                      <div className="flex items-center gap-2 text-[11px] text-[#555555] px-1">
-                        <button
-                          className="hover:text-[#CCCCCC]"
-                          onClick={() => {
-                            setEditingTaskId(task.id);
-                            setEditingTaskTitle(task.title);
-                          }}
-                        >
-                          编辑标题
-                        </button>
+                groupedTasks.map((group) => (
+                  <div key={group.key} className="space-y-1">
+                    {taskGroupMode !== 'none' && (
+                      <div className="flex items-center justify-between px-1 pt-3 pb-1 text-[11px] text-[#666666]">
+                        <span className="font-semibold text-[#AAAAAA]">{group.label}</span>
+                        <span>{group.items.length} 项</span>
                       </div>
                     )}
+                    {group.items.map(task => (
+                      <div key={task.id} className="space-y-1">
+                        {editingTaskId === task.id ? (
+                          <div className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333333] rounded-2xl px-3 py-2.5">
+                            <input
+                              value={editingTaskTitle}
+                              onChange={(e) => setEditingTaskTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  const title = editingTaskTitle.trim();
+                                  if (title) {
+                                    updateTask({ ...task, title });
+                                  }
+                                }
+                                if (e.key === 'Escape') {
+                                  setEditingTaskId(null);
+                                  setEditingTaskTitle('');
+                                }
+                              }}
+                              autoFocus
+                              className="flex-1 bg-transparent outline-none text-sm text-[#EEEEEE]"
+                              placeholder="编辑任务标题"
+                            />
+                            <button
+                              className="text-xs text-blue-400 hover:text-blue-300"
+                              onClick={() => {
+                                const title = editingTaskTitle.trim();
+                                if (title) {
+                                  updateTask({ ...task, title });
+                                }
+                              }}
+                            >
+                              保存
+                            </button>
+                            <button
+                              className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+                              onClick={() => {
+                                setEditingTaskId(null);
+                                setEditingTaskTitle('');
+                              }}
+                            >
+                              取消
+                            </button>
+                          </div>
+                        ) : (
+                          <TaskItem
+                            task={task}
+                            selected={selectedTask?.id === task.id}
+                            onClick={() => setSelectedTask(task)}
+                            onToggle={toggleStatus}
+                            onDelete={removeTask}
+                            onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
+                            onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
+                            onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
+                            isDragging={isManualSortEnabled && draggingTaskId === task.id}
+                            onDragEnd={isManualSortEnabled ? () => setDraggingTaskId(null) : undefined}
+                            dragEnabled={isManualSortEnabled}
+                          />
+                        )}
+                        {editingTaskId !== task.id && (
+                          <div className="flex items-center gap-2 text-[11px] text-[#555555] px-1">
+                            <button
+                              className="hover:text-[#CCCCCC]"
+                              onClick={() => {
+                                setEditingTaskId(task.id);
+                                setEditingTaskTitle(task.title);
+                              }}
+                            >
+                              编辑标题
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ))
               )}
