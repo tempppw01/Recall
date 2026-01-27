@@ -861,6 +861,7 @@ export default function Home() {
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(true);
+  const [isListsOpen, setIsListsOpen] = useState(true);
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
