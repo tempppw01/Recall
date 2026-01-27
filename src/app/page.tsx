@@ -276,6 +276,29 @@ const getRecentDays = (count: number) => {
   return Array.from({ length: count }, (_, index) => formatDateKey(addDays(today, -count + 1 + index)));
 };
 
+const getWeekStart = (date: Date) => {
+  const start = new Date(date);
+  const day = start.getDay();
+  start.setDate(start.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+  return start;
+};
+
+const buildWeekDays = (start: Date) =>
+  Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(start, index);
+    return {
+      date,
+      dateKey: formatDateKey(date),
+      label: `${date.getMonth() + 1}/${date.getDate()}`,
+    };
+  });
+
+const buildWeekLabel = (start: Date) => {
+  const end = addDays(start, 6);
+  return `${formatDateKey(start)} ~ ${formatDateKey(end)}`;
+};
+
 const getNextRepeatDate = (task: Task): Date | null => {
   const rule = task.repeat;
   if (!rule || rule.type === 'none') return null;
@@ -607,10 +630,14 @@ export default function Home() {
   const [isTagsOpen, setIsTagsOpen] = useState(true);
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+  const [weekDays, setWeekDays] = useState(() => buildWeekDays(weekStart));
+  const [weekLabel, setWeekLabel] = useState(() => buildWeekLabel(weekStart));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newTagInput, setNewTagInput] = useState('');
@@ -750,6 +777,15 @@ export default function Home() {
   useEffect(() => {
     pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
   }, []);
+
+  useEffect(() => {
+    if (calendarView === 'week') {
+      const start = getWeekStart(new Date());
+      setWeekStart(start);
+      setWeekDays(buildWeekDays(start));
+      setWeekLabel(buildWeekLabel(start));
+    }
+  }, [calendarView]);
 
 
   useEffect(() => {
@@ -1708,6 +1744,14 @@ export default function Home() {
     setDragOverTaskId(null);
   };
 
+  const handleWeekChange = (offset: number) => {
+    const nextStart = addDays(weekStart, offset * 7);
+    setWeekStart(nextStart);
+    setWeekDays(buildWeekDays(nextStart));
+    setWeekLabel(buildWeekLabel(nextStart));
+    setSelectedCalendarDate(null);
+  };
+
   const reorderTasks = (sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
     const current = taskStore.getAll();
@@ -2261,88 +2305,195 @@ export default function Home() {
         }`}>
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
-              <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
-                <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs">
                   <button
-                    onClick={() => handleMonthChange(-1)}
-                    className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                    className={`px-3 py-1 rounded-lg border transition-colors ${
+                      calendarView === 'month'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                    onClick={() => setCalendarView('month')}
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    月视图
                   </button>
-                  <div className="text-sm font-semibold text-[#DDDDDD]">{monthLabel}</div>
                   <button
-                    onClick={() => handleMonthChange(1)}
-                    className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                    className={`px-3 py-1 rounded-lg border transition-colors ${
+                      calendarView === 'week'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                    onClick={() => setCalendarView('week')}
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    周视图
                   </button>
                 </div>
-                <div className="grid grid-cols-7 text-[11px] text-[#666666] mb-2">
-                  {weekdayLabels.map((label) => (
-                    <div key={label} className="text-center">{label}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-sm">
-                  {calendarDays.map((day, idx) => {
-                    if (!day) {
-                      return <div key={`empty-${idx}`} className="h-9" />;
-                    }
-                    const dateKey = `${monthLabel}-${String(day).padStart(2, '0')}`;
-                    const isToday = dateKey === todayKey;
-                    const isSelected = dateKey === effectiveCalendarDate;
-                    const hasTasks = (tasksByDate[dateKey] || []).length > 0;
-                    return (
-                      <button
-                        key={dateKey}
-                        onClick={() => setSelectedCalendarDate(dateKey)}
-                        className={`h-9 rounded-lg flex flex-col items-center justify-center text-xs transition-colors border ${
-                          isSelected
-                            ? 'bg-blue-600/20 border-blue-500 text-white'
-                            : 'border-transparent hover:bg-[#2A2A2A]'
-                        } ${isToday ? 'text-blue-300' : 'text-[#CCCCCC]'}`}
-                      >
-                        <span className="leading-none">{day}</span>
-                        <span className={`mt-1 w-1.5 h-1.5 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`} />
-                      </button>
-                    );
-                  })}
+                <div className="text-[11px] text-[#666666]">
+                  {calendarView === 'month' ? '按月总览' : '按周聚焦'}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-[#DDDDDD]">
-                    {selectedCalendarDate ? `${selectedCalendarDate} 任务` : `今天 (${todayKey}) 任务`}
-                  </h3>
-                  {selectedCalendarDate && (
-                    <button
-                      onClick={() => setSelectedCalendarDate(null)}
-                      className="text-xs text-[#888888] hover:text-[#CCCCCC]"
-                    >
-                      返回今天
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  {selectedCalendarTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
-                      <Calendar className="w-12 h-12 mb-3 opacity-20" />
-                      <p className="text-sm">这一天没有任务</p>
+              {calendarView === 'week' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-[#DDDDDD]">
+                      {weekLabel}
                     </div>
-                  ) : (
-                    selectedCalendarTasks.map((task) => (
-                      <TaskItem
-                        key={task.id}
-                        task={task}
-                        selected={selectedTask?.id === task.id}
-                        onClick={() => setSelectedTask(task)}
-                        onToggle={toggleStatus}
-                        onDelete={removeTask}
-                      />
-                    ))
-                  )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleWeekChange(-1)}
+                        className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleWeekChange(1)}
+                        className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                    {weekDays.map((day, index) => {
+                      const dayTasks = tasksByDate[day.dateKey] || [];
+                      const sortedTasks = [...dayTasks].sort((a, b) => {
+                        const aTime = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+                        const bTime = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+                        return aTime - bTime;
+                      });
+                      return (
+                        <div key={day.dateKey} className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm font-semibold text-[#DDDDDD]">{day.label}</div>
+                              <div className="text-[11px] text-[#777777]">周{weekdayLabels[index]}</div>
+                            </div>
+                            {day.dateKey === todayKey && (
+                              <span className="text-[10px] text-blue-300">今天</span>
+                            )}
+                          </div>
+                          {sortedTasks.length === 0 ? (
+                            <div className="text-xs text-[#555555]">暂无任务</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {sortedTasks.map((task) => {
+                                const startTime = task.dueDate
+                                  ? formatZonedTime(task.dueDate, getTimezoneOffset(task))
+                                  : '未设时间';
+                                return (
+                                  <button
+                                    key={task.id}
+                                    onClick={() => setSelectedTask(task)}
+                                    className="w-full text-left bg-[#1F1F1F] border border-[#2C2C2C] hover:border-[#444444] rounded-lg p-2 transition-colors"
+                                  >
+                                    <div className="flex items-center justify-between text-[11px] text-[#999999]">
+                                      <span>{startTime}</span>
+                                      <span className={`flex items-center gap-1 ${getPriorityColor(task.priority)}`}>
+                                        <Flag className="w-3 h-3" />
+                                        {getPriorityLabel(task.priority)}
+                                      </span>
+                                    </div>
+                                    <div className={`text-sm mt-1 ${task.status === 'completed' ? 'line-through text-[#666666]' : 'text-[#EEEEEE]'}`}>
+                                      {task.title}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <button
+                        onClick={() => handleMonthChange(-1)}
+                        className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <div className="text-sm font-semibold text-[#DDDDDD]">{monthLabel}</div>
+                      <button
+                        onClick={() => handleMonthChange(1)}
+                        className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-7 text-[11px] text-[#666666] mb-2">
+                      {weekdayLabels.map((label) => (
+                        <div key={label} className="text-center">{label}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 text-sm">
+                      {calendarDays.map((day, idx) => {
+                        if (!day) {
+                          return <div key={`empty-${idx}`} className="h-9" />;
+                        }
+                        const dateKey = `${monthLabel}-${String(day).padStart(2, '0')}`;
+                        const isToday = dateKey === todayKey;
+                        const isSelected = dateKey === effectiveCalendarDate;
+                        const hasTasks = (tasksByDate[dateKey] || []).length > 0;
+                        return (
+                          <button
+                            key={dateKey}
+                            onClick={() => setSelectedCalendarDate(dateKey)}
+                            className={`h-9 rounded-lg flex flex-col items-center justify-center text-xs transition-colors border ${
+                              isSelected
+                                ? 'bg-blue-600/20 border-blue-500 text-white'
+                                : 'border-transparent hover:bg-[#2A2A2A]'
+                            } ${isToday ? 'text-blue-300' : 'text-[#CCCCCC]'}`}
+                          >
+                            <span className="leading-none">{day}</span>
+                            <span className={`mt-1 w-1.5 h-1.5 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-[#DDDDDD]">
+                        {selectedCalendarDate ? `${selectedCalendarDate} 任务` : `今天 (${todayKey}) 任务`}
+                      </h3>
+                      {selectedCalendarDate && (
+                        <button
+                          onClick={() => setSelectedCalendarDate(null)}
+                          className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+                        >
+                          返回今天
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {selectedCalendarTasks.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
+                          <Calendar className="w-12 h-12 mb-3 opacity-20" />
+                          <p className="text-sm">这一天没有任务</p>
+                        </div>
+                      ) : (
+                        selectedCalendarTasks.map((task) => (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            selected={selectedTask?.id === task.id}
+                            onClick={() => setSelectedTask(task)}
+                            onToggle={toggleStatus}
+                            onDelete={removeTask}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : activeFilter === 'countdown' ? (
             <div className="space-y-4">

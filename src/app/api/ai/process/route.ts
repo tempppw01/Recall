@@ -23,6 +23,12 @@ type ParsedTask = {
   category?: string;
   tags?: string[];
   subtasks?: { title?: string }[];
+  repeat?: {
+    type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+    interval?: number;
+    weekdays?: number[];
+    monthDay?: number;
+  };
 };
 
 type OrganizePayload = {
@@ -36,6 +42,12 @@ type AgentItem = {
   category?: string;
   tags?: string[];
   subtasks?: { title?: string }[];
+  repeat?: {
+    type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+    interval?: number;
+    weekdays?: number[];
+    monthDay?: number;
+  };
 };
 
 type AgentPayload = {
@@ -70,6 +82,13 @@ function normalizeTask(data: ParsedTask) {
     : DEFAULT_TASK.subtasks;
   const id = typeof data.id === 'string' && data.id.trim().length > 0 ? data.id.trim() : undefined;
 
+  const repeat = data.repeat && typeof data.repeat === 'object' ? {
+    type: data.repeat.type || 'none',
+    interval: data.repeat.interval,
+    weekdays: Array.isArray(data.repeat.weekdays) ? data.repeat.weekdays : undefined,
+    monthDay: data.repeat.monthDay,
+  } : undefined;
+
   return {
     id,
     title,
@@ -78,6 +97,7 @@ function normalizeTask(data: ParsedTask) {
     category,
     tags,
     subtasks,
+    repeat,
   };
 }
 
@@ -231,7 +251,8 @@ export async function POST(req: NextRequest) {
 3) 校正 priority(0-2)、category(只可从 ${CATEGORY_OPTIONS.join(' / ')})、tags。
 4) dueDate 若无则保持 null。
 5) subtasks 仅保留 title。
-请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }] }`,
+6) 识别并优化重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6)。
+请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }`,
             },
             {
               role: 'user',
@@ -290,11 +311,12 @@ export async function POST(req: NextRequest) {
               role: 'system',
               content: `你是 todo-agent 助理，负责和用户聊天并输出可执行待办清单。请遵循：
 1) 用简短中文回复用户，字段名 reply。
-2) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks。
+2) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks / repeat。
 3) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
 4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 字符串。
 5) subtasks 仅保留 title。
-6) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }]}。`,
+6) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
+7) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。`,
             },
             { role: 'user', content: input },
           ],
@@ -391,9 +413,9 @@ export async function POST(req: NextRequest) {
           id: Math.random().toString(36).substring(2, 9),
           title: subtask.title,
           completed: false,
-        }))
+        })),
       },
-      embedding
+      embedding,
     });
 
   } catch (error) {
