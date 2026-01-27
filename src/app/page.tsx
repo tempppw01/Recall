@@ -1647,6 +1647,19 @@ export default function Home() {
     }
   };
 
+  const clearCompletedTasks = () => {
+    const remaining = taskStore.getAll().filter((task) => task.status !== 'completed');
+    taskStore.replaceAll(remaining);
+    setTasks(remaining);
+    if (selectedTask?.status === 'completed') {
+      setSelectedTask(null);
+    }
+    const nextCategories = Array.from(new Set(remaining.map((task) => task.category).filter(Boolean))) as string[];
+    const nextTags = Array.from(new Set(remaining.flatMap((task) => task.tags || [])));
+    setListItems(nextCategories);
+    setTagItems(nextTags);
+  };
+
   const toggleStatus = (id: string) => {
     const all = taskStore.getAll();
     const target = all.find(t => t.id === id);
@@ -2115,6 +2128,20 @@ export default function Home() {
             </h2>
           </div>
           <div className="mobile-toolbar flex items-center gap-3 sm:gap-4 text-[#666666]">
+            {activeFilter === 'completed' && completedTasks > 0 && (
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined' && !window.confirm('确认清除所有已完成任务？')) {
+                    return;
+                  }
+                  clearCompletedTasks();
+                }}
+                className="px-3 py-1.5 text-xs sm:text-sm rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10"
+                title="清除已完成"
+              >
+                清除已完成
+              </button>
+            )}
             <button
               onClick={() => setShowLogs(true)}
               className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
