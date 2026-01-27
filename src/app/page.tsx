@@ -1462,6 +1462,34 @@ export default function Home() {
     }
   };
 
+  const handleAddAllAgentItems = () => {
+    const pendingItems = agentItems.filter((item) => !addedAgentItemIds.has(item.id));
+    if (pendingItems.length === 0) return;
+    const newTasks = pendingItems.map((item) => createTaskFromAgentItem(item));
+
+    setAddedAgentItemIds((prev) => {
+      const next = new Set(prev);
+      pendingItems.forEach((item) => next.add(item.id));
+      return next;
+    });
+    setTasks((prev) => {
+      const existingIds = new Set(prev.map((task) => task.id));
+      const uniqueTasks = newTasks.filter((task) => !existingIds.has(task.id));
+      return [...uniqueTasks, ...prev];
+    });
+
+    const persistTasks = () => {
+      newTasks.forEach((task) => taskStore.add(task));
+      refreshTasks();
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(persistTasks, { timeout: 1200 });
+    } else {
+      setTimeout(persistTasks, 0);
+    }
+  };
+
   // 触发 AI 整理：发送当前任务给后端并覆盖本地任务
   const handleOrganizeTasks = async () => {
     if (isOrganizing) return;
@@ -2399,6 +2427,8 @@ export default function Home() {
       : true;
     return (count > 0 || activeTag === item) && matches;
   });
+  const showAgentBulkAdd = agentItems.length > 1
+    || agentItems.some((item) => (item.subtasks?.length ?? 0) > 0);
 
   return (
     <div
@@ -3221,58 +3251,78 @@ export default function Home() {
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
-            <div className="flex flex-col gap-4">
-              <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手</h3>
-                    <p className="text-xs text-[#666666] mt-1">描述你的计划，我帮你拆成待办清单</p>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+              <div className="space-y-4">
+                <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手</h3>
+                      <p className="text-xs text-[#666666] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
+                    </div>
+                    <span className="text-[11px] text-[#555555]">todo-agent</span>
                   </div>
-                  <span className="text-[11px] text-[#555555]">todo-agent</span>
-                </div>
-                <div className="mt-3 space-y-3">
-                  <div className="max-h-[40vh] overflow-y-auto space-y-2 pr-1">
-                    {agentMessages.length === 0 ? (
-                      <div className="text-sm text-[#555555]">先告诉我：想完成什么事情？</div>
-                    ) : (
-                      agentMessages.map((message, idx) => (
-                        <div
-                          key={`${message.role}-${idx}`}
-                          className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                            message.role === 'user'
-                              ? 'bg-blue-600/20 text-blue-100 ml-auto'
-                              : 'bg-[#2A2A2A] text-[#DDDDDD]'
-                          }`}
-                        >
-                          {message.content}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={agentInput}
-                      onChange={(e) => setAgentInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAgentSend()}
-                      placeholder="例如：帮我规划本周的工作安排"
-                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
-                      disabled={agentLoading}
-                    />
-                    <button
-                      onClick={handleAgentSend}
-                      disabled={agentLoading || !agentInput.trim()}
-                      className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
-                    >
-                      {agentLoading ? '整理中…' : '发送'}
-                    </button>
+                  <div className="mt-3 space-y-3">
+                    <div className="rounded-xl border border-dashed border-[#333333] bg-[#1B1B1B] px-3 py-2 text-xs text-[#777777]">
+                      小提示：别怕大目标，我负责把它切成一口一口的“薯片任务”。
+                    </div>
+                    <div className="max-h-[40vh] overflow-y-auto space-y-2 pr-1">
+                      {agentMessages.length === 0 ? (
+                        <div className="text-sm text-[#555555]">先告诉我：想完成什么事情？</div>
+                      ) : (
+                        agentMessages.map((message, idx) => (
+                          <div
+                            key={`${message.role}-${idx}`}
+                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                              message.role === 'user'
+                                ? 'bg-blue-600/20 text-blue-100 ml-auto'
+                                : 'bg-[#2A2A2A] text-[#DDDDDD]'
+                            }`}
+                          >
+                            {message.content}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={agentInput}
+                        onChange={(e) => setAgentInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAgentSend()}
+                        placeholder="例如：帮我规划本周的工作安排"
+                        className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
+                        disabled={agentLoading}
+                      />
+                      <button
+                        onClick={handleAgentSend}
+                        disabled={agentLoading || !agentInput.trim()}
+                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
+                      >
+                        {agentLoading ? '整理中…' : '发送'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {agentItems.length > 0 && (
-                <div className="space-y-3">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <h4 className="text-sm font-semibold text-[#CCCCCC]">建议待办</h4>
+                  {showAgentBulkAdd && (
+                    <button
+                      onClick={handleAddAllAgentItems}
+                      disabled={agentItems.length === 0 || addedAgentItemIds.size === agentItems.length}
+                      className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      一键全部添加
+                    </button>
+                  )}
+                </div>
+                {agentItems.length === 0 ? (
+                  <div className="bg-[#1F1F1F] border border-dashed border-[#2C2C2C] rounded-2xl p-4 text-xs text-[#666666]">
+                    右侧会出现我整理的清单，放心，它不会咬你。
+                  </div>
+                ) : (
                   <div className="grid gap-3">
                     {agentItems.map((item) => (
                       <div key={item.id} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
@@ -3306,8 +3356,8 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ) : activeFilter === 'habit' ? (
             <div className="space-y-5 sm:space-y-6">
