@@ -2136,6 +2136,9 @@ export default function Home() {
             />
           </div>
         </div>
+        <div className="px-4 py-2 border-t border-[#333333] bg-[#222222]/50">
+          <div className="text-[10px] text-[#555555]">v{APP_VERSION}</div>
+        </div>
       </aside>
 
       {isSidebarOpen && (
@@ -2254,7 +2257,7 @@ export default function Home() {
         )}
 
         <div className={`flex-1 overflow-y-auto mobile-scroll px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10 ${
-          activeFilter === 'agent' ? 'pt-3 sm:pt-4' : ''
+          ['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-3 sm:pt-4' : ''
         }`}>
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
@@ -3308,7 +3311,6 @@ export default function Home() {
         </div>
       )}
 
-      <div className="fixed bottom-[calc(0.5rem+env(safe-area-inset-bottom))] right-3 sm:right-4 text-[10px] sm:text-xs text-[#555555]">v{APP_VERSION}</div>
     </div>
   );
 }
