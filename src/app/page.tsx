@@ -15,9 +15,15 @@ const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
+const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
+const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
 const APP_VERSION = '0.6.1';
 const APP_VERSION_KEY = 'recall_app_version';
 const WALLPAPER_KEY = 'recall_wallpaper_url';
+const WEBDAV_URL_KEY = 'recall_webdav_url';
+const WEBDAV_PATH_KEY = 'recall_webdav_path';
+const WEBDAV_USERNAME_KEY = 'recall_webdav_username';
+const WEBDAV_PASSWORD_KEY = 'recall_webdav_password';
 const DEFAULT_TIMEZONE_OFFSET = 480;
 const TIMEZONE_OPTIONS = [
   { label: 'UTC-12', offsetMinutes: -720 },
@@ -618,6 +624,11 @@ export default function Home() {
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [showSettings, setShowSettings] = useState(false);
   const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, calendar, agent
+  const [webdavUrl, setWebdavUrl] = useState(DEFAULT_WEBDAV_URL);
+  const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
+  const [webdavUsername, setWebdavUsername] = useState('');
+  const [webdavPassword, setWebdavPassword] = useState('');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [countdowns, setCountdowns] = useState<Countdown[]>([]);
@@ -706,6 +717,10 @@ export default function Home() {
     embeddingModel: string;
     fallbackTimeoutSec: number;
     wallpaperUrl: string;
+    webdavUrl: string;
+    webdavPath: string;
+    webdavUsername: string;
+    webdavPassword: string;
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
@@ -714,6 +729,10 @@ export default function Home() {
     localStorage.setItem('recall_embedding_model', next.embeddingModel);
     localStorage.setItem('recall_fallback_timeout_sec', String(next.fallbackTimeoutSec));
     localStorage.setItem(WALLPAPER_KEY, next.wallpaperUrl);
+    localStorage.setItem(WEBDAV_URL_KEY, next.webdavUrl);
+    localStorage.setItem(WEBDAV_PATH_KEY, next.webdavPath);
+    localStorage.setItem(WEBDAV_USERNAME_KEY, next.webdavUsername);
+    localStorage.setItem(WEBDAV_PASSWORD_KEY, next.webdavPassword);
   };
 
   // Load Initial Data
@@ -731,6 +750,10 @@ export default function Home() {
       const storedEmbeddingModel = localStorage.getItem('recall_embedding_model');
       const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
       const storedWallpaper = localStorage.getItem(WALLPAPER_KEY);
+      const storedWebdavUrl = localStorage.getItem(WEBDAV_URL_KEY);
+      const storedWebdavPath = localStorage.getItem(WEBDAV_PATH_KEY);
+      const storedWebdavUsername = localStorage.getItem(WEBDAV_USERNAME_KEY);
+      const storedWebdavPassword = localStorage.getItem(WEBDAV_PASSWORD_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -748,6 +771,10 @@ export default function Home() {
       if (storedWallpaper) {
         setWallpaperUrl(storedWallpaper);
       }
+      if (storedWebdavUrl) setWebdavUrl(storedWebdavUrl);
+      if (storedWebdavPath) setWebdavPath(storedWebdavPath);
+      if (storedWebdavUsername) setWebdavUsername(storedWebdavUsername);
+      if (storedWebdavPassword) setWebdavPassword(storedWebdavPassword);
 
       const storedTheme = localStorage.getItem('recall_theme');
       if (storedTheme === 'light') {
@@ -1277,6 +1304,145 @@ export default function Home() {
       countdowns: countdownStore.getAll(),
     },
   });
+
+  const buildSyncPayload = () => ({
+    version: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: {
+      tasks: taskStore.getAll(),
+      habits: habitStore.getAll(),
+      countdowns: countdownStore.getAll(),
+    },
+    settings: {
+      apiBaseUrl,
+      modelListText,
+      chatModel,
+      embeddingModel,
+      fallbackTimeoutSec,
+      wallpaperUrl,
+      themeMode,
+      isSystemTheme,
+      webdavUrl,
+      webdavPath,
+    },
+    secrets: {
+      apiKey,
+      webdavUsername,
+      webdavPassword,
+    },
+  });
+
+  const applySyncedSettings = (payload: any) => {
+    const settings = payload?.settings ?? {};
+    const secrets = payload?.secrets ?? {};
+
+    const nextApiBaseUrl = settings.apiBaseUrl || DEFAULT_BASE_URL;
+    const nextModelListText = settings.modelListText || DEFAULT_MODEL_LIST.join('\n');
+    const nextChatModel = settings.chatModel || DEFAULT_MODEL_LIST[0];
+    const nextEmbeddingModel = settings.embeddingModel || DEFAULT_EMBEDDING_MODEL;
+    const nextFallback = Number.isFinite(Number(settings.fallbackTimeoutSec))
+      ? Number(settings.fallbackTimeoutSec)
+      : DEFAULT_FALLBACK_TIMEOUT_SEC;
+    const nextWallpaper = typeof settings.wallpaperUrl === 'string' ? settings.wallpaperUrl : '';
+    const nextThemeMode = settings.themeMode === 'light' ? 'light' : 'dark';
+    const nextIsSystemTheme = settings.isSystemTheme === true;
+
+    setApiBaseUrl(nextApiBaseUrl);
+    setModelListText(nextModelListText);
+    setChatModel(nextChatModel);
+    setEmbeddingModel(nextEmbeddingModel);
+    setFallbackTimeoutSec(nextFallback);
+    setWallpaperUrl(nextWallpaper);
+    setThemeMode(nextThemeMode);
+    setIsSystemTheme(nextIsSystemTheme);
+
+    const nextWebdavUrl = typeof settings.webdavUrl === 'string' && settings.webdavUrl.trim().length > 0
+      ? settings.webdavUrl
+      : webdavUrl;
+    const nextWebdavPath = typeof settings.webdavPath === 'string' && settings.webdavPath.trim().length > 0
+      ? settings.webdavPath
+      : webdavPath;
+    const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : apiKey;
+    const nextWebdavUsername = typeof secrets.webdavUsername === 'string' ? secrets.webdavUsername : webdavUsername;
+    const nextWebdavPassword = typeof secrets.webdavPassword === 'string' ? secrets.webdavPassword : webdavPassword;
+
+    setApiKey(nextApiKey);
+    setWebdavUrl(nextWebdavUrl);
+    setWebdavPath(nextWebdavPath);
+    setWebdavUsername(nextWebdavUsername);
+    setWebdavPassword(nextWebdavPassword);
+
+    if (typeof window !== 'undefined') {
+      if (nextIsSystemTheme) {
+        localStorage.removeItem('recall_theme');
+      } else {
+        localStorage.setItem('recall_theme', nextThemeMode);
+      }
+    }
+
+    persistSettings({
+      apiKey: nextApiKey,
+      apiBaseUrl: nextApiBaseUrl,
+      modelListText: nextModelListText,
+      chatModel: nextChatModel,
+      embeddingModel: nextEmbeddingModel,
+      fallbackTimeoutSec: nextFallback,
+      wallpaperUrl: nextWallpaper,
+      webdavUrl: nextWebdavUrl,
+      webdavPath: nextWebdavPath,
+      webdavUsername: nextWebdavUsername,
+      webdavPassword: nextWebdavPassword,
+    });
+  };
+
+  const handleWebdavSync = async (action: 'push' | 'pull') => {
+    if (syncStatus === 'syncing') return;
+    if (!webdavUrl || !webdavUsername || !webdavPassword) {
+      pushLog('warning', 'WebDAV 配置不完整', '请填写地址、用户名和密码');
+      setShowSettings(true);
+      return;
+    }
+
+    setSyncStatus('syncing');
+    pushLog('info', action === 'push' ? 'WebDAV 上传中' : 'WebDAV 同步中');
+
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          url: webdavUrl,
+          username: webdavUsername,
+          password: webdavPassword,
+          path: webdavPath,
+          ...(action === 'push' ? { payload: buildSyncPayload() } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'WebDAV sync failed');
+      }
+
+      if (action === 'pull') {
+        const remotePayload = data?.data;
+        if (remotePayload) {
+          applyImportedData(remotePayload);
+          applySyncedSettings(remotePayload);
+          pushLog('success', 'WebDAV 同步完成', `导入任务 ${remotePayload?.data?.tasks?.length ?? 0} 条`);
+        } else {
+          pushLog('warning', 'WebDAV 同步失败', '未读取到远端数据');
+        }
+      } else {
+        pushLog('success', 'WebDAV 上传完成');
+      }
+    } catch (error) {
+      console.error(error);
+      pushLog('error', 'WebDAV 同步失败', String((error as Error)?.message || error));
+    } finally {
+      setSyncStatus('idle');
+    }
+  };
 
   const triggerDownload = (filename: string, content: string) => {
     if (typeof window === 'undefined') return;
@@ -3355,6 +3521,73 @@ export default function Home() {
                   className="hidden"
                 />
               </div>
+
+              <div className="pt-3 border-t border-[#333333]">
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">WebDAV 同步</label>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
+                    <input
+                      type="text"
+                      value={webdavUrl}
+                      onChange={(e) => setWebdavUrl(e.target.value)}
+                      placeholder={DEFAULT_WEBDAV_URL}
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">远端文件路径</label>
+                    <input
+                      type="text"
+                      value={webdavPath}
+                      onChange={(e) => setWebdavPath(e.target.value)}
+                      placeholder={DEFAULT_WEBDAV_PATH}
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
+                    <input
+                      type="text"
+                      value={webdavUsername}
+                      onChange={(e) => setWebdavUsername(e.target.value)}
+                      placeholder="WebDAV 用户名"
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
+                    <input
+                      type="password"
+                      value={webdavPassword}
+                      onChange={(e) => setWebdavPassword(e.target.value)}
+                      placeholder="WebDAV 密码"
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleWebdavSync('push')}
+                      disabled={syncStatus === 'syncing'}
+                      className="px-3 py-2 text-[13px] sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {syncStatus === 'syncing' ? '同步中…' : '上传到 WebDAV'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleWebdavSync('pull')}
+                      disabled={syncStatus === 'syncing'}
+                      className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white disabled:opacity-50"
+                    >
+                      {syncStatus === 'syncing' ? '同步中…' : '从 WebDAV 拉取'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-[#555555]">
+                    提示：同步会包含任务、习惯、倒数日及 AI 设置与密钥。
+                  </p>
+                </div>
+              </div>
               <div className="flex justify-end gap-3 mt-5">
                 <button
                   onClick={() => setShowSettings(false)}
@@ -3374,6 +3607,10 @@ export default function Home() {
                       embeddingModel,
                       fallbackTimeoutSec: normalizedTimeout,
                       wallpaperUrl,
+                      webdavUrl,
+                      webdavPath,
+                      webdavUsername,
+                      webdavPassword,
                     });
                     setShowSettings(false);
                   }}
@@ -3536,7 +3773,7 @@ export default function Home() {
             </div>
             <div className="mt-4 text-sm text-[#CCCCCC] space-y-2">
               <p>版本：v{APP_VERSION}</p>
-              <p>项目主页：<a className="text-blue-300 hover:text-blue-200" href="https://github.com/tempppw01/Recall" target="_blank" rel="noreferrer">https://github.com/tempppw01/Recall</a></p>
+      <p>项目主页：<a className="text-blue-300 hover:text-blue-200" href="https://github.com/tempppw01/Recall" target="_blank" rel="noopener noreferrer">https://github.com/tempppw01/Recall</a></p>
               <p>作者联系：微信 Ethan_BravoEcho</p>
               <p className="text-xs text-[#666666]">感谢使用 Recall，祝你高效又轻松 ✨</p>
             </div>
