@@ -4,6 +4,13 @@ import OpenAI from 'openai';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_CHAT_COMPLETIONS_URL = 'https://ai.shuaihong.fun/v1/chat/completions';
+
+const buildChatCompletionsUrl = (base: string) => {
+  const trimmed = base.replace(/\/$/, '');
+  if (trimmed.endsWith('/chat/completions')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
+  return `${trimmed}/v1/chat/completions`;
+};
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
@@ -198,7 +205,7 @@ export async function POST(req: NextRequest) {
     const { input, mode, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
-    const resolvedChatCompletionsUrl = process.env.OPENAI_CHAT_COMPLETIONS_URL || DEFAULT_CHAT_COMPLETIONS_URL;
+    const resolvedChatCompletionsUrl = process.env.OPENAI_CHAT_COMPLETIONS_URL || buildChatCompletionsUrl(resolvedBaseUrl);
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
     const resolvedEmbeddingModel = embeddingModel || process.env.OPENAI_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
 

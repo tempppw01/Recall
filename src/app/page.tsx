@@ -602,9 +602,11 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [draggingSubtaskId, setDraggingSubtaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [dragOverSubtaskId, setDragOverSubtaskId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1020,28 +1022,37 @@ export default function Home() {
   };
 
   // Filter Logic
-  const filteredTasks = tasks.filter(t => {
-    if (activeFilter === 'agent') return true;
-    if (activeFilter === 'completed') return t.status === 'completed';
-    if (t.status === 'completed') return false; // Hide completed in other views
+  const filteredTasks = tasks
+    .filter((t) => {
+      if (activeFilter === 'agent') return true;
+      if (activeFilter === 'completed') return t.status === 'completed';
+      if (t.status === 'completed') return false; // Hide completed in other views
 
-    if (activeFilter === 'today') {
-      if (!t.dueDate) return false;
-      const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
-      const taskKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
-      return taskKey === todayKey;
-    }
+      if (activeFilter === 'today') {
+        if (!t.dueDate) return false;
+        const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
+        const taskKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
+        return taskKey === todayKey;
+      }
 
-    if (activeFilter === 'category') {
-      return activeCategory ? t.category === activeCategory : true;
-    }
+      if (activeFilter === 'category') {
+        return activeCategory ? t.category === activeCategory : true;
+      }
 
-    if (activeFilter === 'tag') {
-      return activeTag ? (t.tags || []).includes(activeTag) : true;
-    }
+      if (activeFilter === 'tag') {
+        return activeTag ? (t.tags || []).includes(activeTag) : true;
+      }
 
-    return true; // Default (todo/inbox/other views use full list for now)
-  });
+      return true; // Default (todo/inbox/other views use full list for now)
+    })
+    .sort((a, b) => {
+      // Higher priority first (2 > 1 > 0), then by dueDate, then by createdAt desc
+      if (b.priority !== a.priority) return b.priority - a.priority;
+      const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      if (aTime !== bTime) return aTime - bTime;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   // 统计：完成率 & 拖延指数（仅用于概览展示）
   const totalTasks = tasks.length;
@@ -1676,6 +1687,10 @@ export default function Home() {
     refreshTasks();
     if (selectedTask?.id === updatedTask.id) {
       setSelectedTask(updatedTask);
+    }
+    if (editingTaskId === updatedTask.id) {
+      setEditingTaskId(null);
+      setEditingTaskTitle('');
     }
   };
 
@@ -2792,14 +2807,77 @@ export default function Home() {
                 </div>
               ) : (
                 filteredTasks.map(task => (
-                  <TaskItem 
-                    key={task.id} 
-                    task={task} 
-                    selected={selectedTask?.id === task.id}
-                    onClick={() => setSelectedTask(task)}
-                    onToggle={toggleStatus}
-                    onDelete={removeTask}
-                  />
+                  <div key={task.id} className="space-y-1">
+                    {editingTaskId === task.id ? (
+                      <div className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333333] rounded-2xl px-3 py-2.5">
+                        <input
+                          value={editingTaskTitle}
+                          onChange={(e) => setEditingTaskTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const title = editingTaskTitle.trim();
+                              if (title) {
+                                updateTask({ ...task, title });
+                              }
+                            }
+                            if (e.key === 'Escape') {
+                              setEditingTaskId(null);
+                              setEditingTaskTitle('');
+                            }
+                          }}
+                          autoFocus
+                          className="flex-1 bg-transparent outline-none text-sm text-[#EEEEEE]"
+                          placeholder="编辑任务标题"
+                        />
+                        <button
+                          className="text-xs text-blue-400 hover:text-blue-300"
+                          onClick={() => {
+                            const title = editingTaskTitle.trim();
+                            if (title) {
+                              updateTask({ ...task, title });
+                            }
+                          }}
+                        >
+                          保存
+                        </button>
+                        <button
+                          className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+                          onClick={() => {
+                            setEditingTaskId(null);
+                            setEditingTaskTitle('');
+                          }}
+                        >
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <TaskItem 
+                        task={task} 
+                        selected={selectedTask?.id === task.id}
+                        onClick={() => setSelectedTask(task)}
+                        onToggle={toggleStatus}
+                        onDelete={removeTask}
+                        onDragStart={handleTaskDragStart}
+                        onDragOver={handleTaskDragOver}
+                        onDrop={handleTaskDrop}
+                        isDragging={draggingTaskId === task.id}
+                        onDragEnd={() => setDraggingTaskId(null)}
+                      />
+                    )}
+                    {editingTaskId !== task.id && (
+                      <div className="flex items-center gap-2 text-[11px] text-[#555555] px-1">
+                        <button
+                          className="hover:text-[#CCCCCC]"
+                          onClick={() => {
+                            setEditingTaskId(task.id);
+                            setEditingTaskTitle(task.title);
+                          }}
+                        >
+                          编辑标题
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))
               )}
             </div>
