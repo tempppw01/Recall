@@ -171,6 +171,26 @@ const getPriorityColor = (priority: number) => {
 
 const getPriorityLabel = (priority: number) => PRIORITY_LABELS[priority] || PRIORITY_LABELS[0];
 
+const formatRepeatLabel = (rule?: TaskRepeatRule) => {
+  if (!rule || rule.type === 'none') return '';
+  switch (rule.type) {
+    case 'daily':
+      return '重复·每天';
+    case 'weekly': {
+      const weekdays = rule.weekdays?.length
+        ? rule.weekdays.map((day) => REPEAT_WEEKDAYS[day]).join('')
+        : '';
+      return weekdays ? `重复·每周${weekdays}` : '重复·每周';
+    }
+    case 'monthly':
+      return `重复·每月${rule.monthDay ?? 1}日`;
+    case 'custom':
+      return `重复·每${rule.interval ?? 1}天`;
+    default:
+      return '重复';
+  }
+};
+
 type TaskSortMode = 'priority' | 'dueDate' | 'createdAt' | 'title' | 'manual';
 type TaskGroupMode = 'none' | 'category' | 'priority' | 'dueDate';
 type TaskGroup = { key: string; label: string; items: Task[] };
@@ -594,6 +614,7 @@ const TaskItem = ({
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPointerDragging, setIsPointerDragging] = useState(false);
+  const [isSubtasksOpen, setIsSubtasksOpen] = useState(false);
   const maxOffset = 84;
   const canDrag = Boolean(onDragStart) && dragEnabled;
   const subtaskTotal = task.subtasks?.length ?? 0;
@@ -603,6 +624,7 @@ const TaskItem = ({
   const subtaskProgress = subtaskTotal > 0
     ? Math.round((completedSubtasks / subtaskTotal) * 100)
     : 0;
+  const hasSubtasks = subtaskTotal > 0;
 
   useEffect(() => {
     setOffsetX(0);
@@ -610,6 +632,10 @@ const TaskItem = ({
     startXRef.current = null;
     startYRef.current = null;
     isHorizontalRef.current = null;
+  }, [task.id]);
+
+  useEffect(() => {
+    setIsSubtasksOpen(false);
   }, [task.id]);
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
@@ -757,6 +783,24 @@ const TaskItem = ({
               }`}>
                 {task.title}
               </p>
+              {hasSubtasks && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsSubtasksOpen((prev) => !prev);
+                  }}
+                  className="flex items-center gap-1 text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] hover:text-[#CCCCCC]"
+                  aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
+                >
+                  <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
+                  {isSubtasksOpen ? (
+                    <ChevronUp className="w-3 h-3" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3" />
+                  )}
+                </button>
+              )}
               {canDrag && (
                 <button
                   type="button"
@@ -787,16 +831,16 @@ const TaskItem = ({
                 <Flag className="w-3 h-3 fill-current" />
                 {getPriorityLabel(task.priority)}
               </span>
+            {task.repeat && task.repeat.type !== 'none' && (
+              <span className="text-[10px] text-purple-300 bg-purple-500/10 px-1.5 rounded">
+                {formatRepeatLabel(task.repeat)}
+              </span>
+            )}
               {task.category && (
                 <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
                   {task.category}
                 </span>
               )}
-              {subtaskTotal > 0 ? (
-                <span className="text-[10px] text-[#666666]">
-                  {completedSubtasks}/{subtaskTotal} 已完成
-                </span>
-              ) : null}
               {task.dueDate && (
                 <span
                   className={`text-[10px] flex items-center gap-1 ${
@@ -812,6 +856,24 @@ const TaskItem = ({
                 <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
               ))}
             </div>
+            {hasSubtasks && isSubtasksOpen && (
+              <div className="mt-2 space-y-1 border-l border-[#2A2A2A] pl-4">
+                {task.subtasks.map((subtask: Subtask) => (
+                  <div key={subtask.id} className="flex items-center gap-2 text-[11px] sm:text-xs">
+                    {subtask.completed ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                    ) : (
+                      <Circle className="w-3.5 h-3.5 text-[#555555]" />
+                    )}
+                    <span
+                      className={subtask.completed ? 'line-through text-[#666666]' : 'text-[#BBBBBB]'}
+                    >
+                      {subtask.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
