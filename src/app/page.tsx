@@ -1917,7 +1917,6 @@ export default function Home() {
               onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
               active={activeFilter === 'completed'} 
             />
-            <SidebarItem icon={Settings} label="设置" onClick={() => setShowSettings(true)} />
           </div>
         </div>
       </aside>
