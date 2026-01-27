@@ -20,6 +20,42 @@ const resolveBaseUrlList = (primary?: string) => {
   const list = [primary, ...DEFAULT_BASE_URLS].filter(Boolean) as string[];
   return Array.from(new Set(list));
 };
+
+async function requestChat(baseUrls: string[], apiKey: string | undefined, payload: any) {
+  const errors: string[] = [];
+  for (const base of baseUrls) {
+    const url = process.env.OPENAI_CHAT_COMPLETIONS_URL || buildChatCompletionsUrl(base);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        return { res, url };
+      }
+      errors.push(`${url} -> ${res.status} ${await res.text()}`);
+    } catch (err) {
+      errors.push(`${url} -> ${(err as Error).message}`);
+    }
+  }
+  throw new Error(`Chat completion failed: ${errors.join(' | ') || 'all endpoints failed'}`);
+}
+
+function parseChatContent(payload: any) {
+  const content = payload?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error('LLM invalid JSON: empty content');
+  }
+  try {
+    return JSON.parse(content);
+  } catch (err) {
+    throw new Error(`LLM invalid JSON: ${(err as Error).message}`);
+  }
+}
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
@@ -217,6 +253,7 @@ export async function POST(req: NextRequest) {
     const resolvedChatCompletionsUrl = process.env.OPENAI_CHAT_COMPLETIONS_URL || buildChatCompletionsUrl(resolvedBaseUrl);
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
     const resolvedEmbeddingModel = embeddingModel || process.env.OPENAI_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
+    const baseUrlList = resolveBaseUrlList(resolvedBaseUrl);
 
     // 如果前端传了 apiKey，使用新的实例；否则使用默认
     const client = apiKey
@@ -250,42 +287,31 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Tasks are required for organize mode' }, { status: 400 });
       }
 
-      const completionResponse = await fetch(resolvedChatCompletionsUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
-        },
-        body: JSON.stringify({
-          model: resolvedChatModel,
-          messages: [
-            {
-              role: 'system',
-              content: `你是一个任务整理助手。请对用户提供的任务列表进行整理：
-1) 保留每个任务的 id。
+      const organizePayload = {
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是一个任务整理助手。请对用户提供的任务列表进行整理：
+1) 保留每个任务的 id，不新增、不删除任务。
 2) 优化 title 的可读性，必要时合并/拆分重复任务。
-3) 校正 priority(0-2)、category(只可从 ${CATEGORY_OPTIONS.join(' / ')})、tags。
-4) dueDate 若无则保持 null。
+3) 校正 priority (必须为 0/1/2)、category (只能从 ${CATEGORY_OPTIONS.join(' / ')})、tags。
+4) dueDate 若无或无法解析则设为 null，必须为 ISO 8601 UTC。
 5) subtasks 仅保留 title。
-6) 识别并优化重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6)。
-请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }`,
-            },
-            {
-              role: 'user',
-              content: JSON.stringify({ tasks: tasksToOrganize }),
-            },
-          ],
-          response_format: { type: 'json_object' },
-        }),
-      });
+6) 识别并优化重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。
+请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }。不要包含 null/undefined 属性时可省略。`,
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({ tasks: tasksToOrganize }),
+          },
+        ],
+        response_format: { type: 'json_object' },
+      };
 
-      if (!completionResponse.ok) {
-        const errorText = await completionResponse.text();
-        throw new Error(`Chat completion failed: ${errorText}`);
-      }
-
-      const completionPayload = await completionResponse.json();
-      const rawResult = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as { tasks?: ParsedTask[] };
+      const { res: organizeRes } = await requestChat(baseUrlList, apiKey, organizePayload);
+      const organizePayloadJson = await organizeRes.json();
+      const rawResult = parseChatContent(organizePayloadJson) as { tasks?: ParsedTask[] };
       // 统一字段并尽量保留原始 id
       const normalizedTasks = Array.isArray(rawResult?.tasks)
         ? rawResult.tasks.map((task) => normalizeTask(task))
