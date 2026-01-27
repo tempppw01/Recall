@@ -7,8 +7,6 @@ const DEFAULT_BASE_URLS = [
   'https://ai.shuaihong.fun/v1',
   'https://shapi.zeabur.app/v1',
 ];
-const DEFAULT_CHAT_COMPLETIONS_URL = 'https://ai.shuaihong.fun/v1/chat/completions';
-
 const buildChatCompletionsUrl = (base: string) => {
   const trimmed = base.replace(/\/$/, '');
   if (trimmed.endsWith('/chat/completions')) return trimmed;
@@ -250,7 +248,6 @@ export async function POST(req: NextRequest) {
     const { input, mode, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
-    const resolvedChatCompletionsUrl = process.env.OPENAI_CHAT_COMPLETIONS_URL || buildChatCompletionsUrl(resolvedBaseUrl);
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
     const resolvedEmbeddingModel = embeddingModel || process.env.OPENAI_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
     const baseUrlList = resolveBaseUrlList(resolvedBaseUrl);
@@ -340,39 +337,29 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       // todo-agent：返回聊天回复 + 待办清单
-      const completionResponse = await fetch(resolvedChatCompletionsUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
-        },
-        body: JSON.stringify({
-          model: resolvedChatModel,
-          messages: [
-            {
-              role: 'system',
-              content: `你是 todo-agent 助理，负责和用户聊天并输出可执行待办清单。请遵循：
-1) 用简短中文回复用户，字段名 reply。
+      const agentPayload = {
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是 todo-agent 助理，负责和用户聊天并输出可执行待办清单。请遵循：
+1) 用简短中文回复用户，字段名 reply，不要输出 Markdown 或多余前缀。
 2) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks / repeat。
 3) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
-4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 字符串。
-5) subtasks 仅保留 title。
-6) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-7) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。`,
-            },
-            { role: 'user', content: input },
-          ],
-          response_format: { type: 'json_object' },
-        }),
-      });
+4) priority 必须为 0/1/2。
+5) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
+6) subtasks 仅保留 title。
+7) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
+8) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
+          },
+          { role: 'user', content: input },
+        ],
+        response_format: { type: 'json_object' },
+      };
 
-      if (!completionResponse.ok) {
-        const errorText = await completionResponse.text();
-        throw new Error(`Chat completion failed: ${errorText}`);
-      }
-
-      const completionPayload = await completionResponse.json();
-      const rawResult = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as AgentPayload;
+      const { res: agentRes } = await requestChat(baseUrlList, apiKey, agentPayload);
+      const agentPayloadJson = await agentRes.json();
+      const rawResult = parseChatContent(agentPayloadJson) as AgentPayload;
       const normalizedItems = Array.isArray(rawResult?.items)
         ? rawResult.items.map((item) => normalizeTask(item))
         : [];
@@ -399,32 +386,21 @@ export async function POST(req: NextRequest) {
     // 默认模式：Magic Input (意图识别 + Embedding)
     const networkNow = await getNetworkTime();
     const serverTimeText = formatShanghaiDateTime(networkNow);
-    const completionResponse = await fetch(resolvedChatCompletionsUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
-      },
-      body: JSON.stringify({
-        model: resolvedChatModel,
-        messages: [
-          {
-            role: 'system',
-            content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取）。\n4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8）。如果输入包含日期/时间，请转换为 ISO 格式的 dueDate（包含时分秒），优先解析中文相对时间，并遵循模糊时间默认规则：\n- 早上/上午 → 09:00\n- 中午 → 12:00\n- 下午 → 15:00\n- 晚上/今晚 → 20:00\n- 凌晨 → 00:00\n例如：\n- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间\n- “周三上午开会” → 周三 09:00 的 ISO 时间\n- “今晚八点” → 今日 20:00 的 ISO 时间\n- “后天上午9点” → 后天 09:00 的 ISO 时间\n- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间\n- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间\n- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间\n- “下午三点到四点开会” → 取开始时间 15:00\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }`,
-          },
-          { role: 'user', content: input },
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
+    const magicPayload = {
+      model: resolvedChatModel,
+      messages: [
+        {
+          role: 'system',
+          content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取），priority 必须为 0/1/2。\n4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8）。如果输入包含日期/时间，请转换为 ISO 8601 格式的 dueDate（包含时分秒），优先解析中文相对时间；无法解析则 dueDate 为 null。\n   模糊时间默认规则：\n- 早上/上午 → 09:00\n- 中午 → 12:00\n- 下午 → 15:00\n- 晚上/今晚 → 20:00\n- 凌晨 → 00:00\n例如：\n- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间\n- “周三上午开会” → 周三 09:00 的 ISO 时间\n- “今晚八点” → 今日 20:00 的 ISO 时间\n- “后天上午9点” → 后天 09:00 的 ISO 时间\n- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间\n- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间\n- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间\n- “下午三点到四点开会” → 取开始时间 15:00\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }。不要包含 null/undefined 属性时可省略。`,
+        },
+        { role: 'user', content: input },
+      ],
+      response_format: { type: 'json_object' },
+    };
 
-    if (!completionResponse.ok) {
-      const errorText = await completionResponse.text();
-      throw new Error(`Chat completion failed: ${errorText}`);
-    }
-
-    const completionPayload = await completionResponse.json();
-    const rawTask = JSON.parse(completionPayload?.choices?.[0]?.message?.content || '{}') as ParsedTask;
+    const { res: magicRes } = await requestChat(baseUrlList, apiKey, magicPayload);
+    const magicPayloadJson = await magicRes.json();
+    const rawTask = parseChatContent(magicPayloadJson) as ParsedTask;
     let taskData = normalizeTask(rawTask);
     const normalizedCategory = CATEGORY_OPTIONS.includes(taskData.category || '')
       ? taskData.category
