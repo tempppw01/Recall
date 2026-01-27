@@ -565,6 +565,8 @@ export default function Home() {
   const [isSystemTheme, setIsSystemTheme] = useState(true);
   const [wallpaperUrl, setWallpaperUrl] = useState('');
   const [showLogs, setShowLogs] = useState(false);
+  const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge');
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [logs, setLogs] = useState<
     {
       id: string;
@@ -1146,6 +1148,104 @@ export default function Home() {
     } finally {
       setIsOrganizing(false);
     }
+  };
+
+  const buildExportPayload = () => ({
+    version: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: {
+      tasks: taskStore.getAll(),
+      habits: habitStore.getAll(),
+      countdowns: countdownStore.getAll(),
+    },
+  });
+
+  const triggerDownload = (filename: string, content: string) => {
+    if (typeof window === 'undefined') return;
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportData = () => {
+    try {
+      const payload = buildExportPayload();
+      triggerDownload(`recall-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2));
+      pushLog('success', '数据导出成功', `任务 ${payload.data.tasks.length} 条`);
+    } catch (error) {
+      console.error(error);
+      pushLog('error', '数据导出失败', String((error as Error)?.message || error));
+      if (typeof window !== 'undefined') {
+        window.alert('数据导出失败，请稍后重试');
+      }
+    }
+  };
+
+  const normalizeImportList = <T extends { id: string }>(items: T[] | undefined) =>
+    Array.isArray(items) ? items.filter((item) => item && item.id) : [];
+
+  const mergeById = <T extends { id: string }>(current: T[], incoming: T[]) => {
+    const merged = new Map(current.map((item) => [item.id, item]));
+    incoming.forEach((item) => {
+      merged.set(item.id, item);
+    });
+    return Array.from(merged.values());
+  };
+
+  const applyImportedData = (payload: any) => {
+    const tasksImport = normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks);
+    const habitsImport = normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits);
+    const countdownsImport = normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns);
+
+    const nextTasks = importMode === 'overwrite'
+      ? tasksImport
+      : mergeById(taskStore.getAll(), tasksImport);
+    const nextHabits = importMode === 'overwrite'
+      ? habitsImport
+      : mergeById(habitStore.getAll(), habitsImport);
+    const nextCountdowns = importMode === 'overwrite'
+      ? countdownsImport
+      : mergeById(countdownStore.getAll(), countdownsImport);
+
+    taskStore.replaceAll(nextTasks);
+    habitStore.replaceAll(nextHabits);
+    countdownStore.replaceAll(nextCountdowns);
+
+    setTasks(nextTasks);
+    setHabits(nextHabits);
+    setCountdowns(nextCountdowns);
+
+    const nextCategories = Array.from(new Set(nextTasks.map((task) => task.category).filter(Boolean))) as string[];
+    const nextTags = Array.from(new Set(nextTasks.flatMap((task) => task.tags || [])));
+    setListItems(nextCategories);
+    setTagItems(nextTags);
+  };
+
+  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const content = await file.text();
+      const parsed = JSON.parse(content);
+      applyImportedData(parsed);
+      pushLog('success', '数据导入成功', `来源文件：${file.name}`);
+    } catch (error) {
+      console.error(error);
+      pushLog('error', '数据导入失败', String((error as Error)?.message || error));
+      if (typeof window !== 'undefined') {
+        window.alert('数据导入失败，请检查文件格式');
+      }
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const openImportPicker = () => {
+    importInputRef.current?.click();
   };
 
   const parseChineseWeekdayInput = (raw: string, baseNow = new Date()) => {
@@ -2753,6 +2853,60 @@ export default function Home() {
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">输入 Web 图片链接，保存后全局背景生效（留空可清除）。</p>
+              </div>
+              <div className="pt-3 border-t border-[#333333]">
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">数据导入导出</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportData}
+                    className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
+                  >
+                    导出 JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openImportPicker}
+                    className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
+                  >
+                    导入 JSON
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">导入方式</label>
+                  <div className="flex gap-2 text-[12px] sm:text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setImportMode('merge')}
+                      className={`px-3 py-1.5 rounded border transition-colors ${
+                        importMode === 'merge'
+                          ? 'bg-blue-500/20 border-blue-400 text-white'
+                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                      }`}
+                    >
+                      合并
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportMode('overwrite')}
+                      className={`px-3 py-1.5 rounded border transition-colors ${
+                        importMode === 'overwrite'
+                          ? 'bg-blue-500/20 border-blue-400 text-white'
+                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                      }`}
+                    >
+                      覆盖
+                    </button>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-[#555555] mt-2">合并会保留现有数据，覆盖将以导入文件为准。</p>
+                </div>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json"
+                  onChange={handleImportData}
+                  className="hidden"
+                />
               </div>
               <div className="flex justify-end gap-3 mt-5">
                 <button
