@@ -32,6 +32,7 @@ export default function RootLayout({
           <PWARegister />
           {children}
         </Providers>
+        <div className="app-footer__spacer" aria-hidden="true" />
         <footer className="app-footer">
           <div className="app-footer__content">
             <span>

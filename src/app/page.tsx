@@ -17,8 +17,9 @@ const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
 const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
-const APP_VERSION = '0.6.1';
+const APP_VERSION = '0.7beta';
 const APP_VERSION_KEY = 'recall_app_version';
+const LISTS_KEY = 'recall_lists';
 const WALLPAPER_KEY = 'recall_wallpaper_url';
 const WEBDAV_URL_KEY = 'recall_webdav_url';
 const WEBDAV_PATH_KEY = 'recall_webdav_path';
@@ -535,6 +536,45 @@ const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit
   </div>
 );
 
+const ListSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit, onAddTask }: any) => (
+  <div
+    onClick={onClick}
+    className={`group w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors cursor-pointer ${
+      active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <Icon className="w-4 h-4" />
+      <span>{label}</span>
+    </div>
+    <div className="flex items-center gap-2">
+      {count > 0 && <span className="text-xs text-[#666666]">{count}</span>}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onAddTask?.();
+        }}
+        className="opacity-0 group-hover:opacity-100 text-[#666666] hover:text-[#AAAAAA] transition-opacity"
+        aria-label={`在${label}中新建任务`}
+      >
+        <Plus className="w-3 h-3" />
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit?.();
+        }}
+        className="opacity-0 group-hover:opacity-100 text-[#666666] hover:text-[#AAAAAA] transition-opacity"
+        aria-label={`编辑${label}`}
+      >
+        <Pencil className="w-3 h-3" />
+      </button>
+    </div>
+  </div>
+);
+
 const TaskItem = ({
   task,
   selected,
@@ -556,6 +596,13 @@ const TaskItem = ({
   const [isPointerDragging, setIsPointerDragging] = useState(false);
   const maxOffset = 84;
   const canDrag = Boolean(onDragStart) && dragEnabled;
+  const subtaskTotal = task.subtasks?.length ?? 0;
+  const completedSubtasks = subtaskTotal
+    ? task.subtasks.filter((subtask: Subtask) => subtask.completed).length
+    : 0;
+  const subtaskProgress = subtaskTotal > 0
+    ? Math.round((completedSubtasks / subtaskTotal) * 100)
+    : 0;
 
   useEffect(() => {
     setOffsetX(0);
@@ -675,7 +722,7 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group flex items-start gap-3 p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[#1F1F1F] hover:bg-[#232323] ${
+        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[#1F1F1F] hover:bg-[#232323] ${
           selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
         }`}
         style={{
@@ -683,80 +730,88 @@ const TaskItem = ({
           transition: isSwiping ? 'none' : 'transform 180ms ease',
         }}
       >
-        <button 
-          onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-          className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors ${
-            task.status === 'completed' 
-              ? 'bg-[#5E5E5E] border-[#5E5E5E] text-white' 
-              : 'border-[#555555] hover:border-[#888888]'
-          }`}
-        >
-          {task.status === 'completed' && (
-            <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-[pop-in_280ms_ease-out]" />
-          )}
-        </button>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap justify-between items-start gap-2">
-            <p className={`text-[13px] sm:text-sm leading-snug ${
-              task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
-            }`}>
-              {task.title}
-            </p>
-            {canDrag && (
-              <button
-                type="button"
-                draggable
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
-                onMouseDown={(event) => {
-                  event.stopPropagation();
-                }}
-                onTouchStart={(event) => {
-                  event.stopPropagation();
-                }}
-                title="拖动排序"
-              >
-                拖动排序
-              </button>
+        {subtaskTotal > 0 && (
+          <div
+            className="absolute inset-y-0 left-0 bg-blue-500/20"
+            style={{ width: `${subtaskProgress}%` }}
+          />
+        )}
+        <div className="relative z-10 flex items-start gap-3 w-full">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
+            className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors ${
+              task.status === 'completed' 
+                ? 'bg-[#5E5E5E] border-[#5E5E5E] text-white' 
+                : 'border-[#555555] hover:border-[#888888]'
+            }`}
+          >
+            {task.status === 'completed' && (
+              <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-[pop-in_280ms_ease-out]" />
             )}
-            {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
-              <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
-                {Math.round((task as any).similarity * 100)}%
-              </span>
-            )}
-          </div>
+          </button>
           
-          <div className="flex flex-wrap items-center gap-2 mt-2">
-            <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
-              <Flag className="w-3 h-3 fill-current" />
-              {getPriorityLabel(task.priority)}
-            </span>
-            {task.category && (
-              <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
-                {task.category}
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap justify-between items-start gap-2">
+              <p className={`text-[13px] sm:text-sm leading-snug ${
+                task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+              }`}>
+                {task.title}
+              </p>
+              {canDrag && (
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
+                  onMouseDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onTouchStart={(event) => {
+                    event.stopPropagation();
+                  }}
+                  title="拖动排序"
+                >
+                  拖动排序
+                </button>
+              )}
+              {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
+                <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
+                  {Math.round((task as any).similarity * 100)}%
+                </span>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
+                <Flag className="w-3 h-3 fill-current" />
+                {getPriorityLabel(task.priority)}
               </span>
-            )}
-            {task.subtasks?.length ? (
-              <span className="text-[10px] text-[#666666]">
-                {task.subtasks.filter((subtask: Subtask) => subtask.completed).length}/{task.subtasks.length} 已完成
-              </span>
-            ) : null}
-            {task.dueDate && (
-              <span
-                className={`text-[10px] flex items-center gap-1 ${
-                  isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]'
-                }`}
-              >
-                <Calendar className="w-3 h-3" />
-                {formatZonedDateTime(task.dueDate, getTimezoneOffset(task))}
-                <span className="text-[#666666]">({getTimezoneLabel(getTimezoneOffset(task))})</span>
-              </span>
-            )}
-            {task.tags?.map((tag: string) => (
-              <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
-            ))}
+              {task.category && (
+                <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
+                  {task.category}
+                </span>
+              )}
+              {subtaskTotal > 0 ? (
+                <span className="text-[10px] text-[#666666]">
+                  {completedSubtasks}/{subtaskTotal} 已完成
+                </span>
+              ) : null}
+              {task.dueDate && (
+                <span
+                  className={`text-[10px] flex items-center gap-1 ${
+                    isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]'
+                  }`}
+                >
+                  <Calendar className="w-3 h-3" />
+                  {formatZonedDateTime(task.dueDate, getTimezoneOffset(task))}
+                  <span className="text-[#666666]">({getTimezoneLabel(getTimezoneOffset(task))})</span>
+                </span>
+              )}
+              {task.tags?.map((tag: string) => (
+                <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -804,7 +859,7 @@ export default function Home() {
   const [newHabitTitle, setNewHabitTitle] = useState('');
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
-  const [isListsOpen, setIsListsOpen] = useState(true);
+  const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(true);
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -823,6 +878,7 @@ export default function Home() {
   const [newTagInput, setNewTagInput] = useState('');
   const [listItems, setListItems] = useState<string[]>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
@@ -2326,6 +2382,22 @@ export default function Home() {
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
+  const tagUsageMap = tasks.reduce<Record<string, number>>((acc, task) => {
+    if (task.status === 'completed') return acc;
+    (task.tags || []).forEach((tag) => {
+      if (!tag) return;
+      acc[tag] = (acc[tag] ?? 0) + 1;
+    });
+    return acc;
+  }, {});
+  const normalizedTagSearch = tagSearch.trim().toLowerCase();
+  const visibleTagItems = tagItems.filter((item) => {
+    const count = tagUsageMap[item] ?? 0;
+    const matches = normalizedTagSearch
+      ? item.toLowerCase().includes(normalizedTagSearch)
+      : true;
+    return (count > 0 || activeTag === item) && matches;
+  });
 
   return (
     <div
@@ -2541,16 +2613,25 @@ export default function Home() {
               )}
             </button>
             {isTagsOpen && (
-              <div className="space-y-1">
-                {tagItems.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-[#555555]">暂无标签</div>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={tagSearch}
+                  onChange={(event) => setTagSearch(event.target.value)}
+                  placeholder="搜索标签"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-xs text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                />
+                {visibleTagItems.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-[#555555]">
+                    {tagItems.length === 0 ? '暂无标签' : '暂无可用标签'}
+                  </div>
                 ) : (
-                  tagItems.map((item) => (
+                  visibleTagItems.map((item) => (
                     <EditableSidebarItem
                       key={item}
                       icon={TagIcon}
                       label={item}
-                      count={tasks.filter((task) => (task.tags || []).includes(item) && task.status !== 'completed').length}
+                      count={tagUsageMap[item] ?? 0}
                       active={activeFilter === 'tag' && activeTag === item}
                       onClick={() => {
                         setActiveFilter('tag');
