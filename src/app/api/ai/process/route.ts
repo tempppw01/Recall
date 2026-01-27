@@ -3,6 +3,10 @@ import { generateEmbedding } from '@/lib/embeddings';
 import OpenAI from 'openai';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
+const DEFAULT_BASE_URLS = [
+  'https://ai.shuaihong.fun/v1',
+  'https://shapi.zeabur.app/v1',
+];
 const DEFAULT_CHAT_COMPLETIONS_URL = 'https://ai.shuaihong.fun/v1/chat/completions';
 
 const buildChatCompletionsUrl = (base: string) => {
@@ -10,6 +14,11 @@ const buildChatCompletionsUrl = (base: string) => {
   if (trimmed.endsWith('/chat/completions')) return trimmed;
   if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
   return `${trimmed}/v1/chat/completions`;
+};
+
+const resolveBaseUrlList = (primary?: string) => {
+  const list = [primary, ...DEFAULT_BASE_URLS].filter(Boolean) as string[];
+  return Array.from(new Set(list));
 };
 const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
