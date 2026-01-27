@@ -18,6 +18,19 @@ const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const APP_VERSION = '0.6.1';
 const APP_VERSION_KEY = 'recall_app_version';
 const WALLPAPER_KEY = 'recall_wallpaper_url';
+const DEFAULT_TIMEZONE_OFFSET = 480;
+const TIMEZONE_OPTIONS = [
+  { label: 'UTC-12', offsetMinutes: -720 },
+  { label: 'UTC-8 (PST)', offsetMinutes: -480 },
+  { label: 'UTC-5 (EST)', offsetMinutes: -300 },
+  { label: 'UTC+0 (UTC)', offsetMinutes: 0 },
+  { label: 'UTC+1 (CET)', offsetMinutes: 60 },
+  { label: 'UTC+8 (中国标准时间)', offsetMinutes: 480 },
+  { label: 'UTC+9 (JST)', offsetMinutes: 540 },
+  { label: 'UTC+10 (AEST)', offsetMinutes: 600 },
+  { label: 'UTC+12', offsetMinutes: 720 },
+  { label: 'UTC+14', offsetMinutes: 840 },
+];
 const PRIORITY_LABELS = ['低', '中', '高'];
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 const REPEAT_OPTIONS: { value: RepeatType; label: string }[] = [
@@ -78,6 +91,49 @@ const parseModelList = (text: string) =>
     .split(/[\s,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const pad2 = (value: number) => String(value).padStart(2, '0');
+
+const getTimezoneOffset = (task?: Task) => task?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
+
+const getZonedDate = (iso: string, offsetMinutes: number) =>
+  new Date(new Date(iso).getTime() + offsetMinutes * 60 * 1000);
+
+const formatDateKeyByOffset = (date: Date, offsetMinutes: number) => {
+  const zoned = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  return `${zoned.getUTCFullYear()}-${pad2(zoned.getUTCMonth() + 1)}-${pad2(zoned.getUTCDate())}`;
+};
+
+const formatZonedDate = (iso: string, offsetMinutes: number) => {
+  const zoned = getZonedDate(iso, offsetMinutes);
+  return `${zoned.getUTCFullYear()}-${pad2(zoned.getUTCMonth() + 1)}-${pad2(zoned.getUTCDate())}`;
+};
+
+const formatZonedTime = (iso: string, offsetMinutes: number) => {
+  const zoned = getZonedDate(iso, offsetMinutes);
+  return `${pad2(zoned.getUTCHours())}:${pad2(zoned.getUTCMinutes())}`;
+};
+
+const formatZonedDateTime = (iso: string, offsetMinutes: number) =>
+  `${formatZonedDate(iso, offsetMinutes)} ${formatZonedTime(iso, offsetMinutes)}`;
+
+const buildDueDateIso = (dateText: string, timeText: string, offsetMinutes: number) => {
+  if (!dateText) return undefined;
+  const [year, month, day] = dateText.split('-').map(Number);
+  const [hours, minutes] = (timeText || '00:00').split(':').map(Number);
+  const utcMs = Date.UTC(year, month - 1, day, hours, minutes) - offsetMinutes * 60 * 1000;
+  return new Date(utcMs).toISOString();
+};
+
+const getTimezoneLabel = (offsetMinutes: number) => {
+  const match = TIMEZONE_OPTIONS.find((option) => option.offsetMinutes === offsetMinutes);
+  if (match) return match.label;
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absMinutes = Math.abs(offsetMinutes);
+  const hours = Math.floor(absMinutes / 60);
+  const minutes = absMinutes % 60;
+  return `UTC${sign}${pad2(hours)}:${pad2(minutes)}`;
+};
 
 const getPriorityColor = (priority: number) => {
   if (priority === 2) return 'text-red-400';
@@ -502,7 +558,8 @@ const TaskItem = ({ task, selected, onClick, onToggle, onDelete, onDragStart, on
                 }`}
               >
                 <Calendar className="w-3 h-3" />
-                {task.dueDate.split('T')[0]}
+                {formatZonedDateTime(task.dueDate, getTimezoneOffset(task))}
+                <span className="text-[#666666]">({getTimezoneLabel(getTimezoneOffset(task))})</span>
               </span>
             )}
             {task.tags?.map((tag: string) => (
@@ -588,6 +645,13 @@ export default function Home() {
   const recommendedPriority = selectedTask
     ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
     : 0;
+  const selectedTimezoneOffset = getTimezoneOffset(selectedTask ?? undefined);
+  const selectedDateValue = selectedTask?.dueDate
+    ? formatZonedDate(selectedTask.dueDate, selectedTimezoneOffset)
+    : '';
+  const selectedTimeValue = selectedTask?.dueDate
+    ? formatZonedTime(selectedTask.dueDate, selectedTimezoneOffset)
+    : '09:00';
 
   const pushLog = (
     level: 'info' | 'success' | 'warning' | 'error',
@@ -926,8 +990,9 @@ export default function Home() {
 
     if (activeFilter === 'today') {
       if (!t.dueDate) return false;
-      const today = new Date().toISOString().split('T')[0];
-      return t.dueDate.split('T')[0] === today;
+      const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
+      const taskKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
+      return taskKey === todayKey;
     }
 
     if (activeFilter === 'category') {
@@ -971,6 +1036,7 @@ export default function Home() {
       id: createId(),
       title,
       dueDate: item.dueDate || undefined,
+      timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
       priority,
       category,
       status: 'todo',
@@ -1112,6 +1178,7 @@ export default function Home() {
           id: task.id,
           title: task.title,
           dueDate: task.dueDate || undefined,
+          timezoneOffset: task.timezoneOffset ?? original?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
           priority: typeof task.priority === 'number' ? task.priority : 0,
           category: task.category || original?.category,
           tags: Array.isArray(task.tags) ? task.tags : [],
@@ -1480,6 +1547,7 @@ export default function Home() {
       id: Math.random().toString(36).substring(2, 9),
       title: parsed.title,
       dueDate: parsed.dueDate,
+      timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
       priority,
       category,
       status: 'todo',
@@ -1538,6 +1606,7 @@ export default function Home() {
         const taskWithEmbedding = {
           ...data.task,
           priority: typeof data.task?.priority === 'number' ? data.task.priority : recommendedPriority,
+          timezoneOffset: data.task?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
           embedding: data.embedding,
         };
         taskStore.add(taskWithEmbedding);
@@ -1740,7 +1809,7 @@ export default function Home() {
 
   const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, task) => {
     if (task.dueDate) {
-      const key = task.dueDate.split('T')[0];
+      const key = formatZonedDate(task.dueDate, getTimezoneOffset(task));
       acc[key] = acc[key] ? [...acc[key], task] : [task];
     }
     return acc;
@@ -1755,7 +1824,7 @@ export default function Home() {
     ...Array.from({ length: leadingEmpty }, () => null),
     ...Array.from({ length: daysInMonth }, (_, idx) => idx + 1),
   ];
-  const todayKey = new Date().toISOString().split('T')[0];
+  const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
   const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
   const effectiveCalendarDate = selectedCalendarDate || todayKey;
   const selectedCalendarTasks = tasksByDate[effectiveCalendarDate] || [];
@@ -2122,7 +2191,9 @@ export default function Home() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto mobile-scroll px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10">
+        <div className={`flex-1 overflow-y-auto mobile-scroll px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10 ${
+          activeFilter === 'agent' ? 'pt-3 sm:pt-4' : ''
+        }`}>
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
@@ -2348,7 +2419,9 @@ export default function Home() {
                           <div>
                             <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
                             {item.dueDate && (
-                              <p className="text-xs text-[#777777] mt-1">日期：{item.dueDate.split('T')[0]}</p>
+                              <p className="text-xs text-[#777777] mt-1">
+                                日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
+                              </p>
                             )}
                           </div>
                           <button
@@ -2534,19 +2607,67 @@ export default function Home() {
                     <span className="text-[11px] text-red-400">已逾期</span>
                   )}
                 </label>
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666] pointer-events-none" />
                     <input 
                       type="date"
                       className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-9 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                      value={selectedTask.dueDate ? selectedTask.dueDate.split('T')[0] : ''}
+                      value={selectedDateValue}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        const date = val ? val + 'T00:00:00.000Z' : undefined;
-                        updateTask({ ...selectedTask, dueDate: date });
+                        const nextDate = e.target.value;
+                        const nextIso = buildDueDateIso(nextDate, selectedTimeValue, selectedTimezoneOffset);
+                        updateTask({
+                          ...selectedTask,
+                          dueDate: nextIso,
+                          timezoneOffset: selectedTimezoneOffset,
+                        });
                       }}
                     />
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      value={selectedTimeValue}
+                      onChange={(e) => {
+                        const nextTime = e.target.value;
+                        const nextIso = buildDueDateIso(selectedDateValue, nextTime, selectedTimezoneOffset);
+                        updateTask({
+                          ...selectedTask,
+                          dueDate: nextIso,
+                          timezoneOffset: selectedTimezoneOffset,
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="relative">
+                    <select
+                      value={selectedTimezoneOffset}
+                      onChange={(e) => {
+                        const nextOffset = Number(e.target.value);
+                        const nextIso = selectedDateValue
+                          ? buildDueDateIso(selectedDateValue, selectedTimeValue, nextOffset)
+                          : undefined;
+                        updateTask({
+                          ...selectedTask,
+                          dueDate: nextIso,
+                          timezoneOffset: nextOffset,
+                        });
+                      }}
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                    >
+                      {TIMEZONE_OPTIONS.map((option) => (
+                        <option key={option.offsetMinutes} value={option.offsetMinutes}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-[#666666] flex items-center">
+                    当前时区：{getTimezoneLabel(selectedTimezoneOffset)}
                   </div>
                 </div>
               </div>

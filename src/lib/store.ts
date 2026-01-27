@@ -2,6 +2,7 @@ export interface Task {
   id: string;
   title: string;
   dueDate?: string;
+  timezoneOffset?: number;
   priority: number;
   category?: string;
   status: 'todo' | 'in_progress' | 'completed';
