@@ -668,6 +668,7 @@ export default function Home() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
+  const [agentError, setAgentError] = useState<string | null>(null);
   const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
   const recommendedPriority = selectedTask
     ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
@@ -1099,6 +1100,7 @@ export default function Home() {
     setAgentMessages((prev) => [...prev, { role: 'user', content }]);
 
     try {
+      setAgentError(null);
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1130,11 +1132,13 @@ export default function Home() {
       pushLog('success', 'todo-agent 返回成功', `建议待办 ${nextItems.length} 条`);
     } catch (error) {
       console.error(error);
+      const message = (error as any)?.message || 'AI 助手无响应，请稍后重试';
+      setAgentError(message);
       setAgentMessages((prev) => [
         ...prev,
         { role: 'assistant', content: '我这边没连上服务，稍后再试试？' },
       ]);
-      pushLog('error', 'todo-agent 请求失败', String((error as Error)?.message || error));
+      pushLog('error', 'todo-agent 请求失败', String(message));
     } finally {
       setAgentInput('');
       setAgentLoading(false);
