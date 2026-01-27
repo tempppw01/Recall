@@ -1820,6 +1820,41 @@ export default function Home() {
     updateRepeat({ ...repeatRule, type: 'weekly', weekdays: next });
   };
 
+  const urgencyThresholdMs = 24 * 60 * 60 * 1000;
+  const isUrgentTask = (task: Task) => {
+    if (!task.dueDate) return false;
+    const dueMs = new Date(task.dueDate).getTime();
+    return isTaskOverdue(task) || dueMs - Date.now() <= urgencyThresholdMs;
+  };
+  const isImportantTask = (task: Task) => task.priority >= 1;
+  const quadrantSourceTasks = tasks.filter((task) => task.status !== 'completed');
+  const quadrantGroups = [
+    {
+      key: 'important-urgent',
+      title: '重要且紧急',
+      description: '高优先级 & 即将到期',
+      items: quadrantSourceTasks.filter((task) => isImportantTask(task) && isUrgentTask(task)),
+    },
+    {
+      key: 'important-not-urgent',
+      title: '重要不紧急',
+      description: '高优先级 & 可规划',
+      items: quadrantSourceTasks.filter((task) => isImportantTask(task) && !isUrgentTask(task)),
+    },
+    {
+      key: 'not-important-urgent',
+      title: '紧急不重要',
+      description: '低优先级 & 需处理',
+      items: quadrantSourceTasks.filter((task) => !isImportantTask(task) && isUrgentTask(task)),
+    },
+    {
+      key: 'not-important-not-urgent',
+      title: '不重要不紧急',
+      description: '低优先级 & 可搁置',
+      items: quadrantSourceTasks.filter((task) => !isImportantTask(task) && !isUrgentTask(task)),
+    },
+  ];
+
   const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, task) => {
     if (task.dueDate) {
       const key = formatZonedDate(task.dueDate, getTimezoneOffset(task));
@@ -2383,6 +2418,34 @@ export default function Home() {
                   })}
                 </div>
               )}
+            </div>
+          ) : activeFilter === 'quadrant' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {quadrantGroups.map((group) => (
+                <div key={group.key} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#DDDDDD]">{group.title}</h3>
+                    <p className="text-xs text-[#666666] mt-1">{group.description}</p>
+                    <p className="text-[11px] text-[#555555] mt-1">{group.items.length} 项</p>
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.length === 0 ? (
+                      <div className="text-xs text-[#444444]">暂无任务</div>
+                    ) : (
+                      group.items.map((task) => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          selected={selectedTask?.id === task.id}
+                          onClick={() => setSelectedTask(task)}
+                          onToggle={toggleStatus}
+                          onDelete={removeTask}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
