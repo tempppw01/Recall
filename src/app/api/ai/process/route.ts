@@ -274,7 +274,7 @@ function buildCookingSubtasks(title: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
+    const { input, mode, images, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
@@ -300,13 +300,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!input) {
+    const normalizedInput = typeof input === 'string' ? input : '';
+    const normalizedImages = Array.isArray(images)
+      ? images.filter((item) => typeof item === 'string' && item.trim().length > 0)
+      : [];
+    if (!normalizedInput && normalizedImages.length === 0) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
     }
 
     if (mode === 'organize') {
       // 一键整理：传入任务数组，返回整理后的任务数组（保留 id）
-      const payload = typeof input === 'string' ? JSON.parse(input) as OrganizePayload : input as OrganizePayload;
+      const payload = typeof normalizedInput === 'string'
+        ? JSON.parse(normalizedInput) as OrganizePayload
+        : normalizedInput as OrganizePayload;
       const tasksToOrganize = Array.isArray(payload?.tasks) ? payload.tasks : [];
 
       if (tasksToOrganize.length === 0) {
@@ -358,7 +364,7 @@ export async function POST(req: NextRequest) {
 
     if (mode === 'search') {
       // 仅生成 Embedding 用于搜索
-      const embedding = await generateEmbedding(input, { client, model: resolvedEmbeddingModel });
+      const embedding = await generateEmbedding(normalizedInput, { client, model: resolvedEmbeddingModel });
       return NextResponse.json({ embedding });
     }
 
@@ -366,6 +372,17 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       // todo-agent：返回聊天回复 + 待办清单
+      const userContent = normalizedImages.length > 0
+        ? [
+            ...(normalizedInput.trim()
+              ? [{ type: 'text', text: normalizedInput }]
+              : []),
+            ...normalizedImages.map((url) => ({
+              type: 'image_url',
+              image_url: { url },
+            })),
+          ]
+        : normalizedInput;
       const agentPayload = {
         model: resolvedChatModel,
         messages: [
@@ -381,7 +398,7 @@ export async function POST(req: NextRequest) {
 7) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
 8) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
           },
-          { role: 'user', content: input },
+          { role: 'user', content: userContent },
         ],
         response_format: { type: 'json_object' },
       };
@@ -427,7 +444,7 @@ export async function POST(req: NextRequest) {
 4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准。
 5) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}] }。不要包含 null/undefined 属性时可省略。`,
           },
-          { role: 'user', content: input },
+          { role: 'user', content: normalizedInput },
         ],
         response_format: { type: 'json_object' },
       };
@@ -459,7 +476,7 @@ export async function POST(req: NextRequest) {
           role: 'system',
           content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取），priority 必须为 0/1/2。\n4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8）。如果输入包含日期/时间，请转换为 ISO 8601 格式的 dueDate（包含时分秒），优先解析中文相对时间；无法解析则 dueDate 为 null。\n   模糊时间默认规则：\n- 早上/上午 → 09:00\n- 中午 → 12:00\n- 下午 → 15:00\n- 晚上/今晚 → 20:00\n- 凌晨 → 00:00\n例如：\n- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间\n- “周三上午开会” → 周三 09:00 的 ISO 时间\n- “今晚八点” → 今日 20:00 的 ISO 时间\n- “后天上午9点” → 后天 09:00 的 ISO 时间\n- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间\n- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间\n- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间\n- “下午三点到四点开会” → 取开始时间 15:00\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }。不要包含 null/undefined 属性时可省略。`,
         },
-        { role: 'user', content: input },
+        { role: 'user', content: normalizedInput },
       ],
       response_format: { type: 'json_object' },
     };
@@ -470,11 +487,11 @@ export async function POST(req: NextRequest) {
     let taskData = normalizeTask(rawTask);
     const normalizedCategory = CATEGORY_OPTIONS.includes(taskData.category || '')
       ? taskData.category
-      : classifyCategory(`${taskData.title} ${input}`);
+      : classifyCategory(`${taskData.title} ${normalizedInput}`);
     const normalizedPriority = taskData.priority === DEFAULT_TASK.priority
       ? evaluatePriorityWithNow(taskData.dueDate, taskData.subtasks.length, networkNow.getTime())
       : taskData.priority;
-    const sourceText = `${taskData.title} ${input}`.trim();
+    const sourceText = `${taskData.title} ${normalizedInput}`.trim();
     if ((!taskData.subtasks || taskData.subtasks.length === 0) && isCookingTask(sourceText)) {
       taskData = {
         ...taskData,

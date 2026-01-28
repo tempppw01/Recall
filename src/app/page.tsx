@@ -1206,8 +1206,36 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       const cachedVersion = localStorage.getItem(APP_VERSION_KEY);
       if (cachedVersion !== APP_VERSION) {
-        localStorage.clear();
-        localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
+        try {
+          const keysToPreserve = new Set([
+            APP_VERSION_KEY,
+            'recall_api_key',
+            'recall_api_base_url',
+            'recall_model_list',
+            'recall_chat_model',
+            'recall_embedding_model',
+            'recall_fallback_timeout_sec',
+            WALLPAPER_KEY,
+            WEBDAV_URL_KEY,
+            WEBDAV_PATH_KEY,
+            WEBDAV_USERNAME_KEY,
+            WEBDAV_PASSWORD_KEY,
+            WEBDAV_AUTO_SYNC_KEY,
+            WEBDAV_AUTO_SYNC_INTERVAL_KEY,
+            COUNTDOWN_DISPLAY_MODE_KEY,
+            'recall_theme',
+          ]);
+          const preservedEntries = Object.keys(localStorage)
+            .filter((key) => keysToPreserve.has(key))
+            .map((key) => [key, localStorage.getItem(key)] as const);
+          localStorage.clear();
+          preservedEntries.forEach(([key, value]) => {
+            if (value !== null) localStorage.setItem(key, value);
+          });
+          localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
+        } catch (error) {
+          console.error('Failed to migrate localStorage version', error);
+        }
       }
       const storedKey = localStorage.getItem('recall_api_key');
       const storedBaseUrl = localStorage.getItem('recall_api_base_url');
