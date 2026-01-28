@@ -8,7 +8,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings, Cloud
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -25,6 +25,10 @@ const WEBDAV_URL_KEY = 'recall_webdav_url';
 const WEBDAV_PATH_KEY = 'recall_webdav_path';
 const WEBDAV_USERNAME_KEY = 'recall_webdav_username';
 const WEBDAV_PASSWORD_KEY = 'recall_webdav_password';
+const WEBDAV_AUTO_SYNC_KEY = 'recall_webdav_auto_sync';
+const WEBDAV_AUTO_SYNC_INTERVAL_KEY = 'recall_webdav_auto_sync_interval';
+const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
+const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
 const DEFAULT_TIMEZONE_OFFSET = 480;
 const TIMEZONE_OPTIONS = [
   { label: 'UTC-12', offsetMinutes: -720 },
@@ -601,11 +605,13 @@ const TaskItem = ({
   onClick,
   onToggle,
   onDelete,
+  onToggleSubtask,
   onDragStart,
   onDragOver,
   onDrop,
   isDragging,
   onDragEnd,
+  onTitleClick,
   dragEnabled = true,
 }: any) => {
   const startXRef = useRef<number | null>(null);
@@ -778,11 +784,27 @@ const TaskItem = ({
           
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap justify-between items-start gap-2">
-              <p className={`text-[13px] sm:text-sm leading-snug ${
-                task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
-              }`}>
-                {task.title}
-              </p>
+              {onTitleClick ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onTitleClick?.();
+                  }}
+                  className={`text-left text-[13px] sm:text-sm leading-snug ${
+                    task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+                  }`}
+                  title="点击编辑标题"
+                >
+                  {task.title}
+                </button>
+              ) : (
+                <p className={`text-[13px] sm:text-sm leading-snug ${
+                  task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+                }`}>
+                  {task.title}
+                </p>
+              )}
               {hasSubtasks && (
                 <button
                   type="button"
@@ -860,11 +882,21 @@ const TaskItem = ({
               <div className="mt-2 space-y-1 border-l border-[#2A2A2A] pl-4">
                 {task.subtasks.map((subtask: Subtask) => (
                   <div key={subtask.id} className="flex items-center gap-2 text-[11px] sm:text-xs">
-                    {subtask.completed ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-[#555555]" />
-                    )}
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleSubtask?.(task.id, subtask.id);
+                      }}
+                      className="shrink-0"
+                      aria-label={subtask.completed ? '取消完成子任务' : '完成子任务'}
+                    >
+                      {subtask.completed ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-[#555555]" />
+                      )}
+                    </button>
                     <span
                       className={subtask.completed ? 'line-through text-[#666666]' : 'text-[#BBBBBB]'}
                     >
@@ -910,6 +942,9 @@ export default function Home() {
   const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
   const [webdavUsername, setWebdavUsername] = useState('');
   const [webdavPassword, setWebdavPassword] = useState('');
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [autoSyncInterval, setAutoSyncInterval] = useState(DEFAULT_AUTO_SYNC_INTERVAL_MIN);
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -1005,6 +1040,8 @@ export default function Home() {
     webdavPath: string;
     webdavUsername: string;
     webdavPassword: string;
+    autoSyncEnabled: boolean;
+    autoSyncInterval: number;
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
@@ -1017,6 +1054,8 @@ export default function Home() {
     localStorage.setItem(WEBDAV_PATH_KEY, next.webdavPath);
     localStorage.setItem(WEBDAV_USERNAME_KEY, next.webdavUsername);
     localStorage.setItem(WEBDAV_PASSWORD_KEY, next.webdavPassword);
+    localStorage.setItem(WEBDAV_AUTO_SYNC_KEY, String(next.autoSyncEnabled));
+    localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
   };
 
   // Load Initial Data
@@ -1038,6 +1077,8 @@ export default function Home() {
       const storedWebdavPath = localStorage.getItem(WEBDAV_PATH_KEY);
       const storedWebdavUsername = localStorage.getItem(WEBDAV_USERNAME_KEY);
       const storedWebdavPassword = localStorage.getItem(WEBDAV_PASSWORD_KEY);
+      const storedAutoSyncEnabled = localStorage.getItem(WEBDAV_AUTO_SYNC_KEY);
+      const storedAutoSyncInterval = localStorage.getItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -1059,6 +1100,15 @@ export default function Home() {
       if (storedWebdavPath) setWebdavPath(storedWebdavPath);
       if (storedWebdavUsername) setWebdavUsername(storedWebdavUsername);
       if (storedWebdavPassword) setWebdavPassword(storedWebdavPassword);
+      if (storedAutoSyncEnabled) {
+        setAutoSyncEnabled(storedAutoSyncEnabled === 'true');
+      }
+      if (storedAutoSyncInterval) {
+        const parsedInterval = Number(storedAutoSyncInterval);
+        if (Number.isFinite(parsedInterval) && parsedInterval > 0) {
+          setAutoSyncInterval(parsedInterval);
+        }
+      }
 
       const storedTheme = localStorage.getItem('recall_theme');
       if (storedTheme === 'light') {
@@ -1580,6 +1630,8 @@ export default function Home() {
       isSystemTheme,
       webdavUrl,
       webdavPath,
+      autoSyncEnabled,
+      autoSyncInterval,
     },
     secrets: {
       apiKey,
@@ -1602,6 +1654,8 @@ export default function Home() {
     const nextWallpaper = typeof settings.wallpaperUrl === 'string' ? settings.wallpaperUrl : '';
     const nextThemeMode = settings.themeMode === 'light' ? 'light' : 'dark';
     const nextIsSystemTheme = settings.isSystemTheme === true;
+    const nextAutoSyncEnabled = settings.autoSyncEnabled === true;
+    const nextAutoSyncInterval = Number(settings.autoSyncInterval) || DEFAULT_AUTO_SYNC_INTERVAL_MIN;
 
     setApiBaseUrl(nextApiBaseUrl);
     setModelListText(nextModelListText);
@@ -1611,6 +1665,8 @@ export default function Home() {
     setWallpaperUrl(nextWallpaper);
     setThemeMode(nextThemeMode);
     setIsSystemTheme(nextIsSystemTheme);
+    setAutoSyncEnabled(nextAutoSyncEnabled);
+    setAutoSyncInterval(nextAutoSyncInterval);
 
     const nextWebdavUrl = typeof settings.webdavUrl === 'string' && settings.webdavUrl.trim().length > 0
       ? settings.webdavUrl
@@ -1648,57 +1704,99 @@ export default function Home() {
       webdavPath: nextWebdavPath,
       webdavUsername: nextWebdavUsername,
       webdavPassword: nextWebdavPassword,
+      autoSyncEnabled: nextAutoSyncEnabled,
+      autoSyncInterval: nextAutoSyncInterval,
     });
   };
 
-  const handleWebdavSync = async (action: 'push' | 'pull') => {
+  const handleWebdavSync = async (action: 'push' | 'pull' | 'sync', options?: { silent?: boolean }) => {
     if (syncStatus === 'syncing') return;
     if (!webdavUrl || !webdavUsername || !webdavPassword) {
-      pushLog('warning', 'WebDAV 配置不完整', '请填写地址、用户名和密码');
-      setShowSettings(true);
+      if (!options?.silent) {
+        pushLog('warning', 'WebDAV 配置不完整', '请填写地址、用户名和密码');
+        setShowSettings(true);
+      }
       return;
     }
 
     setSyncStatus('syncing');
-    pushLog('info', action === 'push' ? 'WebDAV 上传中' : 'WebDAV 同步中');
+    setIsSyncingNow(true);
+    if (!options?.silent) {
+      const label = action === 'push' ? 'WebDAV 上传中' : action === 'pull' ? 'WebDAV 同步中' : 'WebDAV 双向同步中';
+      pushLog('info', label);
+    }
 
     try {
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          url: webdavUrl,
-          username: webdavUsername,
-          password: webdavPassword,
-          path: webdavPath,
-          ...(action === 'push' ? { payload: buildSyncPayload() } : {}),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'WebDAV sync failed');
-      }
+      const executeRequest = async (requestAction: 'push' | 'pull') => {
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: requestAction,
+            url: webdavUrl,
+            username: webdavUsername,
+            password: webdavPassword,
+            path: webdavPath,
+            ...(requestAction === 'push' ? { payload: buildSyncPayload() } : {}),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error || 'WebDAV sync failed');
+        }
+        return data;
+      };
 
       if (action === 'pull') {
+        const data = await executeRequest('pull');
         const remotePayload = data?.data;
         if (remotePayload) {
-          applyImportedData(remotePayload);
+          applyImportedData(remotePayload, 'merge');
           applySyncedSettings(remotePayload);
-          pushLog('success', 'WebDAV 同步完成', `导入任务 ${remotePayload?.data?.tasks?.length ?? 0} 条`);
-        } else {
+          if (!options?.silent) {
+            pushLog('success', 'WebDAV 同步完成', `导入任务 ${remotePayload?.data?.tasks?.length ?? 0} 条`);
+          }
+        } else if (!options?.silent) {
           pushLog('warning', 'WebDAV 同步失败', '未读取到远端数据');
         }
+      } else if (action === 'push') {
+        await executeRequest('push');
+        if (!options?.silent) {
+          pushLog('success', 'WebDAV 上传完成');
+        }
       } else {
-        pushLog('success', 'WebDAV 上传完成');
+        const pullData = await executeRequest('pull');
+        const remotePayload = pullData?.data;
+        if (remotePayload) {
+          applyImportedData(remotePayload, 'merge');
+          applySyncedSettings(remotePayload);
+        }
+        await executeRequest('push');
+        if (!options?.silent) {
+          pushLog('success', 'WebDAV 同步完成', '已完成拉取合并并上传');
+        }
       }
     } catch (error) {
       console.error(error);
-      pushLog('error', 'WebDAV 同步失败', String((error as Error)?.message || error));
+      if (!options?.silent) {
+        pushLog('error', 'WebDAV 同步失败', String((error as Error)?.message || error));
+      }
     } finally {
       setSyncStatus('idle');
+      setIsSyncingNow(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!autoSyncEnabled) return;
+    if (!webdavUrl || !webdavUsername || !webdavPassword) return;
+    const intervalMs = Math.max(1, autoSyncInterval) * 60 * 1000;
+    const timer = window.setInterval(() => {
+      handleWebdavSync('sync', { silent: true });
+    }, intervalMs);
+    return () => window.clearInterval(timer);
+  }, [autoSyncEnabled, autoSyncInterval, webdavUrl, webdavUsername, webdavPassword]);
 
   const triggerDownload = (filename: string, content: string) => {
     if (typeof window === 'undefined') return;
@@ -1736,18 +1834,18 @@ export default function Home() {
     return Array.from(merged.values());
   };
 
-  const applyImportedData = (payload: any) => {
+  const applyImportedData = (payload: any, mode: 'merge' | 'overwrite' = importMode) => {
     const tasksImport = normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks);
     const habitsImport = normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits);
     const countdownsImport = normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns);
 
-    const nextTasks = importMode === 'overwrite'
+    const nextTasks = mode === 'overwrite'
       ? tasksImport
       : mergeById(taskStore.getAll(), tasksImport);
-    const nextHabits = importMode === 'overwrite'
+    const nextHabits = mode === 'overwrite'
       ? habitsImport
       : mergeById(habitStore.getAll(), habitsImport);
-    const nextCountdowns = importMode === 'overwrite'
+    const nextCountdowns = mode === 'overwrite'
       ? countdownsImport
       : mergeById(countdownStore.getAll(), countdownsImport);
 
@@ -2111,6 +2209,21 @@ export default function Home() {
       setSelectedTask(updatedTask);
     }
     if (editingTaskId === updatedTask.id) {
+      setEditingTaskId(null);
+      setEditingTaskTitle('');
+    }
+  };
+
+  const commitEditingTitle = (task: Task, fallbackTitle?: string) => {
+    const title = editingTaskTitle.trim() || (fallbackTitle ?? '').trim();
+    if (!title) {
+      setEditingTaskId(null);
+      setEditingTaskTitle('');
+      return;
+    }
+    if (title !== task.title) {
+      updateTask({ ...task, title });
+    } else {
       setEditingTaskId(null);
       setEditingTaskTitle('');
     }
@@ -2692,6 +2805,14 @@ export default function Home() {
             </h2>
           </div>
           <div className="mobile-toolbar flex items-center gap-3 sm:gap-4 text-[#666666]">
+            <button
+              onClick={() => handleWebdavSync('sync')}
+              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
+              title={isSyncingNow ? '同步中…' : 'WebDAV 同步'}
+              disabled={isSyncingNow}
+            >
+              <Cloud className={`w-4 h-4 sm:w-5 sm:h-5 ${isSyncingNow ? 'animate-pulse text-blue-400' : ''}`} />
+            </button>
             {activeFilter === 'completed' && completedTasks > 0 && (
               <button
                 onClick={() => {
@@ -2970,6 +3091,7 @@ export default function Home() {
                           onClick={() => setSelectedTask(task)}
                           onToggle={toggleStatus}
                           onDelete={removeTask}
+                          onToggleSubtask={toggleSubtask}
                         />
                       ))}
                     </div>
@@ -3100,6 +3222,7 @@ export default function Home() {
                             onClick={() => setSelectedTask(task)}
                             onToggle={toggleStatus}
                             onDelete={removeTask}
+                            onToggleSubtask={toggleSubtask}
                           />
                         ))
                       )}
@@ -3207,6 +3330,7 @@ export default function Home() {
                           onClick={() => setSelectedTask(task)}
                           onToggle={toggleStatus}
                           onDelete={removeTask}
+                          onToggleSubtask={toggleSubtask}
                         />
                       ))
                     )}
@@ -3435,12 +3559,11 @@ export default function Home() {
                             <input
                               value={editingTaskTitle}
                               onChange={(e) => setEditingTaskTitle(e.target.value)}
+                              onBlur={() => commitEditingTitle(task, task.title)}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                  const title = editingTaskTitle.trim();
-                                  if (title) {
-                                    updateTask({ ...task, title });
-                                  }
+                                  e.preventDefault();
+                                  commitEditingTitle(task, task.title);
                                 }
                                 if (e.key === 'Escape') {
                                   setEditingTaskId(null);
@@ -3451,26 +3574,6 @@ export default function Home() {
                               className="flex-1 bg-transparent outline-none text-sm text-[#EEEEEE]"
                               placeholder="编辑任务标题"
                             />
-                            <button
-                              className="text-xs text-blue-400 hover:text-blue-300"
-                              onClick={() => {
-                                const title = editingTaskTitle.trim();
-                                if (title) {
-                                  updateTask({ ...task, title });
-                                }
-                              }}
-                            >
-                              保存
-                            </button>
-                            <button
-                              className="text-xs text-[#888888] hover:text-[#CCCCCC]"
-                              onClick={() => {
-                                setEditingTaskId(null);
-                                setEditingTaskTitle('');
-                              }}
-                            >
-                              取消
-                            </button>
                           </div>
                         ) : (
                           <TaskItem
@@ -3485,20 +3588,12 @@ export default function Home() {
                             isDragging={isManualSortEnabled && draggingTaskId === task.id}
                             onDragEnd={isManualSortEnabled ? () => setDraggingTaskId(null) : undefined}
                             dragEnabled={isManualSortEnabled}
+                            onTitleClick={() => {
+                              setEditingTaskId(task.id);
+                              setEditingTaskTitle(task.title);
+                            }}
+                            onToggleSubtask={toggleSubtask}
                           />
-                        )}
-                        {editingTaskId !== task.id && (
-                          <div className="flex items-center gap-2 text-[11px] text-[#555555] px-1">
-                            <button
-                              className="hover:text-[#CCCCCC]"
-                              onClick={() => {
-                                setEditingTaskId(task.id);
-                                setEditingTaskTitle(task.title);
-                              }}
-                            >
-                              编辑标题
-                            </button>
-                          </div>
                         )}
                       </div>
                     ))}
@@ -3984,6 +4079,33 @@ export default function Home() {
               <div className="pt-3 border-t border-[#333333]">
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">WebDAV 同步</label>
                 <div className="space-y-3">
+                  <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                    已切换为“自动同步 + 手动一键同步”，定时同步会先拉取再上传，避免覆盖。
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAutoSyncEnabled((prev) => !prev)}
+                      className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
+                        autoSyncEnabled
+                          ? 'bg-blue-600/20 border-blue-400 text-white'
+                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                      }`}
+                    >
+                      {autoSyncEnabled ? '自动同步：已开启' : '自动同步：已关闭'}
+                    </button>
+                    <select
+                      value={autoSyncInterval}
+                      onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
+                      className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                    >
+                      {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          每 {option} 分钟
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
                     <input
@@ -4024,24 +4146,6 @@ export default function Home() {
                       className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                     />
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleWebdavSync('push')}
-                      disabled={syncStatus === 'syncing'}
-                      className="px-3 py-2 text-[13px] sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
-                    >
-                      {syncStatus === 'syncing' ? '同步中…' : '上传到 WebDAV'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleWebdavSync('pull')}
-                      disabled={syncStatus === 'syncing'}
-                      className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white disabled:opacity-50"
-                    >
-                      {syncStatus === 'syncing' ? '同步中…' : '从 WebDAV 拉取'}
-                    </button>
-                  </div>
                   <p className="text-[11px] sm:text-xs text-[#555555]">
                     提示：同步会包含任务、习惯、倒数日及 AI 设置与密钥。
                   </p>
@@ -4070,6 +4174,8 @@ export default function Home() {
                       webdavPath,
                       webdavUsername,
                       webdavPassword,
+                      autoSyncEnabled,
+                      autoSyncInterval,
                     });
                     setShowSettings(false);
                   }}
