@@ -9,6 +9,7 @@ import {
   Menu, X, CheckCircle2, Circle,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
   CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings, Cloud
+  , ImagePlus
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -354,6 +355,12 @@ type CountdownAgentItem = {
 type AgentMessage = {
   role: 'user' | 'assistant';
   content: string;
+};
+
+type ImageAttachment = {
+  id: string;
+  file: File;
+  dataUrl: string;
 };
 
 type CountdownDisplayMode = 'days' | 'date';
