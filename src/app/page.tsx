@@ -2552,7 +2552,7 @@ export default function Home() {
                   aria-label="打开应用菜单"
                 >
                   <img
-                    src="/icon.svg"
+                    src="https://disk.shuaihong.fun/f/VPCq/home.png"
                     alt="Recall"
                     className="w-6 h-6 rounded-full"
                   />
