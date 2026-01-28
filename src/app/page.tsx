@@ -28,6 +28,7 @@ const WEBDAV_PASSWORD_KEY = 'recall_webdav_password';
 const WEBDAV_AUTO_SYNC_KEY = 'recall_webdav_auto_sync';
 const WEBDAV_AUTO_SYNC_INTERVAL_KEY = 'recall_webdav_auto_sync_interval';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
+const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
 const DEFAULT_TIMEZONE_OFFSET = 480;
@@ -108,9 +109,20 @@ const LUNAR_FESTIVALS = [
   '中秋节', '重阳节', '腊八节', '小年', '除夕', '元旦',
 ];
 
+const normalizeLunarDate = (raw?: string) => {
+  if (!raw) return '';
+  const text = String(raw);
+  const cleaned = text.replace(/农历/g, '').replace(/\s+/g, ' ').trim();
+  const parts = cleaned.split('年');
+  const lunarPart = parts.length > 1 ? parts[1] : cleaned;
+  return lunarPart.replace(/[()（）（）]/g, '').replace(/\s+/g, '').trim();
+};
+
 const extractCalendarNote = (data: Record<string, any>) => {
   const direct = data?.['农历节日'] || data?.['节日'] || data?.['节气'] || data?.['节日名称'];
   if (direct) return String(direct);
+  const lunar = normalizeLunarDate(data?.['农历日期']);
+  if (lunar) return lunar;
   const text = Object.values(data || {}).join(' ');
   const term = SOLAR_TERMS.find((item) => text.includes(item));
   if (term) return term;
@@ -149,6 +161,12 @@ const formatZonedTime = (iso: string, offsetMinutes: number) => {
 
 const formatZonedDateTime = (iso: string, offsetMinutes: number) =>
   `${formatZonedDate(iso, offsetMinutes)} ${formatZonedTime(iso, offsetMinutes)}`;
+
+const formatCountdownDate = (dateText: string) => {
+  const [year, month, day] = dateText.split('-');
+  if (!year || !month || !day) return dateText;
+  return `${year}年${month.padStart(2, '0')}月${day.padStart(2, '0')}日`;
+};
 
 const buildDueDateIso = (dateText: string, timeText: string, offsetMinutes: number) => {
   if (!dateText) return undefined;
@@ -337,6 +355,8 @@ type AgentMessage = {
   role: 'user' | 'assistant';
   content: string;
 };
+
+type CountdownDisplayMode = 'days' | 'date';
 
 const isTaskOverdue = (task: Task) => {
   if (!task.dueDate) return false;
@@ -1037,6 +1057,7 @@ export default function Home() {
   const [webdavPassword, setWebdavPassword] = useState('');
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [autoSyncInterval, setAutoSyncInterval] = useState(DEFAULT_AUTO_SYNC_INTERVAL_MIN);
+  const [countdownDisplayMode, setCountdownDisplayMode] = useState<CountdownDisplayMode>('days');
   const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1142,6 +1163,7 @@ export default function Home() {
     webdavPassword: string;
     autoSyncEnabled: boolean;
     autoSyncInterval: number;
+    countdownDisplayMode: CountdownDisplayMode;
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
@@ -1156,6 +1178,7 @@ export default function Home() {
     localStorage.setItem(WEBDAV_PASSWORD_KEY, next.webdavPassword);
     localStorage.setItem(WEBDAV_AUTO_SYNC_KEY, String(next.autoSyncEnabled));
     localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
+    localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
   };
 
   // Load Initial Data
@@ -1179,6 +1202,7 @@ export default function Home() {
       const storedWebdavPassword = localStorage.getItem(WEBDAV_PASSWORD_KEY);
       const storedAutoSyncEnabled = localStorage.getItem(WEBDAV_AUTO_SYNC_KEY);
       const storedAutoSyncInterval = localStorage.getItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY);
+      const storedCountdownDisplayMode = localStorage.getItem(COUNTDOWN_DISPLAY_MODE_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -1208,6 +1232,11 @@ export default function Home() {
         if (Number.isFinite(parsedInterval) && parsedInterval > 0) {
           setAutoSyncInterval(parsedInterval);
         }
+      }
+      if (storedCountdownDisplayMode === 'date') {
+        setCountdownDisplayMode('date');
+      } else {
+        setCountdownDisplayMode('days');
       }
 
       const storedTheme = localStorage.getItem('recall_theme');
@@ -1860,6 +1889,7 @@ export default function Home() {
       webdavPath,
       autoSyncEnabled,
       autoSyncInterval,
+      countdownDisplayMode,
     },
     secrets: {
       apiKey,
@@ -1884,6 +1914,7 @@ export default function Home() {
     const nextIsSystemTheme = settings.isSystemTheme === true;
     const nextAutoSyncEnabled = settings.autoSyncEnabled === true;
     const nextAutoSyncInterval = Number(settings.autoSyncInterval) || DEFAULT_AUTO_SYNC_INTERVAL_MIN;
+    const nextCountdownDisplayMode = settings.countdownDisplayMode === 'date' ? 'date' : 'days';
 
     setApiBaseUrl(nextApiBaseUrl);
     setModelListText(nextModelListText);
@@ -1895,6 +1926,7 @@ export default function Home() {
     setIsSystemTheme(nextIsSystemTheme);
     setAutoSyncEnabled(nextAutoSyncEnabled);
     setAutoSyncInterval(nextAutoSyncInterval);
+    setCountdownDisplayMode(nextCountdownDisplayMode);
 
     const nextWebdavUrl = typeof settings.webdavUrl === 'string' && settings.webdavUrl.trim().length > 0
       ? settings.webdavUrl
@@ -1934,6 +1966,7 @@ export default function Home() {
       webdavPassword: nextWebdavPassword,
       autoSyncEnabled: nextAutoSyncEnabled,
       autoSyncInterval: nextAutoSyncInterval,
+      countdownDisplayMode: nextCountdownDisplayMode,
     });
   };
 
@@ -3047,8 +3080,12 @@ export default function Home() {
       )}
 
       {/* 2. Main Task List */}
-      <section className={`flex-1 flex-col min-w-0 bg-[#1A1A1A] ${selectedTask ? 'hidden lg:flex' : 'flex'}`}>
-        <header className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 lg:px-6">
+      <section
+        className={`flex-1 flex-col min-w-0 bg-[#1A1A1A] overflow-y-auto mobile-scroll ${
+          selectedTask ? 'hidden lg:flex' : 'flex'
+        }`}
+      >
+        <header className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 lg:px-6 sticky top-0 z-20 bg-[#1A1A1A]/95 backdrop-blur">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(true)}
@@ -3189,7 +3226,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto mobile-scroll px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10 ${
+        <div className={`flex-1 px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10 ${
           ['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-3 sm:pt-4' : ''
         }`}>
           {activeFilter === 'calendar' ? (
@@ -3441,11 +3478,13 @@ export default function Home() {
                           >
                             <span className="leading-none">{day}</span>
                             {note && (
-                              <span className="absolute top-1 right-1 text-[9px] text-blue-300">
+                              <span className="absolute top-1 left-1 text-[9px] text-blue-300 leading-none">
                                 {note}
                               </span>
                             )}
-                            <span className={`mt-1 w-1.5 h-1.5 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`} />
+                            <span
+                              className={`absolute top-1 right-1 w-2 h-2 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`}
+                            />
                           </button>
                         );
                       })}
@@ -3533,10 +3572,21 @@ export default function Home() {
                               <p className="text-xs text-[#777777] mt-1">目标日期：{item.targetDate}</p>
                             </div>
                             <div className="text-right">
-                              <p className={`text-2xl font-semibold ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
-                                {displayDays}
-                              </p>
-                              <p className="text-[11px] text-[#666666]">{isPast ? '已过期天数' : '天后'}</p>
+                              {countdownDisplayMode === 'date' ? (
+                                <>
+                                  <p className={`text-sm font-semibold ${isPast ? 'text-red-300' : 'text-blue-200'}`}>
+                                    {formatCountdownDate(item.targetDate)}
+                                  </p>
+                                  <p className="text-[11px] text-[#666666]">目标日期</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className={`text-2xl font-semibold ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
+                                    {displayDays}
+                                  </p>
+                                  <p className="text-[11px] text-[#666666]">{isPast ? '已过期天数' : '天后'}</p>
+                                </>
+                              )}
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -4378,6 +4428,34 @@ export default function Home() {
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
               </div>
               <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">倒数日显示模式</label>
+                <div className="flex gap-2 text-[12px] sm:text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCountdownDisplayMode('days')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      countdownDisplayMode === 'days'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    剩余天数
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCountdownDisplayMode('date')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      countdownDisplayMode === 'date'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    目标日期
+                  </button>
+                </div>
+                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
+              </div>
+              <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">壁纸图片 URL</label>
                 <input
                   type="text"
@@ -4543,6 +4621,7 @@ export default function Home() {
                       webdavPassword,
                       autoSyncEnabled,
                       autoSyncInterval,
+                      countdownDisplayMode,
                     });
                     setShowSettings(false);
                   }}
