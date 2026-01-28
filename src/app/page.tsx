@@ -27,6 +27,7 @@ const WEBDAV_USERNAME_KEY = 'recall_webdav_username';
 const WEBDAV_PASSWORD_KEY = 'recall_webdav_password';
 const WEBDAV_AUTO_SYNC_KEY = 'recall_webdav_auto_sync';
 const WEBDAV_AUTO_SYNC_INTERVAL_KEY = 'recall_webdav_auto_sync_interval';
+const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
 const DEFAULT_TIMEZONE_OFFSET = 480;
@@ -418,6 +419,92 @@ const fetchServerTime = async () => {
 };
 
 const createId = () => Math.random().toString(36).substring(2, 9);
+
+const readDeletedCountdowns = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(DELETED_COUNTDOWNS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as Record<string, string>;
+  } catch (error) {
+    console.error('Failed to read deleted countdowns', error);
+    return {};
+  }
+};
+
+const persistDeletedCountdowns = (next: Record<string, string>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(DELETED_COUNTDOWNS_KEY, JSON.stringify(next));
+  } catch (error) {
+    console.error('Failed to write deleted countdowns', error);
+  }
+};
+
+const markCountdownDeleted = (id: string, deletedAt = new Date().toISOString()) => {
+  const current = readDeletedCountdowns();
+  const existing = current[id];
+  const incomingMs = new Date(deletedAt).getTime();
+  const existingMs = existing ? new Date(existing).getTime() : 0;
+  if (!existing || incomingMs > existingMs) {
+    current[id] = deletedAt;
+    persistDeletedCountdowns(current);
+  }
+  return current;
+};
+
+const normalizeDeletedCountdowns = (value: any): Record<string, string> => {
+  if (Array.isArray(value)) {
+    const now = new Date().toISOString();
+    return value.reduce<Record<string, string>>((acc, id) => {
+      if (typeof id === 'string') acc[id] = now;
+      return acc;
+    }, {});
+  }
+  if (value && typeof value === 'object') {
+    const next: Record<string, string> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([id, time]) => {
+      if (typeof id === 'string' && typeof time === 'string') {
+        next[id] = time;
+      }
+    });
+    return next;
+  }
+  return {};
+};
+
+const mergeDeletedCountdowns = (current: Record<string, string>, incoming: Record<string, string>) => {
+  const next = { ...current };
+  Object.entries(incoming).forEach(([id, time]) => {
+    const incomingMs = new Date(time).getTime();
+    const existingMs = next[id] ? new Date(next[id]).getTime() : 0;
+    if (Number.isNaN(incomingMs)) return;
+    if (!next[id] || incomingMs > existingMs) {
+      next[id] = time;
+    }
+  });
+  return next;
+};
+
+const filterCountdownsByDeletions = (items: Countdown[], deletedMap: Record<string, string>) => {
+  const nextDeleted = { ...deletedMap };
+  const filtered = items.filter((item) => {
+    const deletedAt = deletedMap[item.id];
+    if (!deletedAt) return true;
+    const deletedMs = new Date(deletedAt).getTime();
+    const updatedMs = item.updatedAt
+      ? new Date(item.updatedAt).getTime()
+      : new Date(item.createdAt).getTime();
+    if (updatedMs > deletedMs) {
+      delete nextDeleted[item.id];
+      return true;
+    }
+    return false;
+  });
+  return { filtered, nextDeleted };
+};
 
 const getDefaultRepeatRule = (type: RepeatType, task: Task): TaskRepeatRule => {
   const baseDate = task.dueDate ? new Date(task.dueDate) : new Date();
@@ -942,8 +1029,8 @@ export default function Home() {
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [showSettings, setShowSettings] = useState(false);
   const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, calendar, agent
-  const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('priority');
-  const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('none');
+  const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
+  const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('dueDate');
   const [webdavUrl, setWebdavUrl] = useState(DEFAULT_WEBDAV_URL);
   const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
   const [webdavUsername, setWebdavUsername] = useState('');
@@ -963,7 +1050,7 @@ export default function Home() {
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
-  const [isTagsOpen, setIsTagsOpen] = useState(true);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isListsOpen, setIsListsOpen] = useState(true);
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -1291,7 +1378,12 @@ export default function Home() {
 
   const refreshCountdowns = () => {
     const all = countdownStore.getAll();
-    const sorted = [...all].sort((a, b) => {
+    const deletedMap = readDeletedCountdowns();
+    const { filtered, nextDeleted } = filterCountdownsByDeletions(all, deletedMap);
+    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
+      persistDeletedCountdowns(nextDeleted);
+    }
+    const sorted = [...filtered].sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       return new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime();
     });
@@ -1365,6 +1457,7 @@ export default function Home() {
 
   const removeCountdown = (itemId: string) => {
     countdownStore.remove(itemId);
+    markCountdownDeleted(itemId);
     refreshCountdowns();
     if (editingCountdown?.id === itemId) {
       resetCountdownForm();
@@ -1628,6 +1721,9 @@ export default function Home() {
       habits: habitStore.getAll(),
       countdowns: countdownStore.getAll(),
     },
+    deletions: {
+      countdowns: readDeletedCountdowns(),
+    },
   });
 
   const buildSyncPayload = () => ({
@@ -1637,6 +1733,9 @@ export default function Home() {
       tasks: taskStore.getAll(),
       habits: habitStore.getAll(),
       countdowns: countdownStore.getAll(),
+    },
+    deletions: {
+      countdowns: readDeletedCountdowns(),
     },
     settings: {
       apiBaseUrl,
@@ -1884,13 +1983,22 @@ export default function Home() {
       ? countdownsImport
       : mergeById(currentCountdowns, countdownsImport);
 
+    const localDeletedCountdowns = readDeletedCountdowns();
+    const incomingDeletedCountdowns = normalizeDeletedCountdowns(
+      payload?.deletions?.countdowns ?? payload?.deletedCountdowns,
+    );
+    const mergedDeletedCountdowns = mergeDeletedCountdowns(localDeletedCountdowns, incomingDeletedCountdowns);
+    const { filtered: filteredCountdowns, nextDeleted } =
+      filterCountdownsByDeletions(nextCountdowns, mergedDeletedCountdowns);
+
     taskStore.replaceAll(nextTasks);
     habitStore.replaceAll(nextHabits);
-    countdownStore.replaceAll(nextCountdowns);
+    countdownStore.replaceAll(filteredCountdowns);
+    persistDeletedCountdowns(nextDeleted);
 
     setTasks(nextTasks);
     setHabits(nextHabits);
-    setCountdowns(nextCountdowns);
+    setCountdowns(filteredCountdowns);
 
     const nextCategories = Array.from(new Set(nextTasks.map((task) => task.category).filter(Boolean))) as string[];
     const nextTags = Array.from(new Set(nextTasks.flatMap((task) => task.tags || [])));
