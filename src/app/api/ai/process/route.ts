@@ -301,6 +301,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedInput = typeof input === 'string' ? input : '';
+    // 允许仅发送图片（无文本），前端会把 dataUrl 透传为 images 数组
     const normalizedImages = Array.isArray(images)
       ? images.filter((item) => typeof item === 'string' && item.trim().length > 0)
       : [];
@@ -372,6 +373,7 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       // todo-agent：返回聊天回复 + 待办清单
+      // 有图片时按 OpenAI 多模态格式构造 content，否则保持纯文本
       const userContent = normalizedImages.length > 0
         ? [
             ...(normalizedInput.trim()

@@ -1207,6 +1207,7 @@ export default function Home() {
       const cachedVersion = localStorage.getItem(APP_VERSION_KEY);
       if (cachedVersion !== APP_VERSION) {
         try {
+          // 升级版本时仅清理业务数据，保留用户配置与同步信息，避免升级后丢失设置
           const keysToPreserve = new Set([
             APP_VERSION_KEY,
             'recall_api_key',
