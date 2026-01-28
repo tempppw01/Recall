@@ -447,6 +447,17 @@ const fetchServerTime = async () => {
 
 const createId = () => Math.random().toString(36).substring(2, 9);
 
+const readImageAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('read image failed'));
+    reader.readAsDataURL(file);
+  });
+
+const filterImageFiles = (files: File[]) =>
+  files.filter((file) => file.type.startsWith('image/'));
+
 const readDeletedCountdowns = (): Record<string, string> => {
   if (typeof window === 'undefined') return {};
   try {
@@ -1119,6 +1130,8 @@ export default function Home() {
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
   const [agentInput, setAgentInput] = useState('');
   const [agentLoading, setAgentLoading] = useState(false);
+  const [agentImages, setAgentImages] = useState<ImageAttachment[]>([]);
+  const agentImageInputRef = useRef<HTMLInputElement | null>(null);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
@@ -1642,12 +1655,50 @@ export default function Home() {
     return task;
   };
 
+  const addAgentImages = async (files: File[]) => {
+    const imageFiles = filterImageFiles(files);
+    if (imageFiles.length === 0) return;
+    const remainingSlots = Math.max(0, 6 - agentImages.length);
+    const selected = imageFiles.slice(0, remainingSlots);
+    if (selected.length === 0) return;
+    const attachments = await Promise.all(
+      selected.map(async (file) => ({
+        id: createId(),
+        file,
+        dataUrl: await readImageAsDataUrl(file),
+      })),
+    );
+    setAgentImages((prev) => [...prev, ...attachments]);
+  };
+
+  const handleAgentImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    await addAgentImages(files);
+    event.target.value = '';
+  };
+
+  const handleAgentPaste = async (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const files = Array.from(event.clipboardData.files ?? []);
+    if (files.length === 0) return;
+    event.preventDefault();
+    await addAgentImages(files);
+  };
+
+  const removeAgentImage = (id: string) => {
+    setAgentImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
   const handleAgentSend = async () => {
     const content = agentInput.trim();
-    if (!content || agentLoading) return;
+    if ((!content && agentImages.length === 0) || agentLoading) return;
     pushLog('info', 'todo-agent 请求发送', content);
     setAgentLoading(true);
-    setAgentMessages((prev) => [...prev, { role: 'user', content }]);
+    if (content) {
+      setAgentMessages((prev) => [...prev, { role: 'user', content }]);
+    } else {
+      setAgentMessages((prev) => [...prev, { role: 'user', content: '发送了一张图片' }]);
+    }
 
     try {
       setAgentError(null);
@@ -1657,6 +1708,7 @@ export default function Home() {
         body: JSON.stringify({
           mode: 'todo-agent',
           input: content,
+          images: agentImages.map((image) => image.dataUrl),
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -1691,6 +1743,7 @@ export default function Home() {
       pushLog('error', 'todo-agent 请求失败', String(message));
     } finally {
       setAgentInput('');
+      setAgentImages([]);
       setAgentLoading(false);
     }
   };
@@ -3797,19 +3850,60 @@ export default function Home() {
                         ))
                       )}
                     </div>
+                    {agentImages.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {agentImages.map((image) => (
+                          <div
+                            key={image.id}
+                            className="relative w-16 h-16 rounded-lg border border-[#333333] overflow-hidden"
+                          >
+                            <img
+                              src={image.dataUrl}
+                              alt={image.file.name}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeAgentImage(image.id)}
+                              className="absolute top-0.5 right-0.5 bg-black/60 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+                              title="移除"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
+                      <input
+                        ref={agentImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleAgentImageChange}
+                        className="hidden"
+                      />
                       <input
                         type="text"
                         value={agentInput}
                         onChange={(e) => setAgentInput(e.target.value)}
+                        onPaste={handleAgentPaste}
                         onKeyDown={(e) => e.key === 'Enter' && handleAgentSend()}
                         placeholder="例如：帮我规划本周的工作安排"
                         className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
                         disabled={agentLoading}
                       />
                       <button
+                        type="button"
+                        onClick={() => agentImageInputRef.current?.click()}
+                        className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                        title="上传图片"
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={handleAgentSend}
-                        disabled={agentLoading || !agentInput.trim()}
+                        disabled={agentLoading || (!agentInput.trim() && agentImages.length === 0)}
                         className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
                       >
                         {agentLoading ? '整理中…' : '发送'}
