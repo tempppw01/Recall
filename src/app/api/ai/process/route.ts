@@ -100,9 +100,19 @@ type AgentItem = {
   };
 };
 
+type CountdownItem = {
+  title?: string;
+  targetDate?: string;
+};
+
 type AgentPayload = {
   reply?: string;
   items?: AgentItem[];
+};
+
+type CountdownPayload = {
+  reply?: string;
+  items?: CountdownItem[];
 };
 
 const DEFAULT_TASK = {
@@ -112,6 +122,11 @@ const DEFAULT_TASK = {
   category: '生活',
   tags: [] as string[],
   subtasks: [] as { title: string }[],
+};
+
+const DEFAULT_COUNTDOWN = {
+  title: '未命名倒数日',
+  targetDate: undefined as string | undefined,
 };
 
 // 规范化 AI 返回的任务字段
@@ -149,6 +164,20 @@ function normalizeTask(data: ParsedTask) {
     subtasks,
     repeat,
   };
+}
+
+function normalizeCountdownItem(data: CountdownItem) {
+  const title = typeof data.title === 'string' && data.title.trim().length > 0
+    ? data.title.trim()
+    : DEFAULT_COUNTDOWN.title;
+  let targetDate = typeof data.targetDate === 'string' && data.targetDate.trim().length > 0
+    ? data.targetDate.trim()
+    : DEFAULT_COUNTDOWN.targetDate;
+  if (targetDate) {
+    const isoMatch = targetDate.match(/\d{4}-\d{2}-\d{2}/);
+    targetDate = isoMatch ? isoMatch[0] : targetDate;
+  }
+  return { title, targetDate };
 }
 
 function classifyCategory(input: string) {
@@ -378,6 +407,43 @@ export async function POST(req: NextRequest) {
           ? rawResult.reply.trim()
           : '已整理成待办清单，点一下即可加入。',
         items: normalizedCategoryItems,
+        serverTime: networkNow.toISOString(),
+        serverTimeText,
+      });
+    }
+
+    if (mode === 'countdown-agent') {
+      const networkNow = await getNetworkTime();
+      const serverTimeText = formatShanghaiDateTime(networkNow);
+      const countdownPayload = {
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是倒数日助手，负责识别用户想创建的倒数日。
+1) 用简短中文回复用户，字段名 reply。
+2) 生成 items 数组，每项包含 title / targetDate。
+3) targetDate 必须为 YYYY-MM-DD 格式（不要时间），若无法解析则为 null。
+4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准。
+5) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}] }。不要包含 null/undefined 属性时可省略。`,
+          },
+          { role: 'user', content: input },
+        ],
+        response_format: { type: 'json_object' },
+      };
+
+      const { res: countdownRes } = await requestChat(baseUrlList, apiKey, countdownPayload);
+      const countdownPayloadJson = await countdownRes.json();
+      const rawCountdown = parseChatContent(countdownPayloadJson) as CountdownPayload;
+      const normalizedItems = Array.isArray(rawCountdown?.items)
+        ? rawCountdown.items.map((item) => normalizeCountdownItem(item))
+        : [];
+
+      return NextResponse.json({
+        reply: typeof rawCountdown?.reply === 'string' && rawCountdown.reply.trim().length > 0
+          ? rawCountdown.reply.trim()
+          : '已识别倒数日内容，点击即可加入。',
+        items: normalizedItems,
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });

@@ -326,6 +326,12 @@ type AgentItem = {
   subtasks?: { title?: string }[];
 };
 
+type CountdownAgentItem = {
+  id: string;
+  title: string;
+  targetDate?: string;
+};
+
 type AgentMessage = {
   role: 'user' | 'assistant';
   content: string;
@@ -1001,6 +1007,13 @@ export default function Home() {
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
+  // 倒数日 AI 聊天状态
+  const [countdownAgentMessages, setCountdownAgentMessages] = useState<AgentMessage[]>([]);
+  const [countdownAgentInput, setCountdownAgentInput] = useState('');
+  const [countdownAgentLoading, setCountdownAgentLoading] = useState(false);
+  const [countdownAgentItems, setCountdownAgentItems] = useState<CountdownAgentItem[]>([]);
+  const [addedCountdownAgentItemIds, setAddedCountdownAgentItemIds] = useState<Set<string>>(new Set());
+  const [countdownAgentError, setCountdownAgentError] = useState<string | null>(null);
   const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
   const recommendedPriority = selectedTask
     ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
@@ -1288,10 +1301,12 @@ export default function Home() {
   const createHabit = () => {
     const title = newHabitTitle.trim();
     if (!title) return;
+    const now = new Date().toISOString();
     const habit: Habit = {
       id: createId(),
       title,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       logs: [],
     };
     const next = [...habits, habit];
@@ -1320,11 +1335,13 @@ export default function Home() {
   const saveCountdown = () => {
     const title = countdownTitle.trim();
     if (!title || !countdownDate) return;
+    const now = new Date().toISOString();
     if (editingCountdown) {
       countdownStore.update({
         ...editingCountdown,
         title,
         targetDate: countdownDate,
+        updatedAt: now,
       });
     } else {
       countdownStore.add({
@@ -1332,7 +1349,8 @@ export default function Home() {
         title,
         targetDate: countdownDate,
         pinned: false,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       });
     }
     refreshCountdowns();
@@ -1341,7 +1359,7 @@ export default function Home() {
   };
 
   const toggleCountdownPinned = (item: Countdown) => {
-    countdownStore.update({ ...item, pinned: !item.pinned });
+    countdownStore.update({ ...item, pinned: !item.pinned, updatedAt: new Date().toISOString() });
     refreshCountdowns();
   };
 
@@ -1368,7 +1386,7 @@ export default function Home() {
       if (habit.id !== habitId) return habit;
       const hasLogged = habit.logs.some((log) => log.date === today);
       if (hasLogged) return habit;
-      return { ...habit, logs: [...habit.logs, { date: today }] };
+      return { ...habit, logs: [...habit.logs, { date: today }], updatedAt: new Date().toISOString() };
     });
     habitStore.replaceAll(next);
     setHabits(next);
@@ -1392,7 +1410,7 @@ export default function Home() {
     setListItems((prev) => prev.map((item) => (item === oldName ? nextName : item)));
     taskStore.getAll().forEach((task) => {
       if (task.category === oldName) {
-        taskStore.update({ ...task, category: nextName });
+        taskStore.update({ ...task, category: nextName, updatedAt: new Date().toISOString() });
       }
     });
     if (activeCategory === oldName) {
@@ -1409,7 +1427,7 @@ export default function Home() {
       if (!task.tags?.length) return;
       if (task.tags.includes(oldName)) {
         const updatedTags = task.tags.map((tag) => (tag === oldName ? nextName : tag));
-        taskStore.update({ ...task, tags: updatedTags });
+        taskStore.update({ ...task, tags: updatedTags, updatedAt: new Date().toISOString() });
       }
     });
     if (activeTag === oldName) {
@@ -1490,6 +1508,7 @@ export default function Home() {
             .filter((subtask) => subtask.title.length > 0)
         : [],
       createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     };
     return task;
   };
@@ -1826,28 +1845,44 @@ export default function Home() {
   const normalizeImportList = <T extends { id: string }>(items: T[] | undefined) =>
     Array.isArray(items) ? items.filter((item) => item && item.id) : [];
 
-  const mergeById = <T extends { id: string }>(current: T[], incoming: T[]) => {
+  const ensureUpdatedAt = <T extends { updatedAt?: string; createdAt?: string }>(items: T[]) =>
+    items.map((item) => ({
+      ...item,
+      updatedAt: item.updatedAt ?? item.createdAt ?? new Date().toISOString(),
+    }));
+
+  const mergeById = <T extends { id: string; updatedAt?: string }>(current: T[], incoming: T[]) => {
     const merged = new Map(current.map((item) => [item.id, item]));
     incoming.forEach((item) => {
-      merged.set(item.id, item);
+      const existing = merged.get(item.id);
+      if (!existing) {
+        merged.set(item.id, item);
+        return;
+      }
+      const existingUpdated = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      const incomingUpdated = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+      merged.set(item.id, incomingUpdated >= existingUpdated ? item : existing);
     });
     return Array.from(merged.values());
   };
 
   const applyImportedData = (payload: any, mode: 'merge' | 'overwrite' = importMode) => {
-    const tasksImport = normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks);
-    const habitsImport = normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits);
-    const countdownsImport = normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns);
+    const tasksImport = ensureUpdatedAt(normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks));
+    const habitsImport = ensureUpdatedAt(normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits));
+    const countdownsImport = ensureUpdatedAt(normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns));
+    const currentTasks = ensureUpdatedAt(taskStore.getAll());
+    const currentHabits = ensureUpdatedAt(habitStore.getAll());
+    const currentCountdowns = ensureUpdatedAt(countdownStore.getAll());
 
     const nextTasks = mode === 'overwrite'
       ? tasksImport
-      : mergeById(taskStore.getAll(), tasksImport);
+      : mergeById(currentTasks, tasksImport);
     const nextHabits = mode === 'overwrite'
       ? habitsImport
-      : mergeById(habitStore.getAll(), habitsImport);
+      : mergeById(currentHabits, habitsImport);
     const nextCountdowns = mode === 'overwrite'
       ? countdownsImport
-      : mergeById(countdownStore.getAll(), countdownsImport);
+      : mergeById(currentCountdowns, countdownsImport);
 
     taskStore.replaceAll(nextTasks);
     habitStore.replaceAll(nextHabits);
@@ -2125,6 +2160,7 @@ export default function Home() {
       tags: parsed.tags,
       subtasks: [],
       createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     };
     taskStore.add(task);
     refreshTasks();
@@ -2203,10 +2239,11 @@ export default function Home() {
   };
 
   const updateTask = (updatedTask: Task) => {
-    taskStore.update(updatedTask);
+    const now = new Date().toISOString();
+    taskStore.update({ ...updatedTask, updatedAt: now });
     refreshTasks();
     if (selectedTask?.id === updatedTask.id) {
-      setSelectedTask(updatedTask);
+      setSelectedTask({ ...updatedTask, updatedAt: now });
     }
     if (editingTaskId === updatedTask.id) {
       setEditingTaskId(null);
@@ -2222,7 +2259,7 @@ export default function Home() {
       return;
     }
     if (title !== task.title) {
-      updateTask({ ...task, title });
+      updateTask({ ...task, title, updatedAt: new Date().toISOString() });
     } else {
       setEditingTaskId(null);
       setEditingTaskTitle('');
@@ -2274,7 +2311,7 @@ export default function Home() {
           };
         }
       }
-      updateTask(updated);
+      updateTask({ ...updated, updatedAt: new Date().toISOString() });
       if (nextTask) {
         taskStore.add(nextTask);
         refreshTasks();
@@ -2315,7 +2352,10 @@ export default function Home() {
     const next = [...current];
     const [moved] = next.splice(sourceIndex, 1);
     next.splice(targetIndex, 0, moved);
-    taskStore.replaceAll(next);
+    taskStore.replaceAll(next.map((item) => ({
+      ...item,
+      updatedAt: item.updatedAt ?? item.createdAt,
+    })));
     setTasks(next);
   };
 
@@ -2331,7 +2371,7 @@ export default function Home() {
     const [moved] = nextSubtasks.splice(sourceIndex, 1);
     nextSubtasks.splice(targetIndex, 0, moved);
     const updatedTask = { ...target, subtasks: nextSubtasks };
-    taskStore.update(updatedTask);
+    taskStore.update({ ...updatedTask, updatedAt: new Date().toISOString() });
     setTasks((prev) => prev.map((item) => (item.id === taskId ? updatedTask : item)));
     if (selectedTask?.id === taskId) {
       setSelectedTask(updatedTask);
@@ -2368,7 +2408,7 @@ export default function Home() {
       : target.status === 'completed'
       ? 'todo'
       : target.status;
-    updateTask({ ...target, subtasks: updatedSubtasks, status: nextStatus });
+    updateTask({ ...target, subtasks: updatedSubtasks, status: nextStatus, updatedAt: new Date().toISOString() });
   };
 
   const addSubtask = () => {
@@ -2380,7 +2420,7 @@ export default function Home() {
       { id: Math.random().toString(36).substring(2, 9), title, completed: false },
     ];
     const nextStatus = selectedTask.status === 'completed' ? 'todo' : selectedTask.status;
-    updateTask({ ...selectedTask, subtasks: nextSubtasks, status: nextStatus });
+    updateTask({ ...selectedTask, subtasks: nextSubtasks, status: nextStatus, updatedAt: new Date().toISOString() });
     setNewSubtaskTitle('');
   };
 
@@ -2389,24 +2429,24 @@ export default function Home() {
     const tag = newTagInput.trim();
     if (!tag) return;
     const nextTags = Array.from(new Set([...(selectedTask.tags || []), tag]));
-    updateTask({ ...selectedTask, tags: nextTags });
+    updateTask({ ...selectedTask, tags: nextTags, updatedAt: new Date().toISOString() });
     setNewTagInput('');
   };
 
   const removeTagFromTask = (tag: string) => {
     if (!selectedTask) return;
     const nextTags = (selectedTask.tags || []).filter((item) => item !== tag);
-    updateTask({ ...selectedTask, tags: nextTags });
+    updateTask({ ...selectedTask, tags: nextTags, updatedAt: new Date().toISOString() });
   };
 
   const updatePriority = (priority: number) => {
     if (!selectedTask) return;
-    updateTask({ ...selectedTask, priority });
+    updateTask({ ...selectedTask, priority, updatedAt: new Date().toISOString() });
   };
 
   const updateRepeat = (rule: TaskRepeatRule) => {
     if (!selectedTask) return;
-    updateTask({ ...selectedTask, repeat: rule.type === 'none' ? undefined : rule });
+    updateTask({ ...selectedTask, repeat: rule.type === 'none' ? undefined : rule, updatedAt: new Date().toISOString() });
   };
 
   const toggleRepeatWeekday = (weekday: number) => {

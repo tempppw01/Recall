@@ -11,6 +11,7 @@ export interface Task {
   repeat?: TaskRepeatRule;
   embedding?: number[];
   createdAt: string;
+  updatedAt?: string;
   sortOrder?: number;
 }
 
@@ -37,6 +38,7 @@ export interface Habit {
   id: string;
   title: string;
   createdAt: string;
+  updatedAt?: string;
   logs: HabitLog[];
 }
 
@@ -46,6 +48,7 @@ export interface Countdown {
   targetDate: string;
   pinned: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns';
