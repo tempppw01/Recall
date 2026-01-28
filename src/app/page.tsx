@@ -1712,6 +1712,116 @@ export default function Home() {
     }
   };
 
+  const buildCountdownFromAgentItem = (item: CountdownAgentItem) => {
+    const title = item.title?.trim() || '未命名倒数日';
+    const targetDate = item.targetDate?.trim();
+    if (!targetDate) return null;
+    const now = new Date().toISOString();
+    const countdown: Countdown = {
+      id: createId(),
+      title,
+      targetDate,
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    return countdown;
+  };
+
+  const handleCountdownAgentSend = async () => {
+    const content = countdownAgentInput.trim();
+    if (!content || countdownAgentLoading) return;
+    pushLog('info', 'countdown-agent 请求发送', content);
+    setCountdownAgentLoading(true);
+    setCountdownAgentMessages((prev) => [...prev, { role: 'user', content }]);
+
+    try {
+      setCountdownAgentError(null);
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'countdown-agent',
+          input: content,
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          chatModel: chatModel?.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'countdown-agent request failed');
+      }
+      const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
+        ? data.reply.trim()
+        : '已识别倒数日内容，点击即可加入。';
+      const nextItems: CountdownAgentItem[] = Array.isArray(data?.items)
+        ? data.items.map((item: CountdownAgentItem) => ({
+            ...item,
+            id: item.id || createId(),
+            title: item.title?.trim() || '未命名倒数日',
+          }))
+        : [];
+      setCountdownAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+      setCountdownAgentItems(nextItems);
+      setAddedCountdownAgentItemIds(new Set());
+      pushLog('success', 'countdown-agent 返回成功', `建议倒数日 ${nextItems.length} 条`);
+    } catch (error) {
+      console.error(error);
+      const message = (error as any)?.message || '倒数日助手无响应，请稍后重试';
+      setCountdownAgentError(message);
+      setCountdownAgentMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: '我这边没连上服务，稍后再试试？' },
+      ]);
+      pushLog('error', 'countdown-agent 请求失败', String(message));
+    } finally {
+      setCountdownAgentInput('');
+      setCountdownAgentLoading(false);
+    }
+  };
+
+  const handleAddCountdownAgentItem = (item: CountdownAgentItem) => {
+    if (addedCountdownAgentItemIds.has(item.id)) return;
+    const countdown = buildCountdownFromAgentItem(item);
+    if (!countdown) {
+      const message = '该建议未识别到日期，请补充具体日期。';
+      setCountdownAgentError(message);
+      pushLog('warning', '倒数日缺少日期', item.title || '未命名倒数日');
+      return;
+    }
+    setAddedCountdownAgentItemIds((prev) => {
+      const next = new Set(prev);
+      next.add(item.id);
+      return next;
+    });
+    countdownStore.add(countdown);
+    refreshCountdowns();
+  };
+
+  const handleAddAllCountdownAgentItems = () => {
+    const pendingItems = countdownAgentItems.filter((item) => !addedCountdownAgentItemIds.has(item.id));
+    if (pendingItems.length === 0) return;
+    const validItems = pendingItems
+      .map((item) => ({ item, countdown: buildCountdownFromAgentItem(item) }))
+      .filter((entry) => Boolean(entry.countdown));
+    if (validItems.length === 0) {
+      setCountdownAgentError('当前建议缺少日期，无法批量添加。');
+      return;
+    }
+
+    setAddedCountdownAgentItemIds((prev) => {
+      const next = new Set(prev);
+      validItems.forEach(({ item }) => next.add(item.id));
+      return next;
+    });
+
+    validItems.forEach(({ countdown }) => {
+      if (countdown) countdownStore.add(countdown);
+    });
+    refreshCountdowns();
+  };
+
 
   const buildExportPayload = () => ({
     version: APP_VERSION,
@@ -2664,6 +2774,7 @@ export default function Home() {
   });
   const showAgentBulkAdd = agentItems.length > 1
     || agentItems.some((item) => (item.subtasks?.length ?? 0) > 0);
+  const showCountdownAgentBulkAdd = countdownAgentItems.length > 1;
 
   return (
     <div
@@ -3380,82 +3491,190 @@ export default function Home() {
               )}
             </div>
           ) : activeFilter === 'countdown' ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日</h3>
-                  <p className="text-xs text-[#666666] mt-1">置顶优先，按到期日期排序</p>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日</h3>
+                    <p className="text-xs text-[#666666] mt-1">置顶优先，按到期日期排序</p>
+                  </div>
+                  <button
+                    onClick={() => openCountdownForm()}
+                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-500"
+                  >
+                    新建倒数日
+                  </button>
                 </div>
-                <button
-                  onClick={() => openCountdownForm()}
-                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-500"
-                >
-                  新建倒数日
-                </button>
+
+                {countdowns.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
+                    <Timer className="w-12 h-12 mb-3 opacity-20" />
+                    <p className="text-sm">还没有倒数日</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {countdowns.map((item) => {
+                      const diff = getCountdownDays(item.targetDate);
+                      const isPast = diff < 0;
+                      const displayDays = Math.abs(diff);
+                      return (
+                        <div
+                          key={item.id}
+                          className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-base font-semibold text-[#EEEEEE]">{item.title}</h4>
+                                {item.pinned && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">置顶</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-[#777777] mt-1">目标日期：{item.targetDate}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-2xl font-semibold ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
+                                {displayDays}
+                              </p>
+                              <p className="text-[11px] text-[#666666]">{isPast ? '已过期天数' : '天后'}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => toggleCountdownPinned(item)}
+                              className={`px-2.5 py-1 text-xs rounded border transition-colors ${
+                                item.pinned
+                                  ? 'border-yellow-500 text-yellow-300 bg-yellow-500/10'
+                                  : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                              }`}
+                            >
+                              {item.pinned ? '取消置顶' : '置顶'}
+                            </button>
+                            <button
+                              onClick={() => openCountdownForm(item)}
+                              className="px-2.5 py-1 text-xs rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              onClick={() => removeCountdown(item.id)}
+                              className="px-2.5 py-1 text-xs rounded border border-red-500/40 text-red-300 hover:bg-red-500/10"
+                            >
+                              删除
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {countdowns.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
-                  <Timer className="w-12 h-12 mb-3 opacity-20" />
-                  <p className="text-sm">还没有倒数日</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {countdowns.map((item) => {
-                    const diff = getCountdownDays(item.targetDate);
-                    const isPast = diff < 0;
-                    const displayDays = Math.abs(diff);
-                    return (
-                      <div
-                        key={item.id}
-                        className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-base font-semibold text-[#EEEEEE]">{item.title}</h4>
-                              {item.pinned && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">置顶</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-[#777777] mt-1">目标日期：{item.targetDate}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-2xl font-semibold ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
-                              {displayDays}
-                            </p>
-                            <p className="text-[11px] text-[#666666]">{isPast ? '已过期天数' : '天后'}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => toggleCountdownPinned(item)}
-                            className={`px-2.5 py-1 text-xs rounded border transition-colors ${
-                              item.pinned
-                                ? 'border-yellow-500 text-yellow-300 bg-yellow-500/10'
-                                : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+              <div className="space-y-3">
+                <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手</h3>
+                      <p className="text-xs text-[#666666] mt-1">一句话识别重要日期，我来帮你记</p>
+                    </div>
+                    <span className="text-[11px] text-[#555555]">countdown-agent</span>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    <div className="rounded-xl border border-dashed border-[#333333] bg-[#1B1B1B] px-3 py-2 text-xs text-[#777777]">
+                      小提示：可以说“孩子生日是 9 月 9 日”或“距离项目发布还有两周”。
+                    </div>
+                    <div className="max-h-[32vh] overflow-y-auto space-y-2 pr-1">
+                      {countdownAgentMessages.length === 0 ? (
+                        <div className="text-sm text-[#555555]">告诉我：你想倒数的日子是什么？</div>
+                      ) : (
+                        countdownAgentMessages.map((message, idx) => (
+                          <div
+                            key={`${message.role}-${idx}`}
+                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                              message.role === 'user'
+                                ? 'bg-blue-600/20 text-blue-100 ml-auto'
+                                : 'bg-[#2A2A2A] text-[#DDDDDD]'
                             }`}
                           >
-                            {item.pinned ? '取消置顶' : '置顶'}
-                          </button>
-                          <button
-                            onClick={() => openCountdownForm(item)}
-                            className="px-2.5 py-1 text-xs rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
-                          >
-                            编辑
-                          </button>
-                          <button
-                            onClick={() => removeCountdown(item.id)}
-                            className="px-2.5 py-1 text-xs rounded border border-red-500/40 text-red-300 hover:bg-red-500/10"
-                          >
-                            删除
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                            {message.content}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {countdownAgentError && (
+                      <div className="text-xs text-red-300">{countdownAgentError}</div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={countdownAgentInput}
+                        onChange={(e) => setCountdownAgentInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCountdownAgentSend()}
+                        placeholder="例如：10 月 1 日去旅行"
+                        className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
+                        disabled={countdownAgentLoading}
+                      />
+                      <button
+                        onClick={handleCountdownAgentSend}
+                        disabled={countdownAgentLoading || !countdownAgentInput.trim()}
+                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
+                      >
+                        {countdownAgentLoading ? '识别中…' : '发送'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议倒数日</h4>
+                  {showCountdownAgentBulkAdd && (
+                    <button
+                      onClick={handleAddAllCountdownAgentItems}
+                      disabled={countdownAgentItems.length === 0 || addedCountdownAgentItemIds.size === countdownAgentItems.length}
+                      className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      一键全部添加
+                    </button>
+                  )}
+                </div>
+                {countdownAgentItems.length === 0 ? (
+                  <div className="bg-[#1F1F1F] border border-dashed border-[#2C2C2C] rounded-2xl p-4 text-xs text-[#666666]">
+                    识别结果会在这里展示，选中即可加入倒数日列表。
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {countdownAgentItems.map((item) => {
+                      const isAdded = addedCountdownAgentItemIds.has(item.id);
+                      const hasDate = Boolean(item.targetDate);
+                      return (
+                        <div key={item.id} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
+                              <p className="text-xs text-[#777777] mt-1">
+                                日期：{item.targetDate ? item.targetDate : '未识别日期'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleAddCountdownAgentItem(item)}
+                              disabled={isAdded || !hasDate}
+                              className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
+                                isAdded
+                                  ? 'border-[#333333] text-[#666666]'
+                                  : hasDate
+                                  ? 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                                  : 'border-[#333333] text-[#555555]'
+                              }`}
+                            >
+                              {isAdded ? '已添加' : hasDate ? '加入倒数日' : '缺日期'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           ) : activeFilter === 'quadrant' ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
