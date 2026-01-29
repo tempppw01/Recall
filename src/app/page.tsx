@@ -1433,6 +1433,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (apiKey && apiKey.trim()) {
+      localStorage.setItem('recall_api_key', apiKey.trim());
+    } else {
+      localStorage.removeItem('recall_api_key');
+    }
+  }, [apiKey]);
+
+  useEffect(() => {
     pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
   }, []);
 
@@ -2098,8 +2107,6 @@ export default function Home() {
       embeddingModel,
       fallbackTimeoutSec,
       wallpaperUrl,
-      themeMode,
-      isSystemTheme,
       webdavUrl,
       webdavPath,
       autoSyncEnabled,
@@ -2125,8 +2132,6 @@ export default function Home() {
       ? Number(settings.fallbackTimeoutSec)
       : DEFAULT_FALLBACK_TIMEOUT_SEC;
     const nextWallpaper = typeof settings.wallpaperUrl === 'string' ? settings.wallpaperUrl : '';
-    const nextThemeMode = settings.themeMode === 'light' ? 'light' : 'dark';
-    const nextIsSystemTheme = settings.isSystemTheme === true;
     const nextAutoSyncEnabled = settings.autoSyncEnabled === true;
     const nextAutoSyncInterval = Number(settings.autoSyncInterval) || DEFAULT_AUTO_SYNC_INTERVAL_MIN;
     const nextCountdownDisplayMode = settings.countdownDisplayMode === 'date' ? 'date' : 'days';
@@ -2137,8 +2142,6 @@ export default function Home() {
     setEmbeddingModel(nextEmbeddingModel);
     setFallbackTimeoutSec(nextFallback);
     setWallpaperUrl(nextWallpaper);
-    setThemeMode(nextThemeMode);
-    setIsSystemTheme(nextIsSystemTheme);
     setAutoSyncEnabled(nextAutoSyncEnabled);
     setAutoSyncInterval(nextAutoSyncInterval);
     setCountdownDisplayMode(nextCountdownDisplayMode);
@@ -2158,14 +2161,6 @@ export default function Home() {
     setWebdavPath(nextWebdavPath);
     setWebdavUsername(nextWebdavUsername);
     setWebdavPassword(nextWebdavPassword);
-
-    if (typeof window !== 'undefined') {
-      if (nextIsSystemTheme) {
-        localStorage.removeItem('recall_theme');
-      } else {
-        localStorage.setItem('recall_theme', nextThemeMode);
-      }
-    }
 
     persistSettings({
       apiKey: nextApiKey,
