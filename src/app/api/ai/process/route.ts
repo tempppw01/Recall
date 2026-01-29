@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateEmbedding } from '@/lib/embeddings';
-import OpenAI from 'openai';
+import Redis from 'ioredis';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_BASE_URLS = [
   'https://ai.shuaihong.fun/v1',
   'https://shapi.zeabur.app/v1',
 ];
+
 const buildChatCompletionsUrl = (base: string) => {
-  const trimmed = base.replace(/\/$/, '');
+  const trimmed = base.replace(//$/, '');
   if (trimmed.endsWith('/chat/completions')) return trimmed;
   if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
   return `${trimmed}/v1/chat/completions`;
@@ -18,6 +18,31 @@ const resolveBaseUrlList = (primary?: string) => {
   const list = [primary, ...DEFAULT_BASE_URLS].filter(Boolean) as string[];
   return Array.from(new Set(list));
 };
+
+async function getRedisContext(redisConfig: any, sessionId: string): Promise<string[]> {
+  if (!redisConfig || !redisConfig.host) {
+    return [];
+  }
+  try {
+    const redis = new Redis({
+      host: redisConfig.host,
+      port: Number(redisConfig.port) || 6379,
+      password: redisConfig.password || undefined,
+      db: Number(redisConfig.db) || 0,
+      connectTimeout: 2000,
+    });
+    
+    // 使用 session:{sessionId} 作为键名，假设上下文存储为 List 或 JSON
+    // 这里简单实现为获取最近的 10 条消息
+    const contextKey = `session:${sessionId}:context`;
+    const context = await redis.lrange(contextKey, 0, 9); // 获取前10条
+    redis.disconnect();
+    return context;
+  } catch (error) {
+    console.error('Redis connection failed:', error);
+    return [];
+  }
+}
 
 async function requestChat(baseUrls: string[], apiKey: string | undefined, payload: any) {
   const errors: string[] = [];
@@ -54,8 +79,8 @@ function parseChatContent(payload: any) {
     throw new Error(`LLM invalid JSON: ${(err as Error).message}`);
   }
 }
+
 const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash-lite';
-const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 const TIME_SOURCES = [
   'https://www.ntsc.ac.cn',
@@ -168,11 +193,9 @@ function normalizeTask(data: ParsedTask) {
 
 function normalizeCountdownItem(data: CountdownItem) {
   const title = typeof data.title === 'string' && data.title.trim().length > 0
-    ? data.title.trim()
-    : DEFAULT_COUNTDOWN.title;
+    ? data.title.trim() : DEFAULT_COUNTDOWN.title;
   let targetDate = typeof data.targetDate === 'string' && data.targetDate.trim().length > 0
-    ? data.targetDate.trim()
-    : DEFAULT_COUNTDOWN.targetDate;
+    ? data.targetDate.trim() : DEFAULT_COUNTDOWN.targetDate;
   if (targetDate) {
     const isoMatch = targetDate.match(/\d{4}-\d{2}-\d{2}/);
     targetDate = isoMatch ? isoMatch[0] : targetDate;
@@ -274,23 +297,11 @@ function buildCookingSubtasks(title: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, apiKey, apiBaseUrl, chatModel, embeddingModel } = await req.json();
+    const { input, mode, images, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
-    const resolvedEmbeddingModel = embeddingModel || process.env.OPENAI_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
     const baseUrlList = resolveBaseUrlList(resolvedBaseUrl);
-
-    // 如果前端传了 apiKey，使用新的实例；否则使用默认
-    const client = apiKey
-      ? new OpenAI({
-          apiKey,
-          baseURL: resolvedBaseUrl
-        })
-      : new OpenAI({
-          apiKey: process.env.OPENAI_API_KEY || 'sk-placeholder',
-          baseURL: resolvedBaseUrl,
-        });
 
     if (mode === 'time') {
       const networkNow = await getNetworkTime();
@@ -307,6 +318,22 @@ export async function POST(req: NextRequest) {
       : [];
     if (!normalizedInput && normalizedImages.length === 0) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
+    }
+
+    // 获取 Redis 上下文
+    let contextMessages: string[] = [];
+    if (redisConfig && sessionId) {
+      contextMessages = await getRedisContext(redisConfig, sessionId);
+    }
+
+    // 构造 System Prompt 上下文
+    let systemContextPrompt = '';
+    if (contextMessages.length > 0) {
+      systemContextPrompt = `
+
+历史对话上下文（仅供参考）：
+${contextMessages.join('
+')}`;
     }
 
     if (mode === 'organize') {
@@ -332,7 +359,7 @@ export async function POST(req: NextRequest) {
 4) dueDate 若无或无法解析则设为 null，必须为 ISO 8601 UTC。
 5) subtasks 仅保留 title。
 6) 识别并优化重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。
-请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }。不要包含 null/undefined 属性时可省略。`,
+请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
           },
           {
             role: 'user',
@@ -361,12 +388,6 @@ export async function POST(req: NextRequest) {
       }));
 
       return NextResponse.json({ tasks: normalizedCategoryTasks });
-    }
-
-    if (mode === 'search') {
-      // 仅生成 Embedding 用于搜索
-      const embedding = await generateEmbedding(normalizedInput, { client, model: resolvedEmbeddingModel });
-      return NextResponse.json({ embedding });
     }
 
     if (mode === 'todo-agent') {
@@ -398,7 +419,7 @@ export async function POST(req: NextRequest) {
 5) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
 6) subtasks 仅保留 title。
 7) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-8) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
+8) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
           },
           { role: 'user', content: userContent },
         ],
@@ -444,7 +465,7 @@ export async function POST(req: NextRequest) {
 2) 生成 items 数组，每项包含 title / targetDate。
 3) targetDate 必须为 YYYY-MM-DD 格式（不要时间），若无法解析则为 null。
 4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准。
-5) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}] }。不要包含 null/undefined 属性时可省略。`,
+5) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}] }。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
           },
           { role: 'user', content: normalizedInput },
         ],
@@ -468,7 +489,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 默认模式：Magic Input (意图识别 + Embedding)
+    // 默认模式：Magic Input (意图识别)
+    // 移除 Embedding 生成
     const networkNow = await getNetworkTime();
     const serverTimeText = formatShanghaiDateTime(networkNow);
     const magicPayload = {
@@ -476,7 +498,30 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'system',
-          content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：\n1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。\n2) 拆解 2-5 条可执行的子任务。\n3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取），priority 必须为 0/1/2。\n4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8）。如果输入包含日期/时间，请转换为 ISO 8601 格式的 dueDate（包含时分秒），优先解析中文相对时间；无法解析则 dueDate 为 null。\n   模糊时间默认规则：\n- 早上/上午 → 09:00\n- 中午 → 12:00\n- 下午 → 15:00\n- 晚上/今晚 → 20:00\n- 凌晨 → 00:00\n例如：\n- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间\n- “周三上午开会” → 周三 09:00 的 ISO 时间\n- “今晚八点” → 今日 20:00 的 ISO 时间\n- “后天上午9点” → 后天 09:00 的 ISO 时间\n- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间\n- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间\n- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间\n- “下午三点到四点开会” → 取开始时间 15:00\n5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。\n\n请只输出 JSON，格式如下：\n{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }。不要包含 null/undefined 属性时可省略。`,
+          content: `你是一个任务拆解助手。用户输入一个任务或一句话时，你需要：
+1) 判断是否是需要创建任务，若不是则返回一个合理的待办标题。
+2) 拆解 2-5 条可执行的子任务。
+3) 识别优先级（0 低 / 1 中 / 2 高）与标签（从用户输入中提取），priority 必须为 0/1/2。
+4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8）。如果输入包含日期/时间，请转换为 ISO 8601 格式的 dueDate（包含时分秒），优先解析中文相对时间；无法解析则 dueDate 为 null。
+   模糊时间默认规则：
+- 早上/上午 → 09:00
+- 中午 → 12:00
+- 下午 → 15:00
+- 晚上/今晚 → 20:00
+- 凌晨 → 00:00
+例如：
+- “下周五下午三点提醒我给车买保险” → 下周五 15:00 的 ISO 时间
+- “周三上午开会” → 周三 09:00 的 ISO 时间
+- “今晚八点” → 今日 20:00 的 ISO 时间
+- “后天上午9点” → 后天 09:00 的 ISO 时间
+- “下下周一下午两点” → 下下周一 14:00 的 ISO 时间
+- “月底提醒交房租” → 当月月底 09:00 的 ISO 时间
+- “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间
+- “下午三点到四点开会” → 取开始时间 15:00
+5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。
+
+请只输出 JSON，格式如下：
+{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
         },
         { role: 'user', content: normalizedInput },
       ],
@@ -500,9 +545,6 @@ export async function POST(req: NextRequest) {
         subtasks: buildCookingSubtasks(taskData.title || input),
       };
     }
-    const textToEmbed = `${taskData.title} ${taskData.tags.join(' ')}`.trim();
-    
-    const embedding = await generateEmbedding(textToEmbed, { client, model: resolvedEmbeddingModel });
 
     return NextResponse.json({
       task: {
@@ -518,7 +560,6 @@ export async function POST(req: NextRequest) {
           completed: false,
         })),
       },
-      embedding,
     });
 
   } catch (error) {

@@ -9,7 +9,6 @@ export interface Task {
   tags: string[];
   subtasks?: Subtask[];
   repeat?: TaskRepeatRule;
-  embedding?: number[];
   createdAt: string;
   updatedAt?: string;
   sortOrder?: number;
@@ -94,34 +93,8 @@ const createStore = <T extends { id: string }>(key: StoreKey) => {
   return { getAll, replaceAll, add, update, remove };
 };
 
-export const taskStore = {
-  ...createStore<Task>('recall_tasks'),
-  search(embedding: number[]) {
-    const all = safelyRead<Task[]>('recall_tasks', []);
-    return all
-      .map((task) => {
-        const score = task.embedding ? cosineSimilarity(embedding, task.embedding) : 0;
-        return { ...task, similarity: score } as Task & { similarity: number };
-      })
-      .filter((task) => task.similarity > 0)
-      .sort((a, b) => b.similarity - a.similarity);
-  },
-};
+export const taskStore = createStore<Task>('recall_tasks');
 
 export const habitStore = createStore<Habit>('recall_habits');
 
 export const countdownStore = createStore<Countdown>('recall_countdowns');
-
-export const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < vecA.length; i += 1) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-  if (!denominator) return 0;
-  return dotProduct / denominator;
-};

@@ -16,8 +16,10 @@ import {
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
-const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
+const DEFAULT_SESSION_ID_KEY = 'recall_session_id';
+const DEFAULT_REDIS_DB = 0;
+const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
 const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
 const APP_VERSION = '0.7beta';
@@ -1147,8 +1149,8 @@ export default function Home() {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_BASE_URL);
   const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('\n'));
   const [chatModel, setChatModel] = useState(DEFAULT_MODEL_LIST[0]);
-  const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
+  const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, calendar, agent
   const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
@@ -1163,8 +1165,8 @@ export default function Home() {
   const [mysqlUsername, setMysqlUsername] = useState('');
   const [mysqlPassword, setMysqlPassword] = useState('');
   const [redisHost, setRedisHost] = useState('');
-  const [redisPort, setRedisPort] = useState('');
-  const [redisDb, setRedisDb] = useState('');
+  const [redisPort, setRedisPort] = useState(String(DEFAULT_REDIS_PORT));
+  const [redisDb, setRedisDb] = useState(String(DEFAULT_REDIS_DB));
   const [redisPassword, setRedisPassword] = useState('');
   const [calendarSubscription, setCalendarSubscription] = useState('');
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
@@ -1302,7 +1304,6 @@ export default function Home() {
     apiBaseUrl: string;
     modelListText: string;
     chatModel: string;
-    embeddingModel: string;
     fallbackTimeoutSec: number;
     wallpaperUrl: string;
     webdavUrl: string;
@@ -1327,7 +1328,6 @@ export default function Home() {
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
     localStorage.setItem('recall_model_list', next.modelListText);
     localStorage.setItem('recall_chat_model', next.chatModel);
-    localStorage.setItem('recall_embedding_model', next.embeddingModel);
     localStorage.setItem('recall_fallback_timeout_sec', String(next.fallbackTimeoutSec));
     localStorage.setItem(WALLPAPER_KEY, next.wallpaperUrl);
     localStorage.setItem(WEBDAV_URL_KEY, next.webdavUrl);
@@ -1485,8 +1485,8 @@ export default function Home() {
             'recall_api_base_url',
             'recall_model_list',
             'recall_chat_model',
-            'recall_embedding_model',
             'recall_fallback_timeout_sec',
+            DEFAULT_SESSION_ID_KEY,
             WALLPAPER_KEY,
             WEBDAV_URL_KEY,
             WEBDAV_PATH_KEY,
@@ -1523,8 +1523,8 @@ export default function Home() {
       const storedBaseUrl = localStorage.getItem('recall_api_base_url');
       const storedModelList = localStorage.getItem('recall_model_list');
       const storedChatModel = localStorage.getItem('recall_chat_model');
-      const storedEmbeddingModel = localStorage.getItem('recall_embedding_model');
       const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
+      const storedSessionId = localStorage.getItem(DEFAULT_SESSION_ID_KEY);
       const storedWallpaper = localStorage.getItem(WALLPAPER_KEY);
       const storedWebdavUrl = localStorage.getItem(WEBDAV_URL_KEY);
       const storedWebdavPath = localStorage.getItem(WEBDAV_PATH_KEY);
@@ -1550,12 +1550,18 @@ export default function Home() {
       if (storedBaseUrl) setApiBaseUrl(storedBaseUrl);
       if (storedModelList) setModelListText(storedModelList);
       if (storedChatModel) setChatModel(storedChatModel);
-      if (storedEmbeddingModel) setEmbeddingModel(storedEmbeddingModel);
       if (storedFallbackTimeout) {
         const parsed = Number(storedFallbackTimeout);
         if (Number.isFinite(parsed) && parsed > 0) {
           setFallbackTimeoutSec(parsed);
         }
+      }
+      if (storedSessionId) {
+        setSessionId(storedSessionId);
+      } else {
+        const newSessionId = createId();
+        setSessionId(newSessionId);
+        localStorage.setItem(DEFAULT_SESSION_ID_KEY, newSessionId);
       }
       if (storedWallpaper) {
         setWallpaperUrl(storedWallpaper);
@@ -2079,6 +2085,13 @@ export default function Home() {
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
+          sessionId,
+          redisConfig: {
+            host: redisHost,
+            port: redisPort,
+            db: redisDb,
+            password: redisPassword,
+          },
         }),
       });
       const data = await res.json();
@@ -2202,6 +2215,13 @@ export default function Home() {
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
+          sessionId,
+          redisConfig: {
+            host: redisHost,
+            port: redisPort,
+            db: redisDb,
+            password: redisPassword,
+          },
         }),
       });
       const data = await res.json();
@@ -2307,7 +2327,6 @@ export default function Home() {
       apiBaseUrl,
       modelListText,
       chatModel,
-      embeddingModel,
       fallbackTimeoutSec,
       wallpaperUrl,
       webdavUrl,
@@ -2340,7 +2359,6 @@ export default function Home() {
     const nextApiBaseUrl = settings.apiBaseUrl || DEFAULT_BASE_URL;
     const nextModelListText = settings.modelListText || DEFAULT_MODEL_LIST.join('\n');
     const nextChatModel = settings.chatModel || DEFAULT_MODEL_LIST[0];
-    const nextEmbeddingModel = settings.embeddingModel || DEFAULT_EMBEDDING_MODEL;
     const nextFallback = Number.isFinite(Number(settings.fallbackTimeoutSec))
       ? Number(settings.fallbackTimeoutSec)
       : DEFAULT_FALLBACK_TIMEOUT_SEC;
@@ -2352,7 +2370,6 @@ export default function Home() {
     setApiBaseUrl(nextApiBaseUrl);
     setModelListText(nextModelListText);
     setChatModel(nextChatModel);
-    setEmbeddingModel(nextEmbeddingModel);
     setFallbackTimeoutSec(nextFallback);
     setWallpaperUrl(nextWallpaper);
     setAutoSyncEnabled(nextAutoSyncEnabled);
@@ -2402,7 +2419,9 @@ export default function Home() {
       apiBaseUrl: nextApiBaseUrl,
       modelListText: nextModelListText,
       chatModel: nextChatModel,
-      embeddingModel: nextEmbeddingModel,
+      fallbackTimeoutSec: nextFallback,
+      modelListText: nextModelListText,
+      chatModel: nextChatModel,
       fallbackTimeoutSec: nextFallback,
       wallpaperUrl: nextWallpaper,
       webdavUrl: nextWebdavUrl,
@@ -2886,7 +2905,6 @@ export default function Home() {
       ...(apiKey ? { apiKey } : {}),
       apiBaseUrl: apiBaseUrl?.trim() || undefined,
       chatModel: chatModel?.trim() || undefined,
-      embeddingModel: embeddingModel?.trim() || undefined,
     };
 
     const controller = new AbortController();
@@ -2910,25 +2928,22 @@ export default function Home() {
         throw new Error(data?.error || 'Request failed');
       }
 
-      if (isSearch && data.embedding) {
-        const results = taskStore.search(data.embedding);
-        setTasks(results);
-        setActiveFilter('search');
-      } else if (!isSearch && data.task) {
+      if (isSearch) {
+        // Search mode is deprecated/removed with embedding removal
+        // fallback to local creation or just alert
+        alert('Search is no longer supported.');
+      } else if (data.task) {
         const recommendedPriority = evaluatePriority(data.task?.dueDate, data.task?.subtasks?.length ?? 0);
-        const taskWithEmbedding = {
+        const taskToAdd = {
           ...data.task,
           priority: typeof data.task?.priority === 'number' ? data.task.priority : recommendedPriority,
           timezoneOffset: data.task?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
-          embedding: data.embedding,
         };
-        taskStore.add(taskWithEmbedding);
+        taskStore.add(taskToAdd);
         refreshTasks();
         setInput('');
-      } else if (!isSearch) {
-        await createLocalTaskFromInput(rawInput);
       } else {
-        throw new Error('Missing embedding');
+        await createLocalTaskFromInput(rawInput);
       }
     } catch (e) {
       console.error(e);
@@ -5346,10 +5361,9 @@ export default function Home() {
                     persistSettings({
                       apiKey,
                       apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
-                      modelListText,
-                      chatModel,
-                      embeddingModel,
-                      fallbackTimeoutSec: normalizedTimeout,
+      modelListText,
+      chatModel,
+      fallbackTimeoutSec: normalizedTimeout,
                       wallpaperUrl,
                       webdavUrl,
                       webdavPath,
@@ -5396,16 +5410,6 @@ export default function Home() {
           >
             <h3 className="text-base font-semibold mb-4">{editingCountdown ? '编辑倒数日' : '新建倒数日'}</h3>
             <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] uppercase text-[#888888] mb-2">标题</label>
-                <input
-                  type="text"
-                  value={countdownTitle}
-                  onChange={(event) => setCountdownTitle(event.target.value)}
-                  placeholder="例如：毕业典礼"
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                />
-              </div>
               <div>
                 <label className="block text-[11px] uppercase text-[#888888] mb-2">目标日期</label>
                 <input
