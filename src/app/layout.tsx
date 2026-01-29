@@ -46,7 +46,6 @@ export default function RootLayout({
               </a>
             </span>
             <span>微信：Ethan_BravoEcho</span>
-            <span>版权所有 © Recall Team</span>
           </div>
         </footer>
       </body>

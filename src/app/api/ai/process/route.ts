@@ -54,7 +54,7 @@ function parseChatContent(payload: any) {
     throw new Error(`LLM invalid JSON: ${(err as Error).message}`);
   }
 }
-const DEFAULT_CHAT_MODEL = 'gpt-3.5-turbo';
+const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash-lite';
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
 const TIME_SOURCES = [

@@ -56,20 +56,20 @@ const REPEAT_OPTIONS: { value: RepeatType; label: string }[] = [
 ];
 const REPEAT_WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 const FILTER_LABELS: Record<string, string> = {
-  todo: '待办',
-  calendar: '日历',
-  quadrant: '四象限',
-  countdown: '倒数日',
-  habit: '习惯打卡',
-  agent: 'AI 助手',
-  search: '搜索',
-  pomodoro: '番茄时钟',
-  category: '列表',
-  tag: '标签',
-  inbox: '收件箱',
-  today: '今日',
-  next7: '未来7天',
-  completed: '已完成',
+  todo: '待办（别拖）',
+  calendar: '日历（时间魔法）',
+  quadrant: '四象限（老板最爱）',
+  countdown: '倒数日（小期待）',
+  habit: '习惯打卡（今天也行）',
+  agent: 'AI 助手（碎碎念）',
+  search: '搜索（翻旧账）',
+  pomodoro: '番茄时钟（先冲一会）',
+  category: '列表（小分组）',
+  tag: '标签（贴一贴）',
+  inbox: '收件箱（兜底区）',
+  today: '今日（别摸鱼）',
+  next7: '未来7天（未雨绸缪）',
+  completed: '已完成（功德+1）',
 };
 const WEEKDAY_MAP: Record<string, number> = {
   一: 1,
@@ -218,6 +218,8 @@ const formatRepeatLabel = (rule?: TaskRepeatRule) => {
 type TaskSortMode = 'priority' | 'dueDate' | 'createdAt' | 'title' | 'manual';
 type TaskGroupMode = 'none' | 'category' | 'priority' | 'dueDate';
 type TaskGroup = { key: string; label: string; items: Task[] };
+
+const QUADRANT_COLLAPSE_LIMIT = 6;
 
 const TASK_SORT_OPTIONS: { value: TaskSortMode; label: string }[] = [
   { value: 'priority', label: '优先级' },
@@ -743,6 +745,7 @@ const TaskItem = ({
   isDragging,
   onDragEnd,
   onTitleClick,
+  onUpdateDueDate,
   dragEnabled = true,
 }: any) => {
   const startXRef = useRef<number | null>(null);
@@ -752,7 +755,11 @@ const TaskItem = ({
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPointerDragging, setIsPointerDragging] = useState(false);
   const [isSubtasksOpen, setIsSubtasksOpen] = useState(false);
+  const [isDueEditorOpen, setIsDueEditorOpen] = useState(false);
+  const [editorDate, setEditorDate] = useState('');
+  const [editorTime, setEditorTime] = useState('09:00');
   const maxOffset = 84;
+  const timezoneOffset = getTimezoneOffset(task);
   const canDrag = Boolean(onDragStart) && dragEnabled;
   const subtaskTotal = task.subtasks?.length ?? 0;
   const completedSubtasks = subtaskTotal
@@ -762,6 +769,12 @@ const TaskItem = ({
     ? Math.round((completedSubtasks / subtaskTotal) * 100)
     : 0;
   const hasSubtasks = subtaskTotal > 0;
+  const dueLabel = task.dueDate
+    ? formatZonedDateTime(task.dueDate, timezoneOffset)
+    : '未设时间';
+  const dueTextColor = task.dueDate
+    ? (isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]')
+    : 'text-[#666666]';
 
   useEffect(() => {
     setOffsetX(0);
@@ -773,7 +786,21 @@ const TaskItem = ({
 
   useEffect(() => {
     setIsSubtasksOpen(false);
+    setIsDueEditorOpen(false);
   }, [task.id]);
+
+  useEffect(() => {
+    if (!isDueEditorOpen) return;
+    const baseIso = task.dueDate ?? new Date().toISOString();
+    setEditorDate(formatZonedDate(baseIso, timezoneOffset));
+    setEditorTime(task.dueDate ? formatZonedTime(task.dueDate, timezoneOffset) : '09:00');
+  }, [isDueEditorOpen, task.dueDate, timezoneOffset]);
+
+  const applyDueDate = (nextDate: string, nextTime: string) => {
+    if (!onUpdateDueDate) return;
+    const nextIso = buildDueDateIso(nextDate, nextTime, timezoneOffset);
+    onUpdateDueDate(task.id, nextIso, timezoneOffset);
+  };
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (event.touches.length !== 1) return;
@@ -995,15 +1022,60 @@ const TaskItem = ({
                 </span>
               )}
               {task.dueDate && (
-                <span
-                  className={`text-[10px] flex items-center gap-1 ${
-                    isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]'
-                  }`}
-                >
-                  <Calendar className="w-3 h-3" />
-                  {formatZonedDateTime(task.dueDate, getTimezoneOffset(task))}
-                  <span className="text-[#666666]">({getTimezoneLabel(getTimezoneOffset(task))})</span>
-                </span>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsDueEditorOpen((prev) => !prev);
+                    }}
+                    className={`text-[10px] flex items-center gap-1 ${dueTextColor} hover:text-[#DDDDDD]`}
+                    title="点击编辑时间"
+                  >
+                    <Calendar className="w-3 h-3" />
+                    {dueLabel}
+                    <span className="text-[#666666]">({getTimezoneLabel(timezoneOffset)})</span>
+                  </button>
+                  {isDueEditorOpen && (
+                    <div
+                      className="absolute z-20 mt-2 rounded-lg border border-[#333333] bg-[#1A1A1A] p-2 shadow-lg"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={editorDate}
+                          onChange={(event) => {
+                            const nextDate = event.target.value;
+                            setEditorDate(nextDate);
+                            applyDueDate(nextDate, editorTime);
+                          }}
+                          className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
+                        />
+                        <input
+                          type="time"
+                          value={editorTime}
+                          onChange={(event) => {
+                            const nextTime = event.target.value;
+                            setEditorTime(nextTime);
+                            applyDueDate(editorDate, nextTime);
+                          }}
+                          className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsDueEditorOpen(false)}
+                          className="px-2 py-1 text-[10px] rounded border border-[#333333] text-[#CCCCCC] hover:border-[#555555]"
+                        >
+                          完成
+                        </button>
+                      </div>
+                      <div className="mt-1 text-[10px] text-[#666666]">
+                        时区：{getTimezoneLabel(timezoneOffset)}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               {task.tags?.map((tag: string) => (
                 <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
@@ -1091,6 +1163,7 @@ export default function Home() {
   const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isListsOpen, setIsListsOpen] = useState(true);
+  const [expandedQuadrants, setExpandedQuadrants] = useState<Record<string, boolean>>({});
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
@@ -1117,6 +1190,8 @@ export default function Home() {
   const [showLogs, setShowLogs] = useState(false);
   const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge');
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null);
   const [logs, setLogs] = useState<
     {
       id: string;
@@ -1199,6 +1274,47 @@ export default function Home() {
     localStorage.setItem(WEBDAV_AUTO_SYNC_KEY, String(next.autoSyncEnabled));
     localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
     localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
+  };
+
+  const normalizeModelListText = (models: string[]) => {
+    const unique = Array.from(new Set(models.map((model) => model.trim()).filter(Boolean)));
+    return unique.join('\n');
+  };
+
+  const fetchModelList = async () => {
+    setIsFetchingModels(true);
+    setModelFetchError(null);
+    try {
+      const res = await fetch('/api/ai/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: apiKey?.trim() || undefined,
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || '模型列表拉取失败');
+      }
+      const models = Array.isArray(data?.models) ? data.models : [];
+      if (models.length === 0) {
+        throw new Error('未返回可用模型');
+      }
+      const nextModelListText = normalizeModelListText(models);
+      setModelListText(nextModelListText);
+      const nextModels = parseModelList(nextModelListText);
+      if (nextModels.length > 0 && !nextModels.includes(chatModel)) {
+        setChatModel(nextModels[0]);
+      }
+      pushLog('success', '模型列表已更新', `共 ${models.length} 个`);
+    } catch (error) {
+      const message = (error as Error)?.message || '模型列表拉取失败';
+      setModelFetchError(message);
+      pushLog('error', '模型列表拉取失败', message);
+    } finally {
+      setIsFetchingModels(false);
+    }
   };
 
   // Load Initial Data
@@ -1413,6 +1529,16 @@ export default function Home() {
   useEffect(() => {
     setNewTagInput('');
   }, [selectedTask?.id]);
+
+  useEffect(() => {
+    if (selectedTask) {
+      setSelectedTask(null);
+    }
+    if (editingTaskId) {
+      setEditingTaskId(null);
+      setEditingTaskTitle('');
+    }
+  }, [activeFilter, activeCategory, activeTag]);
 
   useEffect(() => {
     const nextTags = Array.from(
@@ -2591,6 +2717,17 @@ export default function Home() {
     }
   };
 
+  const updateTaskDueDate = (taskId: string, dueDate?: string, timezoneOffset?: number) => {
+    const target = taskStore.getAll().find((task) => task.id === taskId);
+    if (!target) return;
+    updateTask({
+      ...target,
+      dueDate,
+      timezoneOffset: timezoneOffset ?? target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
   const commitEditingTitle = (task: Task, fallbackTitle?: string) => {
     const title = editingTaskTitle.trim() || (fallbackTitle ?? '').trim();
     if (!title) {
@@ -2833,6 +2970,13 @@ export default function Home() {
     },
   ];
 
+  const toggleQuadrantExpanded = (key: string) => {
+    setExpandedQuadrants((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
   const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, task) => {
     if (task.dueDate) {
       const key = formatZonedDate(task.dueDate, getTimezoneOffset(task));
@@ -2967,8 +3111,8 @@ export default function Home() {
                 )}
               </div>
               <div>
-                <h1 className="text-sm font-semibold">Recall AI</h1>
-                <p className="text-xs text-[#666666]">轻量 AI 待办</p>
+                <h1 className="text-sm font-semibold">Recall AI（轻量不轻浮）</h1>
+                <p className="text-xs text-[#666666]">轻量 AI 待办｜不拖延搭子</p>
               </div>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#666666]">
@@ -3477,6 +3621,7 @@ export default function Home() {
                           onToggle={toggleStatus}
                           onDelete={removeTask}
                           onToggleSubtask={toggleSubtask}
+                          onUpdateDueDate={updateTaskDueDate}
                         />
                       ))}
                     </div>
@@ -3610,6 +3755,7 @@ export default function Home() {
                             onToggle={toggleStatus}
                             onDelete={removeTask}
                             onToggleSubtask={toggleSubtask}
+                          onUpdateDueDate={updateTaskDueDate}
                           />
                         ))
                       )}
@@ -3623,7 +3769,7 @@ export default function Home() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日</h3>
+                  <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日（离快乐又近一天）</h3>
                     <p className="text-xs text-[#666666] mt-1">置顶优先，按到期日期排序</p>
                   </div>
                   <button
@@ -3713,7 +3859,7 @@ export default function Home() {
                 <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手</h3>
+                    <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手（记性外包处）</h3>
                       <p className="text-xs text-[#666666] mt-1">一句话识别重要日期，我来帮你记</p>
                     </div>
                     <span className="text-[11px] text-[#555555]">countdown-agent</span>
@@ -3765,7 +3911,7 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议倒数日</h4>
+                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议倒数日（我猜你在想）</h4>
                   {showCountdownAgentBulkAdd && (
                     <button
                       onClick={handleAddAllCountdownAgentItems}
@@ -3817,32 +3963,61 @@ export default function Home() {
             </div>
           ) : activeFilter === 'quadrant' ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {quadrantGroups.map((group) => (
-                <div key={group.key} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#DDDDDD]">{group.title}</h3>
-                    <p className="text-xs text-[#666666] mt-1">{group.description}</p>
-                    <p className="text-[11px] text-[#555555] mt-1">{group.items.length} 项</p>
+              {quadrantGroups.map((group) => {
+                const isExpanded = expandedQuadrants[group.key] ?? false;
+                const shouldCollapse = group.items.length > QUADRANT_COLLAPSE_LIMIT;
+                const visibleItems = shouldCollapse && !isExpanded
+                  ? group.items.slice(0, QUADRANT_COLLAPSE_LIMIT)
+                  : group.items;
+                const hiddenCount = group.items.length - visibleItems.length;
+
+                return (
+                  <div key={group.key} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-[#DDDDDD]">{group.title}</h3>
+                        <p className="text-xs text-[#666666] mt-1">{group.description}</p>
+                        <p className="text-[11px] text-[#555555] mt-1">{group.items.length} 项</p>
+                      </div>
+                      {shouldCollapse && (
+                        <button
+                          type="button"
+                          onClick={() => toggleQuadrantExpanded(group.key)}
+                          className="flex items-center gap-1 text-[11px] text-[#888888] px-2 py-1 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] hover:text-[#DDDDDD]"
+                        >
+                          {isExpanded ? '收起' : `展开 ${hiddenCount} 项`}
+                          {isExpanded ? (
+                            <ChevronUp className="w-3 h-3" />
+                          ) : (
+                            <ChevronDown className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {visibleItems.length === 0 ? (
+                        <div className="text-xs text-[#444444]">暂无任务</div>
+                      ) : (
+                        visibleItems.map((task) => (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            selected={selectedTask?.id === task.id}
+                            onClick={() => setSelectedTask(task)}
+                            onToggle={toggleStatus}
+                            onDelete={removeTask}
+                            onToggleSubtask={toggleSubtask}
+                            onUpdateDueDate={updateTaskDueDate}
+                          />
+                        ))
+                      )}
+                      {shouldCollapse && !isExpanded && hiddenCount > 0 && (
+                        <div className="text-[11px] text-[#555555]">已折叠 {hiddenCount} 项</div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {group.items.length === 0 ? (
-                      <div className="text-xs text-[#444444]">暂无任务</div>
-                    ) : (
-                      group.items.map((task) => (
-                        <TaskItem
-                          key={task.id}
-                          task={task}
-                          selected={selectedTask?.id === task.id}
-                          onClick={() => setSelectedTask(task)}
-                          onToggle={toggleStatus}
-                          onDelete={removeTask}
-                          onToggleSubtask={toggleSubtask}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
@@ -3852,7 +4027,7 @@ export default function Home() {
                 <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手</h3>
+                    <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手（碎碎念整理师）</h3>
                       <p className="text-xs text-[#666666] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
                     </div>
                     <span className="text-[11px] text-[#555555]">todo-agent</span>
@@ -3944,7 +4119,7 @@ export default function Home() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议待办</h4>
+                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议待办（切成薯片）</h4>
                   {showAgentBulkAdd && (
                     <button
                       onClick={handleAddAllAgentItems}
@@ -4001,7 +4176,7 @@ export default function Home() {
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-[#DDDDDD]">创建新习惯</h3>
+                    <h3 className="text-sm font-semibold text-[#DDDDDD]">创建新习惯（今天开新坑）</h3>
                     <p className="text-xs text-[#666666] mt-1">像签到一样，坚持每日打卡</p>
                   </div>
                   <div className="text-[11px] text-[#555555]">今天 {getTodayKey().slice(5)}</div>
@@ -4129,6 +4304,7 @@ export default function Home() {
                             onClick={() => setSelectedTask(task)}
                             onToggle={toggleStatus}
                             onDelete={removeTask}
+                            onUpdateDueDate={updateTaskDueDate}
                             onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
                             onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
                             onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
@@ -4193,6 +4369,54 @@ export default function Home() {
             </div>
 
             <div className="space-y-6">
+              {/* 子任务管理 */}
+              <div className="space-y-3">
+                <label className="text-xs font-semibold text-[#555555] uppercase">子任务</label>
+                <div className="flex items-center gap-2 text-xs text-[#666666]">
+                  <span>
+                    {(selectedTask.subtasks || []).filter((subtask) => subtask.completed).length}
+                    /{(selectedTask.subtasks || []).length} 已完成
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {(selectedTask.subtasks || []).length === 0 ? (
+                    <p className="text-sm text-[#666666]">暂无子任务</p>
+                  ) : (
+                    (selectedTask.subtasks || []).map((subtask) => (
+                      <div key={subtask.id} className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
+                          className={`w-4 h-4 rounded border flex items-center justify-center ${
+                            subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[#555555]'
+                          }`}
+                        >
+                          {subtask.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        </button>
+                        <span className={`text-sm ${subtask.completed ? 'line-through text-[#666666]' : 'text-[#CCCCCC]'}`}>
+                          {subtask.title}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
+                    placeholder="新增子任务"
+                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={addSubtask}
+                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-500"
+                  >
+                    添加
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-xs font-semibold text-[#555555] uppercase">
                   日期
@@ -4425,53 +4649,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* 子任务管理 */}
-              <div className="space-y-3">
-                <label className="text-xs font-semibold text-[#555555] uppercase">子任务</label>
-                <div className="flex items-center gap-2 text-xs text-[#666666]">
-                  <span>
-                    {(selectedTask.subtasks || []).filter((subtask) => subtask.completed).length}
-                    /{(selectedTask.subtasks || []).length} 已完成
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {(selectedTask.subtasks || []).length === 0 ? (
-                    <p className="text-sm text-[#666666]">暂无子任务</p>
-                  ) : (
-                    (selectedTask.subtasks || []).map((subtask) => (
-                      <div key={subtask.id} className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
-                          className={`w-4 h-4 rounded border flex items-center justify-center ${
-                            subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[#555555]'
-                          }`}
-                        >
-                          {subtask.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
-                        </button>
-                        <span className={`text-sm ${subtask.completed ? 'line-through text-[#666666]' : 'text-[#CCCCCC]'}`}>
-                          {subtask.title}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newSubtaskTitle}
-                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
-                    placeholder="新增子任务"
-                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    onClick={addSubtask}
-                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-500"
-                  >
-                    添加
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
           
@@ -4491,7 +4668,7 @@ export default function Home() {
             className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 className="text-base sm:text-lg font-semibold mb-3">设置</h2>
+            <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>
             <div className="space-y-3 sm:space-y-4 text-sm">
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
@@ -4522,6 +4699,22 @@ export default function Home() {
                   rows={4}
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchModelList}
+                    disabled={isFetchingModels}
+                    className="px-3 py-1.5 text-[12px] sm:text-xs rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isFetchingModels ? '拉取中…' : '拉取模型列表'}
+                  </button>
+                  <span className="text-[11px] sm:text-xs text-[#666666]">
+                    从当前接口同步模型列表
+                  </span>
+                </div>
+                {modelFetchError && (
+                  <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
+                )}
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
@@ -4597,7 +4790,7 @@ export default function Home() {
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">输入 Web 图片链接，保存后全局背景生效（留空可清除）。</p>
               </div>
               <div className="pt-3 border-t border-[#333333]">
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">数据导入导出</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">数据导入导出（搬家专用）</label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -4652,7 +4845,7 @@ export default function Home() {
               </div>
 
               <div className="pt-3 border-t border-[#333333]">
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">WebDAV 同步</label>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">WebDAV 同步（云端搬运工）</label>
                 <div className="space-y-3">
                   <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
                     已切换为“自动同步 + 手动一键同步”，定时同步会先拉取再上传，避免覆盖。
@@ -4832,7 +5025,7 @@ export default function Home() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 mb-4">
-              <h2 className="text-base sm:text-lg font-semibold">运行日志</h2>
+              <h2 className="text-base sm:text-lg font-semibold">运行日志（系统碎碎念）</h2>
               <button
                 onClick={() => setShowLogs(false)}
                 className="text-xs text-[#888888] hover:text-[#CCCCCC]"
@@ -4902,7 +5095,7 @@ export default function Home() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-base sm:text-lg font-semibold">关于 Recall</h2>
+                <h2 className="text-base sm:text-lg font-semibold">关于 Recall（幕后花絮）</h2>
                 <p className="text-xs text-[#777777] mt-1">轻量 AI 待办助手</p>
               </div>
               <button
@@ -4916,6 +5109,7 @@ export default function Home() {
               <p>版本：v{APP_VERSION}</p>
       <p>项目主页：<a className="text-blue-300 hover:text-blue-200" href="https://github.com/tempppw01/Recall" target="_blank" rel="noopener noreferrer">https://github.com/tempppw01/Recall</a></p>
               <p>作者联系：微信 Ethan_BravoEcho</p>
+              <p className="text-xs text-[#666666]">版权所有 © Recall Team</p>
               <p className="text-xs text-[#666666]">感谢使用 Recall，祝你高效又轻松 ✨</p>
             </div>
           </div>
