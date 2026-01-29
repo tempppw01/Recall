@@ -1187,6 +1187,10 @@ export default function Home() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   const [isSystemTheme, setIsSystemTheme] = useState(true);
   const [wallpaperUrl, setWallpaperUrl] = useState('');
+  const [notificationSupported, setNotificationSupported] = useState(false);
+  const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [isSecureContext, setIsSecureContext] = useState(true);
   const [showLogs, setShowLogs] = useState(false);
   const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge');
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -1300,6 +1304,88 @@ export default function Home() {
     localStorage.setItem(WEBDAV_AUTO_SYNC_KEY, String(next.autoSyncEnabled));
     localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
     localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
+  };
+
+  const refreshNotificationPermission = () => {
+    if (typeof window === 'undefined') return;
+    if (!('Notification' in window)) return;
+    setNotificationPermission(Notification.permission);
+  };
+
+  const requestNotificationPermission = async () => {
+    if (typeof window === 'undefined') return;
+    if (!notificationSupported) {
+      pushLog('warning', '浏览器不支持通知');
+      return;
+    }
+    if (!isSecureContext) {
+      pushLog('warning', '当前环境非安全上下文', '请使用 https 或 localhost');
+    }
+    try {
+      const result = await Notification.requestPermission();
+      setNotificationPermission(result);
+      if (result === 'granted') {
+        pushLog('success', '通知权限已授权');
+      } else if (result === 'denied') {
+        pushLog('warning', '通知权限被拒绝');
+      } else {
+        pushLog('info', '通知权限未授权');
+      }
+    } catch (error) {
+      pushLog('error', '通知权限请求失败', String((error as Error)?.message || error));
+    }
+  };
+
+  const sendTestNotification = async () => {
+    if (typeof window === 'undefined') return;
+    if (!notificationSupported) return;
+    refreshNotificationPermission();
+    if (Notification.permission !== 'granted') {
+      pushLog('warning', '通知权限未授权', '请先点击“申请权限”');
+      return;
+    }
+
+    const payload = {
+      title: 'Recall 通知测试',
+      body: '这是来自 Recall 的测试通知。',
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      tag: 'recall-test',
+      data: { url: '/' },
+    };
+
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration?.showNotification) {
+          await registration.showNotification(payload.title, {
+            body: payload.body,
+            icon: payload.icon,
+            badge: payload.badge,
+            tag: payload.tag,
+            data: payload.data,
+          });
+          pushLog('success', '通知已发送', '通过 Service Worker 通道');
+          return;
+        }
+        if (registration?.active) {
+          registration.active.postMessage({ type: 'SHOW_NOTIFICATION', payload });
+          pushLog('success', '通知已发送', '通过 Service Worker 消息通道');
+          return;
+        }
+      }
+
+      new Notification(payload.title, {
+        body: payload.body,
+        icon: payload.icon,
+        badge: payload.badge,
+        tag: payload.tag,
+        data: payload.data,
+      });
+      pushLog('success', '通知已发送', '使用浏览器通知 API');
+    } catch (error) {
+      pushLog('error', '通知发送失败', String((error as Error)?.message || error));
+    }
   };
 
   const normalizeModelListText = (models: string[]) => {
@@ -1469,6 +1555,17 @@ export default function Home() {
 
   useEffect(() => {
     pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const supportNotification = 'Notification' in window;
+    setNotificationSupported(supportNotification);
+    setServiceWorkerSupported('serviceWorker' in navigator);
+    setIsSecureContext(window.isSecureContext);
+    if (supportNotification) {
+      setNotificationPermission(Notification.permission);
+    }
   }, []);
 
   useEffect(() => {
@@ -4909,6 +5006,34 @@ export default function Home() {
                   </button>
                 </div>
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
+              </div>
+              <div className="pt-3 border-t border-[#333333]">
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">浏览器通知</label>
+                <div className="space-y-3">
+                  <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
+                    <p>支持情况：{notificationSupported ? '已支持' : '不支持'}</p>
+                    <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
+                    <p>权限状态：{notificationPermission === 'granted' ? '已授权' : notificationPermission === 'denied' ? '已拒绝' : '未授权'}</p>
+                    <p>Service Worker：{serviceWorkerSupported ? '已支持' : '不支持'}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={requestNotificationPermission}
+                      className="px-3 py-2 text-[13px] sm:text-sm rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10"
+                    >
+                      申请权限
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendTestNotification}
+                      className="px-3 py-2 text-[13px] sm:text-sm rounded-lg border border-[#333333] text-[#CCCCCC] hover:border-[#555555] hover:text-white"
+                    >
+                      发送测试通知
+                    </button>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-[#555555]">提示：浏览器会拦截非用户触发的通知，请确保在手动点击按钮时触发。</p>
+                </div>
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">壁纸图片 URL</label>
