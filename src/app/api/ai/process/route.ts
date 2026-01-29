@@ -8,7 +8,7 @@ const DEFAULT_BASE_URLS = [
 ];
 
 const buildChatCompletionsUrl = (base: string) => {
-  const trimmed = base.replace(//$/, '');
+  const trimmed = base.replace(/\/$/, '');
   if (trimmed.endsWith('/chat/completions')) return trimmed;
   if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
   return `${trimmed}/v1/chat/completions`;
@@ -19,10 +19,43 @@ const resolveBaseUrlList = (primary?: string) => {
   return Array.from(new Set(list));
 };
 
-async function getRedisContext(redisConfig: any, sessionId: string): Promise<string[]> {
-  if (!redisConfig || !redisConfig.host) {
+type ContextEntry = {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+};
+
+const MEMORY_CONTEXT_CACHE = new Map<string, ContextEntry[]>();
+const MAX_CONTEXT_ENTRIES = 12;
+
+function normalizeContextEntries(raw: string[]): ContextEntry[] {
+  return raw
+    .map((item) => {
+      try {
+        const parsed = JSON.parse(item);
+        const role = parsed?.role === 'assistant' ? 'assistant' : 'user';
+        const content = typeof parsed?.content === 'string' ? parsed.content.trim() : '';
+        const timestamp = Number(parsed?.timestamp) || Date.now();
+        if (!content) return null;
+        return { role, content, timestamp } as ContextEntry;
+      } catch (error) {
+        const content = String(item || '').trim();
+        if (!content) return null;
+        return { role: 'user', content, timestamp: Date.now() } as ContextEntry;
+      }
+    })
+    .filter(Boolean) as ContextEntry[];
+}
+
+async function getContextMessages(redisConfig: any, sessionId: string): Promise<ContextEntry[]> {
+  if (!sessionId) {
     return [];
   }
+
+  if (!redisConfig || !redisConfig.host) {
+    return MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
+  }
+
   try {
     const redis = new Redis({
       host: redisConfig.host,
@@ -31,16 +64,49 @@ async function getRedisContext(redisConfig: any, sessionId: string): Promise<str
       db: Number(redisConfig.db) || 0,
       connectTimeout: 2000,
     });
-    
-    // 使用 session:{sessionId} 作为键名，假设上下文存储为 List 或 JSON
-    // 这里简单实现为获取最近的 10 条消息
+
     const contextKey = `session:${sessionId}:context`;
-    const context = await redis.lrange(contextKey, 0, 9); // 获取前10条
+    const raw = await redis.lrange(contextKey, 0, MAX_CONTEXT_ENTRIES - 1);
     redis.disconnect();
-    return context;
+    return normalizeContextEntries(raw);
   } catch (error) {
     console.error('Redis connection failed:', error);
-    return [];
+    return MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
+  }
+}
+
+async function appendContextEntry(
+  redisConfig: any,
+  sessionId: string,
+  entry: ContextEntry,
+) {
+  if (!sessionId) return;
+  const payload = JSON.stringify(entry);
+
+  if (!redisConfig || !redisConfig.host) {
+    const current = MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
+    const next = [...current, entry].slice(-MAX_CONTEXT_ENTRIES);
+    MEMORY_CONTEXT_CACHE.set(sessionId, next);
+    return;
+  }
+
+  try {
+    const redis = new Redis({
+      host: redisConfig.host,
+      port: Number(redisConfig.port) || 6379,
+      password: redisConfig.password || undefined,
+      db: Number(redisConfig.db) || 0,
+      connectTimeout: 2000,
+    });
+    const contextKey = `session:${sessionId}:context`;
+    await redis.lpush(contextKey, payload);
+    await redis.ltrim(contextKey, 0, MAX_CONTEXT_ENTRIES - 1);
+    redis.disconnect();
+  } catch (error) {
+    console.error('Redis write failed:', error);
+    const current = MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
+    const next = [...current, entry].slice(-MAX_CONTEXT_ENTRIES);
+    MEMORY_CONTEXT_CACHE.set(sessionId, next);
   }
 }
 
@@ -320,21 +386,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
     }
 
-    // 获取 Redis 上下文
-    let contextMessages: string[] = [];
-    if (redisConfig && sessionId) {
-      contextMessages = await getRedisContext(redisConfig, sessionId);
-    }
+    const contextMessages = await getContextMessages(redisConfig, sessionId);
 
-    // 构造 System Prompt 上下文
-    let systemContextPrompt = '';
-    if (contextMessages.length > 0) {
-      systemContextPrompt = `
-
-历史对话上下文（仅供参考）：
-${contextMessages.join('
-')}`;
-    }
+    const systemContextPrompt = contextMessages.length > 0
+      ? `\n\n历史对话上下文（仅供参考）：\n${contextMessages
+          .map((entry) => `${entry.role === 'assistant' ? 'AI' : '用户'}：${entry.content}`)
+          .join('\n')}`
+      : '';
 
     if (mode === 'organize') {
       // 一键整理：传入任务数组，返回整理后的任务数组（保留 id）
@@ -386,6 +444,17 @@ ${contextMessages.join('
           ? task.priority
           : evaluatePriority(task.dueDate, task.subtasks?.length || 0),
       }));
+
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'user',
+        content: normalizedInput,
+        timestamp: Date.now(),
+      });
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'assistant',
+        content: JSON.stringify({ tasks: normalizedCategoryTasks }),
+        timestamp: Date.now(),
+      });
 
       return NextResponse.json({ tasks: normalizedCategoryTasks });
     }
@@ -442,6 +511,17 @@ ${contextMessages.join('
           : evaluatePriorityWithNow(item.dueDate, item.subtasks?.length || 0, networkNow.getTime()),
       }));
 
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'user',
+        content: normalizedInput || '[图片]',
+        timestamp: Date.now(),
+      });
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'assistant',
+        content: rawResult?.reply || '已整理成待办清单，点一下即可加入。',
+        timestamp: Date.now(),
+      });
+
       return NextResponse.json({
         reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
           ? rawResult.reply.trim()
@@ -478,6 +558,17 @@ ${contextMessages.join('
       const normalizedItems = Array.isArray(rawCountdown?.items)
         ? rawCountdown.items.map((item) => normalizeCountdownItem(item))
         : [];
+
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'user',
+        content: normalizedInput,
+        timestamp: Date.now(),
+      });
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'assistant',
+        content: rawCountdown?.reply || '已识别倒数日内容，点击即可加入。',
+        timestamp: Date.now(),
+      });
 
       return NextResponse.json({
         reply: typeof rawCountdown?.reply === 'string' && rawCountdown.reply.trim().length > 0
@@ -545,6 +636,17 @@ ${contextMessages.join('
         subtasks: buildCookingSubtasks(taskData.title || input),
       };
     }
+
+    await appendContextEntry(redisConfig, sessionId, {
+      role: 'user',
+      content: normalizedInput,
+      timestamp: Date.now(),
+    });
+    await appendContextEntry(redisConfig, sessionId, {
+      role: 'assistant',
+      content: taskData.title || '已生成任务',
+      timestamp: Date.now(),
+    });
 
     return NextResponse.json({
       task: {

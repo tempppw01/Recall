@@ -2905,6 +2905,13 @@ export default function Home() {
       ...(apiKey ? { apiKey } : {}),
       apiBaseUrl: apiBaseUrl?.trim() || undefined,
       chatModel: chatModel?.trim() || undefined,
+      sessionId,
+      redisConfig: {
+        host: redisHost,
+        port: redisPort,
+        db: redisDb,
+        password: redisPassword,
+      },
     };
 
     const controller = new AbortController();
@@ -5049,16 +5056,6 @@ export default function Home() {
                     <option key={model} value={model}>{model}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">Embedding 模型</label>
-                <input
-                  type="text"
-                  value={embeddingModel}
-                  onChange={(e) => setEmbeddingModel(e.target.value)}
-                  placeholder={DEFAULT_EMBEDDING_MODEL}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>

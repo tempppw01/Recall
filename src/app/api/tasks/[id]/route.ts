@@ -21,7 +21,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       tags: payload.tags ?? [],
       subtasks: payload.subtasks ?? [],
       repeat: payload.repeat ?? null,
-      embedding: payload.embedding ?? null,
     },
   });
 
