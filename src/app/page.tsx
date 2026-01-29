@@ -9,7 +9,7 @@ import {
   Menu, X, CheckCircle2, Circle,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
   CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings, Cloud
-  , ImagePlus
+  , ImagePlus, Monitor
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -1217,6 +1217,7 @@ export default function Home() {
   const [countdownAgentItems, setCountdownAgentItems] = useState<CountdownAgentItem[]>([]);
   const [addedCountdownAgentItemIds, setAddedCountdownAgentItemIds] = useState<Set<string>>(new Set());
   const [countdownAgentError, setCountdownAgentError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
   const recommendedPriority = selectedTask
     ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
@@ -1228,6 +1229,31 @@ export default function Home() {
   const selectedTimeValue = selectedTask?.dueDate
     ? formatZonedTime(selectedTask.dueDate, selectedTimezoneOffset)
     : '09:00';
+  const themePreference: 'light' | 'dark' | 'system' = isSystemTheme ? 'system' : themeMode;
+
+  const getSystemTheme = () => {
+    if (typeof window === 'undefined') return 'dark';
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
+  };
+
+  const setThemePreference = (mode: 'light' | 'dark' | 'system') => {
+    if (mode === 'system') {
+      setIsSystemTheme(true);
+      setThemeMode(getSystemTheme());
+      return;
+    }
+    setIsSystemTheme(false);
+    setThemeMode(mode);
+  };
+
+  const handleThemeToggle = () => {
+    const nextMode = themePreference === 'system'
+      ? 'light'
+      : themePreference === 'light'
+      ? 'dark'
+      : 'system';
+    setThemePreference(nextMode);
+  };
 
   const pushLog = (
     level: 'info' | 'success' | 'warning' | 'error',
@@ -1443,6 +1469,11 @@ export default function Home() {
 
   useEffect(() => {
     pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60 * 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -3002,6 +3033,29 @@ export default function Home() {
       const bTime = b.dueDate ? new Date(b.dueDate).getTime() : 0;
       return aTime - bTime;
     });
+  const dayRowHeight = 36;
+  const dayTasksByHour: Task[][] = Array.from({ length: 24 }, () => []);
+  dayTasks.forEach((task) => {
+    if (!task.dueDate) return;
+    const zoned = getZonedDate(task.dueDate, getTimezoneOffset(task));
+    const hour = zoned.getUTCHours();
+    if (hour >= 0 && hour < 24) {
+      dayTasksByHour[hour].push(task);
+    }
+  });
+  dayTasksByHour.forEach((bucket) => {
+    bucket.sort((a, b) => {
+      const aTime = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+      const bTime = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+      return aTime - bTime;
+    });
+  });
+  const nowKey = formatDateKeyByOffset(now, DEFAULT_TIMEZONE_OFFSET);
+  const showNowLine = effectiveCalendarDate === nowKey;
+  const nowZoned = getZonedDate(now.toISOString(), DEFAULT_TIMEZONE_OFFSET);
+  const nowMinutes = nowZoned.getUTCHours() * 60 + nowZoned.getUTCMinutes();
+  const nowLineTop = (nowMinutes / 60) * dayRowHeight;
+  const nowLabel = `${pad2(nowZoned.getUTCHours())}:${pad2(nowZoned.getUTCMinutes())}`;
   const agendaTasks = tasks
     .filter((task) => task.dueDate)
     .sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime());
@@ -3359,17 +3413,22 @@ export default function Home() {
               <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
-              onClick={() => {
-                setIsSystemTheme(false);
-                setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
-              }}
+              onClick={handleThemeToggle}
               className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
-              title={themeMode === 'light' ? '切换夜间模式' : '切换日间模式'}
+              title={
+                themePreference === 'system'
+                  ? '主题模式：跟随设备（点击切换）'
+                  : themePreference === 'light'
+                  ? '主题模式：日间（点击切换）'
+                  : '主题模式：夜间（点击切换）'
+              }
             >
-              {themeMode === 'light' ? (
-                <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
-              ) : (
+              {themePreference === 'system' ? (
+                <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
+              ) : themePreference === 'light' ? (
                 <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
+              ) : (
+                <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
               )}
             </button>
           </div>
@@ -3600,27 +3659,66 @@ export default function Home() {
                       </span>
                     )}
                   </div>
-                  {dayTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
-                      <Calendar className="w-12 h-12 mb-3 opacity-20" />
-                      <p className="text-sm">这一天没有任务</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {dayTasks.map((task) => (
-                        <TaskItem
-                          key={task.id}
-                          task={task}
-                          selected={selectedTask?.id === task.id}
-                          onClick={() => setSelectedTask(task)}
-                          onToggle={toggleStatus}
-                          onDelete={removeTask}
-                          onToggleSubtask={toggleSubtask}
-                          onUpdateDueDate={updateTaskDueDate}
-                        />
+                  <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
+                    <div className="flex flex-col text-[10px] text-[#666666]">
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <div
+                          key={hour}
+                          className="h-9 flex items-start justify-end pr-2 border-b border-[#2A2A2A] last:border-b-0"
+                        >
+                          {String(hour).padStart(2, '0')}:00
+                        </div>
                       ))}
                     </div>
-                  )}
+                    {dayTasks.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center min-h-[12rem] text-[#444444]">
+                        <Calendar className="w-12 h-12 mb-3 opacity-20" />
+                        <p className="text-sm">这一天没有任务</p>
+                      </div>
+                    ) : (
+                      <div className="relative border border-[#2A2A2A] rounded-xl overflow-hidden">
+                        {showNowLine && (
+                          <div
+                            className="absolute left-0 right-0 z-10 pointer-events-none"
+                            style={{ top: `${nowLineTop}px` }}
+                          >
+                            <div className="relative flex items-center">
+                              <span className="absolute -left-2.5 -top-2.5 w-3 h-3 rounded-full bg-red-400 shadow" />
+                              <div className="h-[2px] w-full bg-red-400/80" />
+                              <span className="ml-2 text-[10px] text-red-300 bg-[#1A1A1A] px-1.5 py-0.5 rounded">
+                                {nowLabel}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {dayTasksByHour.map((hourTasks, hour) => (
+                          <div
+                            key={hour}
+                            className="min-h-[36px] border-b border-[#2A2A2A] last:border-b-0 px-2 py-1"
+                          >
+                            {hourTasks.length === 0 ? (
+                              <div className="text-[10px] text-[#333333]">&nbsp;</div>
+                            ) : (
+                              <div className="space-y-2">
+                                {hourTasks.map((task) => (
+                                  <TaskItem
+                                    key={task.id}
+                                    task={task}
+                                    selected={selectedTask?.id === task.id}
+                                    onClick={() => setSelectedTask(task)}
+                                    onToggle={toggleStatus}
+                                    onDelete={removeTask}
+                                    onToggleSubtask={toggleSubtask}
+                                    onUpdateDueDate={updateTaskDueDate}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : calendarView === 'agenda' ? (
                 <div className="space-y-4">
@@ -4744,6 +4842,45 @@ export default function Home() {
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
+              </div>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主题模式</label>
+                <div className="flex flex-wrap gap-2 text-[12px] sm:text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('system')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      themePreference === 'system'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    跟随设备
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('light')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      themePreference === 'light'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    日间
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('dark')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      themePreference === 'dark'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    夜间
+                  </button>
+                </div>
+                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">可选择日间、夜间或跟随设备外观。</p>
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">倒数日显示模式</label>
