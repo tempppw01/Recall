@@ -1196,6 +1196,7 @@ export default function Home() {
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [logs, setLogs] = useState<
     {
       id: string;
@@ -1541,17 +1542,19 @@ export default function Home() {
           localStorage.setItem('recall_api_key', normalizedKey);
         }
       }
+      setSettingsLoaded(true);
     }
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!settingsLoaded) return;
     if (apiKey && apiKey.trim()) {
       localStorage.setItem('recall_api_key', apiKey.trim());
     } else {
       localStorage.removeItem('recall_api_key');
     }
-  }, [apiKey]);
+  }, [apiKey, settingsLoaded]);
 
   useEffect(() => {
     pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
