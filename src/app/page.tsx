@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, TouchEvent as ReactTouchEvent } from 'react';
 import { taskStore, habitStore, countdownStore, Task, Subtask, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
+import MysqlSettings from '@/app/components/MysqlSettings';
+import RedisSettings from '@/app/components/RedisSettings';
 import {
   Command, Send, Plus,
   Calendar, Inbox, Sun, Star, Trash2,
@@ -28,6 +30,16 @@ const WEBDAV_USERNAME_KEY = 'recall_webdav_username';
 const WEBDAV_PASSWORD_KEY = 'recall_webdav_password';
 const WEBDAV_AUTO_SYNC_KEY = 'recall_webdav_auto_sync';
 const WEBDAV_AUTO_SYNC_INTERVAL_KEY = 'recall_webdav_auto_sync_interval';
+const MYSQL_HOST_KEY = 'recall_mysql_host';
+const MYSQL_PORT_KEY = 'recall_mysql_port';
+const MYSQL_DATABASE_KEY = 'recall_mysql_database';
+const MYSQL_USERNAME_KEY = 'recall_mysql_username';
+const MYSQL_PASSWORD_KEY = 'recall_mysql_password';
+const REDIS_HOST_KEY = 'recall_redis_host';
+const REDIS_PORT_KEY = 'recall_redis_port';
+const REDIS_DB_KEY = 'recall_redis_db';
+const REDIS_PASSWORD_KEY = 'recall_redis_password';
+const CALENDAR_SUBSCRIPTION_KEY = 'recall_calendar_subscription';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
@@ -1145,6 +1157,16 @@ export default function Home() {
   const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
   const [webdavUsername, setWebdavUsername] = useState('');
   const [webdavPassword, setWebdavPassword] = useState('');
+  const [mysqlHost, setMysqlHost] = useState('');
+  const [mysqlPort, setMysqlPort] = useState('');
+  const [mysqlDatabase, setMysqlDatabase] = useState('');
+  const [mysqlUsername, setMysqlUsername] = useState('');
+  const [mysqlPassword, setMysqlPassword] = useState('');
+  const [redisHost, setRedisHost] = useState('');
+  const [redisPort, setRedisPort] = useState('');
+  const [redisDb, setRedisDb] = useState('');
+  const [redisPassword, setRedisPassword] = useState('');
+  const [calendarSubscription, setCalendarSubscription] = useState('');
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [autoSyncInterval, setAutoSyncInterval] = useState(DEFAULT_AUTO_SYNC_INTERVAL_MIN);
   const [countdownDisplayMode, setCountdownDisplayMode] = useState<CountdownDisplayMode>('days');
@@ -1290,6 +1312,16 @@ export default function Home() {
     autoSyncEnabled: boolean;
     autoSyncInterval: number;
     countdownDisplayMode: CountdownDisplayMode;
+    mysqlHost: string;
+    mysqlPort: string;
+    mysqlDatabase: string;
+    mysqlUsername: string;
+    mysqlPassword: string;
+    redisHost: string;
+    redisPort: string;
+    redisDb: string;
+    redisPassword: string;
+    calendarSubscription: string;
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
@@ -1305,6 +1337,16 @@ export default function Home() {
     localStorage.setItem(WEBDAV_AUTO_SYNC_KEY, String(next.autoSyncEnabled));
     localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
     localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
+    localStorage.setItem(MYSQL_HOST_KEY, next.mysqlHost);
+    localStorage.setItem(MYSQL_PORT_KEY, next.mysqlPort);
+    localStorage.setItem(MYSQL_DATABASE_KEY, next.mysqlDatabase);
+    localStorage.setItem(MYSQL_USERNAME_KEY, next.mysqlUsername);
+    localStorage.setItem(MYSQL_PASSWORD_KEY, next.mysqlPassword);
+    localStorage.setItem(REDIS_HOST_KEY, next.redisHost);
+    localStorage.setItem(REDIS_PORT_KEY, next.redisPort);
+    localStorage.setItem(REDIS_DB_KEY, next.redisDb);
+    localStorage.setItem(REDIS_PASSWORD_KEY, next.redisPassword);
+    localStorage.setItem(CALENDAR_SUBSCRIPTION_KEY, next.calendarSubscription);
   };
 
   const refreshNotificationPermission = () => {
@@ -1453,6 +1495,16 @@ export default function Home() {
             WEBDAV_AUTO_SYNC_KEY,
             WEBDAV_AUTO_SYNC_INTERVAL_KEY,
             COUNTDOWN_DISPLAY_MODE_KEY,
+            MYSQL_HOST_KEY,
+            MYSQL_PORT_KEY,
+            MYSQL_DATABASE_KEY,
+            MYSQL_USERNAME_KEY,
+            MYSQL_PASSWORD_KEY,
+            REDIS_HOST_KEY,
+            REDIS_PORT_KEY,
+            REDIS_DB_KEY,
+            REDIS_PASSWORD_KEY,
+            CALENDAR_SUBSCRIPTION_KEY,
             'recall_theme',
           ]);
           const preservedEntries = Object.keys(localStorage)
@@ -1481,6 +1533,16 @@ export default function Home() {
       const storedAutoSyncEnabled = localStorage.getItem(WEBDAV_AUTO_SYNC_KEY);
       const storedAutoSyncInterval = localStorage.getItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY);
       const storedCountdownDisplayMode = localStorage.getItem(COUNTDOWN_DISPLAY_MODE_KEY);
+      const storedMysqlHost = localStorage.getItem(MYSQL_HOST_KEY);
+      const storedMysqlPort = localStorage.getItem(MYSQL_PORT_KEY);
+      const storedMysqlDatabase = localStorage.getItem(MYSQL_DATABASE_KEY);
+      const storedMysqlUsername = localStorage.getItem(MYSQL_USERNAME_KEY);
+      const storedMysqlPassword = localStorage.getItem(MYSQL_PASSWORD_KEY);
+      const storedRedisHost = localStorage.getItem(REDIS_HOST_KEY);
+      const storedRedisPort = localStorage.getItem(REDIS_PORT_KEY);
+      const storedRedisDb = localStorage.getItem(REDIS_DB_KEY);
+      const storedRedisPassword = localStorage.getItem(REDIS_PASSWORD_KEY);
+      const storedCalendarSubscription = localStorage.getItem(CALENDAR_SUBSCRIPTION_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -1511,6 +1573,16 @@ export default function Home() {
           setAutoSyncInterval(parsedInterval);
         }
       }
+      if (storedMysqlHost) setMysqlHost(storedMysqlHost);
+      if (storedMysqlPort) setMysqlPort(storedMysqlPort);
+      if (storedMysqlDatabase) setMysqlDatabase(storedMysqlDatabase);
+      if (storedMysqlUsername) setMysqlUsername(storedMysqlUsername);
+      if (storedMysqlPassword) setMysqlPassword(storedMysqlPassword);
+      if (storedRedisHost) setRedisHost(storedRedisHost);
+      if (storedRedisPort) setRedisPort(storedRedisPort);
+      if (storedRedisDb) setRedisDb(storedRedisDb);
+      if (storedRedisPassword) setRedisPassword(storedRedisPassword);
+      if (storedCalendarSubscription) setCalendarSubscription(storedCalendarSubscription);
       if (storedCountdownDisplayMode === 'date') {
         setCountdownDisplayMode('date');
       } else {
@@ -2243,11 +2315,21 @@ export default function Home() {
       autoSyncEnabled,
       autoSyncInterval,
       countdownDisplayMode,
+      mysqlHost,
+      mysqlPort,
+      mysqlDatabase,
+      mysqlUsername,
+      redisHost,
+      redisPort,
+      redisDb,
+      calendarSubscription,
     },
     secrets: {
       apiKey,
       webdavUsername,
       webdavPassword,
+      mysqlPassword,
+      redisPassword,
     },
   });
 
@@ -2286,12 +2368,34 @@ export default function Home() {
     const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : apiKey;
     const nextWebdavUsername = typeof secrets.webdavUsername === 'string' ? secrets.webdavUsername : webdavUsername;
     const nextWebdavPassword = typeof secrets.webdavPassword === 'string' ? secrets.webdavPassword : webdavPassword;
+    const nextMysqlHost = typeof settings.mysqlHost === 'string' ? settings.mysqlHost : mysqlHost;
+    const nextMysqlPort = typeof settings.mysqlPort === 'string' ? settings.mysqlPort : mysqlPort;
+    const nextMysqlDatabase = typeof settings.mysqlDatabase === 'string' ? settings.mysqlDatabase : mysqlDatabase;
+    const nextMysqlUsername = typeof settings.mysqlUsername === 'string' ? settings.mysqlUsername : mysqlUsername;
+    const nextMysqlPassword = typeof secrets.mysqlPassword === 'string' ? secrets.mysqlPassword : mysqlPassword;
+    const nextRedisHost = typeof settings.redisHost === 'string' ? settings.redisHost : redisHost;
+    const nextRedisPort = typeof settings.redisPort === 'string' ? settings.redisPort : redisPort;
+    const nextRedisDb = typeof settings.redisDb === 'string' ? settings.redisDb : redisDb;
+    const nextRedisPassword = typeof secrets.redisPassword === 'string' ? secrets.redisPassword : redisPassword;
+    const nextCalendarSubscription = typeof settings.calendarSubscription === 'string'
+      ? settings.calendarSubscription
+      : calendarSubscription;
 
     setApiKey(nextApiKey);
     setWebdavUrl(nextWebdavUrl);
     setWebdavPath(nextWebdavPath);
     setWebdavUsername(nextWebdavUsername);
     setWebdavPassword(nextWebdavPassword);
+    setMysqlHost(nextMysqlHost);
+    setMysqlPort(nextMysqlPort);
+    setMysqlDatabase(nextMysqlDatabase);
+    setMysqlUsername(nextMysqlUsername);
+    setMysqlPassword(nextMysqlPassword);
+    setRedisHost(nextRedisHost);
+    setRedisPort(nextRedisPort);
+    setRedisDb(nextRedisDb);
+    setRedisPassword(nextRedisPassword);
+    setCalendarSubscription(nextCalendarSubscription);
 
     persistSettings({
       apiKey: nextApiKey,
@@ -2308,6 +2412,16 @@ export default function Home() {
       autoSyncEnabled: nextAutoSyncEnabled,
       autoSyncInterval: nextAutoSyncInterval,
       countdownDisplayMode: nextCountdownDisplayMode,
+      mysqlHost: nextMysqlHost,
+      mysqlPort: nextMysqlPort,
+      mysqlDatabase: nextMysqlDatabase,
+      mysqlUsername: nextMysqlUsername,
+      mysqlPassword: nextMysqlPassword,
+      redisHost: nextRedisHost,
+      redisPort: nextRedisPort,
+      redisDb: nextRedisDb,
+      redisPassword: nextRedisPassword,
+      calendarSubscription: nextCalendarSubscription,
     });
   };
 
@@ -5050,6 +5164,120 @@ export default function Home() {
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">输入 Web 图片链接，保存后全局背景生效（留空可清除）。</p>
               </div>
               <div className="pt-3 border-t border-[#333333]">
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-3 uppercase">API 专用设置组</label>
+                <div className="space-y-4">
+                  <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                    用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
+                  </div>
+                  <MysqlSettings
+                    host={mysqlHost}
+                    port={mysqlPort}
+                    database={mysqlDatabase}
+                    username={mysqlUsername}
+                    password={mysqlPassword}
+                    onHostChange={setMysqlHost}
+                    onPortChange={setMysqlPort}
+                    onDatabaseChange={setMysqlDatabase}
+                    onUsernameChange={setMysqlUsername}
+                    onPasswordChange={setMysqlPassword}
+                  />
+                  <RedisSettings
+                    host={redisHost}
+                    port={redisPort}
+                    db={redisDb}
+                    password={redisPassword}
+                    onHostChange={setRedisHost}
+                    onPortChange={setRedisPort}
+                    onDbChange={setRedisDb}
+                    onPasswordChange={setRedisPassword}
+                  />
+                  <div>
+                    <label className="block text-[11px] sm:text-xs text-[#999999] uppercase mb-2">第三方日历订阅</label>
+                    <textarea
+                      value={calendarSubscription}
+                      onChange={(e) => setCalendarSubscription(e.target.value)}
+                      placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
+                      rows={3}
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    />
+                    <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">WebDAV 同步（云端搬运工）</div>
+                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                      已切换为“自动同步 + 手动一键同步”，定时同步会先拉取再上传，避免覆盖。
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setAutoSyncEnabled((prev) => !prev)}
+                        className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
+                          autoSyncEnabled
+                            ? 'bg-blue-600/20 border-blue-400 text-white'
+                            : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        }`}
+                      >
+                        {autoSyncEnabled ? '自动同步：已开启' : '自动同步：已关闭'}
+                      </button>
+                      <select
+                        value={autoSyncInterval}
+                        onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
+                        className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      >
+                        {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            每 {option} 分钟
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
+                      <input
+                        type="text"
+                        value={webdavUrl}
+                        onChange={(e) => setWebdavUrl(e.target.value)}
+                        placeholder={DEFAULT_WEBDAV_URL}
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">远端文件路径</label>
+                      <input
+                        type="text"
+                        value={webdavPath}
+                        onChange={(e) => setWebdavPath(e.target.value)}
+                        placeholder={DEFAULT_WEBDAV_PATH}
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
+                      <input
+                        type="text"
+                        value={webdavUsername}
+                        onChange={(e) => setWebdavUsername(e.target.value)}
+                        placeholder="WebDAV 用户名"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
+                      <input
+                        type="password"
+                        value={webdavPassword}
+                        onChange={(e) => setWebdavPassword(e.target.value)}
+                        placeholder="WebDAV 密码"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-[#555555]">
+                      提示：同步会包含任务、习惯、倒数日及 AI 设置与密钥。
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-3 border-t border-[#333333]">
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">数据导入导出（搬家专用）</label>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -5104,81 +5332,6 @@ export default function Home() {
                 />
               </div>
 
-              <div className="pt-3 border-t border-[#333333]">
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">WebDAV 同步（云端搬运工）</label>
-                <div className="space-y-3">
-                  <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                    已切换为“自动同步 + 手动一键同步”，定时同步会先拉取再上传，避免覆盖。
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setAutoSyncEnabled((prev) => !prev)}
-                      className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
-                        autoSyncEnabled
-                          ? 'bg-blue-600/20 border-blue-400 text-white'
-                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                      }`}
-                    >
-                      {autoSyncEnabled ? '自动同步：已开启' : '自动同步：已关闭'}
-                    </button>
-                    <select
-                      value={autoSyncInterval}
-                      onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
-                      className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                    >
-                      {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          每 {option} 分钟
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
-                    <input
-                      type="text"
-                      value={webdavUrl}
-                      onChange={(e) => setWebdavUrl(e.target.value)}
-                      placeholder={DEFAULT_WEBDAV_URL}
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">远端文件路径</label>
-                    <input
-                      type="text"
-                      value={webdavPath}
-                      onChange={(e) => setWebdavPath(e.target.value)}
-                      placeholder={DEFAULT_WEBDAV_PATH}
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
-                    <input
-                      type="text"
-                      value={webdavUsername}
-                      onChange={(e) => setWebdavUsername(e.target.value)}
-                      placeholder="WebDAV 用户名"
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
-                    <input
-                      type="password"
-                      value={webdavPassword}
-                      onChange={(e) => setWebdavPassword(e.target.value)}
-                      placeholder="WebDAV 密码"
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-[#555555]">
-                    提示：同步会包含任务、习惯、倒数日及 AI 设置与密钥。
-                  </p>
-                </div>
-              </div>
               <div className="flex justify-end gap-3 mt-5">
                 <button
                   onClick={() => setShowSettings(false)}
@@ -5205,6 +5358,16 @@ export default function Home() {
                       autoSyncEnabled,
                       autoSyncInterval,
                       countdownDisplayMode,
+                      mysqlHost,
+                      mysqlPort,
+                      mysqlDatabase,
+                      mysqlUsername,
+                      mysqlPassword,
+                      redisHost,
+                      redisPort,
+                      redisDb,
+                      redisPassword,
+                      calendarSubscription,
                     });
                     setShowSettings(false);
                   }}
