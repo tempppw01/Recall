@@ -27,9 +27,50 @@ export default function PgSettings({
   onUsernameChange,
   onPasswordChange,
 }: PgSettingsProps) {
+  const [testing, setTesting] = React.useState(false);
+
+  const handleTest = async () => {
+    if (!host || !database || !username) {
+      alert('请先填写必要信息');
+      return;
+    }
+    setTesting(true);
+    try {
+      const res = await fetch('/api/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'pg',
+          config: { host, port, database, username, password },
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('连接成功！');
+      } else {
+        alert(`连接失败: ${data.error || '未知错误'} 
+${data.details || ''}`);
+      }
+    } catch (error) {
+      alert(`请求失败: ${String(error)}`);
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="text-[11px] sm:text-xs text-[#999999] uppercase">PostgreSQL 连接</div>
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] sm:text-xs text-[#999999] uppercase">PostgreSQL 连接</div>
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={testing}
+          className="text-[10px] text-blue-400 hover:text-blue-300 disabled:opacity-50"
+        >
+          {testing ? '测试中...' : '测试连接'}
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">主机</label>

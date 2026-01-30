@@ -4519,10 +4519,32 @@ export default function Home() {
                 <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                    <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手（碎碎念整理师）</h3>
+                      <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手（碎碎念整理师）</h3>
                       <p className="text-xs text-[#666666] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
                     </div>
-                    <span className="text-[11px] text-[#555555]">todo-agent</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[11px] text-[#555555]">todo-agent</span>
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={chatModel}
+                          onChange={(e) => setChatModel(e.target.value)}
+                          className="bg-[#1A1A1A] border border-[#333333] rounded px-1.5 py-0.5 text-[10px] text-[#CCCCCC] focus:outline-none max-w-[100px] truncate"
+                          title="切换模型"
+                        >
+                          {parseModelList(modelListText).map((model) => (
+                            <option key={model} value={model}>{model}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={fetchModelList}
+                          disabled={isFetchingModels}
+                          className="p-1 rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
+                          title="拉取模型列表"
+                        >
+                          <Cloud className={`w-3 h-3 ${isFetchingModels ? 'animate-bounce' : ''}`} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <div className="mt-3 space-y-3">
                     <div className="rounded-xl border border-dashed border-[#333333] bg-[#1B1B1B] px-3 py-2 text-xs text-[#777777]">
@@ -5228,13 +5250,15 @@ export default function Home() {
             <div className="space-y-3 sm:space-y-4 text-sm">
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
-                <input
-                  type="text"
-                  value={apiBaseUrl}
-                  onChange={(e) => setApiBaseUrl(e.target.value)}
-                  placeholder={DEFAULT_BASE_URL}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={apiBaseUrl}
+                    onChange={(e) => setApiBaseUrl(e.target.value)}
+                    placeholder={DEFAULT_BASE_URL}
+                    className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
@@ -5492,11 +5516,44 @@ export default function Home() {
                       <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
                     </div>
 
-                    <div className="space-y-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
                       <div className="text-[11px] sm:text-xs text-[#999999] uppercase">附件存储 (WebDAV)</div>
-                      <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                        配置 WebDAV 后可上传图片/文件附件。
-                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!webdavUrl || !webdavUsername || !webdavPassword) {
+                            alert('请先填写完整 WebDAV 信息');
+                            return;
+                          }
+                          try {
+                            const res = await fetch('/api/test-connection', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                type: 'webdav',
+                                config: { url: webdavUrl, username: webdavUsername, password: webdavPassword },
+                              }),
+                            });
+                            const data = await res.json();
+                            if (res.ok && data.success) {
+                              alert('连接成功！');
+                            } else {
+                              alert(`连接失败: ${data.error || '未知错误'} 
+${data.details || ''}`);
+                            }
+                          } catch (error) {
+                            alert(`请求失败: ${String(error)}`);
+                          }
+                        }}
+                        className="text-[10px] text-blue-400 hover:text-blue-300"
+                      >
+                        测试连接
+                      </button>
+                    </div>
+                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                      配置 WebDAV 后可上传图片/文件附件。
+                    </div>
                       <div>
                         <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
                         <input
