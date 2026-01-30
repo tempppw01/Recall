@@ -41,10 +41,13 @@ const REDIS_HOST_KEY = 'recall_redis_host';
 const REDIS_PORT_KEY = 'recall_redis_port';
 const REDIS_DB_KEY = 'recall_redis_db';
 const REDIS_PASSWORD_KEY = 'recall_redis_password';
+const SYNC_NAMESPACE_KEY = 'recall_sync_namespace';
+const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 const CALENDAR_SUBSCRIPTION_KEY = 'recall_calendar_subscription';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
+const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
 const DEFAULT_TIMEZONE_OFFSET = 480;
 const TIMEZONE_OPTIONS = [
@@ -1168,6 +1171,7 @@ export default function Home() {
   const [redisPort, setRedisPort] = useState(String(DEFAULT_REDIS_PORT));
   const [redisDb, setRedisDb] = useState(String(DEFAULT_REDIS_DB));
   const [redisPassword, setRedisPassword] = useState('');
+  const [syncNamespace, setSyncNamespace] = useState(DEFAULT_SYNC_NAMESPACE);
   const [calendarSubscription, setCalendarSubscription] = useState('');
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [autoSyncInterval, setAutoSyncInterval] = useState(DEFAULT_AUTO_SYNC_INTERVAL_MIN);
@@ -1310,17 +1314,17 @@ export default function Home() {
       const res = await fetch(`/api/sync?${syncParams.toString()}`);
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || 'WebDAV sync status failed');
+        throw new Error(data?.error || '同步状态获取失败');
       }
       if (data.status === 'done') {
         return data.result;
       }
       if (data.status === 'failed') {
-        throw new Error(data?.error || 'WebDAV sync failed');
+        throw new Error(data?.error || '同步失败');
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    throw new Error('WebDAV sync timeout');
+    throw new Error('同步超时');
   };
 
   const persistSettings = (next: {
@@ -1346,6 +1350,7 @@ export default function Home() {
     redisPort: string;
     redisDb: string;
     redisPassword: string;
+    syncNamespace: string;
     calendarSubscription: string;
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
@@ -1370,7 +1375,14 @@ export default function Home() {
     localStorage.setItem(REDIS_PORT_KEY, next.redisPort);
     localStorage.setItem(REDIS_DB_KEY, next.redisDb);
     localStorage.setItem(REDIS_PASSWORD_KEY, next.redisPassword);
+    localStorage.setItem(SYNC_NAMESPACE_KEY, next.syncNamespace);
     localStorage.setItem(CALENDAR_SUBSCRIPTION_KEY, next.calendarSubscription);
+    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
+  };
+
+  const getLastLocalChange = () => {
+    if (typeof window === 'undefined') return undefined;
+    return localStorage.getItem(LAST_LOCAL_CHANGE_KEY) ?? new Date().toISOString();
   };
 
   const refreshNotificationPermission = () => {
@@ -1528,7 +1540,9 @@ export default function Home() {
             REDIS_PORT_KEY,
             REDIS_DB_KEY,
             REDIS_PASSWORD_KEY,
+            SYNC_NAMESPACE_KEY,
             CALENDAR_SUBSCRIPTION_KEY,
+            LAST_LOCAL_CHANGE_KEY,
             'recall_theme',
           ]);
           const preservedEntries = Object.keys(localStorage)
@@ -1567,6 +1581,7 @@ export default function Home() {
       const storedRedisDb = localStorage.getItem(REDIS_DB_KEY);
       const storedRedisPassword = localStorage.getItem(REDIS_PASSWORD_KEY);
       const storedCalendarSubscription = localStorage.getItem(CALENDAR_SUBSCRIPTION_KEY);
+      const storedSyncNamespace = localStorage.getItem(SYNC_NAMESPACE_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -1613,6 +1628,7 @@ export default function Home() {
       if (storedRedisDb) setRedisDb(storedRedisDb);
       if (storedRedisPassword) setRedisPassword(storedRedisPassword);
       if (storedCalendarSubscription) setCalendarSubscription(storedCalendarSubscription);
+      if (storedSyncNamespace) setSyncNamespace(storedSyncNamespace);
       if (storedCountdownDisplayMode === 'date') {
         setCountdownDisplayMode('date');
       } else {
@@ -2361,6 +2377,7 @@ export default function Home() {
       wallpaperUrl,
       webdavUrl,
       webdavPath,
+      syncNamespace,
       autoSyncEnabled,
       autoSyncInterval,
       countdownDisplayMode,
@@ -2427,6 +2444,9 @@ export default function Home() {
     const nextCalendarSubscription = typeof settings.calendarSubscription === 'string'
       ? settings.calendarSubscription
       : calendarSubscription;
+    const nextSyncNamespace = typeof settings.syncNamespace === 'string' && settings.syncNamespace.trim().length > 0
+      ? settings.syncNamespace
+      : syncNamespace;
 
     setApiKey(nextApiKey);
     setWebdavUrl(nextWebdavUrl);
@@ -2443,6 +2463,7 @@ export default function Home() {
     setRedisDb(nextRedisDb);
     setRedisPassword(nextRedisPassword);
     setCalendarSubscription(nextCalendarSubscription);
+    setSyncNamespace(nextSyncNamespace);
 
     persistSettings({
       apiKey: nextApiKey,
@@ -2470,6 +2491,7 @@ export default function Home() {
       redisPort: nextRedisPort,
       redisDb: nextRedisDb,
       redisPassword: nextRedisPassword,
+      syncNamespace: nextSyncNamespace,
       calendarSubscription: nextCalendarSubscription,
     });
   };
@@ -2492,7 +2514,8 @@ export default function Home() {
     }
 
     try {
-      const executeRequest = async (requestAction: 'push' | 'pull') => {
+      const executeRequest = async (requestAction: 'push' | 'pull' | 'sync') => {
+        const lastLocalChange = getLastLocalChange();
         const res = await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2502,13 +2525,16 @@ export default function Home() {
             username: webdavUsername,
             password: webdavPassword,
             path: webdavPath,
+            namespace: syncNamespace,
             redisConfig: {
               host: redisHost,
               port: redisPort,
               db: redisDb,
               password: redisPassword,
             },
-            ...(requestAction === 'push' ? { payload: buildSyncPayload() } : {}),
+            ...(requestAction !== 'pull'
+              ? { payload: { data: buildSyncPayload(), meta: { lastLocalChange } } }
+              : {}),
           }),
         });
         const data = await res.json();
@@ -2540,15 +2566,25 @@ export default function Home() {
           pushLog('success', 'WebDAV 上传完成');
         }
       } else {
-        const pullData = await executeRequest('pull');
-        const remotePayload = pullData?.result?.data;
+        const data = await executeRequest('sync');
+        const remotePayload = data?.result?.data;
         if (remotePayload) {
           applyImportedData(remotePayload, 'merge');
           applySyncedSettings(remotePayload);
+          const remoteLastChange = data?.result?.meta?.lastLocalChange;
+          const localLastChange = getLastLocalChange();
+          if (remoteLastChange && localLastChange) {
+            const remoteMs = new Date(remoteLastChange).getTime();
+            const localMs = new Date(localLastChange).getTime();
+            if (remoteMs > localMs && !options?.silent) {
+              pushLog('info', '检测到远端更新，已合并', remoteLastChange);
+            }
+          }
+        } else if (!options?.silent) {
+          pushLog('warning', 'WebDAV 同步失败', '未读取到远端数据');
         }
-        await executeRequest('push');
         if (!options?.silent) {
-          pushLog('success', 'WebDAV 同步完成', '已完成拉取合并并上传');
+          pushLog('success', 'WebDAV 同步完成', '已完成服务端合并');
         }
       }
     } catch (error) {
@@ -5265,7 +5301,7 @@ export default function Home() {
                   <div className="space-y-3">
                     <div className="text-[11px] sm:text-xs text-[#999999] uppercase">WebDAV 同步（云端搬运工）</div>
                     <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      已切换为“服务端异步队列”，所有同步请求都会排队串行执行，避免多端并发覆盖。
+                      已切换为“服务端异步队列”，同步时会先拉取远端数据并与本地缓存合并，再上传，避免多端并发覆盖。
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -5310,6 +5346,17 @@ export default function Home() {
                         placeholder={DEFAULT_WEBDAV_PATH}
                         className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">同步命名空间</label>
+                      <input
+                        type="text"
+                        value={syncNamespace}
+                        onChange={(e) => setSyncNamespace(e.target.value)}
+                        placeholder={DEFAULT_SYNC_NAMESPACE}
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                      <p className="text-[11px] sm:text-xs text-[#555555] mt-1">多端使用同一命名空间即可同步同一份数据。</p>
                     </div>
                     <div>
                       <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
@@ -5426,6 +5473,7 @@ export default function Home() {
                       redisPort,
                       redisDb,
                       redisPassword,
+                      syncNamespace,
                       calendarSubscription,
                     });
                     setShowSettings(false);

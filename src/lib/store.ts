@@ -51,6 +51,7 @@ export interface Countdown {
 }
 
 type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns';
+const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 
 const safelyRead = <T>(key: StoreKey, fallback: T): T => {
   if (typeof window === 'undefined') return fallback;
@@ -69,6 +70,7 @@ const safelyWrite = (key: StoreKey, value: unknown) => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
   } catch (error) {
     console.error(`Failed to write ${key}`, error);
   }
