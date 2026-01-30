@@ -1907,6 +1907,12 @@ export default function Home() {
     setHabits(next);
   };
 
+  const removeHabit = (habitId: string) => {
+    habitStore.remove(habitId);
+    const next = habits.filter((habit) => habit.id !== habitId);
+    setHabits(next);
+  };
+
   const getHabitStreak = (habit: Habit) => {
     const logSet = new Set(habit.logs.map((log) => log.date));
     let streak = 0;
@@ -4553,17 +4559,25 @@ export default function Home() {
                               <p className="text-xs text-[#666666] mt-1">连续 {streak} 天</p>
                             </div>
                           </div>
-                          <button
-                            onClick={() => toggleHabitToday(habit.id)}
-                            disabled={hasToday}
-                            className={`w-full sm:w-auto px-3 py-2 text-sm rounded-lg border transition-colors ${
-                              hasToday
-                                ? 'border-[#444444] text-[#777777] bg-[#2A2A2A]'
-                                : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            {hasToday ? '已打卡' : '今日打卡'}
-                          </button>
+                          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <button
+                              onClick={() => toggleHabitToday(habit.id)}
+                              disabled={hasToday}
+                              className={`w-full sm:w-auto px-3 py-2 text-sm rounded-lg border transition-colors ${
+                                hasToday
+                                  ? 'border-[#444444] text-[#777777] bg-[#2A2A2A]'
+                                  : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                              }`}
+                            >
+                              {hasToday ? '已打卡' : '今日打卡'}
+                            </button>
+                            <button
+                              onClick={() => removeHabit(habit.id)}
+                              className="w-full sm:w-auto px-3 py-2 text-sm rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10"
+                            >
+                              删除
+                            </button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-7 gap-2 sm:gap-3">
                           {recentDays.map((day) => (
