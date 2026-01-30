@@ -79,6 +79,7 @@ async function appendContextEntry(
   redisConfig: any,
   sessionId: string,
   entry: ContextEntry,
+  retentionDays: number = 1,
 ) {
   if (!sessionId) return;
   const payload = JSON.stringify(entry);
@@ -99,8 +100,14 @@ async function appendContextEntry(
       connectTimeout: 2000,
     });
     const contextKey = `session:${sessionId}:context`;
+    // 计算过期时间（秒），默认1天
+    const ttlSeconds = Math.max(1, Math.min(3, Math.round(retentionDays))) * 24 * 60 * 60;
+    
     await redis.lpush(contextKey, payload);
     await redis.ltrim(contextKey, 0, MAX_CONTEXT_ENTRIES - 1);
+    // 设置过期时间
+    await redis.expire(contextKey, ttlSeconds);
+    
     redis.disconnect();
   } catch (error) {
     console.error('Redis write failed:', error);
@@ -363,7 +370,7 @@ function buildCookingSubtasks(title: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId } = await req.json();
+    const { input, mode, images, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
@@ -449,12 +456,12 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: normalizedInput,
         timestamp: Date.now(),
-      });
+      }, retentionDays);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: JSON.stringify({ tasks: normalizedCategoryTasks }),
         timestamp: Date.now(),
-      });
+      }, retentionDays);
 
       return NextResponse.json({ tasks: normalizedCategoryTasks });
     }
@@ -515,12 +522,12 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: normalizedInput || '[图片]',
         timestamp: Date.now(),
-      });
+      }, retentionDays);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: rawResult?.reply || '已整理成待办清单，点一下即可加入。',
         timestamp: Date.now(),
-      });
+      }, retentionDays);
 
       return NextResponse.json({
         reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
@@ -563,12 +570,12 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: normalizedInput,
         timestamp: Date.now(),
-      });
+      }, retentionDays);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: rawCountdown?.reply || '已识别倒数日内容，点击即可加入。',
         timestamp: Date.now(),
-      });
+      }, retentionDays);
 
       return NextResponse.json({
         reply: typeof rawCountdown?.reply === 'string' && rawCountdown.reply.trim().length > 0
@@ -641,12 +648,12 @@ export async function POST(req: NextRequest) {
       role: 'user',
       content: normalizedInput,
       timestamp: Date.now(),
-    });
+    }, retentionDays);
     await appendContextEntry(redisConfig, sessionId, {
       role: 'assistant',
       content: taskData.title || '已生成任务',
       timestamp: Date.now(),
-    });
+    }, retentionDays);
 
     return NextResponse.json({
       task: {

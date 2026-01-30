@@ -46,6 +46,7 @@ const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 const CALENDAR_SUBSCRIPTION_KEY = 'recall_calendar_subscription';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
+const AI_RETENTION_KEY = 'recall_ai_retention';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -1177,6 +1178,7 @@ export default function Home() {
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [autoSyncInterval, setAutoSyncInterval] = useState(DEFAULT_AUTO_SYNC_INTERVAL_MIN);
   const [countdownDisplayMode, setCountdownDisplayMode] = useState<CountdownDisplayMode>('days');
+  const [aiRetentionDays, setAiRetentionDays] = useState(1);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1344,6 +1346,7 @@ export default function Home() {
     autoSyncEnabled: boolean;
     autoSyncInterval: number;
     countdownDisplayMode: CountdownDisplayMode;
+    aiRetentionDays: number;
     pgHost: string;
     pgPort: string;
     pgDatabase: string;
@@ -1369,6 +1372,7 @@ export default function Home() {
     localStorage.setItem(WEBDAV_AUTO_SYNC_KEY, String(next.autoSyncEnabled));
     localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
     localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
+    localStorage.setItem(AI_RETENTION_KEY, String(next.aiRetentionDays));
     localStorage.setItem(PG_HOST_KEY, next.pgHost);
     localStorage.setItem(PG_PORT_KEY, next.pgPort);
     localStorage.setItem(PG_DATABASE_KEY, next.pgDatabase);
@@ -1574,6 +1578,7 @@ export default function Home() {
       const storedAutoSyncEnabled = localStorage.getItem(WEBDAV_AUTO_SYNC_KEY);
       const storedAutoSyncInterval = localStorage.getItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY);
       const storedCountdownDisplayMode = localStorage.getItem(COUNTDOWN_DISPLAY_MODE_KEY);
+      const storedAiRetentionDays = localStorage.getItem(AI_RETENTION_KEY);
       const storedPgHost = localStorage.getItem(PG_HOST_KEY);
       const storedPgPort = localStorage.getItem(PG_PORT_KEY);
       const storedPgDatabase = localStorage.getItem(PG_DATABASE_KEY);
@@ -1637,6 +1642,12 @@ export default function Home() {
       } else {
         setCountdownDisplayMode('days');
       }
+      if (storedAiRetentionDays) {
+        const parsed = Number(storedAiRetentionDays);
+        if (Number.isFinite(parsed)) {
+          setAiRetentionDays(Math.max(1, Math.min(3, parsed)));
+        }
+      }
 
       const storedTheme = localStorage.getItem('recall_theme');
       if (storedTheme === 'light') {
@@ -1697,31 +1708,90 @@ export default function Home() {
           fetch('/api/countdowns', { headers }),
         ]);
 
+        // 定义简单的合并函数：以 updatedAt 为准，若远程较新则覆盖
+        const mergeData = <T extends { id: string; updatedAt?: string; createdAt?: string }>(local: T[], remote: T[]) => {
+          const map = new Map<string, T>();
+          // 先放入本地数据
+          local.forEach(item => map.set(item.id, item));
+          
+          let hasChange = false;
+          // 合并远程数据
+          remote.forEach(item => {
+            const existing = map.get(item.id);
+            if (!existing) {
+              map.set(item.id, item);
+              hasChange = true;
+            } else {
+              const localTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+              const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+              if (remoteTime > localTime) {
+                map.set(item.id, item);
+                hasChange = true;
+              }
+            }
+          });
+          return { merged: Array.from(map.values()), hasChange };
+        };
+
+        // 处理 Tasks
         if (tasksRes.ok) {
           const remoteTasks = await tasksRes.json();
           if (Array.isArray(remoteTasks)) {
-            taskStore.replaceAll(remoteTasks);
-            setTasks(remoteTasks);
+            const localTasks = taskStore.getAll();
+            if (remoteTasks.length === 0 && localTasks.length > 0) {
+              // 场景：PG 为空，本地有数据 -> 触发初次上传
+              pushLog('info', 'PG 数据库为空', '正在上传本地数据...');
+              // 异步逐个上传，避免阻塞 UI
+              Promise.all(localTasks.map(t => 
+                fetch('/api/tasks', { method: 'POST', headers, body: JSON.stringify(t) })
+              )).then(() => pushLog('success', '本地数据已上传至 PG')).catch(e => pushLog('error', '上传失败', String(e)));
+            } else {
+              const { merged, hasChange } = mergeData(localTasks, remoteTasks);
+              if (hasChange || localTasks.length !== merged.length) {
+                taskStore.replaceAll(merged);
+                setTasks(merged);
+              }
+            }
           }
         }
+
+        // 处理 Habits
         if (habitsRes.ok) {
           const remoteHabits = await habitsRes.json();
           if (Array.isArray(remoteHabits)) {
-            habitStore.replaceAll(remoteHabits);
-            setHabits(remoteHabits);
+            const localHabits = habitStore.getAll();
+            if (remoteHabits.length === 0 && localHabits.length > 0) {
+              Promise.all(localHabits.map(h => 
+                fetch('/api/habits', { method: 'POST', headers, body: JSON.stringify(h) })
+              ));
+            } else {
+              const { merged } = mergeData(localHabits, remoteHabits);
+              habitStore.replaceAll(merged);
+              setHabits(merged);
+            }
           }
         }
+
+        // 处理 Countdowns
         if (countdownsRes.ok) {
           const remoteCountdowns = await countdownsRes.json();
           if (Array.isArray(remoteCountdowns)) {
-            countdownStore.replaceAll(remoteCountdowns);
-            setCountdowns(remoteCountdowns);
+            const localCountdowns = countdownStore.getAll();
+            if (remoteCountdowns.length === 0 && localCountdowns.length > 0) {
+              Promise.all(localCountdowns.map(c => 
+                fetch('/api/countdowns', { method: 'POST', headers, body: JSON.stringify(c) })
+              ));
+            } else {
+              const { merged } = mergeData(localCountdowns, remoteCountdowns);
+              countdownStore.replaceAll(merged);
+              setCountdowns(merged);
+            }
           }
         }
-        pushLog('success', '已加载 PG 数据', `Host: ${pgHost}`);
+        pushLog('success', '已连接 PG 数据库', `Host: ${pgHost}`);
       } catch (error) {
         console.error('Failed to load from PG', error);
-        pushLog('error', 'PG 数据加载失败', String(error));
+        pushLog('error', 'PG 连接/加载失败', String(error));
       }
     };
 
@@ -2186,6 +2256,7 @@ export default function Home() {
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
           sessionId,
+          retentionDays: aiRetentionDays,
           redisConfig: {
             host: redisHost,
             port: redisPort,
@@ -2317,6 +2388,7 @@ export default function Home() {
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
           sessionId,
+          retentionDays: aiRetentionDays,
           redisConfig: {
             host: redisHost,
             port: redisPort,
@@ -2434,6 +2506,7 @@ export default function Home() {
       autoSyncEnabled,
       autoSyncInterval,
       countdownDisplayMode,
+      aiRetentionDays,
       pgHost,
       pgPort,
       pgDatabase,
@@ -2464,6 +2537,7 @@ export default function Home() {
     const nextAutoSyncEnabled = settings.autoSyncEnabled === true;
     const nextAutoSyncInterval = Number(settings.autoSyncInterval) || DEFAULT_AUTO_SYNC_INTERVAL_MIN;
     const nextCountdownDisplayMode = settings.countdownDisplayMode === 'date' ? 'date' : 'days';
+    const nextAiRetentionDays = Math.max(1, Math.min(3, Number(settings.aiRetentionDays) || 1));
 
     setApiBaseUrl(nextApiBaseUrl);
     setModelListText(nextModelListText);
@@ -2473,6 +2547,7 @@ export default function Home() {
     setAutoSyncEnabled(nextAutoSyncEnabled);
     setAutoSyncInterval(nextAutoSyncInterval);
     setCountdownDisplayMode(nextCountdownDisplayMode);
+    setAiRetentionDays(nextAiRetentionDays);
 
     const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : apiKey;
     const nextPgHost = typeof settings.pgHost === 'string' ? settings.pgHost : pgHost;
@@ -2518,6 +2593,7 @@ export default function Home() {
       autoSyncEnabled: nextAutoSyncEnabled,
       autoSyncInterval: nextAutoSyncInterval,
       countdownDisplayMode: nextCountdownDisplayMode,
+      aiRetentionDays: nextAiRetentionDays,
       pgHost: nextPgHost,
       pgPort: nextPgPort,
       pgDatabase: nextPgDatabase,
@@ -4399,7 +4475,23 @@ export default function Home() {
                     <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手（记性外包处）</h3>
                       <p className="text-xs text-[#666666] mt-1">一句话识别重要日期，我来帮你记</p>
                     </div>
-                    <span className="text-[11px] text-[#555555]">countdown-agent</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[11px] text-[#555555]">countdown-agent</span>
+                      {redisHost && (
+                        <div className="flex items-center gap-1 text-[10px] text-[#666666]">
+                          <span>记忆:</span>
+                          <select
+                            value={aiRetentionDays}
+                            onChange={(e) => setAiRetentionDays(Number(e.target.value))}
+                            className="bg-[#1A1A1A] border border-[#333333] rounded px-1 py-0.5 focus:outline-none"
+                          >
+                            <option value={1}>1天</option>
+                            <option value={2}>2天</option>
+                            <option value={3}>3天</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-3 space-y-3">
                     <div className="rounded-xl border border-dashed border-[#333333] bg-[#1B1B1B] px-3 py-2 text-xs text-[#777777]">
@@ -4578,25 +4670,41 @@ export default function Home() {
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <span className="text-[11px] text-[#555555]">todo-agent</span>
-                      <div className="flex items-center gap-1">
-                        <select
-                          value={chatModel}
-                          onChange={(e) => setChatModel(e.target.value)}
-                          className="bg-[#1A1A1A] border border-[#333333] rounded px-1.5 py-0.5 text-[10px] text-[#CCCCCC] focus:outline-none max-w-[100px] truncate"
-                          title="切换模型"
-                        >
-                          {parseModelList(modelListText).map((model) => (
-                            <option key={model} value={model}>{model}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={fetchModelList}
-                          disabled={isFetchingModels}
-                          className="p-1 rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
-                          title="拉取模型列表"
-                        >
-                          <Cloud className={`w-3 h-3 ${isFetchingModels ? 'animate-bounce' : ''}`} />
-                        </button>
+                      <div className="flex items-center gap-2">
+                        {redisHost && (
+                          <div className="flex items-center gap-1 text-[10px] text-[#666666]">
+                            <span>记忆:</span>
+                            <select
+                              value={aiRetentionDays}
+                              onChange={(e) => setAiRetentionDays(Number(e.target.value))}
+                              className="bg-[#1A1A1A] border border-[#333333] rounded px-1 py-0.5 focus:outline-none"
+                            >
+                              <option value={1}>1天</option>
+                              <option value={2}>2天</option>
+                              <option value={3}>3天</option>
+                            </select>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={chatModel}
+                            onChange={(e) => setChatModel(e.target.value)}
+                            className="bg-[#1A1A1A] border border-[#333333] rounded px-1.5 py-0.5 text-[10px] text-[#CCCCCC] focus:outline-none max-w-[100px] truncate"
+                            title="切换模型"
+                          >
+                            {parseModelList(modelListText).map((model) => (
+                              <option key={model} value={model}>{model}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={fetchModelList}
+                            disabled={isFetchingModels}
+                            className="p-1 rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
+                            title="拉取模型列表"
+                          >
+                            <Cloud className={`w-3 h-3 ${isFetchingModels ? 'animate-bounce' : ''}`} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -5697,6 +5805,7 @@ ${data.details || ''}`);
                       autoSyncEnabled,
                       autoSyncInterval,
                       countdownDisplayMode,
+                      aiRetentionDays,
                       pgHost,
                       pgPort,
                       pgDatabase,

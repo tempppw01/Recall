@@ -85,9 +85,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
     if (job.status === 'pending' || job.status === 'processing') {
-      processSyncQueue(job.syncKey, resolvedRedis).catch((error) => {
+      // 在 Serverless 环境中必须 await 执行，否则进程冻结会导致任务挂起
+      try {
+        await processSyncQueue(job.syncKey, resolvedRedis);
+        // 重新获取最新状态
+        const updatedJob = await fetchSyncJob(resolvedRedis, jobId);
+        if (updatedJob) {
+          return NextResponse.json({
+            ok: true,
+            status: updatedJob.status,
+            result: updatedJob.result,
+            error: updatedJob.error,
+          });
+        }
+      } catch (error) {
         console.error('Redis sync queue error', error);
-      });
+      }
     }
     return NextResponse.json({
       ok: true,
