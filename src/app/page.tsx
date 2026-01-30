@@ -2216,14 +2216,15 @@ export default function Home() {
       console.error(error);
       const message = (error as any)?.message || 'AI 助手无响应，请稍后重试';
       setAgentError(message);
-      setAgentMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: '我这边没连上服务，稍后再试试？' },
-      ]);
+      // 不要添加 assistant 消息，而是让错误提示显示出来
       pushLog('error', 'todo-agent 请求失败', String(message));
     } finally {
-      setAgentInput('');
-      setAgentImages([]);
+      // 保持 input 不变以便重试，或者清空？用户通常希望保留以便修改
+      // 这里我们不清空 agentInput 如果失败了
+      if (!agentError) {
+        setAgentInput('');
+        setAgentImages([]);
+      }
       setAgentLoading(false);
     }
   };
@@ -2996,6 +2997,10 @@ export default function Home() {
     };
     taskStore.add(task);
     refreshTasks();
+    
+    // 异步同步到 PG
+    syncToPg('tasks', 'POST', task);
+
     setInput('');
   };
 
@@ -3073,12 +3078,46 @@ export default function Home() {
     }
   };
 
+  const syncToPg = async (type: 'tasks' | 'habits' | 'countdowns', method: 'POST' | 'PUT' | 'DELETE', data: any) => {
+    if (!pgHost) return;
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-pg-host': pgHost,
+        'x-pg-port': pgPort || '5432',
+        'x-pg-database': pgDatabase,
+        'x-pg-username': pgUsername,
+        'x-pg-password': pgPassword,
+      };
+      
+      // 构建 URL，如果是 PUT/DELETE 可能需要 ID
+      let url = `/api/${type}`;
+      if ((method === 'PUT' || method === 'DELETE') && data.id) {
+        url = `/api/${type}/${data.id}`;
+      }
+
+      await fetch(url, {
+        method,
+        headers,
+        body: method !== 'DELETE' ? JSON.stringify(data) : undefined,
+      });
+    } catch (error) {
+      console.error(`Failed to sync ${type} to PG`, error);
+      pushLog('error', 'PG 同步失败', String(error));
+    }
+  };
+
   const updateTask = (updatedTask: Task) => {
     const now = new Date().toISOString();
-    taskStore.update({ ...updatedTask, updatedAt: now });
+    const nextTask = { ...updatedTask, updatedAt: now };
+    taskStore.update(nextTask);
     refreshTasks();
+    
+    // 异步同步到 PG
+    syncToPg('tasks', 'PUT', nextTask);
+
     if (selectedTask?.id === updatedTask.id) {
-      setSelectedTask({ ...updatedTask, updatedAt: now });
+      setSelectedTask(nextTask);
     }
     if (editingTaskId === updatedTask.id) {
       setEditingTaskId(null);
@@ -3115,6 +3154,10 @@ export default function Home() {
   const removeTask = (taskId: string) => {
     taskStore.remove(taskId);
     refreshTasks();
+    
+    // 异步同步到 PG
+    syncToPg('tasks', 'DELETE', { id: taskId });
+
     if (selectedTask?.id === taskId) {
       setSelectedTask(null);
     }
@@ -4379,7 +4422,16 @@ export default function Home() {
                       )}
                     </div>
                     {countdownAgentError && (
-                      <div className="text-xs text-red-300">{countdownAgentError}</div>
+                      <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
+                        <span>{countdownAgentError}</span>
+                        <button
+                          onClick={handleCountdownAgentSend}
+                          disabled={countdownAgentLoading}
+                          className="text-red-200 underline hover:text-white"
+                        >
+                          重试
+                        </button>
+                      </div>
                     )}
                     <div className="flex items-center gap-2">
                       <input
@@ -4566,6 +4618,18 @@ export default function Home() {
                             {message.content}
                           </div>
                         ))
+                      )}
+                      {agentError && (
+                        <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
+                          <span>{agentError}</span>
+                          <button
+                            onClick={handleAgentSend}
+                            disabled={agentLoading}
+                            className="text-red-200 underline hover:text-white"
+                          >
+                            重试
+                          </button>
+                        </div>
                       )}
                     </div>
                     {agentImages.length > 0 && (

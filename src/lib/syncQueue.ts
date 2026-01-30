@@ -45,7 +45,8 @@ const getRedis = (config: RedisConfig) =>
     port: Number(config.port) || 6379,
     password: config.password || undefined,
     db: Number(config.db) || 0,
-    connectTimeout: 2000,
+    connectTimeout: 10000, // 增加超时时间到 10s
+    retryStrategy: (times) => Math.min(times * 50, 2000),
   });
 
 const saveJob = async (redis: Redis, job: SyncJobRecord) => {
