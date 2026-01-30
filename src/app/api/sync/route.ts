@@ -49,11 +49,8 @@ export async function POST(request: NextRequest) {
 
     await enqueueSyncJob(resolvedRedis, job);
 
-    processSyncQueue(syncKey, resolvedRedis).catch((error) => {
-      console.error('Redis sync queue error', error);
-    });
-
-    return NextResponse.json({ ok: true, jobId, status: job.status });
+    // 异步队列模式：仅入队，处理由轮询 GET 触发，避免多端并发时抢占
+    return NextResponse.json({ ok: true, jobId: job.id, status: job.status }, { status: 202 });
   } catch (error) {
     console.error('Redis sync error', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

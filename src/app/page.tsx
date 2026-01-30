@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, TouchEvent as ReactTouchEvent } from 'react';
-import { taskStore, habitStore, countdownStore, Task, Subtask, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
+import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
-import MysqlSettings from '@/app/components/MysqlSettings';
+import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
 import {
   Command, Send, Plus,
@@ -11,7 +11,7 @@ import {
   Menu, X, CheckCircle2, Circle,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
   CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings, Cloud
-  , ImagePlus, Monitor
+  , ImagePlus, Monitor, Paperclip, Upload
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -32,11 +32,11 @@ const WEBDAV_USERNAME_KEY = 'recall_webdav_username';
 const WEBDAV_PASSWORD_KEY = 'recall_webdav_password';
 const WEBDAV_AUTO_SYNC_KEY = 'recall_webdav_auto_sync';
 const WEBDAV_AUTO_SYNC_INTERVAL_KEY = 'recall_webdav_auto_sync_interval';
-const MYSQL_HOST_KEY = 'recall_mysql_host';
-const MYSQL_PORT_KEY = 'recall_mysql_port';
-const MYSQL_DATABASE_KEY = 'recall_mysql_database';
-const MYSQL_USERNAME_KEY = 'recall_mysql_username';
-const MYSQL_PASSWORD_KEY = 'recall_mysql_password';
+const PG_HOST_KEY = 'recall_pg_host';
+const PG_PORT_KEY = 'recall_pg_port';
+const PG_DATABASE_KEY = 'recall_pg_database';
+const PG_USERNAME_KEY = 'recall_pg_username';
+const PG_PASSWORD_KEY = 'recall_pg_password';
 const REDIS_HOST_KEY = 'recall_redis_host';
 const REDIS_PORT_KEY = 'recall_redis_port';
 const REDIS_DB_KEY = 'recall_redis_db';
@@ -1162,11 +1162,12 @@ export default function Home() {
   const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
   const [webdavUsername, setWebdavUsername] = useState('');
   const [webdavPassword, setWebdavPassword] = useState('');
-  const [mysqlHost, setMysqlHost] = useState('');
-  const [mysqlPort, setMysqlPort] = useState('');
-  const [mysqlDatabase, setMysqlDatabase] = useState('');
-  const [mysqlUsername, setMysqlUsername] = useState('');
-  const [mysqlPassword, setMysqlPassword] = useState('');
+  const [pgHost, setPgHost] = useState('');
+  const [pgPort, setPgPort] = useState('');
+  const [pgDatabase, setPgDatabase] = useState('');
+  const [pgUsername, setPgUsername] = useState('');
+  const [pgPassword, setPgPassword] = useState('');
+  const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [redisHost, setRedisHost] = useState('');
   const [redisPort, setRedisPort] = useState(String(DEFAULT_REDIS_PORT));
   const [redisDb, setRedisDb] = useState(String(DEFAULT_REDIS_DB));
@@ -1207,6 +1208,8 @@ export default function Home() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newTagInput, setNewTagInput] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [listItems, setListItems] = useState<string[]>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState('');
@@ -1341,11 +1344,11 @@ export default function Home() {
     autoSyncEnabled: boolean;
     autoSyncInterval: number;
     countdownDisplayMode: CountdownDisplayMode;
-    mysqlHost: string;
-    mysqlPort: string;
-    mysqlDatabase: string;
-    mysqlUsername: string;
-    mysqlPassword: string;
+    pgHost: string;
+    pgPort: string;
+    pgDatabase: string;
+    pgUsername: string;
+    pgPassword: string;
     redisHost: string;
     redisPort: string;
     redisDb: string;
@@ -1366,11 +1369,11 @@ export default function Home() {
     localStorage.setItem(WEBDAV_AUTO_SYNC_KEY, String(next.autoSyncEnabled));
     localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
     localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
-    localStorage.setItem(MYSQL_HOST_KEY, next.mysqlHost);
-    localStorage.setItem(MYSQL_PORT_KEY, next.mysqlPort);
-    localStorage.setItem(MYSQL_DATABASE_KEY, next.mysqlDatabase);
-    localStorage.setItem(MYSQL_USERNAME_KEY, next.mysqlUsername);
-    localStorage.setItem(MYSQL_PASSWORD_KEY, next.mysqlPassword);
+    localStorage.setItem(PG_HOST_KEY, next.pgHost);
+    localStorage.setItem(PG_PORT_KEY, next.pgPort);
+    localStorage.setItem(PG_DATABASE_KEY, next.pgDatabase);
+    localStorage.setItem(PG_USERNAME_KEY, next.pgUsername);
+    localStorage.setItem(PG_PASSWORD_KEY, next.pgPassword);
     localStorage.setItem(REDIS_HOST_KEY, next.redisHost);
     localStorage.setItem(REDIS_PORT_KEY, next.redisPort);
     localStorage.setItem(REDIS_DB_KEY, next.redisDb);
@@ -1531,11 +1534,11 @@ export default function Home() {
             WEBDAV_AUTO_SYNC_KEY,
             WEBDAV_AUTO_SYNC_INTERVAL_KEY,
             COUNTDOWN_DISPLAY_MODE_KEY,
-            MYSQL_HOST_KEY,
-            MYSQL_PORT_KEY,
-            MYSQL_DATABASE_KEY,
-            MYSQL_USERNAME_KEY,
-            MYSQL_PASSWORD_KEY,
+            PG_HOST_KEY,
+            PG_PORT_KEY,
+            PG_DATABASE_KEY,
+            PG_USERNAME_KEY,
+            PG_PASSWORD_KEY,
             REDIS_HOST_KEY,
             REDIS_PORT_KEY,
             REDIS_DB_KEY,
@@ -1571,11 +1574,11 @@ export default function Home() {
       const storedAutoSyncEnabled = localStorage.getItem(WEBDAV_AUTO_SYNC_KEY);
       const storedAutoSyncInterval = localStorage.getItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY);
       const storedCountdownDisplayMode = localStorage.getItem(COUNTDOWN_DISPLAY_MODE_KEY);
-      const storedMysqlHost = localStorage.getItem(MYSQL_HOST_KEY);
-      const storedMysqlPort = localStorage.getItem(MYSQL_PORT_KEY);
-      const storedMysqlDatabase = localStorage.getItem(MYSQL_DATABASE_KEY);
-      const storedMysqlUsername = localStorage.getItem(MYSQL_USERNAME_KEY);
-      const storedMysqlPassword = localStorage.getItem(MYSQL_PASSWORD_KEY);
+      const storedPgHost = localStorage.getItem(PG_HOST_KEY);
+      const storedPgPort = localStorage.getItem(PG_PORT_KEY);
+      const storedPgDatabase = localStorage.getItem(PG_DATABASE_KEY);
+      const storedPgUsername = localStorage.getItem(PG_USERNAME_KEY);
+      const storedPgPassword = localStorage.getItem(PG_PASSWORD_KEY);
       const storedRedisHost = localStorage.getItem(REDIS_HOST_KEY);
       const storedRedisPort = localStorage.getItem(REDIS_PORT_KEY);
       const storedRedisDb = localStorage.getItem(REDIS_DB_KEY);
@@ -1618,11 +1621,11 @@ export default function Home() {
           setAutoSyncInterval(parsedInterval);
         }
       }
-      if (storedMysqlHost) setMysqlHost(storedMysqlHost);
-      if (storedMysqlPort) setMysqlPort(storedMysqlPort);
-      if (storedMysqlDatabase) setMysqlDatabase(storedMysqlDatabase);
-      if (storedMysqlUsername) setMysqlUsername(storedMysqlUsername);
-      if (storedMysqlPassword) setMysqlPassword(storedMysqlPassword);
+      if (storedPgHost) setPgHost(storedPgHost);
+      if (storedPgPort) setPgPort(storedPgPort);
+      if (storedPgDatabase) setPgDatabase(storedPgDatabase);
+      if (storedPgUsername) setPgUsername(storedPgUsername);
+      if (storedPgPassword) setPgPassword(storedPgPassword);
       if (storedRedisHost) setRedisHost(storedRedisHost);
       if (storedRedisPort) setRedisPort(storedRedisPort);
       if (storedRedisDb) setRedisDb(storedRedisDb);
@@ -1674,9 +1677,60 @@ export default function Home() {
     }
   }, [apiKey, settingsLoaded]);
 
+  // PG 数据加载逻辑
   useEffect(() => {
-    pushLog('info', '应用已启动', '数据存储：浏览器 localStorage');
-  }, []);
+    if (!pgHost || !settingsLoaded) return;
+    
+    const loadFromPg = async () => {
+      try {
+        const headers = {
+          'x-pg-host': pgHost,
+          'x-pg-port': pgPort || '5432',
+          'x-pg-database': pgDatabase,
+          'x-pg-username': pgUsername,
+          'x-pg-password': pgPassword,
+        };
+        
+        const [tasksRes, habitsRes, countdownsRes] = await Promise.all([
+          fetch('/api/tasks', { headers }),
+          fetch('/api/habits', { headers }),
+          fetch('/api/countdowns', { headers }),
+        ]);
+
+        if (tasksRes.ok) {
+          const remoteTasks = await tasksRes.json();
+          if (Array.isArray(remoteTasks)) {
+            taskStore.replaceAll(remoteTasks);
+            setTasks(remoteTasks);
+          }
+        }
+        if (habitsRes.ok) {
+          const remoteHabits = await habitsRes.json();
+          if (Array.isArray(remoteHabits)) {
+            habitStore.replaceAll(remoteHabits);
+            setHabits(remoteHabits);
+          }
+        }
+        if (countdownsRes.ok) {
+          const remoteCountdowns = await countdownsRes.json();
+          if (Array.isArray(remoteCountdowns)) {
+            countdownStore.replaceAll(remoteCountdowns);
+            setCountdowns(remoteCountdowns);
+          }
+        }
+        pushLog('success', '已加载 PG 数据', `Host: ${pgHost}`);
+      } catch (error) {
+        console.error('Failed to load from PG', error);
+        pushLog('error', 'PG 数据加载失败', String(error));
+      }
+    };
+
+    loadFromPg();
+  }, [pgHost, pgPort, pgDatabase, pgUsername, pgPassword, settingsLoaded]);
+
+  useEffect(() => {
+    pushLog('info', '应用已启动', pgHost ? `数据存储：PG (${pgHost})` : '数据存储：浏览器 localStorage');
+  }, [pgHost]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2375,16 +2429,14 @@ export default function Home() {
       chatModel,
       fallbackTimeoutSec,
       wallpaperUrl,
-      webdavUrl,
-      webdavPath,
       syncNamespace,
       autoSyncEnabled,
       autoSyncInterval,
       countdownDisplayMode,
-      mysqlHost,
-      mysqlPort,
-      mysqlDatabase,
-      mysqlUsername,
+      pgHost,
+      pgPort,
+      pgDatabase,
+      pgUsername,
       redisHost,
       redisPort,
       redisDb,
@@ -2392,9 +2444,7 @@ export default function Home() {
     },
     secrets: {
       apiKey,
-      webdavUsername,
-      webdavPassword,
-      mysqlPassword,
+      pgPassword,
       redisPassword,
     },
   });
@@ -2423,20 +2473,12 @@ export default function Home() {
     setAutoSyncInterval(nextAutoSyncInterval);
     setCountdownDisplayMode(nextCountdownDisplayMode);
 
-    const nextWebdavUrl = typeof settings.webdavUrl === 'string' && settings.webdavUrl.trim().length > 0
-      ? settings.webdavUrl
-      : webdavUrl;
-    const nextWebdavPath = typeof settings.webdavPath === 'string' && settings.webdavPath.trim().length > 0
-      ? settings.webdavPath
-      : webdavPath;
     const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : apiKey;
-    const nextWebdavUsername = typeof secrets.webdavUsername === 'string' ? secrets.webdavUsername : webdavUsername;
-    const nextWebdavPassword = typeof secrets.webdavPassword === 'string' ? secrets.webdavPassword : webdavPassword;
-    const nextMysqlHost = typeof settings.mysqlHost === 'string' ? settings.mysqlHost : mysqlHost;
-    const nextMysqlPort = typeof settings.mysqlPort === 'string' ? settings.mysqlPort : mysqlPort;
-    const nextMysqlDatabase = typeof settings.mysqlDatabase === 'string' ? settings.mysqlDatabase : mysqlDatabase;
-    const nextMysqlUsername = typeof settings.mysqlUsername === 'string' ? settings.mysqlUsername : mysqlUsername;
-    const nextMysqlPassword = typeof secrets.mysqlPassword === 'string' ? secrets.mysqlPassword : mysqlPassword;
+    const nextPgHost = typeof settings.pgHost === 'string' ? settings.pgHost : pgHost;
+    const nextPgPort = typeof settings.pgPort === 'string' ? settings.pgPort : pgPort;
+    const nextPgDatabase = typeof settings.pgDatabase === 'string' ? settings.pgDatabase : pgDatabase;
+    const nextPgUsername = typeof settings.pgUsername === 'string' ? settings.pgUsername : pgUsername;
+    const nextPgPassword = typeof secrets.pgPassword === 'string' ? secrets.pgPassword : pgPassword;
     const nextRedisHost = typeof settings.redisHost === 'string' ? settings.redisHost : redisHost;
     const nextRedisPort = typeof settings.redisPort === 'string' ? settings.redisPort : redisPort;
     const nextRedisDb = typeof settings.redisDb === 'string' ? settings.redisDb : redisDb;
@@ -2449,15 +2491,11 @@ export default function Home() {
       : syncNamespace;
 
     setApiKey(nextApiKey);
-    setWebdavUrl(nextWebdavUrl);
-    setWebdavPath(nextWebdavPath);
-    setWebdavUsername(nextWebdavUsername);
-    setWebdavPassword(nextWebdavPassword);
-    setMysqlHost(nextMysqlHost);
-    setMysqlPort(nextMysqlPort);
-    setMysqlDatabase(nextMysqlDatabase);
-    setMysqlUsername(nextMysqlUsername);
-    setMysqlPassword(nextMysqlPassword);
+    setPgHost(nextPgHost);
+    setPgPort(nextPgPort);
+    setPgDatabase(nextPgDatabase);
+    setPgUsername(nextPgUsername);
+    setPgPassword(nextPgPassword);
     setRedisHost(nextRedisHost);
     setRedisPort(nextRedisPort);
     setRedisDb(nextRedisDb);
@@ -2475,18 +2513,18 @@ export default function Home() {
       chatModel: nextChatModel,
       fallbackTimeoutSec: nextFallback,
       wallpaperUrl: nextWallpaper,
-      webdavUrl: nextWebdavUrl,
-      webdavPath: nextWebdavPath,
-      webdavUsername: nextWebdavUsername,
-      webdavPassword: nextWebdavPassword,
+      webdavUrl,
+      webdavPath,
+      webdavUsername,
+      webdavPassword,
       autoSyncEnabled: nextAutoSyncEnabled,
       autoSyncInterval: nextAutoSyncInterval,
       countdownDisplayMode: nextCountdownDisplayMode,
-      mysqlHost: nextMysqlHost,
-      mysqlPort: nextMysqlPort,
-      mysqlDatabase: nextMysqlDatabase,
-      mysqlUsername: nextMysqlUsername,
-      mysqlPassword: nextMysqlPassword,
+      pgHost: nextPgHost,
+      pgPort: nextPgPort,
+      pgDatabase: nextPgDatabase,
+      pgUsername: nextPgUsername,
+      pgPassword: nextPgPassword,
       redisHost: nextRedisHost,
       redisPort: nextRedisPort,
       redisDb: nextRedisDb,
@@ -2498,9 +2536,9 @@ export default function Home() {
 
   const handleWebdavSync = async (action: 'push' | 'pull' | 'sync', options?: { silent?: boolean }) => {
     if (syncStatus === 'syncing') return;
-    if (!webdavUrl || !webdavUsername || !webdavPassword) {
+    if (!redisHost) {
       if (!options?.silent) {
-        pushLog('warning', 'WebDAV 配置不完整', '请填写地址、用户名和密码');
+        pushLog('warning', 'Redis 配置不完整', '请填写 Redis Host 以开启云同步');
         setShowSettings(true);
       }
       return;
@@ -2509,7 +2547,7 @@ export default function Home() {
     setSyncStatus('syncing');
     setIsSyncingNow(true);
     if (!options?.silent) {
-      const label = action === 'push' ? 'WebDAV 上传中' : action === 'pull' ? 'WebDAV 同步中' : 'WebDAV 双向同步中';
+      const label = action === 'push' ? '云同步上传中' : action === 'pull' ? '云同步拉取中' : '云同步合并中';
       pushLog('info', label);
     }
 
@@ -2521,10 +2559,6 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: requestAction,
-            url: webdavUrl,
-            username: webdavUsername,
-            password: webdavPassword,
-            path: webdavPath,
             namespace: syncNamespace,
             redisConfig: {
               host: redisHost,
@@ -2539,10 +2573,10 @@ export default function Home() {
         });
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data?.error || 'WebDAV sync failed');
+          throw new Error(data?.error || '云同步失败');
         }
         if (!data?.jobId) {
-          throw new Error('WebDAV sync job missing');
+          throw new Error('同步任务缺失');
         }
         const result = await pollSyncJob(data.jobId);
         return { ok: true, result };
@@ -2555,15 +2589,15 @@ export default function Home() {
           applyImportedData(remotePayload, 'merge');
           applySyncedSettings(remotePayload);
           if (!options?.silent) {
-            pushLog('success', 'WebDAV 同步完成', `导入任务 ${remotePayload?.data?.tasks?.length ?? 0} 条`);
+            pushLog('success', '云同步完成', `导入任务 ${remotePayload?.data?.tasks?.length ?? 0} 条`);
           }
         } else if (!options?.silent) {
-          pushLog('warning', 'WebDAV 同步失败', '未读取到远端数据');
+          pushLog('warning', '云同步失败', '未读取到远端数据');
         }
       } else if (action === 'push') {
         await executeRequest('push');
         if (!options?.silent) {
-          pushLog('success', 'WebDAV 上传完成');
+          pushLog('success', '云同步上传完成');
         }
       } else {
         const data = await executeRequest('sync');
@@ -2581,16 +2615,16 @@ export default function Home() {
             }
           }
         } else if (!options?.silent) {
-          pushLog('warning', 'WebDAV 同步失败', '未读取到远端数据');
+          pushLog('warning', '云同步失败', '未读取到远端数据');
         }
         if (!options?.silent) {
-          pushLog('success', 'WebDAV 同步完成', '已完成服务端合并');
+          pushLog('success', '云同步完成', '已完成服务端合并');
         }
       }
     } catch (error) {
       console.error(error);
       if (!options?.silent) {
-        pushLog('error', 'WebDAV 同步失败', String((error as Error)?.message || error));
+        pushLog('error', '云同步失败', String((error as Error)?.message || error));
       }
     } finally {
       setSyncStatus('idle');
@@ -2601,13 +2635,13 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!autoSyncEnabled) return;
-    if (!webdavUrl || !webdavUsername || !webdavPassword) return;
+    if (!redisHost) return;
     const intervalMs = Math.max(1, autoSyncInterval) * 60 * 1000;
     const timer = window.setInterval(() => {
       handleWebdavSync('sync', { silent: true });
     }, intervalMs);
     return () => window.clearInterval(timer);
-  }, [autoSyncEnabled, autoSyncInterval, webdavUrl, webdavUsername, webdavPassword]);
+  }, [autoSyncEnabled, autoSyncInterval, redisHost]);
 
   const triggerDownload = (filename: string, content: string) => {
     if (typeof window === 'undefined') return;
@@ -3264,6 +3298,61 @@ export default function Home() {
     updateTask({ ...selectedTask, repeat: rule.type === 'none' ? undefined : rule, updatedAt: new Date().toISOString() });
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedTask || !event.target.files?.length) return;
+    const file = event.target.files[0];
+    
+    if (!webdavUrl || !webdavUsername || !webdavPassword) {
+      alert('请先在设置中配置 WebDAV 信息');
+      return;
+    }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('webdavUrl', webdavUrl);
+    formData.append('username', webdavUsername);
+    formData.append('password', webdavPassword);
+
+    try {
+      const res = await fetch('/api/attachments', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || '上传失败');
+      }
+
+      const attachment: Attachment = {
+        id: createId(),
+        url: data.url,
+        filename: data.filename,
+        size: data.size,
+        type: data.type,
+        createdAt: new Date().toISOString(),
+      };
+
+      const nextAttachments = [...(selectedTask.attachments || []), attachment];
+      updateTask({ ...selectedTask, attachments: nextAttachments, updatedAt: new Date().toISOString() });
+      pushLog('success', '附件上传成功', file.name);
+    } catch (error) {
+      console.error(error);
+      alert(`上传失败: ${(error as Error).message}`);
+      pushLog('error', '附件上传失败', String(error));
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (attachmentId: string) => {
+    if (!selectedTask) return;
+    const nextAttachments = (selectedTask.attachments || []).filter(a => a.id !== attachmentId);
+    updateTask({ ...selectedTask, attachments: nextAttachments, updatedAt: new Date().toISOString() });
+  };
+
   const toggleRepeatWeekday = (weekday: number) => {
     if (!selectedTask) return;
     const current = repeatRule.weekdays ?? [];
@@ -3698,7 +3787,7 @@ export default function Home() {
             <button
               onClick={() => handleWebdavSync('sync')}
               className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
-              title={isSyncingNow ? '同步中…' : 'WebDAV 同步'}
+              title={isSyncingNow ? '同步中…' : '云同步（异步队列）'}
               disabled={isSyncingNow}
             >
               <Cloud className={`w-4 h-4 sm:w-5 sm:h-5 ${isSyncingNow ? 'animate-pulse text-blue-400' : ''}`} />
@@ -4982,6 +5071,62 @@ export default function Home() {
               </div>
 
               <div className="space-y-3">
+                <label className="text-xs font-semibold text-[#555555] uppercase">附件</label>
+                <div className="space-y-2">
+                  {(selectedTask.attachments || []).map((att) => (
+                    <div key={att.id} className="flex items-center justify-between bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <Paperclip className="w-3.5 h-3.5 text-[#666666] shrink-0" />
+                        <a 
+                          href={att.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-400 hover:text-blue-300 truncate"
+                        >
+                          {att.filename}
+                        </a>
+                        <span className="text-[10px] text-[#555555] shrink-0">
+                          ({Math.round(att.size / 1024)}KB)
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => removeAttachment(att.id)}
+                        className="text-[#666666] hover:text-[#CCCCCC]"
+                        title="删除附件"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      disabled={isUploading}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="flex items-center gap-2 px-3 py-2 text-xs bg-[#1F1F1F] border border-[#333333] rounded text-[#CCCCCC] hover:border-[#555555] hover:text-white disabled:opacity-50"
+                    >
+                      {isUploading ? (
+                        <div className="w-3.5 h-3.5 border-2 border-[#555555] border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Upload className="w-3.5 h-3.5" />
+                      )}
+                      {isUploading ? '上传中...' : '上传附件 (WebDAV)'}
+                    </button>
+                    {!webdavUrl && (
+                      <span className="text-[10px] text-yellow-500">需配置 WebDAV</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
                 <label className="text-xs font-semibold text-[#555555] uppercase">重复</label>
                 <div className="grid grid-cols-2 gap-2">
                   {REPEAT_OPTIONS.map((option) => (
@@ -5265,17 +5410,17 @@ export default function Home() {
                   <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
                     用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
                   </div>
-                  <MysqlSettings
-                    host={mysqlHost}
-                    port={mysqlPort}
-                    database={mysqlDatabase}
-                    username={mysqlUsername}
-                    password={mysqlPassword}
-                    onHostChange={setMysqlHost}
-                    onPortChange={setMysqlPort}
-                    onDatabaseChange={setMysqlDatabase}
-                    onUsernameChange={setMysqlUsername}
-                    onPasswordChange={setMysqlPassword}
+                  <PgSettings
+                    host={pgHost}
+                    port={pgPort}
+                    database={pgDatabase}
+                    username={pgUsername}
+                    password={pgPassword}
+                    onHostChange={setPgHost}
+                    onPortChange={setPgPort}
+                    onDatabaseChange={setPgDatabase}
+                    onUsernameChange={setPgUsername}
+                    onPasswordChange={setPgPassword}
                   />
                   <RedisSettings
                     host={redisHost}
@@ -5299,9 +5444,10 @@ export default function Home() {
                     <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
                   </div>
                   <div className="space-y-3">
-                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">WebDAV 同步（云端搬运工）</div>
+                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">云同步（异步队列）</div>
                     <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      已切换为“服务端异步队列”，同步时会先拉取远端数据并与本地缓存合并，再上传，避免多端并发覆盖。
+                      数据同步已改为 Redis 异步队列，服务端负责合并冲突并返回结果，避免多端同时同步不一致。
+                      WebDAV 仅用于附件/文件存储，不参与待办数据同步。
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -5464,11 +5610,11 @@ export default function Home() {
                       autoSyncEnabled,
                       autoSyncInterval,
                       countdownDisplayMode,
-                      mysqlHost,
-                      mysqlPort,
-                      mysqlDatabase,
-                      mysqlUsername,
-                      mysqlPassword,
+                      pgHost,
+                      pgPort,
+                      pgDatabase,
+                      pgUsername,
+                      pgPassword,
                       redisHost,
                       redisPort,
                       redisDb,

@@ -19,6 +19,9 @@ https://recall.shuaihong.fun/
 *   **Recall (语义检索)**: 忘记了具体任务？只需输入 "关于车的事"，系统会通过向量相似度计算，帮您找回相关的任务，哪怕关键词完全不同。
 *   **自动分类 + 智能优先级**: AI 优先判断任务分类与优先级；若结果缺失或无效，系统会根据关键词与截止日期/子任务数量进行规则兜底，确保任务更容易被筛选与排序。
 *   **隐私优先 (Privacy First)**: 采用纯前端存储架构 (MVP)，所有任务数据仅保存在您的浏览器 `LocalStorage` 中，不会上传到任何服务器数据库。
+*   **异步同步 (Redis Queue)**: 云同步改为 Redis 异步队列处理，服务端串行合并，避免多端并发同步造成不一致。
+*   **可选数据库与附件**: PostgreSQL 用于存储任务/习惯/倒数日等数据；WebDAV 仅用于存储待办附件，单文件 ≤ 30MB。
+*   **无配置也能用**: 未配置 Redis/PG/WebDAV 时，应用仍可正常使用（本地 LocalStorage）。
 *   **轻量级部署**: 无需复杂的数据库依赖，一个 Docker 容器即可运行，非常适合低配 VPS 环境。
 
 ## 🧾 更新日志
@@ -55,6 +58,13 @@ https://recall.shuaihong.fun/
 *   **PWA**: Web App Manifest + Service Worker 注册
 *   **Audio**: Web Audio API (番茄时钟滴答音效)
 *   **Deployment**: Docker (Alpine Linux based)
+
+## 🔄 同步与存储说明（重要）
+
+1. **Redis 作为异步同步支持**：同步通过 Redis 异步队列执行，服务端串行合并，避免多端同时同步导致数据不一致。
+2. **PostgreSQL 作为业务数据记录**：用于存储用户的任务/习惯/倒数日等结构化数据（可选）。
+3. **WebDAV 作为附件存储**：仅用于待办清单的附件文件，待办条目拥有附件属性；单文件上传不超过 **30MB**。
+4. **未配置不影响使用**：未在前端设置 Redis / PG / WebDAV 时，应用仍可正常使用（本地 LocalStorage）。
 
 ## 🚀 快速部署 (Docker Compose)
 
@@ -94,8 +104,13 @@ docker-compose up -d
 | `OPENAI_BASE_URL` | OpenAI 接口地址（可选） | `-` | 否 |
 | `EMBEDDING_PROVIDER`| 向量生成提供商 | `openai` | 否 |
 | `PORT` | 容器内部端口 | `3789` | 否 |
+| `REDIS_HOST` | Redis Host（云同步异步队列） | `-` | 否 |
+| `REDIS_PORT` | Redis 端口 | `6379` | 否 |
+| `REDIS_DB` | Redis DB | `0` | 否 |
+| `REDIS_PASSWORD` | Redis 密码 | `-` | 否 |
 
 > **注意**: `OPENAI_API_KEY` 与 `OPENAI_BASE_URL` 都是可选项。不填写时，应用可正常启动，但依赖 AI 的功能会降级为关键词兜底；如需完整体验，请配置可用的服务地址与密钥。
+> **补充**: Redis/PG/WebDAV 均为可选配置，不影响本地单机使用。
 
 ## ❓ 常见问题
 
@@ -103,7 +118,9 @@ docker-compose up -d
    - 复杂或含糊的语句仍可能无法准确识别，建议拆分或补充关键词。
 2. **为什么搜索不可用？**
    - 搜索功能依赖 AI Embedding，目前可能受配置影响或暂未完善。
-3. **是否支持 WebDAV 同步？**
-   - 已支持，可在设置中配置 WebDAV 服务器信息后使用。
-4. **是否支持数据库与登录？**
-   - 目前仅前端存储，后续会接入数据库与登录/加密功能。
+3. **同步机制是什么？**
+   - 同步通过 Redis 异步队列执行，服务端串行处理并合并冲突，避免多端同时同步不一致。
+4. **WebDAV 用在哪里？**
+   - WebDAV 仅用于待办附件存储，单文件不超过 30MB。
+5. **是否支持数据库与登录？**
+   - PostgreSQL 作为可选数据存储（任务/习惯/倒数日），未配置时仍使用前端 LocalStorage。

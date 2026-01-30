@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -81,6 +81,7 @@ model Task {
   sortOrder Int        @default(0)
   tags      Json
   subtasks  Json
+  attachments Json?
   repeat    Json?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
