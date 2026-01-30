@@ -2497,6 +2497,12 @@ export default function Home() {
             username: webdavUsername,
             password: webdavPassword,
             path: webdavPath,
+            redisConfig: {
+              host: redisHost,
+              port: redisPort,
+              db: redisDb,
+              password: redisPassword,
+            },
             ...(requestAction === 'push' ? { payload: buildSyncPayload() } : {}),
           }),
         });
