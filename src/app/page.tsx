@@ -2509,9 +2509,6 @@ export default function Home() {
       modelListText: nextModelListText,
       chatModel: nextChatModel,
       fallbackTimeoutSec: nextFallback,
-      modelListText: nextModelListText,
-      chatModel: nextChatModel,
-      fallbackTimeoutSec: nextFallback,
       wallpaperUrl: nextWallpaper,
       webdavUrl,
       webdavPath,
@@ -5445,18 +5442,6 @@ export default function Home() {
                     onDbChange={setRedisDb}
                     onPasswordChange={setRedisPassword}
                   />
-                  <div>
-                    <label className="block text-[11px] sm:text-xs text-[#999999] uppercase mb-2">第三方日历订阅</label>
-                    <textarea
-                      value={calendarSubscription}
-                      onChange={(e) => setCalendarSubscription(e.target.value)}
-                      placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
-                      rows={3}
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                    <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
-                  </div>
-
                   <div className="space-y-3">
                     <div className="text-[11px] sm:text-xs text-[#999999] uppercase">数据同步 (Redis)</div>
                     <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
@@ -5498,6 +5483,17 @@ export default function Home() {
                       </select>
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-[11px] sm:text-xs text-[#999999] uppercase mb-2">第三方日历订阅</label>
+                    <textarea
+                      value={calendarSubscription}
+                      onChange={(e) => setCalendarSubscription(e.target.value)}
+                      placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
+                      rows={3}
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    />
+                    <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
+                  </div>
 
                   <div className="space-y-3">
                     <div className="text-[11px] sm:text-xs text-[#999999] uppercase">附件存储 (WebDAV)</div>
@@ -5536,6 +5532,7 @@ export default function Home() {
                         />
                       </div>
                     </div>
+                  </div>
                   </div>
                 )}
               </div>
