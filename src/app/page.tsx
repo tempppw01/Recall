@@ -10,7 +10,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   Menu, X, CheckCircle2, Circle,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings, Cloud
+  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings, Cloud, Loader2
   , ImagePlus, Monitor, Paperclip, Upload
 } from 'lucide-react';
 
@@ -3620,6 +3620,11 @@ export default function Home() {
                   active={activeFilter === 'pomodoro'} 
                   onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
                 />
+                <SidebarItem 
+                  icon={CheckCircle2} label="已完成" count={0} 
+                  active={activeFilter === 'completed'} 
+                  onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
+                />
               </div>
             )}
 
@@ -3741,14 +3746,6 @@ export default function Home() {
             )}
           </nav>
 
-          <div className="p-2 border-t border-[#333333] mt-3">
-            <SidebarItem 
-              icon={CheckCircle2} 
-              label="已完成" 
-              onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
-              active={activeFilter === 'completed'} 
-            />
-          </div>
         </div>
         <div className="px-4 py-2 border-t border-[#333333] bg-[#222222]/50">
           <div className="text-[10px] text-[#555555]">v{APP_VERSION}</div>
@@ -3790,7 +3787,11 @@ export default function Home() {
               title={isSyncingNow ? '同步中…' : '云同步（异步队列）'}
               disabled={isSyncingNow}
             >
-              <Cloud className={`w-4 h-4 sm:w-5 sm:h-5 ${isSyncingNow ? 'animate-pulse text-blue-400' : ''}`} />
+              {isSyncingNow ? (
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-blue-400" />
+              ) : (
+                <Cloud className="w-4 h-4 sm:w-5 sm:h-5" />
+              )}
             </button>
             {activeFilter === 'completed' && completedTasks > 0 && (
               <button
@@ -5405,11 +5406,23 @@ export default function Home() {
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">输入 Web 图片链接，保存后全局背景生效（留空可清除）。</p>
               </div>
               <div className="pt-3 border-t border-[#333333]">
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-3 uppercase">API 专用设置组</label>
-                <div className="space-y-4">
-                  <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                    用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => setIsApiSettingsOpen(!isApiSettingsOpen)}
+                  className="w-full flex items-center justify-between text-[11px] sm:text-xs font-medium text-[#888888] mb-3 uppercase hover:text-[#CCCCCC]"
+                >
+                  <span>API 专用设置组</span>
+                  {isApiSettingsOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                {isApiSettingsOpen && (
+                  <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                      用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
+                    </div>
                   <PgSettings
                     host={pgHost}
                     port={pgPort}
@@ -5443,11 +5456,22 @@ export default function Home() {
                     />
                     <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
                   </div>
+
                   <div className="space-y-3">
-                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">云同步（异步队列）</div>
+                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">数据同步 (Redis)</div>
                     <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      数据同步已改为 Redis 异步队列，服务端负责合并冲突并返回结果，避免多端同时同步不一致。
-                      WebDAV 仅用于附件/文件存储，不参与待办数据同步。
+                      使用 Redis 队列同步任务数据（不含附件）。
+                    </div>
+                    <div>
+                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">同步命名空间 (Key Prefix)</label>
+                      <input
+                        type="text"
+                        value={syncNamespace}
+                        onChange={(e) => setSyncNamespace(e.target.value)}
+                        placeholder={DEFAULT_SYNC_NAMESPACE}
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                      <p className="text-[11px] sm:text-xs text-[#555555] mt-1">类似“房间号”，多端填写一致即可同步同一份数据。</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -5473,6 +5497,13 @@ export default function Home() {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">附件存储 (WebDAV)</div>
+                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                      配置 WebDAV 后可上传图片/文件附件。
+                    </div>
                     <div>
                       <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
                       <input
@@ -5483,52 +5514,30 @@ export default function Home() {
                         className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">远端文件路径</label>
-                      <input
-                        type="text"
-                        value={webdavPath}
-                        onChange={(e) => setWebdavPath(e.target.value)}
-                        placeholder={DEFAULT_WEBDAV_PATH}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
+                        <input
+                          type="text"
+                          value={webdavUsername}
+                          onChange={(e) => setWebdavUsername(e.target.value)}
+                          placeholder="用户名"
+                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
+                        <input
+                          type="password"
+                          value={webdavPassword}
+                          onChange={(e) => setWebdavPassword(e.target.value)}
+                          placeholder="密码"
+                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">同步命名空间</label>
-                      <input
-                        type="text"
-                        value={syncNamespace}
-                        onChange={(e) => setSyncNamespace(e.target.value)}
-                        placeholder={DEFAULT_SYNC_NAMESPACE}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                      />
-                      <p className="text-[11px] sm:text-xs text-[#555555] mt-1">多端使用同一命名空间即可同步同一份数据。</p>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
-                      <input
-                        type="text"
-                        value={webdavUsername}
-                        onChange={(e) => setWebdavUsername(e.target.value)}
-                        placeholder="WebDAV 用户名"
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
-                      <input
-                        type="password"
-                        value={webdavPassword}
-                        onChange={(e) => setWebdavPassword(e.target.value)}
-                        placeholder="WebDAV 密码"
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                      />
-                    </div>
-                    <p className="text-[11px] sm:text-xs text-[#555555]">
-                      提示：同步会包含任务、习惯、倒数日及 AI 设置与密钥。
-                    </p>
                   </div>
-                </div>
+                )}
               </div>
               <div className="pt-3 border-t border-[#333333]">
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">数据导入导出（搬家专用）</label>
