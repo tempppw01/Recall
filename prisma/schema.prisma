@@ -13,6 +13,13 @@ enum TaskStatus {
   completed
 }
 
+enum SyncJobStatus {
+  pending
+  processing
+  done
+  failed
+}
+
 model User {
   id            String     @id @default(cuid())
   name          String?
@@ -111,4 +118,28 @@ model Countdown {
 
   @@index([userId, pinned])
   @@index([userId, targetDate])
+}
+
+model SyncState {
+  id           String   @id @default(cuid())
+  syncKey      String   @unique
+  isProcessing Boolean  @default(false)
+  lastSyncedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SyncJob {
+  id          String        @id @default(cuid())
+  syncKey     String
+  action      String
+  status      SyncJobStatus @default(pending)
+  payload     Json?
+  result      Json?
+  error       String?
+  processedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([syncKey, status, createdAt])
 }

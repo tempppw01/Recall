@@ -1299,6 +1299,25 @@ export default function Home() {
     setLogs((prev) => [entry, ...prev].slice(0, 200));
   };
 
+  const pollSyncJob = async (jobId: string, timeoutMs = 60_000) => {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const res = await fetch(`/api/sync?jobId=${jobId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'WebDAV sync status failed');
+      }
+      if (data.status === 'done') {
+        return data.result;
+      }
+      if (data.status === 'failed') {
+        throw new Error(data?.error || 'WebDAV sync failed');
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    throw new Error('WebDAV sync timeout');
+  };
+
   const persistSettings = (next: {
     apiKey: string;
     apiBaseUrl: string;
@@ -2485,12 +2504,16 @@ export default function Home() {
         if (!res.ok) {
           throw new Error(data?.error || 'WebDAV sync failed');
         }
-        return data;
+        if (!data?.jobId) {
+          throw new Error('WebDAV sync job missing');
+        }
+        const result = await pollSyncJob(data.jobId);
+        return { ok: true, result };
       };
 
       if (action === 'pull') {
         const data = await executeRequest('pull');
-        const remotePayload = data?.data;
+        const remotePayload = data?.result?.data;
         if (remotePayload) {
           applyImportedData(remotePayload, 'merge');
           applySyncedSettings(remotePayload);
@@ -2507,7 +2530,7 @@ export default function Home() {
         }
       } else {
         const pullData = await executeRequest('pull');
-        const remotePayload = pullData?.data;
+        const remotePayload = pullData?.result?.data;
         if (remotePayload) {
           applyImportedData(remotePayload, 'merge');
           applySyncedSettings(remotePayload);
@@ -5231,7 +5254,7 @@ export default function Home() {
                   <div className="space-y-3">
                     <div className="text-[11px] sm:text-xs text-[#999999] uppercase">WebDAV 同步（云端搬运工）</div>
                     <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      已切换为“自动同步 + 手动一键同步”，定时同步会先拉取再上传，避免覆盖。
+                      已切换为“服务端异步队列”，所有同步请求都会排队串行执行，避免多端并发覆盖。
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <button
