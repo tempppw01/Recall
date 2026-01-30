@@ -277,10 +277,19 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get('jobId');
+    const redisHost = searchParams.get('redisHost') || undefined;
+    const redisPort = searchParams.get('redisPort') || undefined;
+    const redisDb = searchParams.get('redisDb') || undefined;
+    const redisPassword = searchParams.get('redisPassword') || undefined;
     if (!jobId) {
       return NextResponse.json({ error: 'jobId is required' }, { status: 400 });
     }
-    const resolvedRedis = resolveRedisConfig();
+    const resolvedRedis = resolveRedisConfig({
+      host: redisHost,
+      port: redisPort,
+      db: redisDb,
+      password: redisPassword,
+    });
     if (!resolvedRedis) {
       return NextResponse.json(
         { error: 'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env.' },

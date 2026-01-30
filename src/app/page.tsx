@@ -1302,7 +1302,12 @@ export default function Home() {
   const pollSyncJob = async (jobId: string, timeoutMs = 60_000) => {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
-      const res = await fetch(`/api/sync?jobId=${jobId}`);
+      const syncParams = new URLSearchParams({ jobId });
+      if (redisHost) syncParams.set('redisHost', redisHost);
+      if (redisPort) syncParams.set('redisPort', redisPort);
+      if (redisDb) syncParams.set('redisDb', redisDb);
+      if (redisPassword) syncParams.set('redisPassword', redisPassword);
+      const res = await fetch(`/api/sync?${syncParams.toString()}`);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error || 'WebDAV sync status failed');
