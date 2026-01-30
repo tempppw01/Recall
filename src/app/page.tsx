@@ -22,7 +22,7 @@ const DEFAULT_REDIS_DB = 0;
 const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
 const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
-const APP_VERSION = '0.7beta';
+const APP_VERSION = '0.9beta';
 const APP_VERSION_KEY = 'recall_app_version';
 const LISTS_KEY = 'recall_lists';
 const WALLPAPER_KEY = 'recall_wallpaper_url';
@@ -4347,7 +4347,9 @@ export default function Home() {
                                   <p className={`text-sm font-semibold ${isPast ? 'text-red-300' : 'text-blue-200'}`}>
                                     {formatCountdownDate(item.targetDate)}
                                   </p>
-                                  <p className="text-[11px] text-[#666666]">目标日期</p>
+                                  <p className="text-[11px] text-[#666666]">
+                                    {isPast ? `已过去 ${displayDays} 天` : `还有 ${displayDays} 天`}
+                                  </p>
                                 </>
                               ) : (
                                 <>
@@ -5383,45 +5385,6 @@ export default function Home() {
                   className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                 />
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主题模式</label>
-                <div className="flex flex-wrap gap-2 text-[12px] sm:text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setThemePreference('system')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
-                      themePreference === 'system'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                  >
-                    跟随设备
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setThemePreference('light')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
-                      themePreference === 'light'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                  >
-                    日间
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setThemePreference('dark')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
-                      themePreference === 'dark'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                  >
-                    夜间
-                  </button>
-                </div>
-                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">可选择日间、夜间或跟随设备外观。</p>
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">倒数日显示模式</label>
