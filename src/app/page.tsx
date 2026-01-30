@@ -5420,119 +5420,116 @@ export default function Home() {
                     <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
                       用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
                     </div>
-                  <PgSettings
-                    host={pgHost}
-                    port={pgPort}
-                    database={pgDatabase}
-                    username={pgUsername}
-                    password={pgPassword}
-                    onHostChange={setPgHost}
-                    onPortChange={setPgPort}
-                    onDatabaseChange={setPgDatabase}
-                    onUsernameChange={setPgUsername}
-                    onPasswordChange={setPgPassword}
-                  />
-                  <RedisSettings
-                    host={redisHost}
-                    port={redisPort}
-                    db={redisDb}
-                    password={redisPassword}
-                    onHostChange={setRedisHost}
-                    onPortChange={setRedisPort}
-                    onDbChange={setRedisDb}
-                    onPasswordChange={setRedisPassword}
-                  />
-                  <div className="space-y-3">
-                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">数据同步 (Redis)</div>
-                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      使用 Redis 队列同步任务数据（不含附件）。
-                    </div>
-                    <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">同步命名空间 (Key Prefix)</label>
-                      <input
-                        type="text"
-                        value={syncNamespace}
-                        onChange={(e) => setSyncNamespace(e.target.value)}
-                        placeholder={DEFAULT_SYNC_NAMESPACE}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                      />
-                      <p className="text-[11px] sm:text-xs text-[#555555] mt-1">类似“房间号”，多端填写一致即可同步同一份数据。</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setAutoSyncEnabled((prev) => !prev)}
-                        className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
-                          autoSyncEnabled
-                            ? 'bg-blue-600/20 border-blue-400 text-white'
-                            : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                        }`}
-                      >
-                        {autoSyncEnabled ? '自动同步：已开启' : '自动同步：已关闭'}
-                      </button>
-                      <select
-                        value={autoSyncInterval}
-                        onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
-                        className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                      >
-                        {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
-                          <option key={option} value={option}>
-                            每 {option} 分钟
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] sm:text-xs text-[#999999] uppercase mb-2">第三方日历订阅</label>
-                    <textarea
-                      value={calendarSubscription}
-                      onChange={(e) => setCalendarSubscription(e.target.value)}
-                      placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
-                      rows={3}
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    <PgSettings
+                      host={pgHost}
+                      port={pgPort}
+                      database={pgDatabase}
+                      username={pgUsername}
+                      password={pgPassword}
+                      onHostChange={setPgHost}
+                      onPortChange={setPgPort}
+                      onDatabaseChange={setPgDatabase}
+                      onUsernameChange={setPgUsername}
+                      onPasswordChange={setPgPassword}
                     />
-                    <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">附件存储 (WebDAV)</div>
-                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      配置 WebDAV 后可上传图片/文件附件。
-                    </div>
-                    <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
-                      <input
-                        type="text"
-                        value={webdavUrl}
-                        onChange={(e) => setWebdavUrl(e.target.value)}
-                        placeholder={DEFAULT_WEBDAV_URL}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <RedisSettings
+                      host={redisHost}
+                      port={redisPort}
+                      db={redisDb}
+                      password={redisPassword}
+                      onHostChange={setRedisHost}
+                      onPortChange={setRedisPort}
+                      onDbChange={setRedisDb}
+                      onPasswordChange={setRedisPassword}
+                    />
+                    <div className="space-y-3">
+                      <div className="text-[11px] sm:text-xs text-[#999999] uppercase">同步设置</div>
                       <div>
-                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
+                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">同步命名空间 (Key Prefix)</label>
                         <input
                           type="text"
-                          value={webdavUsername}
-                          onChange={(e) => setWebdavUsername(e.target.value)}
-                          placeholder="用户名"
+                          value={syncNamespace}
+                          onChange={(e) => setSyncNamespace(e.target.value)}
+                          placeholder={DEFAULT_SYNC_NAMESPACE}
                           className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
                         />
+                        <p className="text-[11px] sm:text-xs text-[#555555] mt-1">类似“房间号”，多端填写一致即可同步同一份数据。</p>
                       </div>
-                      <div>
-                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
-                        <input
-                          type="password"
-                          value={webdavPassword}
-                          onChange={(e) => setWebdavPassword(e.target.value)}
-                          placeholder="密码"
-                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setAutoSyncEnabled((prev) => !prev)}
+                          className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
+                            autoSyncEnabled
+                              ? "bg-blue-600/20 border-blue-400 text-white"
+                              : "border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                          }`}
+                        >
+                          {autoSyncEnabled ? "自动同步：已开启" : "自动同步：已关闭"}
+                        </button>
+                        <select
+                          value={autoSyncInterval}
+                          onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
+                          className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                        >
+                          {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                              每 {option} 分钟
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
-                  </div>
+                    <div>
+                      <label className="block text-[11px] sm:text-xs text-[#999999] uppercase mb-2">第三方日历订阅</label>
+                      <textarea
+                        value={calendarSubscription}
+                        onChange={(e) => setCalendarSubscription(e.target.value)}
+                        placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
+                        rows={3}
+                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                      <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-[11px] sm:text-xs text-[#999999] uppercase">附件存储 (WebDAV)</div>
+                      <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                        配置 WebDAV 后可上传图片/文件附件。
+                      </div>
+                      <div>
+                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
+                        <input
+                          type="text"
+                          value={webdavUrl}
+                          onChange={(e) => setWebdavUrl(e.target.value)}
+                          placeholder={DEFAULT_WEBDAV_URL}
+                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
+                          <input
+                            type="text"
+                            value={webdavUsername}
+                            onChange={(e) => setWebdavUsername(e.target.value)}
+                            placeholder="用户名"
+                            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
+                          <input
+                            type="password"
+                            value={webdavPassword}
+                            onChange={(e) => setWebdavPassword(e.target.value)}
+                            placeholder="密码"
+                            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
