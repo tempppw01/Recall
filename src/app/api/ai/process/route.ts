@@ -56,22 +56,32 @@ async function getContextMessages(redisConfig: any, sessionId: string): Promise<
     return MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
   }
 
+  let redis: Redis | null = null;
   try {
-    const redis = new Redis({
+    redis = new Redis({
       host: redisConfig.host,
       port: Number(redisConfig.port) || 6379,
       password: redisConfig.password || undefined,
       db: Number(redisConfig.db) || 0,
       connectTimeout: 2000,
+      lazyConnect: true,
     });
 
     const contextKey = `session:${sessionId}:context`;
     const raw = await redis.lrange(contextKey, 0, MAX_CONTEXT_ENTRIES - 1);
-    redis.disconnect();
-    return normalizeContextEntries(raw);
+    // Redis 存储顺序是最新在前（LPUSH），AI 提示词需要按时间正序排列
+    return normalizeContextEntries(raw).reverse();
   } catch (error) {
-    console.error('Redis connection failed:', error);
+    console.error('Redis context retrieval failed:', error);
     return MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
+  } finally {
+    if (redis) {
+      try {
+        redis.disconnect();
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 }
 
@@ -91,13 +101,15 @@ async function appendContextEntry(
     return;
   }
 
+  let redis: Redis | null = null;
   try {
-    const redis = new Redis({
+    redis = new Redis({
       host: redisConfig.host,
       port: Number(redisConfig.port) || 6379,
       password: redisConfig.password || undefined,
       db: Number(redisConfig.db) || 0,
       connectTimeout: 2000,
+      lazyConnect: true,
     });
     const contextKey = `session:${sessionId}:context`;
     // 计算过期时间（秒），默认1天
@@ -107,13 +119,19 @@ async function appendContextEntry(
     await redis.ltrim(contextKey, 0, MAX_CONTEXT_ENTRIES - 1);
     // 设置过期时间
     await redis.expire(contextKey, ttlSeconds);
-    
-    redis.disconnect();
   } catch (error) {
-    console.error('Redis write failed:', error);
+    console.error('Redis context storage failed:', error);
     const current = MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
     const next = [...current, entry].slice(-MAX_CONTEXT_ENTRIES);
     MEMORY_CONTEXT_CACHE.set(sessionId, next);
+  } finally {
+    if (redis) {
+      try {
+        redis.disconnect();
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 }
 
