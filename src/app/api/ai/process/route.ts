@@ -8,7 +8,7 @@ const DEFAULT_BASE_URLS = [
 ];
 
 const buildChatCompletionsUrl = (base: string) => {
-  const trimmed = base.replace(//$/, '');
+  const trimmed = base.replace(/\/$/, '');
   if (trimmed.endsWith('/chat/completions')) return trimmed;
   if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
   return `${trimmed}/v1/chat/completions`;
