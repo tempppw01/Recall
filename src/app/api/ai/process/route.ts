@@ -8,7 +8,7 @@ const DEFAULT_BASE_URLS = [
 ];
 
 const buildChatCompletionsUrl = (base: string) => {
-  const trimmed = base.replace(/\/$/, '');
+  const trimmed = base.replace(//$/, '');
   if (trimmed.endsWith('/chat/completions')) return trimmed;
   if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
   return `${trimmed}/v1/chat/completions`;
@@ -412,12 +412,10 @@ export async function POST(req: NextRequest) {
     }
 
     const contextMessages = await getContextMessages(redisConfig, sessionId);
-
-    const systemContextPrompt = contextMessages.length > 0
-      ? `\n\n历史对话上下文（仅供参考）：\n${contextMessages
-          .map((entry) => `${entry.role === 'assistant' ? 'AI' : '用户'}：${entry.content}`)
-          .join('\n')}`
-      : '';
+    const historyMessages = contextMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
 
     if (mode === 'organize') {
       // 一键整理：传入任务数组，返回整理后的任务数组（保留 id）
@@ -442,8 +440,10 @@ export async function POST(req: NextRequest) {
 4) dueDate 若无或无法解析则设为 null，必须为 ISO 8601 UTC。
 5) subtasks 仅保留 title。
 6) 识别并优化重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。
-请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
+7) **记忆功能**：请务必参考提供的“历史对话上下文”来理解用户的偏好或特定上下文。
+请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }。不要包含 null/undefined 属性时可省略。`,
           },
+          ...historyMessages,
           {
             role: 'user',
             content: JSON.stringify({ tasks: tasksToOrganize }),
@@ -513,8 +513,10 @@ export async function POST(req: NextRequest) {
 5) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
 6) subtasks 仅保留 title。
 7) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-8) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
+8) **核心记忆功能**：请务必结合提供的“历史对话上下文”来补充当前请求中缺失的信息。如果用户之前提到了时间、地点或任务背景，而当前请求中没有明确说明，请将其合并到新的待办事项中。
+9) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
           },
+          ...historyMessages,
           { role: 'user', content: userContent },
         ],
         response_format: { type: 'json_object' },
@@ -570,8 +572,10 @@ export async function POST(req: NextRequest) {
 2) 生成 items 数组，每项包含 title / targetDate。
 3) targetDate 必须为 YYYY-MM-DD 格式（不要时间），若无法解析则为 null。
 4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准。
-5) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}] }。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
+5) **记忆功能**：请务必结合“历史对话上下文”来补全日期或标题信息。
+6) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}] }。不要包含 null/undefined 属性时可省略。`,
           },
+          ...historyMessages,
           { role: 'user', content: normalizedInput },
         ],
         response_format: { type: 'json_object' },
@@ -635,10 +639,12 @@ export async function POST(req: NextRequest) {
 - “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间
 - “下午三点到四点开会” → 取开始时间 15:00
 5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。
+6) **重要核心**：请务必结合“历史对话上下文”来补充当前任务中可能缺失的时间或背景信息。
 
 请只输出 JSON，格式如下：
-{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }。不要包含 null/undefined 属性时可省略。${systemContextPrompt}`,
+{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }。不要包含 null/undefined 属性时可省略。`,
         },
+        ...historyMessages,
         { role: 'user', content: normalizedInput },
       ],
       response_format: { type: 'json_object' },
