@@ -45,6 +45,7 @@ const SYNC_NAMESPACE_KEY = 'recall_sync_namespace';
 const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 const CALENDAR_SUBSCRIPTION_KEY = 'recall_calendar_subscription';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
+const DELETED_HABITS_KEY = 'recall_deleted_habits';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
@@ -478,42 +479,42 @@ const readImageAsDataUrl = (file: File) =>
 const filterImageFiles = (files: File[]) =>
   files.filter((file) => file.type.startsWith('image/'));
 
-const readDeletedCountdowns = (): Record<string, string> => {
+const readDeletedMap = (key: string): Record<string, string> => {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = localStorage.getItem(DELETED_COUNTDOWNS_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return {};
     return parsed as Record<string, string>;
   } catch (error) {
-    console.error('Failed to read deleted countdowns', error);
+    console.error(`Failed to read deleted map for ${key}`, error);
     return {};
   }
 };
 
-const persistDeletedCountdowns = (next: Record<string, string>) => {
+const persistDeletedMap = (key: string, next: Record<string, string>) => {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(DELETED_COUNTDOWNS_KEY, JSON.stringify(next));
+    localStorage.setItem(key, JSON.stringify(next));
   } catch (error) {
-    console.error('Failed to write deleted countdowns', error);
+    console.error(`Failed to write deleted map for ${key}`, error);
   }
 };
 
-const markCountdownDeleted = (id: string, deletedAt = new Date().toISOString()) => {
-  const current = readDeletedCountdowns();
+const markDeleted = (key: string, id: string, deletedAt = new Date().toISOString()) => {
+  const current = readDeletedMap(key);
   const existing = current[id];
   const incomingMs = new Date(deletedAt).getTime();
   const existingMs = existing ? new Date(existing).getTime() : 0;
   if (!existing || incomingMs > existingMs) {
     current[id] = deletedAt;
-    persistDeletedCountdowns(current);
+    persistDeletedMap(key, current);
   }
   return current;
 };
 
-const normalizeDeletedCountdowns = (value: any): Record<string, string> => {
+const normalizeDeletedMap = (value: any): Record<string, string> => {
   if (Array.isArray(value)) {
     const now = new Date().toISOString();
     return value.reduce<Record<string, string>>((acc, id) => {
@@ -533,7 +534,7 @@ const normalizeDeletedCountdowns = (value: any): Record<string, string> => {
   return {};
 };
 
-const mergeDeletedCountdowns = (current: Record<string, string>, incoming: Record<string, string>) => {
+const mergeDeletedMap = (current: Record<string, string>, incoming: Record<string, string>) => {
   const next = { ...current };
   Object.entries(incoming).forEach(([id, time]) => {
     const incomingMs = new Date(time).getTime();
@@ -546,7 +547,10 @@ const mergeDeletedCountdowns = (current: Record<string, string>, incoming: Recor
   return next;
 };
 
-const filterCountdownsByDeletions = (items: Countdown[], deletedMap: Record<string, string>) => {
+const filterByDeletions = <T extends { id: string; updatedAt?: string; createdAt: string }>(
+  items: T[],
+  deletedMap: Record<string, string>
+) => {
   const nextDeleted = { ...deletedMap };
   const filtered = items.filter((item) => {
     const deletedAt = deletedMap[item.id];
@@ -1959,15 +1963,20 @@ export default function Home() {
 
   const refreshHabits = () => {
     const all = habitStore.getAll();
-    setHabits(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    const deletedMap = readDeletedMap(DELETED_HABITS_KEY);
+    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
+    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
+      persistDeletedMap(DELETED_HABITS_KEY, nextDeleted);
+    }
+    setHabits(filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
   };
 
   const refreshCountdowns = () => {
     const all = countdownStore.getAll();
-    const deletedMap = readDeletedCountdowns();
-    const { filtered, nextDeleted } = filterCountdownsByDeletions(all, deletedMap);
+    const deletedMap = readDeletedMap(DELETED_COUNTDOWNS_KEY);
+    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
     if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
-      persistDeletedCountdowns(nextDeleted);
+      persistDeletedMap(DELETED_COUNTDOWNS_KEY, nextDeleted);
     }
     const sorted = [...filtered].sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -2043,8 +2052,10 @@ export default function Home() {
 
   const removeCountdown = (itemId: string) => {
     countdownStore.remove(itemId);
-    markCountdownDeleted(itemId);
+    markDeleted(DELETED_COUNTDOWNS_KEY, itemId);
     refreshCountdowns();
+    // PG 同步
+    syncToPg('countdowns', 'DELETE', { id: itemId });
     if (editingCountdown?.id === itemId) {
       resetCountdownForm();
     }
@@ -2073,8 +2084,10 @@ export default function Home() {
 
   const removeHabit = (habitId: string) => {
     habitStore.remove(habitId);
-    const next = habits.filter((habit) => habit.id !== habitId);
-    setHabits(next);
+    markDeleted(DELETED_HABITS_KEY, habitId);
+    refreshHabits();
+    // PG 同步
+    syncToPg('habits', 'DELETE', { id: habitId });
   };
 
   const getHabitStreak = (habit: Habit) => {
@@ -2481,7 +2494,8 @@ export default function Home() {
       countdowns: countdownStore.getAll(),
     },
     deletions: {
-      countdowns: readDeletedCountdowns(),
+      countdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
+      habits: readDeletedMap(DELETED_HABITS_KEY),
     },
   });
 
@@ -2494,7 +2508,8 @@ export default function Home() {
       countdowns: countdownStore.getAll(),
     },
     deletions: {
-      countdowns: readDeletedCountdowns(),
+      countdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
+      habits: readDeletedMap(DELETED_HABITS_KEY),
     },
     settings: {
       apiBaseUrl,
@@ -2784,21 +2799,33 @@ export default function Home() {
       ? countdownsImport
       : mergeById(currentCountdowns, countdownsImport);
 
-    const localDeletedCountdowns = readDeletedCountdowns();
-    const incomingDeletedCountdowns = normalizeDeletedCountdowns(
+    // Deletions: Countdowns
+    const localDeletedCountdowns = readDeletedMap(DELETED_COUNTDOWNS_KEY);
+    const incomingDeletedCountdowns = normalizeDeletedMap(
       payload?.deletions?.countdowns ?? payload?.deletedCountdowns,
     );
-    const mergedDeletedCountdowns = mergeDeletedCountdowns(localDeletedCountdowns, incomingDeletedCountdowns);
-    const { filtered: filteredCountdowns, nextDeleted } =
-      filterCountdownsByDeletions(nextCountdowns, mergedDeletedCountdowns);
+    const mergedDeletedCountdowns = mergeDeletedMap(localDeletedCountdowns, incomingDeletedCountdowns);
+    const { filtered: filteredCountdowns, nextDeleted: nextDeletedCountdowns } =
+      filterByDeletions(nextCountdowns, mergedDeletedCountdowns);
+
+    // Deletions: Habits
+    const localDeletedHabits = readDeletedMap(DELETED_HABITS_KEY);
+    const incomingDeletedHabits = normalizeDeletedMap(
+      payload?.deletions?.habits ?? payload?.deletedHabits,
+    );
+    const mergedDeletedHabits = mergeDeletedMap(localDeletedHabits, incomingDeletedHabits);
+    const { filtered: filteredHabits, nextDeleted: nextDeletedHabits } =
+      filterByDeletions(nextHabits, mergedDeletedHabits);
 
     taskStore.replaceAll(nextTasks);
-    habitStore.replaceAll(nextHabits);
+    habitStore.replaceAll(filteredHabits);
     countdownStore.replaceAll(filteredCountdowns);
-    persistDeletedCountdowns(nextDeleted);
+    
+    persistDeletedMap(DELETED_COUNTDOWNS_KEY, nextDeletedCountdowns);
+    persistDeletedMap(DELETED_HABITS_KEY, nextDeletedHabits);
 
     setTasks(nextTasks);
-    setHabits(nextHabits);
+    setHabits(filteredHabits);
     setCountdowns(filteredCountdowns);
 
     const nextCategories = Array.from(new Set(nextTasks.map((task) => task.category).filter(Boolean))) as string[];

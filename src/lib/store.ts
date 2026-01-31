@@ -60,7 +60,14 @@ export interface Countdown {
   updatedAt?: string;
 }
 
-type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns';
+export interface PomodoroRecord {
+  id: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+}
+
+type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns' | 'recall_pomodoro_records';
 const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 
 // PG 配置 Key
@@ -70,7 +77,7 @@ const PG_DATABASE_KEY = 'recall_pg_database';
 const PG_USERNAME_KEY = 'recall_pg_username';
 const PG_PASSWORD_KEY = 'recall_pg_password';
 
-const getPgHeaders = () => {
+const getPgHeaders = (): Record<string, string> => {
   if (typeof window === 'undefined') return {};
   const host = localStorage.getItem(PG_HOST_KEY);
   const port = localStorage.getItem(PG_PORT_KEY);
@@ -154,3 +161,5 @@ export const taskStore = createStore<Task>('recall_tasks', '/api/tasks');
 export const habitStore = createStore<Habit>('recall_habits', '/api/habits');
 
 export const countdownStore = createStore<Countdown>('recall_countdowns', '/api/countdowns');
+
+export const pomodoroStore = createStore<PomodoroRecord>('recall_pomodoro_records');
