@@ -32,22 +32,6 @@ export default function RootLayout({
           <PWARegister />
           {children}
         </Providers>
-        <div className="app-footer__spacer" aria-hidden="true" />
-        <footer className="app-footer">
-          <div className="app-footer__content">
-            <span>
-              项目主页：
-              <a
-                href="https://github.com/tempppw01/Recall"
-                target="_blank"
-                rel="noreferrer"
-              >
-                https://github.com/tempppw01/Recall
-              </a>
-            </span>
-            <span>微信：Ethan_BravoEcho</span>
-          </div>
-        </footer>
       </body>
     </html>
   );
