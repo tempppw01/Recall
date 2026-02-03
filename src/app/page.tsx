@@ -899,7 +899,7 @@ const TaskItem = ({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
+      className={`relative rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {
@@ -944,7 +944,7 @@ const TaskItem = ({
       >
         {subtaskTotal > 0 && (
           <div
-            className="absolute inset-y-0 left-0 bg-blue-500/20"
+            className="absolute inset-y-0 left-0 bg-blue-500/20 rounded-l-2xl"
             style={{ width: `${subtaskProgress}%` }}
           />
         )}
