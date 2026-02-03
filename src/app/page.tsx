@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
-const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-5.2'];
+const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite'];
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
 const DEFAULT_SESSION_ID_KEY = 'recall_session_id';
 const DEFAULT_REDIS_DB = 0;
@@ -1218,6 +1218,8 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [listItems, setListItems] = useState<string[]>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
+  const [isAddingList, setIsAddingList] = useState(false);
+  const [newListName, setNewListName] = useState('');
   const [tagSearch, setTagSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -1682,15 +1684,8 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!settingsLoaded) return;
-    if (apiKey && apiKey.trim()) {
-      localStorage.setItem('recall_api_key', apiKey.trim());
-    } else {
-      localStorage.removeItem('recall_api_key');
-    }
-  }, [apiKey, settingsLoaded]);
+  // 注意：apiKey 的持久化已移至 persistSettings 函数中统一处理
+  // 避免在用户编辑设置时意外丢失密钥
 
   // PG 数据加载逻辑
   useEffect(() => {
@@ -2117,6 +2112,33 @@ export default function Home() {
     refreshTasks();
   };
 
+  const renameListItem = (oldName: string, nextName: string) => {
+    if (!nextName || nextName === oldName) return;
+    setListItems((prev) => prev.map((item) => (item === oldName ? nextName : item)));
+    taskStore.getAll().forEach((task) => {
+      if (task.category === oldName) {
+        taskStore.update({ ...task, category: nextName, updatedAt: new Date().toISOString() });
+      }
+    });
+    if (activeCategory === oldName) {
+      setActiveCategory(nextName);
+    }
+    refreshTasks();
+  };
+
+  const addListItem = () => {
+    const trimmed = newListName.trim();
+    if (!trimmed) return;
+    if (listItems.includes(trimmed)) {
+      setNewListName('');
+      setIsAddingList(false);
+      return;
+    }
+    setListItems((prev) => [...prev, trimmed]);
+    setNewListName('');
+    setIsAddingList(false);
+  };
+
   const renameTag = (oldName: string) => {
     if (typeof window === 'undefined') return;
     const nextName = window.prompt('重命名标签', oldName)?.trim();
@@ -2247,7 +2269,7 @@ export default function Home() {
 
   const handleAgentSend = async () => {
     const content = agentInput.trim();
-    if ((!content && agentImages.length === 0) || agentLoading) return;
+    if (!content && agentImages.length === 0) return;
     pushLog('info', 'todo-agent 请求发送', content);
     setAgentLoading(true);
     if (content) {
@@ -3714,62 +3736,11 @@ export default function Home() {
           </div>
 
           <nav className="px-2 space-y-1">
-            <SidebarItem 
-              icon={Command} label="AI 助手" count={agentItems.length} 
-              active={activeFilter === 'agent'} 
-              onClick={() => { setActiveFilter('agent'); setIsSidebarOpen(false); }} 
+            <SidebarItem
+              icon={Command} label="AI 助手" count={agentItems.length}
+              active={activeFilter === 'agent'}
+              onClick={() => { setActiveFilter('agent'); setIsSidebarOpen(false); }}
             />
-            <SidebarItem 
-              icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length} 
-              active={activeFilter === 'todo'} 
-              onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }} 
-            />
-            <button
-              type="button"
-              onClick={() => setIsToolsOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
-            >
-              <span>功能</span>
-              {isToolsOpen ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
-            </button>
-            {isToolsOpen && (
-              <div className="space-y-1">
-                <SidebarItem 
-                  icon={Calendar} label="日历" count={hasCalendarTasks ? 0 : 0} 
-                  active={activeFilter === 'calendar'} 
-                  onClick={() => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }} 
-                />
-                <SidebarItem 
-                  icon={LayoutGrid} label="四象限" count={0} 
-                  active={activeFilter === 'quadrant'} 
-                  onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }} 
-                />
-                <SidebarItem 
-                  icon={Timer} label="倒数日" count={countdowns.length} 
-                  active={activeFilter === 'countdown'} 
-                  onClick={() => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }} 
-                />
-                <SidebarItem 
-                  icon={Flame} label="习惯打卡" count={0} 
-                  active={activeFilter === 'habit'} 
-                  onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }} 
-                />
-                <SidebarItem 
-                  icon={Timer} label="番茄时钟" count={0} 
-                  active={activeFilter === 'pomodoro'} 
-                  onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }} 
-                />
-                <SidebarItem 
-                  icon={CheckCircle2} label="已完成" count={0} 
-                  active={activeFilter === 'completed'} 
-                  onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }} 
-                />
-              </div>
-            )}
 
             <button
               type="button"
@@ -3785,20 +3756,72 @@ export default function Home() {
             </button>
             {isQuickAccessOpen && (
               <div className="space-y-1">
-                <SidebarItem 
-                  icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length} 
-                  active={activeFilter === 'inbox'} 
-                  onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }} 
+                <SidebarItem
+                  icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length}
+                  active={activeFilter === 'inbox'}
+                  onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }}
                 />
-                <SidebarItem 
-                  icon={Sun} label="今日" count={0} 
-                  active={activeFilter === 'today'} 
-                  onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }} 
+                <SidebarItem
+                  icon={Sun} label="今日" count={0}
+                  active={activeFilter === 'today'}
+                  onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }}
                 />
-                <SidebarItem 
-                  icon={Calendar} label="未来 7 天" count={0} 
-                  active={activeFilter === 'next7'} 
-                  onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }} 
+                <SidebarItem
+                  icon={Calendar} label="未来 7 天" count={0}
+                  active={activeFilter === 'next7'}
+                  onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }}
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsToolsOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
+            >
+              <span>功能</span>
+              {isToolsOpen ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+            {isToolsOpen && (
+              <div className="space-y-1">
+                <SidebarItem
+                  icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length}
+                  active={activeFilter === 'todo'}
+                  onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }}
+                />
+                <SidebarItem
+                  icon={Calendar} label="日历" count={hasCalendarTasks ? 0 : 0}
+                  active={activeFilter === 'calendar'}
+                  onClick={() => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }}
+                />
+                <SidebarItem
+                  icon={LayoutGrid} label="四象限" count={0}
+                  active={activeFilter === 'quadrant'}
+                  onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }}
+                />
+                <SidebarItem
+                  icon={Timer} label="倒数日" count={countdowns.length}
+                  active={activeFilter === 'countdown'}
+                  onClick={() => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }}
+                />
+                <SidebarItem
+                  icon={Flame} label="习惯打卡" count={0}
+                  active={activeFilter === 'habit'}
+                  onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }}
+                />
+                <SidebarItem
+                  icon={Timer} label="番茄时钟" count={0}
+                  active={activeFilter === 'pomodoro'}
+                  onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }}
+                />
+                <SidebarItem
+                  icon={CheckCircle2} label="已完成" count={0}
+                  active={activeFilter === 'completed'}
+                  onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }}
                 />
               </div>
             )}
@@ -3817,30 +3840,48 @@ export default function Home() {
             </button>
             {isListsOpen && (
               <div className="space-y-1">
-                {listItems.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-[#555555]">暂无列表</div>
-                ) : (
-                  listItems.map((item) => (
-                    <EditableSidebarItem
-                      key={item}
-                      icon={Hash}
-                      label={item}
-                      count={tasks.filter((task) => task.category === item && task.status !== 'completed').length}
-                      active={activeFilter === 'category' && activeCategory === item}
-                      onClick={() => {
-                        setActiveFilter('category');
-                        setActiveCategory(item);
-                        setActiveTag(null);
-                        refreshTasks();
-                        setIsSidebarOpen(false);
-                      }}
-                      onEdit={() => renameCategory(item)}
+                {listItems.map((item) => (
+                  <EditableSidebarItem
+                    key={item}
+                    icon={Hash}
+                    label={item}
+                    count={tasks.filter((task) => task.category === item && task.status !== 'completed').length}
+                    active={activeFilter === 'category' && activeCategory === item}
+                    onClick={() => {
+                      setActiveFilter('category');
+                      setActiveCategory(item);
+                      refreshTasks();
+                      setIsSidebarOpen(false);
+                    }}
+                    onEdit={() => renameListItem(item, prompt('重命名列表', item) || item)}
+                  />
+                ))}
+                {isAddingList ? (
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    <input
+                      type="text"
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addListItem()}
+                      placeholder="列表名称"
+                      className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-2 py-1 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      autoFocus
                     />
-                  ))
+                    <button onClick={addListItem} className="text-blue-400 text-sm">添加</button>
+                    <button onClick={() => { setIsAddingList(false); setNewListName(''); }} className="text-[#666666] text-sm">取消</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsAddingList(true)}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[#666666] hover:text-[#AAAAAA]"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>新建列表</span>
+                  </button>
                 )}
               </div>
             )}
-          
+
             <button
               type="button"
               onClick={() => setIsTagsOpen((prev) => !prev)}
@@ -3854,41 +3895,28 @@ export default function Home() {
               )}
             </button>
             {isTagsOpen && (
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={tagSearch}
-                  onChange={(event) => setTagSearch(event.target.value)}
-                  placeholder="搜索标签"
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-xs text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                />
-                {visibleTagItems.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-[#555555]">
-                    {tagItems.length === 0 ? '暂无标签' : '暂无可用标签'}
-                  </div>
-                ) : (
-                  visibleTagItems.map((item) => (
-                    <EditableSidebarItem
-                      key={item}
-                      icon={TagIcon}
-                      label={item}
-                      count={tagUsageMap[item] ?? 0}
-                      active={activeFilter === 'tag' && activeTag === item}
-                      onClick={() => {
-                        setActiveFilter('tag');
-                        setActiveTag(item);
-                        setActiveCategory(null);
-                        refreshTasks();
-                        setIsSidebarOpen(false);
-                      }}
-                      onEdit={() => renameTag(item)}
-                    />
-                  ))
+              <div className="space-y-1">
+                {Object.entries(tagUsageMap).sort((a, b) => b[1] - a[1]).map(([tag, count]) => (
+                  <SidebarItem
+                    key={tag}
+                    icon={TagIcon}
+                    label={tag}
+                    count={count}
+                    active={activeFilter === 'tag' && activeTag === tag}
+                    onClick={() => {
+                      setActiveFilter('tag');
+                      setActiveTag(tag);
+                      refreshTasks();
+                      setIsSidebarOpen(false);
+                    }}
+                  />
+                ))}
+                {Object.keys(tagUsageMap).length === 0 && (
+                  <p className="px-3 py-2 text-xs text-[#555555]">暂无标签</p>
                 )}
               </div>
             )}
           </nav>
-
         </div>
         <div className="px-4 py-2 border-t border-[#333333] bg-[#222222]/50">
           <div className="text-[10px] text-[#555555]">v{APP_VERSION}</div>
@@ -4807,10 +4835,8 @@ export default function Home() {
                         value={agentInput}
                         onChange={(e) => setAgentInput(e.target.value)}
                         onPaste={handleAgentPaste}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAgentSend()}
                         placeholder="例如：帮我规划本周的工作安排"
                         className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
-                        disabled={agentLoading}
                       />
                       <button
                         type="button"
@@ -4822,7 +4848,7 @@ export default function Home() {
                       </button>
                       <button
                         onClick={handleAgentSend}
-                        disabled={agentLoading || (!agentInput.trim() && agentImages.length === 0)}
+                        disabled={!agentInput.trim() && agentImages.length === 0}
                         className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
                       >
                         {agentLoading ? '整理中…' : '发送'}
