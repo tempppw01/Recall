@@ -1209,6 +1209,7 @@ export default function Home() {
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
+  const [showCompletedInCalendar, setShowCompletedInCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -3576,7 +3577,10 @@ export default function Home() {
     }));
   };
 
-  const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, task) => {
+  const calendarSourceTasks = showCompletedInCalendar
+    ? tasks
+    : tasks.filter((task) => task.status !== 'completed');
+  const tasksByDate = calendarSourceTasks.reduce<Record<string, Task[]>>((acc, task) => {
     if (task.dueDate) {
       const key = formatZonedDate(task.dueDate, getTimezoneOffset(task));
       acc[key] = acc[key] ? [...acc[key], task] : [task];
@@ -3629,7 +3633,7 @@ export default function Home() {
   const nowMinutes = nowZoned.getUTCHours() * 60 + nowZoned.getUTCMinutes();
   const nowLineTop = (nowMinutes / 60) * dayRowHeight;
   const nowLabel = `${pad2(nowZoned.getUTCHours())}:${pad2(nowZoned.getUTCMinutes())}`;
-  const agendaTasks = tasks
+  const agendaTasks = calendarSourceTasks
     .filter((task) => task.dueDate)
     .sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime());
   const handleMonthChange = (offset: number) => {
@@ -4165,14 +4169,23 @@ export default function Home() {
                     日程视图
                   </button>
                 </div>
-                <div className="text-[11px] text-[#666666]">
-                  {calendarView === 'month'
-                    ? '按月总览'
-                    : calendarView === 'week'
-                    ? '按周聚焦'
-                    : calendarView === 'day'
-                    ? '当日任务'
-                    : '近期日程'}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowCompletedInCalendar((prev) => !prev)}
+                    className="px-2.5 py-1 rounded-lg border text-[11px] transition-colors border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                    title={showCompletedInCalendar ? '隐藏已完成任务' : '显示已完成任务'}
+                  >
+                    {showCompletedInCalendar ? '隐藏已完成' : '显示已完成'}
+                  </button>
+                  <div className="text-[11px] text-[#666666]">
+                    {calendarView === 'month'
+                      ? '按月总览'
+                      : calendarView === 'week'
+                      ? '按周聚焦'
+                      : calendarView === 'day'
+                      ? '当日任务'
+                      : '近期日程'}
+                  </div>
                 </div>
               </div>
 
