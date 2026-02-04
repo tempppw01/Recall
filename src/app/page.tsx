@@ -1,24 +1,25 @@
 "use client";
 
-import { useState, useEffect, useRef, TouchEvent as ReactTouchEvent } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
-import PgSettings from '@/app/components/PgSettings';
-import RedisSettings from '@/app/components/RedisSettings';
+import Sidebar from '@/app/components/sidebar/Sidebar';
+import SettingsModal from '@/app/components/settings/SettingsModal';
+import TaskItem from '@/app/components/tasks/TaskItem';
 import {
   Command, Send, Plus,
   Calendar, Inbox, Sun, Star, Trash2,
-  Menu, X, CheckCircle2, Circle,
+  Menu, X, CheckCircle2,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Pencil, Moon, ChevronDown, ChevronUp, Terminal, Settings, Cloud, Loader2
-  , ImagePlus, Monitor, Paperclip, Upload
+  CheckSquare, LayoutGrid, Timer, Flame, Moon, Terminal, Settings, Cloud, Loader2,
+  ImagePlus, Monitor, Paperclip, Upload,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite'];
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 2;
 const DEFAULT_SESSION_ID_KEY = 'recall_session_id';
-const BING_WALLPAPER_API = 'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1';
+const BING_WALLPAPER_API = '/api/bing-wallpaper';
 const DEFAULT_REDIS_DB = 0;
 const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
@@ -670,482 +671,6 @@ const getNextRepeatDate = (task: Task): Date | null => {
 };
 
 // ---------------------------
-// Components
-// ---------------------------
-
-const SidebarItem = ({ icon: Icon, label, count, active, onClick, iconColor, badge }: any) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors ${
-      active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
-    }`}
-  >
-    <div className="flex items-center gap-3">
-      <div className="relative">
-        <Icon className={`w-4 h-4 ${iconColor || ''}`} />
-        {badge > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-medium text-white bg-red-500 rounded-full">
-            {badge > 99 ? '99+' : badge}
-          </span>
-        )}
-      </div>
-      <span>{label}</span>
-    </div>
-    {count > 0 && <span className="text-xs text-[#666666]">{count}</span>}
-  </button>
-);
-
-const EditableSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit }: any) => (
-  <div
-    onClick={onClick}
-    className={`group w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors cursor-pointer ${
-      active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
-    }`}
-  >
-    <div className="flex items-center gap-3">
-      <Icon className="w-4 h-4" />
-      <span>{label}</span>
-    </div>
-    <div className="flex items-center gap-2">
-      {count > 0 && <span className="text-xs text-[#666666]">{count}</span>}
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onEdit?.();
-        }}
-        className="opacity-0 group-hover:opacity-100 text-[#666666] hover:text-[#AAAAAA] transition-opacity"
-      >
-        <Pencil className="w-3 h-3" />
-      </button>
-    </div>
-  </div>
-);
-
-const ListSidebarItem = ({ icon: Icon, label, count, active, onClick, onEdit, onAddTask }: any) => (
-  <div
-    onClick={onClick}
-    className={`group w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors cursor-pointer ${
-      active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
-    }`}
-  >
-    <div className="flex items-center gap-3">
-      <Icon className="w-4 h-4" />
-      <span>{label}</span>
-    </div>
-    <div className="flex items-center gap-2">
-      {count > 0 && <span className="text-xs text-[#666666]">{count}</span>}
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onAddTask?.();
-        }}
-        className="opacity-0 group-hover:opacity-100 text-[#666666] hover:text-[#AAAAAA] transition-opacity"
-        aria-label={`在${label}中新建任务`}
-      >
-        <Plus className="w-3 h-3" />
-      </button>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onEdit?.();
-        }}
-        className="opacity-0 group-hover:opacity-100 text-[#666666] hover:text-[#AAAAAA] transition-opacity"
-        aria-label={`编辑${label}`}
-      >
-        <Pencil className="w-3 h-3" />
-      </button>
-    </div>
-  </div>
-);
-
-const TaskItem = ({
-  task,
-  selected,
-  onClick,
-  onToggle,
-  onDelete,
-  onToggleSubtask,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  isDragging,
-  onDragEnd,
-  onTitleClick,
-  onUpdateDueDate,
-  dragEnabled = true,
-}: any) => {
-  const startXRef = useRef<number | null>(null);
-  const startYRef = useRef<number | null>(null);
-  const isHorizontalRef = useRef<boolean | null>(null);
-  const [offsetX, setOffsetX] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const [isPointerDragging, setIsPointerDragging] = useState(false);
-  const [isSubtasksOpen, setIsSubtasksOpen] = useState(false);
-  const [isDueEditorOpen, setIsDueEditorOpen] = useState(false);
-  const [editorDate, setEditorDate] = useState('');
-  const [editorTime, setEditorTime] = useState('09:00');
-  const maxOffset = 84;
-  const timezoneOffset = getTimezoneOffset(task);
-  const canDrag = Boolean(onDragStart) && dragEnabled;
-  const subtaskTotal = task.subtasks?.length ?? 0;
-  const completedSubtasks = subtaskTotal
-    ? task.subtasks.filter((subtask: Subtask) => subtask.completed).length
-    : 0;
-  const subtaskProgress = subtaskTotal > 0
-    ? Math.round((completedSubtasks / subtaskTotal) * 100)
-    : 0;
-  const hasSubtasks = subtaskTotal > 0;
-  const dueLabel = task.dueDate
-    ? formatZonedDateTime(task.dueDate, timezoneOffset)
-    : '未设时间';
-  const dueTextColor = task.dueDate
-    ? (isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]')
-    : 'text-[#666666]';
-
-  useEffect(() => {
-    setOffsetX(0);
-    setIsSwiping(false);
-    startXRef.current = null;
-    startYRef.current = null;
-    isHorizontalRef.current = null;
-  }, [task.id]);
-
-  useEffect(() => {
-    setIsSubtasksOpen(false);
-    setIsDueEditorOpen(false);
-  }, [task.id]);
-
-  useEffect(() => {
-    if (!isDueEditorOpen) return;
-    const baseIso = task.dueDate ?? new Date().toISOString();
-    setEditorDate(formatZonedDate(baseIso, timezoneOffset));
-    setEditorTime(task.dueDate ? formatZonedTime(task.dueDate, timezoneOffset) : '09:00');
-  }, [isDueEditorOpen, task.dueDate, timezoneOffset]);
-
-  const applyDueDate = (nextDate: string, nextTime: string) => {
-    if (!onUpdateDueDate) return;
-    const nextIso = buildDueDateIso(nextDate, nextTime, timezoneOffset);
-    onUpdateDueDate(task.id, nextIso, timezoneOffset);
-  };
-
-  const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 1) return;
-    startXRef.current = event.touches[0].clientX;
-    startYRef.current = event.touches[0].clientY;
-    isHorizontalRef.current = null;
-    setIsPointerDragging(false);
-  };
-
-  const handleTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
-    if (startXRef.current === null || startYRef.current === null) return;
-    const currentX = event.touches[0].clientX;
-    const currentY = event.touches[0].clientY;
-    const deltaX = currentX - startXRef.current;
-    const deltaY = currentY - startYRef.current;
-
-    if (isHorizontalRef.current === null) {
-      if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return;
-      isHorizontalRef.current = Math.abs(deltaX) > Math.abs(deltaY);
-    }
-
-    if (!isHorizontalRef.current) {
-      setIsPointerDragging(true);
-      return;
-    }
-
-    if (Math.abs(deltaX) > 4) {
-      setIsPointerDragging(true);
-    }
-
-    if (deltaX >= 0) {
-      setOffsetX(0);
-      setIsSwiping(true);
-      return;
-    }
-    setIsSwiping(true);
-    setOffsetX(Math.max(-maxOffset, deltaX));
-  };
-
-  const handleTouchEnd = () => {
-    if (isHorizontalRef.current) {
-      const shouldOpen = Math.abs(offsetX) > maxOffset / 2;
-      setOffsetX(shouldOpen ? -maxOffset : 0);
-    }
-    setIsSwiping(false);
-    startXRef.current = null;
-    startYRef.current = null;
-    isHorizontalRef.current = null;
-  };
-
-  const handleClick = () => {
-    if (isPointerDragging) return;
-    if (offsetX !== 0) {
-      setOffsetX(0);
-      return;
-    }
-    onClick?.();
-  };
-
-  const handleDragStart = (event: any) => {
-    if (!canDrag) return;
-    setIsPointerDragging(true);
-    event.dataTransfer?.setData('text/plain', task.id);
-    event.dataTransfer.effectAllowed = 'move';
-    onDragStart?.(task.id);
-  };
-
-  const handleDragEnd = () => {
-    setIsPointerDragging(false);
-    onDragEnd?.();
-  };
-
-  const showDelete = offsetX < -4 || isSwiping;
-
-  return (
-    <div
-      className={`relative rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
-      draggable={canDrag}
-      onDragStart={handleDragStart}
-      onDragOver={(event) => {
-        event.preventDefault();
-        onDragOver?.(task.id);
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        onDrop?.(task.id);
-      }}
-      onDragEnd={handleDragEnd}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      style={{ touchAction: 'pan-y' }}
-    >
-      <div
-        className={`absolute inset-y-0 right-0 w-[84px] bg-red-600 flex items-center justify-center transition-opacity ${
-          showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <button
-          onClick={(event) => {
-            event.stopPropagation();
-            setOffsetX(0);
-            onDelete?.(task.id);
-          }}
-          className="text-sm font-semibold text-white"
-        >
-          删除
-        </button>
-      </div>
-      <div
-        onClick={handleClick}
-        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[#1F1F1F] hover:bg-[#232323] ${
-          selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
-        }`}
-        style={{
-          transform: `translateX(${offsetX}px)`,
-          transition: isSwiping ? 'none' : 'transform 180ms ease',
-        }}
-      >
-        {subtaskTotal > 0 && (
-          <div
-            className="absolute inset-y-0 left-0 bg-blue-500/20 rounded-l-2xl"
-            style={{ width: `${subtaskProgress}%` }}
-          />
-        )}
-        <div className="relative z-10 flex items-start gap-3 w-full">
-          <button 
-            onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-            className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors ${
-              task.status === 'completed' 
-                ? 'bg-[#5E5E5E] border-[#5E5E5E] text-white' 
-                : 'border-[#555555] hover:border-[#888888]'
-            }`}
-          >
-            {task.status === 'completed' && (
-              <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-[pop-in_280ms_ease-out]" />
-            )}
-          </button>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap justify-between items-start gap-2">
-              {onTitleClick ? (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onTitleClick?.();
-                  }}
-                  className={`text-left text-[13px] sm:text-sm leading-snug ${
-                    task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
-                  }`}
-                  title="点击编辑标题"
-                >
-                  {task.title}
-                </button>
-              ) : (
-                <p className={`text-[13px] sm:text-sm leading-snug ${
-                  task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
-                }`}>
-                  {task.title}
-                </p>
-              )}
-              {hasSubtasks && (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setIsSubtasksOpen((prev) => !prev);
-                  }}
-                  className="flex items-center gap-1 text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] hover:text-[#CCCCCC]"
-                  aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
-                >
-                  <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
-                  {isSubtasksOpen ? (
-                    <ChevronUp className="w-3 h-3" />
-                  ) : (
-                    <ChevronDown className="w-3 h-3" />
-                  )}
-                </button>
-              )}
-              {canDrag && (
-                <button
-                  type="button"
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onTouchStart={(event) => {
-                    event.stopPropagation();
-                  }}
-                  title="拖动排序"
-                >
-                  拖动排序
-                </button>
-              )}
-              {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
-                <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
-                  {Math.round((task as any).similarity * 100)}%
-                </span>
-              )}
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
-                <Flag className="w-3 h-3 fill-current" />
-                {getPriorityLabel(task.priority)}
-              </span>
-            {task.repeat && task.repeat.type !== 'none' && (
-              <span className="text-[10px] text-purple-300 bg-purple-500/10 px-1.5 rounded">
-                {formatRepeatLabel(task.repeat)}
-              </span>
-            )}
-              {task.category && (
-                <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
-                  {task.category}
-                </span>
-              )}
-              {task.dueDate && (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setIsDueEditorOpen((prev) => !prev);
-                    }}
-                    className={`text-[10px] flex items-center gap-1 ${dueTextColor} hover:text-[#DDDDDD]`}
-                    title="点击编辑时间"
-                  >
-                    <Calendar className="w-3 h-3" />
-                    {dueLabel}
-                    <span className="text-[#666666]">({getTimezoneLabel(timezoneOffset)})</span>
-                  </button>
-                  {isDueEditorOpen && (
-                    <div
-                      className="absolute z-20 mt-2 rounded-lg border border-[#333333] bg-[#1A1A1A] p-2 shadow-lg"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="date"
-                          value={editorDate}
-                          onChange={(event) => {
-                            const nextDate = event.target.value;
-                            setEditorDate(nextDate);
-                            applyDueDate(nextDate, editorTime);
-                          }}
-                          className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
-                        />
-                        <input
-                          type="time"
-                          value={editorTime}
-                          onChange={(event) => {
-                            const nextTime = event.target.value;
-                            setEditorTime(nextTime);
-                            applyDueDate(editorDate, nextTime);
-                          }}
-                          className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setIsDueEditorOpen(false)}
-                          className="px-2 py-1 text-[10px] rounded border border-[#333333] text-[#CCCCCC] hover:border-[#555555]"
-                        >
-                          完成
-                        </button>
-                      </div>
-                      <div className="mt-1 text-[10px] text-[#666666]">
-                        时区：{getTimezoneLabel(timezoneOffset)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {task.tags?.map((tag: string) => (
-                <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
-              ))}
-            </div>
-            {hasSubtasks && isSubtasksOpen && (
-              <div className="mt-2 space-y-1 border-l border-[#2A2A2A] pl-4">
-                {task.subtasks.map((subtask: Subtask) => (
-                  <div key={subtask.id} className="flex items-center gap-2 text-[11px] sm:text-xs">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onToggleSubtask?.(task.id, subtask.id);
-                      }}
-                      className="shrink-0"
-                      aria-label={subtask.completed ? '取消完成子任务' : '完成子任务'}
-                    >
-                      {subtask.completed ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-[#555555]" />
-                      )}
-                    </button>
-                    <span
-                      className={subtask.completed ? 'line-through text-[#666666]' : 'text-[#BBBBBB]'}
-                    >
-                      {subtask.title}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ---------------------------
 // Main Layout
 // ---------------------------
 
@@ -1282,6 +807,18 @@ export default function Home() {
     ? formatZonedTime(selectedTask.dueDate, selectedTimezoneOffset)
     : '09:00';
   const themePreference: 'light' | 'dark' | 'system' = isSystemTheme ? 'system' : themeMode;
+  const taskItemHelpers = {
+    getTimezoneOffset,
+    formatZonedDateTime,
+    formatZonedDate,
+    formatZonedTime,
+    buildDueDateIso,
+    getTimezoneLabel,
+    getPriorityColor,
+    getPriorityLabel,
+    formatRepeatLabel,
+    isTaskOverdue,
+  };
 
   const getSystemTheme = () => {
     if (typeof window === 'undefined') return 'dark';
@@ -1678,10 +1215,8 @@ export default function Home() {
           const response = await fetch(BING_WALLPAPER_API);
           if (!response.ok) return;
           const data = await response.json();
-          const image = data?.images?.[0]?.url;
-          if (image) {
-            const fullUrl = image.startsWith('http') ? image : `https://www.bing.com${image}`;
-            setBingWallpaperUrl(fullUrl);
+          if (data?.url) {
+            setBingWallpaperUrl(data.url);
           }
         } catch (error) {
           console.error('Failed to fetch Bing wallpaper', error);
@@ -3690,286 +3225,48 @@ export default function Home() {
     >
       
       {/* 1. Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-40 w-[78vw] max-w-[300px] bg-[#222222] border-r border-[#333333] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden pb-[calc(0.5rem+env(safe-area-inset-bottom))]
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:relative lg:translate-x-0 lg:w-[240px] lg:shadow-none
-      `}>
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="p-4 flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setShowAppMenu((prev) => !prev);
-                  }}
-                  className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow"
-                  aria-label="打开应用菜单"
-                >
-                  <img
-                    src="https://disk.shuaihong.fun/f/VPCq/home.png"
-                    alt="Recall"
-                    className="w-6 h-6 rounded-full"
-                  />
-                </button>
-                {showAppMenu && (
-                  <div
-                    className="absolute left-0 top-10 w-40 rounded-xl border border-[#333333] bg-[#1F1F1F] shadow-2xl z-50 overflow-hidden"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAppMenu(false);
-                        setShowSettings(true);
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
-                    >
-                      设置
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAppMenu(false);
-                        setShowAbout(true);
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
-                    >
-                      关于
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div>
-                <h1 className="text-sm font-semibold">Recall AI（轻量不轻浮）</h1>
-                <p className="text-xs text-[#666666]">轻量 AI 待办｜不拖延搭子</p>
-              </div>
-            </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#666666]">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <nav className="px-2 space-y-1">
-            <SidebarItem
-              icon={Command} label="AI 助手" count={agentItems.length}
-              active={activeFilter === 'agent'}
-              onClick={() => { setActiveFilter('agent'); setIsSidebarOpen(false); }}
-            />
-
-            <button
-              type="button"
-              onClick={() => setIsQuickAccessOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
-            >
-              <span>快捷入口</span>
-              {isQuickAccessOpen ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
-            </button>
-            {isQuickAccessOpen && (
-              <div className="space-y-1">
-                <SidebarItem
-                  icon={Inbox} label="收件箱"
-                  active={activeFilter === 'inbox'}
-                  onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }}
-                  iconColor="text-blue-400"
-                  badge={tasks.filter(t => t.status !== 'completed').length}
-                />
-                <SidebarItem
-                  icon={Sun} label="今日"
-                  active={activeFilter === 'today'}
-                  onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }}
-                  iconColor="text-yellow-400"
-                  badge={tasks.filter(t => {
-                    if (t.status === 'completed' || !t.dueDate) return false;
-                    const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
-                    const taskKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
-                    return taskKey === todayKey;
-                  }).length}
-                />
-                <SidebarItem
-                  icon={Calendar} label="未来 7 天"
-                  active={activeFilter === 'next7'}
-                  onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }}
-                  iconColor="text-purple-400"
-                  badge={tasks.filter(t => {
-                    if (t.status === 'completed' || !t.dueDate) return false;
-                    const taskDate = new Date(t.dueDate);
-                    const today = new Date();
-                    const next7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                    return taskDate >= today && taskDate <= next7Days;
-                  }).length}
-                />
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setIsToolsOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
-            >
-              <span>功能</span>
-              {isToolsOpen ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
-            </button>
-            {isToolsOpen && (
-              <div className="space-y-1">
-                <SidebarItem
-                  icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length}
-                  active={activeFilter === 'todo'}
-                  onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }}
-                  iconColor="text-green-400"
-                />
-                <SidebarItem
-                  icon={Calendar} label="日历" count={hasCalendarTasks ? 0 : 0}
-                  active={activeFilter === 'calendar'}
-                  onClick={() => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }}
-                  iconColor="text-cyan-400"
-                />
-                <SidebarItem
-                  icon={LayoutGrid} label="四象限" count={0}
-                  active={activeFilter === 'quadrant'}
-                  onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }}
-                  iconColor="text-indigo-400"
-                />
-                <SidebarItem
-                  icon={Timer} label="倒数日" count={countdowns.length}
-                  active={activeFilter === 'countdown'}
-                  onClick={() => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }}
-                  iconColor="text-pink-400"
-                />
-                <SidebarItem
-                  icon={Flame} label="习惯打卡" count={0}
-                  active={activeFilter === 'habit'}
-                  onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }}
-                  iconColor="text-orange-400"
-                />
-                <SidebarItem
-                  icon={Timer} label="番茄时钟" count={0}
-                  active={activeFilter === 'pomodoro'}
-                  onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }}
-                  iconColor="text-red-400"
-                />
-                <SidebarItem
-                  icon={CheckCircle2} label="已完成" count={0}
-                  active={activeFilter === 'completed'}
-                  onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }}
-                  iconColor="text-emerald-400"
-                />
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setIsListsOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
-            >
-              <span>列表</span>
-              {isListsOpen ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
-            </button>
-            {isListsOpen && (
-              <div className="space-y-1">
-                {listItems.map((item) => (
-                  <EditableSidebarItem
-                    key={item}
-                    icon={Hash}
-                    label={item}
-                    count={tasks.filter((task) => task.category === item && task.status !== 'completed').length}
-                    active={activeFilter === 'category' && activeCategory === item}
-                    onClick={() => {
-                      setActiveFilter('category');
-                      setActiveCategory(item);
-                      refreshTasks();
-                      setIsSidebarOpen(false);
-                    }}
-                    onEdit={() => renameListItem(item, prompt('重命名列表', item) || item)}
-                  />
-                ))}
-                {isAddingList ? (
-                  <div className="flex items-center gap-2 px-3 py-2">
-                    <input
-                      type="text"
-                      value={newListName}
-                      onChange={(e) => setNewListName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addListItem()}
-                      placeholder="列表名称"
-                      className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-2 py-1 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                      autoFocus
-                    />
-                    <button onClick={addListItem} className="text-blue-400 text-sm">添加</button>
-                    <button onClick={() => { setIsAddingList(false); setNewListName(''); }} className="text-[#666666] text-sm">取消</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setIsAddingList(true)}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[#666666] hover:text-[#AAAAAA]"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>新建列表</span>
-                  </button>
-                )}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setIsTagsOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between pt-4 pb-2 px-3 text-xs font-semibold text-[#555555] uppercase tracking-wider hover:text-[#777777]"
-            >
-              <span>标签</span>
-              {isTagsOpen ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
-            </button>
-            {isTagsOpen && (
-              <div className="space-y-1">
-                {Object.entries(tagUsageMap).sort((a, b) => b[1] - a[1]).map(([tag, count]) => (
-                  <SidebarItem
-                    key={tag}
-                    icon={TagIcon}
-                    label={tag}
-                    count={count}
-                    active={activeFilter === 'tag' && activeTag === tag}
-                    onClick={() => {
-                      setActiveFilter('tag');
-                      setActiveTag(tag);
-                      refreshTasks();
-                      setIsSidebarOpen(false);
-                    }}
-                  />
-                ))}
-                {Object.keys(tagUsageMap).length === 0 && (
-                  <p className="px-3 py-2 text-xs text-[#555555]">暂无标签</p>
-                )}
-              </div>
-            )}
-          </nav>
-        </div>
-        <div className="px-4 py-2 border-t border-[#333333] bg-[#222222]/50">
-          <div className="text-[10px] text-[#555555]">v{APP_VERSION}</div>
-        </div>
-      </aside>
-
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-30 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        showAppMenu={showAppMenu}
+        setShowAppMenu={setShowAppMenu}
+        setShowSettings={setShowSettings}
+        setShowAbout={setShowAbout}
+        isQuickAccessOpen={isQuickAccessOpen}
+        setIsQuickAccessOpen={setIsQuickAccessOpen}
+        isToolsOpen={isToolsOpen}
+        setIsToolsOpen={setIsToolsOpen}
+        isListsOpen={isListsOpen}
+        setIsListsOpen={setIsListsOpen}
+        isTagsOpen={isTagsOpen}
+        setIsTagsOpen={setIsTagsOpen}
+        activeFilter={activeFilter}
+        setActiveFilter={setActiveFilter}
+        refreshTasks={refreshTasks}
+        refreshCountdowns={refreshCountdowns}
+        refreshHabits={refreshHabits}
+        tasks={tasks}
+        agentItems={agentItems}
+        hasCalendarTasks={hasCalendarTasks}
+        countdowns={countdowns}
+        activeCategory={activeCategory}
+        setActiveCategory={setActiveCategory}
+        listItems={listItems}
+        renameListItem={renameListItem}
+        isAddingList={isAddingList}
+        setIsAddingList={setIsAddingList}
+        newListName={newListName}
+        setNewListName={setNewListName}
+        addListItem={addListItem}
+        tagUsageMap={tagUsageMap}
+        activeTag={activeTag}
+        setActiveTag={setActiveTag}
+        APP_VERSION={APP_VERSION}
+        DEFAULT_TIMEZONE_OFFSET={DEFAULT_TIMEZONE_OFFSET}
+        formatDateKeyByOffset={formatDateKeyByOffset}
+        formatZonedDate={formatZonedDate}
+        getTimezoneOffset={getTimezoneOffset}
+      />
 
       {/* 2. Main Task List */}
       <section
@@ -4333,6 +3630,7 @@ export default function Home() {
                                     onDelete={removeTask}
                                     onToggleSubtask={toggleSubtask}
                                     onUpdateDueDate={updateTaskDueDate}
+                                    helpers={taskItemHelpers}
                                   />
                                 ))}
                               </div>
@@ -4471,7 +3769,8 @@ export default function Home() {
                             onToggle={toggleStatus}
                             onDelete={removeTask}
                             onToggleSubtask={toggleSubtask}
-                          onUpdateDueDate={updateTaskDueDate}
+                            onUpdateDueDate={updateTaskDueDate}
+                            helpers={taskItemHelpers}
                           />
                         ))
                       )}
@@ -4751,6 +4050,7 @@ export default function Home() {
                             onDelete={removeTask}
                             onToggleSubtask={toggleSubtask}
                             onUpdateDueDate={updateTaskDueDate}
+                            helpers={taskItemHelpers}
                           />
                         ))
                       )}
@@ -5115,6 +4415,7 @@ export default function Home() {
                               setEditingTaskTitle(task.title);
                             }}
                             onToggleSubtask={toggleSubtask}
+                            helpers={taskItemHelpers}
                           />
                         )}
                       </div>
@@ -5513,420 +4814,83 @@ export default function Home() {
         </aside>
       )}
 
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6">
-          <div
-            className="absolute inset-0"
-            onClick={() => setShowSettings(false)}
-          />
-          <div
-            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>
-            <div className="space-y-3 sm:space-y-4 text-sm">
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={apiBaseUrl}
-                    onChange={(e) => setApiBaseUrl(e.target.value)}
-                    placeholder={DEFAULT_BASE_URL}
-                    className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">模型列表 (逗号或换行分隔)</label>
-                <textarea
-                  value={modelListText}
-                  onChange={(e) => setModelListText(e.target.value)}
-                  placeholder={DEFAULT_MODEL_LIST.join('\n')}
-                  rows={4}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={fetchModelList}
-                    disabled={isFetchingModels}
-                    className="px-3 py-1.5 text-[12px] sm:text-xs rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isFetchingModels ? '拉取中…' : '拉取模型列表'}
-                  </button>
-                  <span className="text-[11px] sm:text-xs text-[#666666]">
-                    从当前接口同步模型列表
-                  </span>
-                </div>
-                {modelFetchError && (
-                  <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
-                <select
-                  value={chatModel}
-                  onChange={(e) => setChatModel(e.target.value)}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                >
-                  {parseModelList(modelListText).map((model) => (
-                    <option key={model} value={model}>{model}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={fallbackTimeoutSec}
-                  onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
-                  placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
-                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">倒数日显示模式</label>
-                <div className="flex gap-2 text-[12px] sm:text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setCountdownDisplayMode('days')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
-                      countdownDisplayMode === 'days'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                  >
-                    剩余天数
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCountdownDisplayMode('date')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
-                      countdownDisplayMode === 'date'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                  >
-                    目标日期
-                  </button>
-                </div>
-                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
-              </div>
-              <div className="pt-3 border-t border-[#333333]">
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">浏览器通知</label>
-                <div className="space-y-3">
-                  <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
-                    <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
-                    <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
-                    <p>权限状态：{notificationPermission === 'granted' ? '已授权' : notificationPermission === 'denied' ? '已拒绝' : '未授权'}</p>
-                    <p>Service Worker：{serviceWorkerSupported ? '已支持' : '不支持'}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={requestNotificationPermission}
-                      className="px-3 py-2 text-[13px] sm:text-sm rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10"
-                    >
-                      申请权限
-                    </button>
-                    <button
-                      type="button"
-                      onClick={sendTestNotification}
-                      className="px-3 py-2 text-[13px] sm:text-sm rounded-lg border border-[#333333] text-[#CCCCCC] hover:border-[#555555] hover:text-white"
-                    >
-                      发送测试通知
-                    </button>
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-[#555555]">提示：浏览器会拦截非用户触发的通知，请确保在手动点击按钮时触发。</p>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">每日壁纸</label>
-                <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
-                  <p>已默认使用必应每日壁纸 API。</p>
-                  <p className="text-[11px] sm:text-xs">{BING_WALLPAPER_API}</p>
-                </div>
-              </div>
-              <div className="pt-3 border-t border-[#333333]">
-                <button
-                  type="button"
-                  onClick={() => setIsApiSettingsOpen(!isApiSettingsOpen)}
-                  className="w-full flex items-center justify-between text-[11px] sm:text-xs font-medium text-[#888888] mb-3 uppercase hover:text-[#CCCCCC]"
-                >
-                  <span>API 专用设置组</span>
-                  {isApiSettingsOpen ? (
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  )}
-                </button>
-                {isApiSettingsOpen && (
-                  <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
-                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
-                    </div>
-                    <PgSettings
-                      host={pgHost}
-                      port={pgPort}
-                      database={pgDatabase}
-                      username={pgUsername}
-                      password={pgPassword}
-                      onHostChange={setPgHost}
-                      onPortChange={setPgPort}
-                      onDatabaseChange={setPgDatabase}
-                      onUsernameChange={setPgUsername}
-                      onPasswordChange={setPgPassword}
-                    />
-                    <RedisSettings
-                      host={redisHost}
-                      port={redisPort}
-                      db={redisDb}
-                      password={redisPassword}
-                      onHostChange={setRedisHost}
-                      onPortChange={setRedisPort}
-                      onDbChange={setRedisDb}
-                      onPasswordChange={setRedisPassword}
-                    />
-                    <div className="space-y-3">
-                      <div className="text-[11px] sm:text-xs text-[#999999] uppercase">同步设置</div>
-                      <div>
-                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">同步命名空间 (Key Prefix)</label>
-                        <input
-                          type="text"
-                          value={syncNamespace}
-                          onChange={(e) => setSyncNamespace(e.target.value)}
-                          placeholder={DEFAULT_SYNC_NAMESPACE}
-                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                        />
-                        <p className="text-[11px] sm:text-xs text-[#555555] mt-1">类似“房间号”，多端填写一致即可同步同一份数据。</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setAutoSyncEnabled((prev) => !prev)}
-                          className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
-                            autoSyncEnabled
-                              ? "bg-blue-600/20 border-blue-400 text-white"
-                              : "border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
-                          }`}
-                        >
-                          {autoSyncEnabled ? "自动同步：已开启" : "自动同步：已关闭"}
-                        </button>
-                        <select
-                          value={autoSyncInterval}
-                          onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
-                          className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                        >
-                          {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                              每 {option} 分钟
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] sm:text-xs text-[#999999] uppercase mb-2">第三方日历订阅</label>
-                      <textarea
-                        value={calendarSubscription}
-                        onChange={(e) => setCalendarSubscription(e.target.value)}
-                        placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
-                        rows={3}
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                      />
-                      <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
-                    </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-[11px] sm:text-xs text-[#999999] uppercase">附件存储 (WebDAV)</div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!webdavUrl || !webdavUsername || !webdavPassword) {
-                            alert('请先填写完整 WebDAV 信息');
-                            return;
-                          }
-                          try {
-                            const res = await fetch('/api/test-connection', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                type: 'webdav',
-                                config: { url: webdavUrl, username: webdavUsername, password: webdavPassword },
-                              }),
-                            });
-                            const data = await res.json();
-                            if (res.ok && data.success) {
-                              alert('连接成功！');
-                            } else {
-                              alert(`连接失败: ${data.error || '未知错误'} 
-${data.details || ''}`);
-                            }
-                          } catch (error) {
-                            alert(`请求失败: ${String(error)}`);
-                          }
-                        }}
-                        className="text-[10px] text-blue-400 hover:text-blue-300"
-                      >
-                        测试连接
-                      </button>
-                    </div>
-                    <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                      配置 WebDAV 后可上传图片/文件附件。
-                    </div>
-                      <div>
-                        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
-                        <input
-                          type="text"
-                          value={webdavUrl}
-                          onChange={(e) => setWebdavUrl(e.target.value)}
-                          placeholder={DEFAULT_WEBDAV_URL}
-                          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
-                          <input
-                            type="text"
-                            value={webdavUsername}
-                            onChange={(e) => setWebdavUsername(e.target.value)}
-                            placeholder="用户名"
-                            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
-                          <input
-                            type="password"
-                            value={webdavPassword}
-                            onChange={(e) => setWebdavPassword(e.target.value)}
-                            placeholder="密码"
-                            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="pt-3 border-t border-[#333333]">
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">数据导入导出（搬家专用）</label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={handleExportData}
-                    className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
-                  >
-                    导出 JSON
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openImportPicker}
-                    className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
-                  >
-                    导入 JSON
-                  </button>
-                </div>
-                <div className="mt-3">
-                  <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">导入方式</label>
-                  <div className="flex gap-2 text-[12px] sm:text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setImportMode('merge')}
-                      className={`px-3 py-1.5 rounded border transition-colors ${
-                        importMode === 'merge'
-                          ? 'bg-blue-500/20 border-blue-400 text-white'
-                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                      }`}
-                    >
-                      合并
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImportMode('overwrite')}
-                      className={`px-3 py-1.5 rounded border transition-colors ${
-                        importMode === 'overwrite'
-                          ? 'bg-blue-500/20 border-blue-400 text-white'
-                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                      }`}
-                    >
-                      覆盖
-                    </button>
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-[#555555] mt-2">合并会保留现有数据，覆盖将以导入文件为准。</p>
-                </div>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept="application/json"
-                  onChange={handleImportData}
-                  className="hidden"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 mt-5">
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="px-3 py-2 text-[13px] sm:text-sm text-[#AAAAAA] hover:text-white transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={() => {
-                    const normalizedTimeout = normalizeTimeoutSec(fallbackTimeoutSec);
-                    setFallbackTimeoutSec(normalizedTimeout);
-                    persistSettings({
-                      apiKey,
-                      apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
-                      modelListText,
-                      chatModel,
-                      fallbackTimeoutSec: normalizedTimeout,
-                      webdavUrl,
-                      webdavPath,
-                      webdavUsername,
-                      webdavPassword,
-                      autoSyncEnabled,
-                      autoSyncInterval,
-                      countdownDisplayMode,
-                      aiRetentionDays,
-                      pgHost,
-                      pgPort,
-                      pgDatabase,
-                      pgUsername,
-                      pgPassword,
-                      redisHost,
-                      redisPort,
-                      redisDb,
-                      redisPassword,
-                      syncNamespace,
-                      calendarSubscription,
-                    });
-                    setShowSettings(false);
-                  }}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm font-medium hover:bg-blue-500 transition-colors"
-                >
-                  保存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <SettingsModal
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        apiBaseUrl={apiBaseUrl}
+        setApiBaseUrl={setApiBaseUrl}
+        apiKey={apiKey}
+        setApiKey={setApiKey}
+        modelListText={modelListText}
+        setModelListText={setModelListText}
+        DEFAULT_BASE_URL={DEFAULT_BASE_URL}
+        DEFAULT_MODEL_LIST={DEFAULT_MODEL_LIST}
+        parseModelList={parseModelList}
+        fetchModelList={fetchModelList}
+        isFetchingModels={isFetchingModels}
+        modelFetchError={modelFetchError}
+        chatModel={chatModel}
+        setChatModel={setChatModel}
+        fallbackTimeoutSec={fallbackTimeoutSec}
+        setFallbackTimeoutSec={setFallbackTimeoutSec}
+        DEFAULT_FALLBACK_TIMEOUT_SEC={DEFAULT_FALLBACK_TIMEOUT_SEC}
+        countdownDisplayMode={countdownDisplayMode}
+        setCountdownDisplayMode={setCountdownDisplayMode}
+        notificationSupported={notificationSupported}
+        isSecureContext={isSecureContext}
+        notificationPermission={notificationPermission}
+        serviceWorkerSupported={serviceWorkerSupported}
+        requestNotificationPermission={requestNotificationPermission}
+        sendTestNotification={sendTestNotification}
+        BING_WALLPAPER_API={BING_WALLPAPER_API}
+        isApiSettingsOpen={isApiSettingsOpen}
+        setIsApiSettingsOpen={setIsApiSettingsOpen}
+        pgHost={pgHost}
+        pgPort={pgPort}
+        pgDatabase={pgDatabase}
+        pgUsername={pgUsername}
+        pgPassword={pgPassword}
+        setPgHost={setPgHost}
+        setPgPort={setPgPort}
+        setPgDatabase={setPgDatabase}
+        setPgUsername={setPgUsername}
+        setPgPassword={setPgPassword}
+        redisHost={redisHost}
+        redisPort={redisPort}
+        redisDb={redisDb}
+        redisPassword={redisPassword}
+        setRedisHost={setRedisHost}
+        setRedisPort={setRedisPort}
+        setRedisDb={setRedisDb}
+        setRedisPassword={setRedisPassword}
+        syncNamespace={syncNamespace}
+        setSyncNamespace={setSyncNamespace}
+        DEFAULT_SYNC_NAMESPACE={DEFAULT_SYNC_NAMESPACE}
+        autoSyncEnabled={autoSyncEnabled}
+        setAutoSyncEnabled={setAutoSyncEnabled}
+        autoSyncInterval={autoSyncInterval}
+        setAutoSyncInterval={setAutoSyncInterval}
+        AUTO_SYNC_INTERVAL_OPTIONS={AUTO_SYNC_INTERVAL_OPTIONS}
+        calendarSubscription={calendarSubscription}
+        setCalendarSubscription={setCalendarSubscription}
+        webdavUrl={webdavUrl}
+        setWebdavUrl={setWebdavUrl}
+        webdavUsername={webdavUsername}
+        setWebdavUsername={setWebdavUsername}
+        webdavPassword={webdavPassword}
+        setWebdavPassword={setWebdavPassword}
+        DEFAULT_WEBDAV_URL={DEFAULT_WEBDAV_URL}
+        handleExportData={handleExportData}
+        openImportPicker={openImportPicker}
+        importMode={importMode}
+        setImportMode={setImportMode}
+        importInputRef={importInputRef}
+        handleImportData={handleImportData}
+        normalizeTimeoutSec={normalizeTimeoutSec}
+        persistSettings={persistSettings}
+        webdavPath={webdavPath}
+        aiRetentionDays={aiRetentionDays}
+      />
 
       {showCountdownForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
