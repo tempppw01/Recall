@@ -16,8 +16,9 @@ import {
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite'];
-const DEFAULT_FALLBACK_TIMEOUT_SEC = 8;
+const DEFAULT_FALLBACK_TIMEOUT_SEC = 2;
 const DEFAULT_SESSION_ID_KEY = 'recall_session_id';
+const BING_WALLPAPER_API = 'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1';
 const DEFAULT_REDIS_DB = 0;
 const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
@@ -25,7 +26,6 @@ const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
 const APP_VERSION = '0.9beta';
 const APP_VERSION_KEY = 'recall_app_version';
 const LISTS_KEY = 'recall_lists';
-const WALLPAPER_KEY = 'recall_wallpaper_url';
 const WEBDAV_URL_KEY = 'recall_webdav_url';
 const WEBDAV_PATH_KEY = 'recall_webdav_path';
 const WEBDAV_USERNAME_KEY = 'recall_webdav_username';
@@ -1233,7 +1233,7 @@ export default function Home() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   const [isSystemTheme, setIsSystemTheme] = useState(true);
-  const [wallpaperUrl, setWallpaperUrl] = useState('');
+  const [bingWallpaperUrl, setBingWallpaperUrl] = useState('');
   const [notificationSupported, setNotificationSupported] = useState(false);
   const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
@@ -1352,7 +1352,6 @@ export default function Home() {
     modelListText: string;
     chatModel: string;
     fallbackTimeoutSec: number;
-    wallpaperUrl: string;
     webdavUrl: string;
     webdavPath: string;
     webdavUsername: string;
@@ -1378,7 +1377,6 @@ export default function Home() {
     localStorage.setItem('recall_model_list', next.modelListText);
     localStorage.setItem('recall_chat_model', next.chatModel);
     localStorage.setItem('recall_fallback_timeout_sec', String(next.fallbackTimeoutSec));
-    localStorage.setItem(WALLPAPER_KEY, next.wallpaperUrl);
     localStorage.setItem(WEBDAV_URL_KEY, next.webdavUrl);
     localStorage.setItem(WEBDAV_PATH_KEY, next.webdavPath);
     localStorage.setItem(WEBDAV_USERNAME_KEY, next.webdavUsername);
@@ -1544,7 +1542,6 @@ export default function Home() {
             'recall_chat_model',
             'recall_fallback_timeout_sec',
             DEFAULT_SESSION_ID_KEY,
-            WALLPAPER_KEY,
             WEBDAV_URL_KEY,
             WEBDAV_PATH_KEY,
             WEBDAV_USERNAME_KEY,
@@ -1584,7 +1581,6 @@ export default function Home() {
       const storedChatModel = localStorage.getItem('recall_chat_model');
       const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
       const storedSessionId = localStorage.getItem(DEFAULT_SESSION_ID_KEY);
-      const storedWallpaper = localStorage.getItem(WALLPAPER_KEY);
       const storedWebdavUrl = localStorage.getItem(WEBDAV_URL_KEY);
       const storedWebdavPath = localStorage.getItem(WEBDAV_PATH_KEY);
       const storedWebdavUsername = localStorage.getItem(WEBDAV_USERNAME_KEY);
@@ -1623,9 +1619,6 @@ export default function Home() {
         const newSessionId = createId();
         setSessionId(newSessionId);
         localStorage.setItem(DEFAULT_SESSION_ID_KEY, newSessionId);
-      }
-      if (storedWallpaper) {
-        setWallpaperUrl(storedWallpaper);
       }
       if (storedWebdavUrl) setWebdavUrl(storedWebdavUrl);
       if (storedWebdavPath) setWebdavPath(storedWebdavPath);
@@ -1679,6 +1672,23 @@ export default function Home() {
       refreshTasks();
       refreshHabits();
       refreshCountdowns();
+
+      const loadBingWallpaper = async () => {
+        try {
+          const response = await fetch(BING_WALLPAPER_API);
+          if (!response.ok) return;
+          const data = await response.json();
+          const image = data?.images?.[0]?.url;
+          if (image) {
+            const fullUrl = image.startsWith('http') ? image : `https://www.bing.com${image}`;
+            setBingWallpaperUrl(fullUrl);
+          }
+        } catch (error) {
+          console.error('Failed to fetch Bing wallpaper', error);
+        }
+      };
+
+      loadBingWallpaper();
 
       if (!storedKey) {
         const inputKey = window.prompt('未检测到 AI 令牌，可输入以启用完整功能（可跳过）');
@@ -2546,7 +2556,6 @@ export default function Home() {
       modelListText,
       chatModel,
       fallbackTimeoutSec,
-      wallpaperUrl,
       syncNamespace,
       autoSyncEnabled,
       autoSyncInterval,
@@ -2578,7 +2587,6 @@ export default function Home() {
     const nextFallback = Number.isFinite(Number(settings.fallbackTimeoutSec))
       ? Number(settings.fallbackTimeoutSec)
       : DEFAULT_FALLBACK_TIMEOUT_SEC;
-    const nextWallpaper = typeof settings.wallpaperUrl === 'string' ? settings.wallpaperUrl : '';
     const nextAutoSyncEnabled = settings.autoSyncEnabled === true;
     const nextAutoSyncInterval = Number(settings.autoSyncInterval) || DEFAULT_AUTO_SYNC_INTERVAL_MIN;
     const nextCountdownDisplayMode = settings.countdownDisplayMode === 'date' ? 'date' : 'days';
@@ -2588,7 +2596,6 @@ export default function Home() {
     setModelListText(nextModelListText);
     setChatModel(nextChatModel);
     setFallbackTimeoutSec(nextFallback);
-    setWallpaperUrl(nextWallpaper);
     setAutoSyncEnabled(nextAutoSyncEnabled);
     setAutoSyncInterval(nextAutoSyncInterval);
     setCountdownDisplayMode(nextCountdownDisplayMode);
@@ -2630,7 +2637,6 @@ export default function Home() {
       modelListText: nextModelListText,
       chatModel: nextChatModel,
       fallbackTimeoutSec: nextFallback,
-      wallpaperUrl: nextWallpaper,
       webdavUrl,
       webdavPath,
       webdavUsername,
@@ -3672,9 +3678,9 @@ export default function Home() {
     <div
       className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top"
       style={
-        wallpaperUrl
+        bingWallpaperUrl
           ? {
-              backgroundImage: `url(${wallpaperUrl})`,
+              backgroundImage: `url(${bingWallpaperUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
@@ -5623,7 +5629,7 @@ export default function Home() {
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">浏览器通知</label>
                 <div className="space-y-3">
                   <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
-                    <p>支持情况：{notificationSupported ? '已支持' : '不支持'}</p>
+                    <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
                     <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
                     <p>权限状态：{notificationPermission === 'granted' ? '已授权' : notificationPermission === 'denied' ? '已拒绝' : '未授权'}</p>
                     <p>Service Worker：{serviceWorkerSupported ? '已支持' : '不支持'}</p>
@@ -5648,15 +5654,11 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">壁纸图片 URL</label>
-                <input
-                  type="text"
-                  value={wallpaperUrl}
-                  onChange={(e) => setWallpaperUrl(e.target.value)}
-                  placeholder="https://example.com/wallpaper.jpg"
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
-                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">输入 Web 图片链接，保存后全局背景生效（留空可清除）。</p>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">每日壁纸</label>
+                <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
+                  <p>已默认使用必应每日壁纸 API。</p>
+                  <p className="text-[11px] sm:text-xs">{BING_WALLPAPER_API}</p>
+                </div>
               </div>
               <div className="pt-3 border-t border-[#333333]">
                 <button
@@ -5891,10 +5893,9 @@ ${data.details || ''}`);
                     persistSettings({
                       apiKey,
                       apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
-      modelListText,
-      chatModel,
-      fallbackTimeoutSec: normalizedTimeout,
-                      wallpaperUrl,
+                      modelListText,
+                      chatModel,
+                      fallbackTimeoutSec: normalizedTimeout,
                       webdavUrl,
                       webdavPath,
                       webdavUsername,
