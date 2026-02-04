@@ -673,7 +673,7 @@ const getNextRepeatDate = (task: Task): Date | null => {
 // Components
 // ---------------------------
 
-const SidebarItem = ({ icon: Icon, label, count, active, onClick, iconColor }: any) => (
+const SidebarItem = ({ icon: Icon, label, count, active, onClick, iconColor, badge }: any) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors ${
@@ -681,7 +681,14 @@ const SidebarItem = ({ icon: Icon, label, count, active, onClick, iconColor }: a
     }`}
   >
     <div className="flex items-center gap-3">
-      <Icon className={`w-4 h-4 ${iconColor || ''}`} />
+      <div className="relative">
+        <Icon className={`w-4 h-4 ${iconColor || ''}`} />
+        {badge > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-medium text-white bg-red-500 rounded-full">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </div>
       <span>{label}</span>
     </div>
     {count > 0 && <span className="text-xs text-[#666666]">{count}</span>}
@@ -3757,22 +3764,36 @@ export default function Home() {
             {isQuickAccessOpen && (
               <div className="space-y-1">
                 <SidebarItem
-                  icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length}
+                  icon={Inbox} label="收件箱"
                   active={activeFilter === 'inbox'}
                   onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }}
                   iconColor="text-blue-400"
+                  badge={tasks.filter(t => t.status !== 'completed').length}
                 />
                 <SidebarItem
-                  icon={Sun} label="今日" count={0}
+                  icon={Sun} label="今日"
                   active={activeFilter === 'today'}
                   onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }}
                   iconColor="text-yellow-400"
+                  badge={tasks.filter(t => {
+                    if (t.status === 'completed' || !t.dueDate) return false;
+                    const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
+                    const taskKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
+                    return taskKey === todayKey;
+                  }).length}
                 />
                 <SidebarItem
-                  icon={Calendar} label="未来 7 天" count={0}
+                  icon={Calendar} label="未来 7 天"
                   active={activeFilter === 'next7'}
                   onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }}
                   iconColor="text-purple-400"
+                  badge={tasks.filter(t => {
+                    if (t.status === 'completed' || !t.dueDate) return false;
+                    const taskDate = new Date(t.dueDate);
+                    const today = new Date();
+                    const next7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+                    return taskDate >= today && taskDate <= next7Days;
+                  }).length}
                 />
               </div>
             )}
