@@ -673,15 +673,15 @@ const getNextRepeatDate = (task: Task): Date | null => {
 // Components
 // ---------------------------
 
-const SidebarItem = ({ icon: Icon, label, count, active, onClick }: any) => (
-  <button 
+const SidebarItem = ({ icon: Icon, label, count, active, onClick, iconColor }: any) => (
+  <button
     onClick={onClick}
     className={`w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors ${
       active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
     }`}
   >
     <div className="flex items-center gap-3">
-      <Icon className="w-4 h-4" />
+      <Icon className={`w-4 h-4 ${iconColor || ''}`} />
       <span>{label}</span>
     </div>
     {count > 0 && <span className="text-xs text-[#666666]">{count}</span>}
@@ -1193,7 +1193,7 @@ export default function Home() {
   const [countdownTitle, setCountdownTitle] = useState('');
   const [countdownDate, setCountdownDate] = useState('');
   const [newHabitTitle, setNewHabitTitle] = useState('');
-  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
+  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(true);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -3760,16 +3760,19 @@ export default function Home() {
                   icon={Inbox} label="收件箱" count={tasks.filter(t => t.status !== 'completed').length}
                   active={activeFilter === 'inbox'}
                   onClick={() => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }}
+                  iconColor="text-blue-400"
                 />
                 <SidebarItem
                   icon={Sun} label="今日" count={0}
                   active={activeFilter === 'today'}
                   onClick={() => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }}
+                  iconColor="text-yellow-400"
                 />
                 <SidebarItem
                   icon={Calendar} label="未来 7 天" count={0}
                   active={activeFilter === 'next7'}
                   onClick={() => { setActiveFilter('next7'); refreshTasks(); setIsSidebarOpen(false); }}
+                  iconColor="text-purple-400"
                 />
               </div>
             )}
@@ -3792,36 +3795,43 @@ export default function Home() {
                   icon={CheckSquare} label="待办" count={tasks.filter(t => t.status !== 'completed').length}
                   active={activeFilter === 'todo'}
                   onClick={() => { setActiveFilter('todo'); refreshTasks(); setIsSidebarOpen(false); }}
+                  iconColor="text-green-400"
                 />
                 <SidebarItem
                   icon={Calendar} label="日历" count={hasCalendarTasks ? 0 : 0}
                   active={activeFilter === 'calendar'}
                   onClick={() => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }}
+                  iconColor="text-cyan-400"
                 />
                 <SidebarItem
                   icon={LayoutGrid} label="四象限" count={0}
                   active={activeFilter === 'quadrant'}
                   onClick={() => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }}
+                  iconColor="text-indigo-400"
                 />
                 <SidebarItem
                   icon={Timer} label="倒数日" count={countdowns.length}
                   active={activeFilter === 'countdown'}
                   onClick={() => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }}
+                  iconColor="text-pink-400"
                 />
                 <SidebarItem
                   icon={Flame} label="习惯打卡" count={0}
                   active={activeFilter === 'habit'}
                   onClick={() => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }}
+                  iconColor="text-orange-400"
                 />
                 <SidebarItem
                   icon={Timer} label="番茄时钟" count={0}
                   active={activeFilter === 'pomodoro'}
                   onClick={() => { setActiveFilter('pomodoro'); refreshTasks(); setIsSidebarOpen(false); }}
+                  iconColor="text-red-400"
                 />
                 <SidebarItem
                   icon={CheckCircle2} label="已完成" count={0}
                   active={activeFilter === 'completed'}
                   onClick={() => { setActiveFilter('completed'); setIsSidebarOpen(false); }}
+                  iconColor="text-emerald-400"
                 />
               </div>
             )}
