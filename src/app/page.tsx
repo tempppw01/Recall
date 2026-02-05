@@ -1698,6 +1698,20 @@ export default function Home() {
     refreshTasks();
   };
 
+  const removeListItem = (name: string) => {
+    if (!name) return;
+    setListItems((prev) => prev.filter((item) => item !== name));
+    taskStore.getAll().forEach((task) => {
+      if (task.category === name) {
+        taskStore.update({ ...task, category: '', updatedAt: new Date().toISOString() });
+      }
+    });
+    if (activeCategory === name) {
+      setActiveCategory('');
+    }
+    refreshTasks();
+  };
+
   const addListItem = () => {
     const trimmed = newListName.trim();
     if (!trimmed) return;
@@ -3272,6 +3286,7 @@ export default function Home() {
         setActiveCategory={setActiveCategory}
         listItems={listItems}
         renameListItem={renameListItem}
+        removeListItem={removeListItem}
         isAddingList={isAddingList}
         setIsAddingList={setIsAddingList}
         newListName={newListName}

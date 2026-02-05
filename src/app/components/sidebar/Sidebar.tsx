@@ -55,6 +55,7 @@ type SidebarProps = {
   setActiveCategory: (value: string) => void;
   listItems: string[];
   renameListItem: (oldName: string, nextName: string) => void;
+  removeListItem: (name: string) => void;
   isAddingList: boolean;
   setIsAddingList: React.Dispatch<React.SetStateAction<boolean>>;
   newListName: string;
@@ -107,6 +108,7 @@ const Sidebar = ({
   setActiveCategory,
   listItems,
   renameListItem,
+  removeListItem,
   isAddingList,
   setIsAddingList,
   newListName,
@@ -567,6 +569,7 @@ const Sidebar = ({
                           setIsSidebarOpen(false);
                         }}
                         onEdit={() => renameListItem(item, prompt('重命名列表', item) || item)}
+                        onDelete={() => removeListItem(item)}
                       />
                     ))}
                     {isAddingList ? (
