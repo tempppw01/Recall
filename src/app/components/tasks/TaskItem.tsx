@@ -5,7 +5,10 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
+  Copy,
   Flag,
+  Pin,
+  Trash2,
 } from 'lucide-react';
 import type { Subtask, Task, TaskRepeatRule } from '@/lib/store';
 
@@ -41,6 +44,12 @@ export type TaskItemProps = {
   onDragOver?: (taskId: string) => void;
   onDrop?: (taskId: string) => void;
   onDragEnd?: () => void;
+  onCopyTitle?: (task: Task) => void;
+  onCopyContent?: (task: Task) => void;
+  onTogglePinned?: (task: Task) => void;
+  multiSelectEnabled?: boolean;
+  isChecked?: boolean;
+  onToggleSelect?: (taskId: string) => void;
   helpers: TaskItemHelpers;
 };
 
@@ -58,6 +67,12 @@ const TaskItem = ({
   onDragEnd,
   onTitleClick,
   onUpdateDueDate,
+  onCopyTitle,
+  onCopyContent,
+  onTogglePinned,
+  multiSelectEnabled,
+  isChecked,
+  onToggleSelect,
   dragEnabled = true,
   helpers,
 }: TaskItemProps) => {
@@ -81,6 +96,8 @@ const TaskItem = ({
   const [isPointerDragging, setIsPointerDragging] = useState(false);
   const [isSubtasksOpen, setIsSubtasksOpen] = useState(false);
   const [isDueEditorOpen, setIsDueEditorOpen] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [editorDate, setEditorDate] = useState('');
   const [editorTime, setEditorTime] = useState('09:00');
   const maxOffset = 84;
@@ -125,6 +142,17 @@ const TaskItem = ({
     if (!onUpdateDueDate) return;
     const nextIso = buildDueDateIso(nextDate, nextTime, timezoneOffset);
     onUpdateDueDate(task.id, nextIso, timezoneOffset);
+  };
+
+  const handleContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenuPosition({ x: event.clientX, y: event.clientY });
+    setShowContextMenu(true);
+  };
+
+  const closeContextMenu = () => {
+    setShowContextMenu(false);
   };
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
@@ -182,6 +210,10 @@ const TaskItem = ({
       setOffsetX(0);
       return;
     }
+    if (multiSelectEnabled && onToggleSelect) {
+      onToggleSelect(task.id);
+      return;
+    }
     onClick?.();
   };
 
@@ -217,6 +249,7 @@ const TaskItem = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onContextMenu={handleContextMenu}
       style={{ touchAction: 'pan-y' }}
     >
       <div
@@ -252,6 +285,23 @@ const TaskItem = ({
           />
         )}
         <div className="relative z-10 flex items-start gap-3 w-full">
+          {multiSelectEnabled && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleSelect?.(task.id);
+              }}
+              className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                isChecked
+                  ? 'bg-blue-500 border-blue-500 text-white'
+                  : 'border-[#555555] text-transparent hover:border-[#888888]'
+              }`}
+              aria-label={isChecked ? '取消选择任务' : '选择任务'}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={(event) => {
               event.stopPropagation();
@@ -270,6 +320,9 @@ const TaskItem = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap justify-between items-start gap-2">
+              {task.pinned && (
+                <span className="text-[10px] text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded">置顶</span>
+              )}
               {onTitleClick ? (
                 <button
                   type="button"
@@ -440,6 +493,62 @@ const TaskItem = ({
           </div>
         </div>
       </div>
+
+      {showContextMenu && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={closeContextMenu} />
+          <div
+            className="fixed z-50 min-w-[160px] rounded-lg border border-[#333333] bg-[#1F1F1F] shadow-2xl overflow-hidden"
+            style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                closeContextMenu();
+                onCopyTitle?.(task);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>复制标题</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeContextMenu();
+                onCopyContent?.(task);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>复制完整内容</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeContextMenu();
+                onTogglePinned?.(task);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+            >
+              <Pin className="w-3.5 h-3.5" />
+              <span>{task.pinned ? '取消置顶' : '置顶'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                closeContextMenu();
+                onDelete?.(task.id);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#2A2A2A]"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>删除</span>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

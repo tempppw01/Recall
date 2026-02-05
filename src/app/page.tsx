@@ -268,6 +268,7 @@ const sortTasks = (items: Task[], mode: TaskSortMode) => {
   const getDueTime = (task: Task) => (task.dueDate ? new Date(task.dueDate).getTime() : Infinity);
 
   next.sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     switch (mode) {
       case 'dueDate': {
         const aTime = getDueTime(a);
@@ -683,6 +684,8 @@ export default function Home() {
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [draggingSubtaskId, setDraggingSubtaskId] = useState<string | null>(null);
+  const [isBatchMode, setIsBatchMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [dragOverSubtaskId, setDragOverSubtaskId] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -1804,6 +1807,7 @@ export default function Home() {
       category,
       status: 'todo',
       tags: Array.isArray(item.tags) ? item.tags : [],
+      pinned: false,
       subtasks: Array.isArray(item.subtasks)
         ? item.subtasks
             .map((subtask) => ({
@@ -2698,6 +2702,7 @@ export default function Home() {
       category,
       status: 'todo',
       tags: parsed.tags,
+      pinned: false,
       subtasks: [],
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -2766,6 +2771,7 @@ export default function Home() {
           priority: typeof data.task?.priority === 'number' ? data.task.priority : recommendedPriority,
           timezoneOffset: data.task?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
           category: forcedCategory ?? data.task?.category ?? classifyCategory(rawInput),
+          pinned: Boolean(data.task?.pinned),
         };
         taskStore.add(taskToAdd);
         refreshTasks();
@@ -2834,6 +2840,69 @@ export default function Home() {
     }
   };
 
+  const toggleTaskPinned = (task: Task) => {
+    updateTask({ ...task, pinned: !task.pinned });
+  };
+
+  const formatTaskContent = (task: Task) => {
+    const lines = [task.title];
+    if (task.subtasks?.length) {
+      lines.push(...task.subtasks.map((subtask) => `- ${subtask.completed ? '[x]' : '[ ]'} ${subtask.title}`));
+    }
+    return lines.join('\n');
+  };
+
+  const copyTaskTitle = async (task: Task) => {
+    try {
+      await navigator.clipboard.writeText(task.title);
+    } catch (error) {
+      console.error('Failed to copy title', error);
+    }
+  };
+
+  const copyTaskContent = async (task: Task) => {
+    try {
+      await navigator.clipboard.writeText(formatTaskContent(task));
+    } catch (error) {
+      console.error('Failed to copy content', error);
+    }
+  };
+
+  const toggleTaskSelected = (taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev as Set<string>);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
+  const clearBatchSelection = () => {
+    setSelectedTaskIds(new Set());
+  };
+
+  const exitBatchMode = () => {
+    setIsBatchMode(false);
+    clearBatchSelection();
+  };
+
+  const batchCompleteTasks = () => {
+    const ids = Array.from(selectedTaskIds as Set<string>);
+    if (ids.length === 0) return;
+    ids.forEach((id) => toggleStatus(id));
+    exitBatchMode();
+  };
+
+  const batchDeleteTasks = () => {
+    const ids = Array.from(selectedTaskIds as Set<string>);
+    if (ids.length === 0) return;
+    ids.forEach((id) => removeTask(id));
+    exitBatchMode();
+  };
+
   const updateTaskDueDate = (taskId: string, dueDate?: string, timezoneOffset?: number) => {
     const target = taskStore.getAll().find((task) => task.id === taskId);
     if (!target) return;
@@ -2899,6 +2968,7 @@ export default function Home() {
             ...target,
             id: createId(),
             status: 'todo',
+            pinned: false,
             dueDate: nextDate.toISOString(),
             createdAt: new Date().toISOString(),
             subtasks: (target.subtasks || []).map((subtask) => ({
@@ -3336,6 +3406,25 @@ export default function Home() {
             </h2>
           </div>
           <div className="mobile-toolbar flex items-center gap-3 sm:gap-4 text-[#666666]">
+            {isListView && (
+              <button
+                onClick={() => {
+                  if (isBatchMode) {
+                    exitBatchMode();
+                  } else {
+                    setIsBatchMode(true);
+                  }
+                }}
+                className={`px-2 py-1 text-xs rounded border transition-colors ${
+                  isBatchMode
+                    ? 'border-blue-400 text-blue-200 bg-blue-500/10'
+                    : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                }`}
+                title={isBatchMode ? '退出批量模式' : '批量选择'}
+              >
+                {isBatchMode ? '退出批量' : '批量'}
+              </button>
+            )}
             <button
               onClick={() => handleWebdavSync('sync')}
               className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
@@ -3433,6 +3522,35 @@ export default function Home() {
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#666666]">
+              {isBatchMode && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-[#888888]">已选 {selectedTaskIds.size}</span>
+                  <button
+                    type="button"
+                    onClick={batchCompleteTasks}
+                    disabled={selectedTaskIds.size === 0}
+                    className="px-2.5 py-1 text-[11px] rounded border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    批量完成
+                  </button>
+                  <button
+                    type="button"
+                    onClick={batchDeleteTasks}
+                    disabled={selectedTaskIds.size === 0}
+                    className="px-2.5 py-1 text-[11px] rounded border border-red-500/40 text-red-300 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    批量删除
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearBatchSelection}
+                    disabled={selectedTaskIds.size === 0}
+                    className="px-2.5 py-1 text-[11px] rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    清空选择
+                  </button>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <label htmlFor="task-sort-mode" className="text-[11px] uppercase text-[#666666]">排序</label>
                 <select
@@ -3676,6 +3794,12 @@ export default function Home() {
                                     onDelete={removeTask}
                                     onToggleSubtask={toggleSubtask}
                                     onUpdateDueDate={updateTaskDueDate}
+                                    onCopyTitle={copyTaskTitle}
+                                    onCopyContent={copyTaskContent}
+                                    onTogglePinned={toggleTaskPinned}
+                                    multiSelectEnabled={isBatchMode}
+                                    isChecked={selectedTaskIds.has(task.id)}
+                                    onToggleSelect={toggleTaskSelected}
                                     helpers={taskItemHelpers}
                                   />
                                 ))}
@@ -3816,6 +3940,12 @@ export default function Home() {
                             onDelete={removeTask}
                             onToggleSubtask={toggleSubtask}
                             onUpdateDueDate={updateTaskDueDate}
+                            onCopyTitle={copyTaskTitle}
+                            onCopyContent={copyTaskContent}
+                            onTogglePinned={toggleTaskPinned}
+                            multiSelectEnabled={isBatchMode}
+                            isChecked={selectedTaskIds.has(task.id)}
+                            onToggleSelect={toggleTaskSelected}
                             helpers={taskItemHelpers}
                           />
                         ))
@@ -4096,6 +4226,12 @@ export default function Home() {
                             onDelete={removeTask}
                             onToggleSubtask={toggleSubtask}
                             onUpdateDueDate={updateTaskDueDate}
+                            onCopyTitle={copyTaskTitle}
+                            onCopyContent={copyTaskContent}
+                            onTogglePinned={toggleTaskPinned}
+                            multiSelectEnabled={isBatchMode}
+                            isChecked={selectedTaskIds.has(task.id)}
+                            onToggleSelect={toggleTaskSelected}
                             helpers={taskItemHelpers}
                           />
                         ))
@@ -4450,6 +4586,9 @@ export default function Home() {
                             onToggle={toggleStatus}
                             onDelete={removeTask}
                             onUpdateDueDate={updateTaskDueDate}
+                            onCopyTitle={copyTaskTitle}
+                            onCopyContent={copyTaskContent}
+                            onTogglePinned={toggleTaskPinned}
                             onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
                             onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
                             onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
@@ -4461,6 +4600,9 @@ export default function Home() {
                               setEditingTaskTitle(task.title);
                             }}
                             onToggleSubtask={toggleSubtask}
+                            multiSelectEnabled={isBatchMode}
+                            isChecked={selectedTaskIds.has(task.id)}
+                            onToggleSelect={toggleTaskSelected}
                             helpers={taskItemHelpers}
                           />
                         )}

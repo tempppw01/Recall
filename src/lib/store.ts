@@ -10,6 +10,7 @@ export interface Task {
   subtasks?: Subtask[];
   attachments?: Attachment[];
   repeat?: TaskRepeatRule;
+  pinned?: boolean;
   createdAt: string;
   updatedAt?: string;
   sortOrder?: number;
