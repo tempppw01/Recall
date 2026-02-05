@@ -49,6 +49,8 @@ const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const DELETED_HABITS_KEY = 'recall_deleted_habits';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
+const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
+const SIDEBAR_COLLAPSED_KEY = 'recall_sidebar_collapsed';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -718,6 +720,8 @@ export default function Home() {
   const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(240); // PC端侧边栏宽度（像素）
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // PC端侧边栏是否折叠
   const [habits, setHabits] = useState<Habit[]>([]);
   const [countdowns, setCountdowns] = useState<Countdown[]>([]);
   const [showCountdownForm, setShowCountdownForm] = useState(false);
@@ -1099,6 +1103,8 @@ export default function Home() {
             CALENDAR_SUBSCRIPTION_KEY,
             LAST_LOCAL_CHANGE_KEY,
             'recall_theme',
+            SIDEBAR_WIDTH_KEY,
+            SIDEBAR_COLLAPSED_KEY,
           ]);
           const preservedEntries = Object.keys(localStorage)
             .filter((key) => keysToPreserve.has(key))
@@ -1191,6 +1197,19 @@ export default function Home() {
         if (Number.isFinite(parsed)) {
           setAiRetentionDays(Math.max(1, Math.min(3, parsed)));
         }
+      }
+
+      // 读取侧边栏设置
+      const storedSidebarWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+      if (storedSidebarWidth) {
+        const parsed = Number(storedSidebarWidth);
+        if (Number.isFinite(parsed) && parsed >= 180 && parsed <= 480) {
+          setSidebarWidth(parsed);
+        }
+      }
+      const storedSidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (storedSidebarCollapsed === 'true') {
+        setIsSidebarCollapsed(true);
       }
 
       const storedTheme = localStorage.getItem('recall_theme');
@@ -3266,6 +3285,16 @@ export default function Home() {
         formatDateKeyByOffset={formatDateKeyByOffset}
         formatZonedDate={formatZonedDate}
         getTimezoneOffset={getTimezoneOffset}
+        sidebarWidth={sidebarWidth}
+        setSidebarWidth={(width) => {
+          setSidebarWidth(width);
+          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width));
+        }}
+        isSidebarCollapsed={isSidebarCollapsed}
+        setIsSidebarCollapsed={(collapsed) => {
+          setIsSidebarCollapsed(collapsed);
+          localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+        }}
       />
 
       {/* 2. Main Task List */}
