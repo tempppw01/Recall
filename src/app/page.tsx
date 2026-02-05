@@ -2683,11 +2683,11 @@ export default function Home() {
     return { title, tags, dueDate };
   };
 
-  const createLocalTaskFromInput = async (raw: string) => {
+  const createLocalTaskFromInput = async (raw: string, overrideCategory?: string | null) => {
     // 优化：直接使用本地时间，提高响应速度
     const now = new Date();
     const parsed = parseLocalTaskInput(raw, now);
-    const category = classifyCategory(raw);
+    const category = overrideCategory ?? classifyCategory(raw);
     const priority = evaluatePriority(parsed.dueDate, 0, now.getTime());
     const task: Task = {
       id: Math.random().toString(36).substring(2, 9),
@@ -2718,6 +2718,7 @@ export default function Home() {
     setLoading(true);
 
     const isSearch = rawInput.toLowerCase().startsWith('recall') || rawInput.includes('?');
+    const forcedCategory = activeFilter === 'category' ? activeCategory : null;
     const payload = {
       input: rawInput,
       mode: isSearch ? 'search' : 'create',
@@ -2764,12 +2765,13 @@ export default function Home() {
           ...data.task,
           priority: typeof data.task?.priority === 'number' ? data.task.priority : recommendedPriority,
           timezoneOffset: data.task?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
+          category: forcedCategory ?? data.task?.category ?? classifyCategory(rawInput),
         };
         taskStore.add(taskToAdd);
         refreshTasks();
         setInput('');
       } else {
-        await createLocalTaskFromInput(rawInput);
+        await createLocalTaskFromInput(rawInput, forcedCategory);
       }
     } catch (e) {
       console.error(e);
@@ -2777,7 +2779,7 @@ export default function Home() {
         alert('Failed. Check API Key.');
         if (!apiKey) setShowSettings(true);
       } else {
-        await createLocalTaskFromInput(rawInput);
+        await createLocalTaskFromInput(rawInput, forcedCategory);
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
