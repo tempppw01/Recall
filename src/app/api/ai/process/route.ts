@@ -275,6 +275,15 @@ type CountdownItem = {
   targetDate?: string;
 };
 
+type HabitAgentItem = {
+  title?: string;
+  checkInDueDate?: string;
+  reason?: string;
+  frequency?: string;
+  category?: string;
+  priority?: number;
+};
+
 type AgentPayload = {
   reply?: string;
   items?: AgentItem[];
@@ -283,6 +292,11 @@ type AgentPayload = {
 type CountdownPayload = {
   reply?: string;
   items?: CountdownItem[];
+};
+
+type HabitAgentPayload = {
+  reply?: string;
+  items?: HabitAgentItem[];
 };
 
 const DEFAULT_TASK = {
@@ -349,6 +363,59 @@ function normalizeCountdownItem(data: CountdownItem) {
     targetDate = isoMatch ? isoMatch[0] : targetDate;
   }
   return { title, targetDate };
+}
+
+function buildNearestTonightIso(baseNow: Date) {
+  const shanghaiNow = new Date(baseNow.getTime() + 8 * 60 * 60 * 1000);
+  const tonightShanghai = new Date(shanghaiNow);
+  tonightShanghai.setUTCHours(20, 0, 0, 0);
+  if (tonightShanghai.getTime() <= shanghaiNow.getTime()) {
+    tonightShanghai.setUTCDate(tonightShanghai.getUTCDate() + 1);
+  }
+  return new Date(tonightShanghai.getTime() - 8 * 60 * 60 * 1000).toISOString();
+}
+
+function normalizeHabitAgentItem(data: HabitAgentItem, networkNow: Date) {
+  const title = typeof data.title === 'string' && data.title.trim().length > 0
+    ? data.title.trim()
+    : '未命名习惯';
+  const checkInDueDate = typeof data.checkInDueDate === 'string' && data.checkInDueDate.trim().length > 0
+    ? data.checkInDueDate.trim()
+    : undefined;
+  const parsed = checkInDueDate ? new Date(checkInDueDate) : null;
+  const isParsedValid = Boolean(parsed && !Number.isNaN(parsed.getTime()));
+  const fallbackTonightIso = buildNearestTonightIso(networkNow);
+  const normalizedCheckInDueDate = isParsedValid
+    ? (parsed as Date).toISOString()
+    : fallbackTonightIso;
+
+  // AI 偶发返回明显过期的日期（如 2024），统一回退到基于网络时间的最近今晚 20:00（UTC+8）
+  const staleThresholdMs = 24 * 60 * 60 * 1000;
+  const shouldFallback = isParsedValid
+    ? (parsed as Date).getTime() < networkNow.getTime() - staleThresholdMs
+    : true;
+
+  const reason = typeof data.reason === 'string' && data.reason.trim().length > 0
+    ? data.reason.trim()
+    : undefined;
+  const frequency = typeof data.frequency === 'string' && data.frequency.trim().length > 0
+    ? data.frequency.trim()
+    : undefined;
+  const category = typeof data.category === 'string' && data.category.trim().length > 0
+    ? data.category.trim()
+    : undefined;
+  const priority = typeof data.priority === 'number' && Number.isFinite(data.priority)
+    ? Math.max(0, Math.min(2, Math.round(data.priority)))
+    : undefined;
+
+  return {
+    title,
+    checkInDueDate: shouldFallback ? fallbackTonightIso : normalizedCheckInDueDate,
+    reason,
+    frequency,
+    category,
+    priority,
+  };
 }
 
 /** 基于关键词规则的任务分类（AI 分类失败时的降级方案） */
@@ -627,6 +694,69 @@ export async function POST(req: NextRequest) {
         reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
           ? rawResult.reply.trim()
           : '已整理成待办清单，点一下即可加入。',
+        items: normalizedCategoryItems,
+        serverTime: networkNow.toISOString(),
+        serverTimeText,
+      });
+    }
+
+    if (mode === 'habit-agent') {
+      const networkNow = await getNetworkTime();
+      const serverTimeText = formatShanghaiDateTime(networkNow);
+      const habitPayload = {
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是习惯打卡助手，负责把用户目标拆解为“习惯 + 检查打卡任务”。
+1) 用简短中文回复用户，字段名 reply。
+2) 生成 items 数组，每项包含 title / checkInDueDate / reason / frequency / category / priority。
+3) title 是可持续执行的习惯名称，如“英语听力 20 分钟”。
+4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8）。checkInDueDate 必须是 ISO 8601 字符串；若用户未给时间，默认安排到“最近一次今晚 20:00（中国标准时间，UTC+8）”。
+5) frequency 用中文简短描述，如“每天”“每周 3 次”。
+6) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
+7) priority 必须为 0/1/2。
+8) reason 简短说明拆解意图，例如“先培养可坚持的最小动作”。
+9) **记忆功能**：请结合历史对话上下文补全用户偏好时间和场景。
+10) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "checkInDueDate": string|null, "reason": string, "frequency": string, "category": string, "priority": 0|1|2}] }。不要包含 null/undefined 属性时可省略。`,
+          },
+          ...historyMessages,
+          { role: 'user', content: normalizedInput },
+        ],
+        response_format: { type: 'json_object' },
+      };
+
+      const { res: habitRes } = await requestChat(baseUrlList, apiKey, habitPayload);
+      const habitPayloadJson = await habitRes.json();
+      const rawHabit = parseChatContent(habitPayloadJson) as HabitAgentPayload;
+      const normalizedItems = Array.isArray(rawHabit?.items)
+        ? rawHabit.items.map((item) => normalizeHabitAgentItem(item, networkNow))
+        : [];
+      const normalizedCategoryItems = normalizedItems.map((item) => ({
+        ...item,
+        category: CATEGORY_OPTIONS.includes(item.category || '')
+          ? item.category
+          : classifyCategory(`${item.title} ${item.reason || ''}`),
+        priority: typeof item.priority === 'number'
+          ? item.priority
+          : evaluatePriorityWithNow(item.checkInDueDate, 1, networkNow.getTime()),
+      }));
+
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'user',
+        content: normalizedInput,
+        timestamp: Date.now(),
+      }, retentionDays);
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'assistant',
+        content: rawHabit?.reply || '已拆解为习惯与检查任务，点击即可加入。',
+        timestamp: Date.now(),
+      }, retentionDays);
+
+      return NextResponse.json({
+        reply: typeof rawHabit?.reply === 'string' && rawHabit.reply.trim().length > 0
+          ? rawHabit.reply.trim()
+          : '已拆解为习惯与检查任务，点击即可加入。',
         items: normalizedCategoryItems,
         serverTime: networkNow.toISOString(),
         serverTimeText,

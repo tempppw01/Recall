@@ -1,5 +1,5 @@
-const STATIC_CACHE = "recall-static-v4";
-const RUNTIME_CACHE = "recall-runtime-v4";
+const STATIC_CACHE = "recall-static-v5";
+const RUNTIME_CACHE = "recall-runtime-v5";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

@@ -199,6 +199,19 @@ const buildDueDateIso = (dateText: string, timeText: string, offsetMinutes: numb
   return new Date(utcMs).toISOString();
 };
 
+const buildReminderAt = (
+  dueDate: string | undefined,
+  timezoneOffset: number,
+  preset: 'none' | '9am' | 'custom',
+  customReminderAt?: string,
+) => {
+  if (preset === 'none') return undefined;
+  if (preset === 'custom') return customReminderAt ?? dueDate;
+  if (!dueDate) return undefined;
+  const dueDateText = formatZonedDate(dueDate, timezoneOffset);
+  return buildDueDateIso(dueDateText, '09:00', timezoneOffset);
+};
+
 const getTimezoneLabel = (offsetMinutes: number) => {
   const match = TIMEZONE_OPTIONS.find((option) => option.offsetMinutes === offsetMinutes);
   if (match) return match.label;
@@ -375,6 +388,69 @@ type CountdownAgentItem = {
   id: string;
   title: string;
   targetDate?: string;
+};
+
+type HabitAgentItem = {
+  id: string;
+  title: string;
+  checkInDueDate?: string;
+  reason?: string;
+  frequency?: string;
+  category?: string;
+  priority?: number;
+};
+
+const parseHabitFrequencyToRepeat = (frequency?: string, dueDate?: string): TaskRepeatRule | undefined => {
+  const text = frequency?.trim();
+  if (!text) return { type: 'daily' };
+
+  if (/(每天|每日|天天|按天)/.test(text)) {
+    return { type: 'daily' };
+  }
+
+  if (/每周/.test(text)) {
+    const weekdays: number[] = [];
+    const weekdayMap: Record<string, number> = {
+      日: 0,
+      天: 0,
+      一: 1,
+      二: 2,
+      三: 3,
+      四: 4,
+      五: 5,
+      六: 6,
+    };
+    const regex = /周([日天一二三四五六])/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const mapped = weekdayMap[match[1]];
+      if (typeof mapped === 'number' && !weekdays.includes(mapped)) {
+        weekdays.push(mapped);
+      }
+    }
+    if (weekdays.length > 0) {
+      return { type: 'weekly', weekdays };
+    }
+    const baseDate = dueDate ? new Date(dueDate) : new Date();
+    return { type: 'weekly', weekdays: [baseDate.getDay()] };
+  }
+
+  if (/每月/.test(text)) {
+    const dayMatch = text.match(/每月\s*(\d{1,2})\s*[号日]?/);
+    if (dayMatch) {
+      const monthDay = Math.min(31, Math.max(1, Number(dayMatch[1]) || 1));
+      return { type: 'monthly', monthDay };
+    }
+    const baseDate = dueDate ? new Date(dueDate) : new Date();
+    return { type: 'monthly', monthDay: baseDate.getDate() };
+  }
+
+  const customMatch = text.match(/每\s*(\d+)\s*天/);
+  if (customMatch) {
+    return { type: 'custom', interval: Math.max(1, Number(customMatch[1]) || 1) };
+  }
+
+  return { type: 'daily' };
 };
 
 type AgentMessage = {
@@ -800,6 +876,11 @@ export default function Home() {
   const [countdownAgentItems, setCountdownAgentItems] = useState<CountdownAgentItem[]>([]);
   const [addedCountdownAgentItemIds, setAddedCountdownAgentItemIds] = useState<Set<string>>(new Set());
   const [countdownAgentError, setCountdownAgentError] = useState<string | null>(null);
+  const [habitAgentInput, setHabitAgentInput] = useState('');
+  const [habitAgentLoading, setHabitAgentLoading] = useState(false);
+  const [habitAgentItems, setHabitAgentItems] = useState<HabitAgentItem[]>([]);
+  const [addedHabitAgentItemIds, setAddedHabitAgentItemIds] = useState<Set<string>>(new Set());
+  const [habitAgentError, setHabitAgentError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
   const recommendedPriority = selectedTask
@@ -811,6 +892,13 @@ export default function Home() {
     : '';
   const selectedTimeValue = selectedTask?.dueDate
     ? formatZonedTime(selectedTask.dueDate, selectedTimezoneOffset)
+    : '09:00';
+  const selectedReminderPreset = selectedTask?.reminderPreset ?? 'none';
+  const selectedReminderDateValue = selectedTask?.reminderAt
+    ? formatZonedDate(selectedTask.reminderAt, selectedTimezoneOffset)
+    : selectedDateValue;
+  const selectedReminderTimeValue = selectedTask?.reminderAt
+    ? formatZonedTime(selectedTask.reminderAt, selectedTimezoneOffset)
     : '09:00';
   const themePreference: 'light' | 'dark' | 'system' = isSystemTheme ? 'system' : themeMode;
   const taskItemHelpers = {
@@ -977,6 +1065,41 @@ export default function Home() {
     }
   };
 
+  const dispatchNotification = async (payload: {
+    title: string;
+    body: string;
+    icon: string;
+    badge: string;
+    tag: string;
+    data?: Record<string, any>;
+  }) => {
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration?.showNotification) {
+        await registration.showNotification(payload.title, {
+          body: payload.body,
+          icon: payload.icon,
+          badge: payload.badge,
+          tag: payload.tag,
+          data: payload.data,
+        });
+        return;
+      }
+      if (registration?.active) {
+        registration.active.postMessage({ type: 'SHOW_NOTIFICATION', payload });
+        return;
+      }
+    }
+
+    new Notification(payload.title, {
+      body: payload.body,
+      icon: payload.icon,
+      badge: payload.badge,
+      tag: payload.tag,
+      data: payload.data,
+    });
+  };
+
   const sendTestNotification = async () => {
     if (typeof window === 'undefined') return;
     if (!notificationSupported) return;
@@ -996,34 +1119,8 @@ export default function Home() {
     };
 
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready;
-        if (registration?.showNotification) {
-          await registration.showNotification(payload.title, {
-            body: payload.body,
-            icon: payload.icon,
-            badge: payload.badge,
-            tag: payload.tag,
-            data: payload.data,
-          });
-          pushLog('success', '通知已发送', '通过 Service Worker 通道');
-          return;
-        }
-        if (registration?.active) {
-          registration.active.postMessage({ type: 'SHOW_NOTIFICATION', payload });
-          pushLog('success', '通知已发送', '通过 Service Worker 消息通道');
-          return;
-        }
-      }
-
-      new Notification(payload.title, {
-        body: payload.body,
-        icon: payload.icon,
-        badge: payload.badge,
-        tag: payload.tag,
-        data: payload.data,
-      });
-      pushLog('success', '通知已发送', '使用浏览器通知 API');
+      await dispatchNotification(payload);
+      pushLog('success', '通知已发送', '测试通知已触发');
     } catch (error) {
       pushLog('error', '通知发送失败', String((error as Error)?.message || error));
     }
@@ -1269,14 +1366,6 @@ export default function Home() {
 
       seedDefaultTasks();
 
-      if (!storedKey) {
-        const inputKey = window.prompt('未检测到 AI 令牌，可输入以启用完整功能（可跳过）');
-        if (inputKey && inputKey.trim()) {
-          const normalizedKey = inputKey.trim();
-          setApiKey(normalizedKey);
-          localStorage.setItem('recall_api_key', normalizedKey);
-        }
-      }
       setSettingsLoaded(true);
     }
   }, []);
@@ -1413,6 +1502,51 @@ export default function Home() {
     const timer = window.setInterval(() => setNow(new Date()), 60 * 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!notificationSupported) return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const timerIds: number[] = [];
+    const nowMs = Date.now();
+
+    tasks.forEach((task) => {
+      if (task.status === 'completed') return;
+      if (!task.reminderAt) return;
+      const reminderMs = new Date(task.reminderAt).getTime();
+      if (!Number.isFinite(reminderMs) || reminderMs <= nowMs) return;
+      const delay = reminderMs - nowMs;
+      if (delay > 2_147_000_000) return;
+
+      const timerId = window.setTimeout(async () => {
+        const latest = taskStore.getAll().find((item) => item.id === task.id);
+        if (!latest || latest.status === 'completed' || !latest.reminderAt) return;
+        if (Math.abs(new Date(latest.reminderAt).getTime() - reminderMs) > 1_000) return;
+
+        try {
+          await dispatchNotification({
+            title: 'Recall 任务提醒',
+            body: latest.title,
+            icon: '/icon.svg',
+            badge: '/icon.svg',
+            tag: `recall-reminder-${latest.id}`,
+            data: { taskId: latest.id, url: '/' },
+          });
+          pushLog('info', '提醒已触发', latest.title);
+        } catch (error) {
+          pushLog('error', '任务提醒失败', String((error as Error)?.message || error));
+        }
+      }, delay);
+
+      timerIds.push(timerId);
+    });
+
+    return () => {
+      timerIds.forEach((id) => window.clearTimeout(id));
+    };
+  }, [tasks, notificationSupported]);
 
   useEffect(() => {
     if (calendarView === 'week') {
@@ -1577,8 +1711,8 @@ export default function Home() {
     setCountdowns(sorted);
   };
 
-  const createHabit = () => {
-    const title = newHabitTitle.trim();
+  const createHabit = (titleOverride?: string) => {
+    const title = (titleOverride ?? newHabitTitle).trim();
     if (!title) return;
     const now = new Date().toISOString();
     const habit: Habit = {
@@ -1882,6 +2016,10 @@ export default function Home() {
   const handleAgentSend = async () => {
     const content = agentInput.trim();
     if (!content && agentImages.length === 0) return;
+    if (!apiKey.trim()) {
+      setAgentError('未配置 AI Key，请先前往设置页完成配置');
+      return;
+    }
     pushLog('info', 'todo-agent 请求发送', content);
     setAgentLoading(true);
     if (content) {
@@ -1998,6 +2136,125 @@ export default function Home() {
     } else {
       setTimeout(persistTasks, 0);
     }
+  };
+
+  const createHabitAndCheckTaskFromAgentItem = (item: HabitAgentItem) => {
+    const nowIso = new Date().toISOString();
+    const habit: Habit = {
+      id: createId(),
+      title: item.title?.trim() || '未命名习惯',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      logs: [],
+    };
+
+    const category = item.category && CATEGORY_OPTIONS.includes(item.category)
+      ? item.category
+      : classifyCategory(habit.title);
+    const priority = typeof item.priority === 'number'
+      ? item.priority
+      : evaluatePriority(item.checkInDueDate, 0, Date.now());
+    const dueDate = item.checkInDueDate || undefined;
+    const reminderAt = dueDate
+      ? buildReminderAt(dueDate, DEFAULT_TIMEZONE_OFFSET, 'custom', dueDate)
+      : undefined;
+    const reasonTag = item.reason ? item.reason.replace(/\s+/g, '').slice(0, 8) : '';
+    const frequencyTag = item.frequency ? item.frequency.replace(/\s+/g, '').slice(0, 8) : '';
+    const tags = ['习惯打卡', reasonTag, frequencyTag].filter(Boolean);
+    const repeat = parseHabitFrequencyToRepeat(item.frequency, dueDate);
+
+    const task: Task = {
+      id: createId(),
+      title: `检查打卡：${habit.title}`,
+      dueDate,
+      timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
+      priority,
+      category,
+      status: 'todo',
+      tags,
+      subtasks: [],
+      pinned: false,
+      reminderPreset: dueDate ? 'custom' : 'none',
+      reminderAt,
+      repeat,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    return { habit, task };
+  };
+
+  const handleHabitAgentSend = async () => {
+    const content = habitAgentInput.trim();
+    if (!content || habitAgentLoading) return;
+    if (!apiKey.trim()) {
+      createHabit(content);
+      setHabitAgentInput('');
+      setHabitAgentError(null);
+      pushLog('info', 'habit-agent 自动降级', '未配置 AI Key，已直接创建习惯');
+      return;
+    }
+
+    setHabitAgentLoading(true);
+    pushLog('info', 'habit-agent 请求发送', content);
+    try {
+      setHabitAgentError(null);
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'habit-agent',
+          input: content,
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          chatModel: chatModel?.trim() || undefined,
+          sessionId,
+          retentionDays: aiRetentionDays,
+          redisConfig: {
+            host: redisHost,
+            port: redisPort,
+            db: redisDb,
+            password: redisPassword,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'habit-agent request failed');
+      }
+      const nextItems: HabitAgentItem[] = Array.isArray(data?.items)
+        ? data.items.map((item: HabitAgentItem) => ({
+            ...item,
+            id: item.id || createId(),
+            title: item.title?.trim() || '未命名习惯',
+          }))
+        : [];
+      setHabitAgentItems(nextItems);
+      setAddedHabitAgentItemIds(new Set());
+      setHabitAgentInput('');
+      pushLog('success', 'habit-agent 返回成功', `建议习惯 ${nextItems.length} 条`);
+    } catch (error) {
+      const message = (error as any)?.message || '习惯助手无响应，请稍后重试';
+      setHabitAgentError(message);
+      pushLog('error', 'habit-agent 请求失败', String(message));
+    } finally {
+      setHabitAgentLoading(false);
+    }
+  };
+
+  const handleAddHabitAgentItem = (item: HabitAgentItem) => {
+    if (addedHabitAgentItemIds.has(item.id)) return;
+    const { habit, task } = createHabitAndCheckTaskFromAgentItem(item);
+    setAddedHabitAgentItemIds((prev) => {
+      const next = new Set(prev);
+      next.add(item.id);
+      return next;
+    });
+
+    habitStore.add(habit);
+    taskStore.add(task);
+    refreshHabits();
+    refreshTasks();
   };
 
   const buildCountdownFromAgentItem = (item: CountdownAgentItem) => {
@@ -2928,10 +3185,44 @@ export default function Home() {
   const updateTaskDueDate = (taskId: string, dueDate?: string, timezoneOffset?: number) => {
     const target = taskStore.getAll().find((task) => task.id === taskId);
     if (!target) return;
+    const nextTimezoneOffset = timezoneOffset ?? target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
+    const nextReminderPreset = dueDate ? (target.reminderPreset ?? '9am') : 'none';
+    const nextReminderAt = buildReminderAt(dueDate, nextTimezoneOffset, nextReminderPreset, target.reminderAt);
     updateTask({
       ...target,
       dueDate,
-      timezoneOffset: timezoneOffset ?? target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
+      timezoneOffset: nextTimezoneOffset,
+      reminderPreset: nextReminderPreset,
+      reminderAt: nextReminderAt,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const quickSetPriority = (taskId: string, priority: number) => {
+    const target = taskStore.getAll().find((task) => task.id === taskId);
+    if (!target) return;
+    updateTask({ ...target, priority, updatedAt: new Date().toISOString() });
+  };
+
+  const quickSetDuePreset = (taskId: string, preset: 'today' | 'tomorrow' | 'tonight') => {
+    const target = taskStore.getAll().find((task) => task.id === taskId);
+    if (!target) return;
+    const timezoneOffset = target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
+    const baseNow = new Date();
+    const dateText =
+      preset === 'tomorrow'
+        ? formatDateKeyByOffset(new Date(baseNow.getTime() + 24 * 60 * 60 * 1000), timezoneOffset)
+        : formatDateKeyByOffset(baseNow, timezoneOffset);
+    const timeText = preset === 'tonight' ? '20:00' : '09:00';
+    const dueDate = buildDueDateIso(dateText, timeText, timezoneOffset);
+    const reminderPreset: 'none' | '9am' | 'custom' = preset === 'tonight' ? 'custom' : '9am';
+    const reminderAt = buildReminderAt(dueDate, timezoneOffset, reminderPreset, dueDate);
+    updateTask({
+      ...target,
+      dueDate,
+      timezoneOffset,
+      reminderPreset,
+      reminderAt,
       updatedAt: new Date().toISOString(),
     });
   };
@@ -3298,8 +3589,51 @@ export default function Home() {
   const nowKey = formatDateKeyByOffset(now, DEFAULT_TIMEZONE_OFFSET);
   const showNowLine = effectiveCalendarDate === nowKey;
   const nowZoned = getZonedDate(now.toISOString(), DEFAULT_TIMEZONE_OFFSET);
-  const nowMinutes = nowZoned.getUTCHours() * 60 + nowZoned.getUTCMinutes();
-  const nowLineTop = (nowMinutes / 60) * dayRowHeight;
+  const nowHour = nowZoned.getUTCHours();
+  const nowMinutes = nowHour * 60 + nowZoned.getUTCMinutes();
+
+  const hoursWithTasks = dayTasksByHour
+    .map((bucket, hour) => (bucket.length > 0 ? hour : -1))
+    .filter((hour) => hour >= 0);
+
+  const defaultStartHour = 8;
+  const defaultEndHour = 22;
+
+  let visibleStartHour = hoursWithTasks.length > 0
+    ? Math.max(0, Math.min(...hoursWithTasks) - 1)
+    : defaultStartHour;
+  let visibleEndHour = hoursWithTasks.length > 0
+    ? Math.min(23, Math.max(...hoursWithTasks) + 1)
+    : defaultEndHour;
+
+  if (showNowLine) {
+    visibleStartHour = Math.min(visibleStartHour, Math.max(0, nowHour - 1));
+    visibleEndHour = Math.max(visibleEndHour, Math.min(23, nowHour + 1));
+  }
+
+  const minimumWindowHours = 8;
+  const currentWindowHours = visibleEndHour - visibleStartHour + 1;
+  if (currentWindowHours < minimumWindowHours) {
+    const deficit = minimumWindowHours - currentWindowHours;
+    const expandBefore = Math.floor(deficit / 2);
+    const expandAfter = deficit - expandBefore;
+    visibleStartHour = Math.max(0, visibleStartHour - expandBefore);
+    visibleEndHour = Math.min(23, visibleEndHour + expandAfter);
+    if (visibleEndHour - visibleStartHour + 1 < minimumWindowHours) {
+      if (visibleStartHour === 0) {
+        visibleEndHour = Math.min(23, minimumWindowHours - 1);
+      } else if (visibleEndHour === 23) {
+        visibleStartHour = Math.max(0, 24 - minimumWindowHours);
+      }
+    }
+  }
+
+  const dayVisibleHours = Array.from(
+    { length: visibleEndHour - visibleStartHour + 1 },
+    (_, idx) => visibleStartHour + idx,
+  );
+
+  const nowLineTop = ((nowMinutes - visibleStartHour * 60) / 60) * dayRowHeight;
   const nowLabel = `${pad2(nowZoned.getUTCHours())}:${pad2(nowZoned.getUTCMinutes())}`;
   const agendaTasks = calendarSourceTasks
     .filter((task) => task.dueDate)
@@ -3335,9 +3669,14 @@ export default function Home() {
   const showAgentBulkAdd = agentItems.length > 1
     || agentItems.some((item) => (item.subtasks?.length ?? 0) > 0);
   const showCountdownAgentBulkAdd = countdownAgentItems.length > 1;
+  const hasApiKey = apiKey.trim().length > 0;
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top">
+      <div className="pointer-events-none absolute inset-0 opacity-60">
+        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
+      </div>
       
       {/* 1. Sidebar */}
       <Sidebar
@@ -3491,7 +3830,7 @@ export default function Home() {
         </header>
 
         {isListView && (
-          <div className="px-3 sm:px-6 py-3 sm:py-4">
+          <div className="px-3 sm:px-6 py-4 sm:py-5">
             {/* 紧凑统计条：不占空间，仅在有任务时展示 */}
             {totalTasks > 0 && (
               <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-[#777777]">
@@ -3598,9 +3937,11 @@ export default function Home() {
           </div>
         )}
 
-        <div className={`flex-1 px-3 sm:px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10 ${
-          ['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-3 sm:pt-4' : ''
-        }`}>
+        <div className={`flex-1 px-3 sm:px-6 ${
+          activeFilter === 'agent'
+            ? 'pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3'
+            : 'pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10'
+        } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-4 sm:pt-5' : ''}`}>
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -3753,72 +4094,82 @@ export default function Home() {
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
-                    <div className="flex flex-col text-[10px] text-[#666666]">
-                      {Array.from({ length: 24 }, (_, hour) => (
-                        <div
-                          key={hour}
-                          className="h-9 flex items-start justify-end pr-2 border-b border-[#2A2A2A] last:border-b-0"
-                        >
-                          {String(hour).padStart(2, '0')}:00
-                        </div>
-                      ))}
-                    </div>
-                    {dayTasks.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center min-h-[12rem] text-[#444444]">
-                        <Calendar className="w-12 h-12 mb-3 opacity-20" />
-                        <p className="text-sm">这一天没有任务</p>
-                      </div>
-                    ) : (
-                      <div className="relative border border-[#2A2A2A] rounded-xl overflow-hidden">
-                        {showNowLine && (
-                          <div
-                            className="absolute left-0 right-0 z-10 pointer-events-none"
-                            style={{ top: `${nowLineTop}px` }}
-                          >
-                            <div className="relative flex items-center">
-                              <span className="absolute -left-2.5 -top-2.5 w-3 h-3 rounded-full bg-red-400 shadow" />
-                              <div className="h-[2px] w-full bg-red-400/80" />
-                              <span className="ml-2 text-[10px] text-red-300 bg-[#1A1A1A] px-1.5 py-0.5 rounded">
-                                {nowLabel}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {dayTasksByHour.map((hourTasks, hour) => (
+                  <div className="text-[11px] text-[#666666]">
+                    显示时段：{pad2(visibleStartHour)}:00 - {pad2(Math.min(23, visibleEndHour + 1))}:00
+                  </div>
+                  <div className="max-h-[62vh] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
+                      <div className="flex flex-col text-[10px] text-[#666666]">
+                        {dayVisibleHours.map((hour) => (
                           <div
                             key={hour}
-                            className="min-h-[36px] border-b border-[#2A2A2A] last:border-b-0 px-2 py-1"
+                            className="h-9 flex items-start justify-end pr-2 border-b border-[#2A2A2A] last:border-b-0"
                           >
-                            {hourTasks.length === 0 ? (
-                              <div className="text-[10px] text-[#333333]">&nbsp;</div>
-                            ) : (
-                              <div className="space-y-2">
-                                {hourTasks.map((task) => (
-                                  <TaskItem
-                                    key={task.id}
-                                    task={task}
-                                    selected={selectedTask?.id === task.id}
-                                    onClick={() => setSelectedTask(task)}
-                                    onToggle={toggleStatus}
-                                    onDelete={removeTask}
-                                    onToggleSubtask={toggleSubtask}
-                                    onUpdateDueDate={updateTaskDueDate}
-                                    onCopyTitle={copyTaskTitle}
-                                    onCopyContent={copyTaskContent}
-                                    onTogglePinned={toggleTaskPinned}
-                                    multiSelectEnabled={isBatchMode}
-                                    isChecked={selectedTaskIds.has(task.id)}
-                                    onToggleSelect={toggleTaskSelected}
-                                    helpers={taskItemHelpers}
-                                  />
-                                ))}
-                              </div>
-                            )}
+                            {String(hour).padStart(2, '0')}:00
                           </div>
                         ))}
                       </div>
-                    )}
+                      {dayTasks.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center min-h-[12rem] text-[#444444]">
+                          <Calendar className="w-12 h-12 mb-3 opacity-20" />
+                          <p className="text-sm">这一天没有任务</p>
+                        </div>
+                      ) : (
+                        <div className="relative border border-[#2A2A2A] rounded-xl overflow-hidden">
+                          {showNowLine && nowLineTop >= 0 && nowLineTop <= dayVisibleHours.length * dayRowHeight && (
+                            <div
+                              className="absolute left-0 right-0 z-10 pointer-events-none"
+                              style={{ top: `${nowLineTop}px` }}
+                            >
+                              <div className="relative flex items-center">
+                                <span className="absolute -left-2.5 -top-2.5 w-3 h-3 rounded-full bg-red-400 shadow" />
+                                <div className="h-[2px] w-full bg-red-400/80" />
+                                <span className="ml-2 text-[10px] text-red-300 bg-[#1A1A1A] px-1.5 py-0.5 rounded">
+                                  {nowLabel}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {dayVisibleHours.map((hour) => {
+                            const hourTasks = dayTasksByHour[hour] || [];
+                            return (
+                              <div
+                                key={hour}
+                                className="min-h-[36px] border-b border-[#2A2A2A] last:border-b-0 px-2 py-1"
+                              >
+                                {hourTasks.length === 0 ? (
+                                  <div className="text-[10px] text-[#333333]">&nbsp;</div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {hourTasks.map((task) => (
+                                      <TaskItem
+                                        key={task.id}
+                                        task={task}
+                                        selected={selectedTask?.id === task.id}
+                                        onClick={() => setSelectedTask(task)}
+                                        onToggle={toggleStatus}
+                                        onDelete={removeTask}
+                                        onToggleSubtask={toggleSubtask}
+                                        onUpdateDueDate={updateTaskDueDate}
+                                        onCopyTitle={copyTaskTitle}
+                                        onCopyContent={copyTaskContent}
+                                        onTogglePinned={toggleTaskPinned}
+                                        onQuickSetPriority={quickSetPriority}
+                                        onQuickSetDuePreset={quickSetDuePreset}
+                                        multiSelectEnabled={isBatchMode}
+                                        isChecked={selectedTaskIds.has(task.id)}
+                                        onToggleSelect={toggleTaskSelected}
+                                        helpers={taskItemHelpers}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : calendarView === 'agenda' ? (
@@ -3953,6 +4304,8 @@ export default function Home() {
                             onCopyTitle={copyTaskTitle}
                             onCopyContent={copyTaskContent}
                             onTogglePinned={toggleTaskPinned}
+                            onQuickSetPriority={quickSetPriority}
+                            onQuickSetDuePreset={quickSetDuePreset}
                             multiSelectEnabled={isBatchMode}
                             isChecked={selectedTaskIds.has(task.id)}
                             onToggleSelect={toggleTaskSelected}
@@ -4239,6 +4592,8 @@ export default function Home() {
                             onCopyTitle={copyTaskTitle}
                             onCopyContent={copyTaskContent}
                             onTogglePinned={toggleTaskPinned}
+                            onQuickSetPriority={quickSetPriority}
+                            onQuickSetDuePreset={quickSetDuePreset}
                             multiSelectEnabled={isBatchMode}
                             isChecked={selectedTaskIds.has(task.id)}
                             onToggleSelect={toggleTaskSelected}
@@ -4257,7 +4612,7 @@ export default function Home() {
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
-            <div className="h-[calc(100vh-10rem)] min-h-[560px]">
+            <div className="h-[calc(100dvh-8.8rem)] min-h-[420px]">
               <div className="h-full rounded-2xl p-[1px] bg-gradient-to-br from-blue-500/40 via-violet-500/20 to-cyan-500/40">
                 <div className="h-full bg-gradient-to-b from-[#1C1F2A] via-[#202020] to-[#1B1B1B] rounded-2xl p-4 flex flex-col shadow-[0_0_0_1px_rgba(59,130,246,0.08)]">
                 <div className="flex items-start justify-between gap-3">
@@ -4311,7 +4666,20 @@ export default function Home() {
                 </div>
 
                 <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-                  {agentMessages.length === 0 ? (
+                  {!hasApiKey ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSettings(true);
+                        setIsApiSettingsOpen(true);
+                      }}
+                      className="w-full text-left rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 hover:border-amber-300/60 hover:bg-amber-500/15 transition-colors"
+                      title="未配置 AI Key，点击前往设置"
+                    >
+                      <div className="text-sm text-amber-200 font-medium">未检测到 AI Key，AI 助手暂不可用</div>
+                      <div className="text-xs text-amber-100/80 mt-1">点击这里前往设置页面填写 Key</div>
+                    </button>
+                  ) : agentMessages.length === 0 ? (
                     <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：想完成什么事情？</div>
                   ) : (
                     agentMessages.map((message, idx) => (
@@ -4327,7 +4695,7 @@ export default function Home() {
                       </div>
                     ))
                   )}
-                  {agentError && (
+                  {hasApiKey && agentError && (
                     <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
                       <span>{agentError}</span>
                       <button
@@ -4432,26 +4800,35 @@ export default function Home() {
                     multiple
                     onChange={handleAgentImageChange}
                     className="hidden"
+                    disabled={!hasApiKey}
                   />
                   <input
                     type="text"
                     value={agentInput}
                     onChange={(e) => setAgentInput(e.target.value)}
                     onPaste={handleAgentPaste}
-                    placeholder="例如：帮我规划本周的工作安排"
-                    className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        handleAgentSend();
+                      }
+                    }}
+                    placeholder={hasApiKey ? '例如：帮我规划本周的工作安排' : '请先在设置中填写 AI Key'}
+                    className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
+                    disabled={!hasApiKey}
                   />
                   <button
                     type="button"
                     onClick={() => agentImageInputRef.current?.click()}
-                    className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                    className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
                     title="上传图片"
+                    disabled={!hasApiKey}
                   >
                     <ImagePlus className="w-4 h-4" />
                   </button>
                   <button
                     onClick={handleAgentSend}
-                    disabled={!agentInput.trim() && agentImages.length === 0}
+                    disabled={!hasApiKey || (!agentInput.trim() && agentImages.length === 0)}
                     className="px-3 py-2 text-sm bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
                   >
                     {agentLoading ? '整理中…' : '发送'}
@@ -4466,25 +4843,86 @@ export default function Home() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-[#DDDDDD]">创建新习惯（今天开新坑）</h3>
-                    <p className="text-xs text-[#666666] mt-1">像签到一样，坚持每日打卡</p>
+                    <p className="text-xs text-[#666666] mt-1">
+                      {hasApiKey ? '输入目标，AI 会拆解习惯；也可直接按创建' : 'AI 不可用时自动降级为直接创建习惯'}
+                    </p>
                   </div>
                   <div className="text-[11px] text-[#555555]">今天 {getTodayKey().slice(5)}</div>
                 </div>
-                <div className="mt-3 flex flex-col gap-3">
-                  <input
-                    type="text"
-                    value={newHabitTitle}
-                    onChange={(e) => setNewHabitTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && createHabit()}
-                    placeholder="例如：学英语"
-                    className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2.5 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    onClick={createHabit}
-                    className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500"
-                  >
-                    创建习惯
-                  </button>
+
+                <div className="mt-3 rounded-xl border border-[#2E3750] bg-[#1A2236] p-3 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-[#D7DEEF]">习惯输入（智能/降级一体）</h4>
+                      <p className="text-xs text-[#8FA1C8] mt-1">同一个输入框：有 AI 就拆解，无 AI 自动创建</p>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-200">
+                      {hasApiKey ? 'habit-agent' : 'fallback'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={habitAgentInput}
+                      onChange={(e) => setHabitAgentInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                          e.preventDefault();
+                          handleHabitAgentSend();
+                        }
+                      }}
+                      placeholder={hasApiKey ? '例如：我想学习英语' : '例如：学英语（将直接创建习惯）'}
+                      className="flex-1 bg-[#111827] border border-[#334155] rounded-lg px-3 py-2 text-sm text-[#E2E8FF] focus:outline-none focus:border-blue-400 disabled:opacity-60"
+                      disabled={habitAgentLoading}
+                    />
+                    <button
+                      onClick={handleHabitAgentSend}
+                      disabled={!habitAgentInput.trim() || habitAgentLoading}
+                      className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {habitAgentLoading ? '拆解中…' : hasApiKey ? 'AI 拆解' : '创建习惯'}
+                    </button>
+                  </div>
+
+                  {habitAgentError && (
+                    <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                      {habitAgentError}
+                    </div>
+                  )}
+
+                  {habitAgentItems.length > 0 && (
+                    <div className="space-y-2">
+                      {habitAgentItems.map((item) => {
+                        const isAdded = addedHabitAgentItemIds.has(item.id);
+                        return (
+                          <div key={item.id} className="rounded-lg border border-[#334155] bg-[#0F172A] p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm text-[#E2E8F0] font-medium">{item.title}</div>
+                                <div className="text-xs text-[#94A3B8] mt-1">
+                                  {item.frequency ? `频率：${item.frequency} · ` : ''}
+                                  {item.checkInDueDate ? `检查时间：${formatZonedDateTime(item.checkInDueDate, DEFAULT_TIMEZONE_OFFSET)}` : '检查时间：今晚 20:00'}
+                                </div>
+                                {item.reason && <div className="text-xs text-[#7DD3FC] mt-1">拆解说明：{item.reason}</div>}
+                              </div>
+                              <button
+                                onClick={() => handleAddHabitAgentItem(item)}
+                                disabled={isAdded}
+                                className={`text-xs px-3 py-1 rounded border transition-colors ${
+                                  isAdded
+                                    ? 'border-[#374151] text-[#6B7280]'
+                                    : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                                }`}
+                              >
+                                {isAdded ? '已添加' : '加入习惯+检查任务'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -4534,18 +4972,21 @@ export default function Home() {
                           </div>
                         </div>
                         <div className="grid grid-cols-7 gap-2 sm:gap-3">
-                          {recentDays.map((day) => (
-                            <div key={day} className="flex flex-col items-center gap-1">
-                              <div
-                                className={`w-4 h-4 rounded-full border ${
-                                  logSet.has(day)
-                                    ? 'bg-blue-500 border-blue-500'
-                                    : 'border-[#444444]'
-                                }`}
-                              />
-                              <span className="text-[10px] text-[#666666]">{day.slice(5)}</span>
-                            </div>
-                          ))}
+                          {recentDays.map((day) => {
+                            const checked = logSet.has(day);
+                            return (
+                              <div key={day} className="flex flex-col items-center gap-1">
+                                {checked ? (
+                                  <div className="w-5 h-5 rounded-full border border-orange-400/60 bg-gradient-to-b from-orange-400/25 to-amber-500/25 flex items-center justify-center shadow-[0_0_10px_rgba(251,146,60,0.35)]">
+                                    <Flame className="w-3.5 h-3.5 text-orange-300" />
+                                  </div>
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full border border-[#444444]" />
+                                )}
+                                <span className="text-[10px] text-[#666666]">{day.slice(5)}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -4605,6 +5046,8 @@ export default function Home() {
                             onCopyTitle={copyTaskTitle}
                             onCopyContent={copyTaskContent}
                             onTogglePinned={toggleTaskPinned}
+                            onQuickSetPriority={quickSetPriority}
+                            onQuickSetDuePreset={quickSetDuePreset}
                             onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
                             onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
                             onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
@@ -4791,6 +5234,79 @@ export default function Home() {
                     当前时区：{getTimezoneLabel(selectedTimezoneOffset)}
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-[#555555] uppercase">提醒</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      if (!selectedTask) return;
+                      updateTask({ ...selectedTask, reminderPreset: 'none', reminderAt: undefined });
+                    }}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      selectedReminderPreset === 'none'
+                        ? 'bg-[#333333] border-[#555555] text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    不提醒
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedTask) return;
+                      const reminderAt = buildReminderAt(selectedTask.dueDate, selectedTimezoneOffset, '9am');
+                      updateTask({ ...selectedTask, reminderPreset: '9am', reminderAt });
+                    }}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      selectedReminderPreset === '9am'
+                        ? 'bg-[#333333] border-[#555555] text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    当天 9 点
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedTask) return;
+                      const reminderAt = buildDueDateIso(selectedReminderDateValue, selectedReminderTimeValue, selectedTimezoneOffset);
+                      updateTask({ ...selectedTask, reminderPreset: 'custom', reminderAt });
+                    }}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      selectedReminderPreset === 'custom'
+                        ? 'bg-[#333333] border-[#555555] text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    指定时间
+                  </button>
+                </div>
+                {selectedReminderPreset === 'custom' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      value={selectedReminderDateValue}
+                      onChange={(e) => {
+                        if (!selectedTask) return;
+                        const nextDate = e.target.value;
+                        const nextReminderAt = buildDueDateIso(nextDate, selectedReminderTimeValue, selectedTimezoneOffset);
+                        updateTask({ ...selectedTask, reminderPreset: 'custom', reminderAt: nextReminderAt });
+                      }}
+                    />
+                    <input
+                      type="time"
+                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      value={selectedReminderTimeValue}
+                      onChange={(e) => {
+                        if (!selectedTask) return;
+                        const nextTime = e.target.value;
+                        const nextReminderAt = buildDueDateIso(selectedReminderDateValue, nextTime, selectedTimezoneOffset);
+                        updateTask({ ...selectedTask, reminderPreset: 'custom', reminderAt: nextReminderAt });
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -202,109 +202,122 @@ const SettingsModal = ({
       >
         <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>
         <div className="space-y-3 sm:space-y-4 text-sm">
-          <div>
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
-            <div className="relative">
-              <input
-                type="password"
-                value={apiBaseUrl}
-                onChange={(e) => setApiBaseUrl(e.target.value)}
-                placeholder={DEFAULT_BASE_URL}
-                className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-              />
+          <details open className="rounded-lg border border-[#333333] bg-[#1F1F1F] p-3">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2">
+              <span>AI 基础设置（点击展开/收起）</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A]" />
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={apiBaseUrl}
+                    onChange={(e) => setApiBaseUrl(e.target.value)}
+                    placeholder={DEFAULT_BASE_URL}
+                    className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk-..."
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">模型列表 (逗号或换行分隔)</label>
+                <textarea
+                  value={modelListText}
+                  onChange={(e) => setModelListText(e.target.value)}
+                  placeholder={DEFAULT_MODEL_LIST.join('\n')}
+                  rows={4}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchModelList}
+                    disabled={isFetchingModels}
+                    className="px-3 py-1.5 text-[12px] sm:text-xs rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isFetchingModels ? '拉取中…' : '拉取模型列表'}
+                  </button>
+                  <span className="text-[11px] sm:text-xs text-[#666666]">从当前接口同步模型列表</span>
+                </div>
+                {modelFetchError && (
+                  <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
+                <select
+                  value={chatModel}
+                  onChange={(e) => setChatModel(e.target.value)}
+                  aria-label="对话模型"
+                  title="对话模型"
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                >
+                  {parseModelList(modelListText).map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={fallbackTimeoutSec}
+                  onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
+                  placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
+                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                />
+                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
+              </div>
+              <div>
+                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">倒数日显示模式</label>
+                <div className="flex gap-2 text-[12px] sm:text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCountdownDisplayMode('days')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      countdownDisplayMode === 'days'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    剩余天数
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCountdownDisplayMode('date')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      countdownDisplayMode === 'date'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    目标日期
+                  </button>
+                </div>
+                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">模型列表 (逗号或换行分隔)</label>
-            <textarea
-              value={modelListText}
-              onChange={(e) => setModelListText(e.target.value)}
-              placeholder={DEFAULT_MODEL_LIST.join('\n')}
-              rows={4}
-              className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-            />
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={fetchModelList}
-                disabled={isFetchingModels}
-                className="px-3 py-1.5 text-[12px] sm:text-xs rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isFetchingModels ? '拉取中…' : '拉取模型列表'}
-              </button>
-              <span className="text-[11px] sm:text-xs text-[#666666]">从当前接口同步模型列表</span>
-            </div>
-            {modelFetchError && (
-              <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
-            <select
-              value={chatModel}
-              onChange={(e) => setChatModel(e.target.value)}
-              className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-            >
-              {parseModelList(modelListText).map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
-            <input
-              type="number"
-              min={1}
-              value={fallbackTimeoutSec}
-              onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
-              placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
-              className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-            />
-            <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
-          </div>
-          <div>
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">倒数日显示模式</label>
-            <div className="flex gap-2 text-[12px] sm:text-xs">
-              <button
-                type="button"
-                onClick={() => setCountdownDisplayMode('days')}
-                className={`px-3 py-1.5 rounded border transition-colors ${
-                  countdownDisplayMode === 'days'
-                    ? 'bg-blue-500/20 border-blue-400 text-white'
-                    : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                }`}
-              >
-                剩余天数
-              </button>
-              <button
-                type="button"
-                onClick={() => setCountdownDisplayMode('date')}
-                className={`px-3 py-1.5 rounded border transition-colors ${
-                  countdownDisplayMode === 'date'
-                    ? 'bg-blue-500/20 border-blue-400 text-white'
-                    : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                }`}
-              >
-                目标日期
-              </button>
-            </div>
-            <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
-          </div>
-          <div className="pt-3 border-t border-[#333333]">
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">浏览器通知</label>
-            <div className="space-y-3">
+          </details>
+          <details className="pt-3 border-t border-[#333333]">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
+              <span>浏览器通知（点击展开/收起）</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A]" />
+            </summary>
+            <div className="space-y-3 mt-2">
               <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
                 <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
                 <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
@@ -336,7 +349,7 @@ const SettingsModal = ({
               </div>
               <p className="text-[11px] sm:text-xs text-[#555555]">提示：浏览器会拦截非用户触发的通知，请确保在手动点击按钮时触发。</p>
             </div>
-          </div>
+          </details>
           <div className="pt-3 border-t border-[#333333]">
             <button
               type="button"
@@ -401,6 +414,8 @@ const SettingsModal = ({
                     <select
                       value={autoSyncInterval}
                       onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
+                      aria-label="自动同步间隔"
+                      title="自动同步间隔"
                       className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
                     >
                       {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
@@ -496,60 +511,65 @@ const SettingsModal = ({
               </div>
             )}
           </div>
-          <div className="pt-3 border-t border-[#333333]">
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">数据导入导出（搬家专用）</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleExportData}
-                className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
-              >
-                导出 JSON
-              </button>
-              <button
-                type="button"
-                onClick={openImportPicker}
-                className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
-              >
-                导入 JSON
-              </button>
-            </div>
-            <div className="mt-3">
-              <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">导入方式</label>
-              <div className="flex gap-2 text-[12px] sm:text-xs">
+          <details className="pt-3 border-t border-[#333333]">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
+              <span>数据导入导出（搬家专用，点击展开/收起）</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A]" />
+            </summary>
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setImportMode('merge')}
-                  className={`px-3 py-1.5 rounded border transition-colors ${
-                    importMode === 'merge'
-                      ? 'bg-blue-500/20 border-blue-400 text-white'
-                      : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                  }`}
+                  onClick={handleExportData}
+                  className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
                 >
-                  合并
+                  导出 JSON
                 </button>
                 <button
                   type="button"
-                  onClick={() => setImportMode('overwrite')}
-                  className={`px-3 py-1.5 rounded border transition-colors ${
-                    importMode === 'overwrite'
-                      ? 'bg-blue-500/20 border-blue-400 text-white'
-                      : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                  }`}
+                  onClick={openImportPicker}
+                  className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
                 >
-                  覆盖
+                  导入 JSON
                 </button>
               </div>
-              <p className="text-[11px] sm:text-xs text-[#555555] mt-2">合并会保留现有数据，覆盖将以导入文件为准。</p>
+              <div className="mt-3">
+                <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">导入方式</label>
+                <div className="flex gap-2 text-[12px] sm:text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setImportMode('merge')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      importMode === 'merge'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    合并
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportMode('overwrite')}
+                    className={`px-3 py-1.5 rounded border transition-colors ${
+                      importMode === 'overwrite'
+                        ? 'bg-blue-500/20 border-blue-400 text-white'
+                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                    }`}
+                  >
+                    覆盖
+                  </button>
+                </div>
+                <p className="text-[11px] sm:text-xs text-[#555555] mt-2">合并会保留现有数据，覆盖将以导入文件为准。</p>
+              </div>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json"
+                onChange={handleImportData}
+                className="hidden"
+              />
             </div>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json"
-              onChange={handleImportData}
-              className="hidden"
-            />
-          </div>
+          </details>
 
           <div className="flex justify-end gap-3 mt-5">
             <button

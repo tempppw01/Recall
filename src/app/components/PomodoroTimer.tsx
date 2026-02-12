@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, RotateCcw, Plus, MoreHorizontal, Timer as TimerIcon } from 'lucide-react';
+import { Pause, Play, RotateCcw, Timer as TimerIcon } from 'lucide-react';
 import { pomodoroStore, PomodoroRecord } from '@/lib/store';
 
 /** 番茄钟阶段 */
@@ -59,18 +59,19 @@ export default function PomodoroTimer() {
     setRecords(pomodoroStore.getAll().sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
   }, []);
 
-  const saveRecord = (durationMinutes: number, endTime = new Date()) => {
-    // 只有专注阶段才记录
-    if (phase !== 'focus') return;
-    const startTime = sessionStartTimeRef.current 
-      ? new Date(sessionStartTimeRef.current).toISOString() 
-      : new Date(endTime.getTime() - durationMinutes * 60000).toISOString();
-    
+  const saveRecord = (durationMinutes: number, endTime = new Date(), startTimeMs?: number) => {
+    const safeDuration = Math.max(1, Math.round(durationMinutes));
+    const startTime = typeof startTimeMs === 'number'
+      ? new Date(startTimeMs).toISOString()
+      : sessionStartTimeRef.current
+      ? new Date(sessionStartTimeRef.current).toISOString()
+      : new Date(endTime.getTime() - safeDuration * 60000).toISOString();
+
     const record: PomodoroRecord = {
       id: createId(),
       startTime,
       endTime: endTime.toISOString(),
-      durationMinutes,
+      durationMinutes: safeDuration,
     };
     pomodoroStore.add(record);
     setRecords(pomodoroStore.getAll().sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
@@ -107,12 +108,12 @@ export default function PomodoroTimer() {
           // 自动完成
           const currentPhase = cycleOrder[nextPhaseIndex];
           if (currentPhase === 'focus') {
-            const duration = Math.round(PHASE_DURATIONS.focus / 60);
-            // 这里我们无法直接调用 saveRecord 因为闭包问题和状态更新时机，
-            // 简单处理：如果恢复时发现已经结束了，就自动进入下一阶段，不补录记录（或者补录但时间可能不准）
-            // 为了准确性，这里仅重置状态，不自动保存记录以免数据混乱。
-            // 用户体验权衡：如果后台跑完了，用户回来看到“已完成”，手动点确认更好。
-            // 但为了自动化，我们直接进入下一阶段。
+            const computedEnd = new Date(parsed.lastUpdated + nextRemaining * 1000);
+            const startMs = parsed.sessionStartTime;
+            const duration = typeof startMs === 'number'
+              ? Math.max(1, Math.round((computedEnd.getTime() - startMs) / 60000))
+              : Math.round(PHASE_DURATIONS.focus / 60);
+            saveRecord(duration, computedEnd, startMs);
           }
           const advancedIndex = (nextPhaseIndex + 1) % cycleOrder.length;
           nextPhaseIndex = advancedIndex;
@@ -351,20 +352,7 @@ export default function PomodoroTimer() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-bold text-[#EEEEEE]">专注记录</h3>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => {
-                const mins = prompt('输入专注时长（分钟）', '25');
-                if (mins && !isNaN(Number(mins))) {
-                  saveRecord(Number(mins));
-                }
-              }}
-              className="p-1 rounded hover:bg-[#333333] text-[#888888]" title="手动添加记录"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <button className="p-1 rounded hover:bg-[#333333] text-[#888888]"><MoreHorizontal className="w-4 h-4" /></button>
-          </div>
+          <div className="text-xs text-[#666666]">倒计时结束后自动记录</div>
         </div>
         
         <div className="space-y-4">

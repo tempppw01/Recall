@@ -9,6 +9,7 @@ import {
   Flag,
   Pin,
   Trash2,
+  Bell,
 } from 'lucide-react';
 import type { Subtask, Task, TaskRepeatRule } from '@/lib/store';
 
@@ -50,6 +51,8 @@ export type TaskItemProps = {
   multiSelectEnabled?: boolean;
   isChecked?: boolean;
   onToggleSelect?: (taskId: string) => void;
+  onQuickSetPriority?: (taskId: string, priority: number) => void;
+  onQuickSetDuePreset?: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight') => void;
   helpers: TaskItemHelpers;
 };
 
@@ -73,6 +76,8 @@ const TaskItem = ({
   multiSelectEnabled,
   isChecked,
   onToggleSelect,
+  onQuickSetPriority,
+  onQuickSetDuePreset,
   dragEnabled = true,
   helpers,
 }: TaskItemProps) => {
@@ -319,74 +324,78 @@ const TaskItem = ({
           </button>
 
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap justify-between items-start gap-2">
-              {task.pinned && (
-                <span className="text-[10px] text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded">置顶</span>
-              )}
-              {onTitleClick ? (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onTitleClick?.();
-                  }}
-                  className={`text-left text-[13px] sm:text-sm leading-snug ${
-                    task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
-                  }`}
-                  title="点击编辑标题"
-                >
-                  {task.title}
-                </button>
-              ) : (
-                <p
-                  className={`text-[13px] sm:text-sm leading-snug ${
-                    task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
-                  }`}
-                >
-                  {task.title}
-                </p>
-              )}
-              {hasSubtasks && (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setIsSubtasksOpen((prev) => !prev);
-                  }}
-                  className="flex items-center gap-1 text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] hover:text-[#CCCCCC]"
-                  aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
-                >
-                  <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
-                  {isSubtasksOpen ? (
-                    <ChevronUp className="w-3 h-3" />
-                  ) : (
-                    <ChevronDown className="w-3 h-3" />
-                  )}
-                </button>
-              )}
-              {canDrag && (
-                <button
-                  type="button"
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none shrink-0"
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onTouchStart={(event) => {
-                    event.stopPropagation();
-                  }}
-                  title="拖动排序"
-                >
-                  拖动排序
-                </button>
-              )}
-              {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
-                <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded ml-2 whitespace-nowrap">
-                  {Math.round((task as any).similarity * 100)}%
-                </span>
-              )}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2 min-w-0 flex-1">
+                {task.pinned && (
+                  <span className="text-[10px] text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded shrink-0">置顶</span>
+                )}
+                {onTitleClick ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onTitleClick?.();
+                    }}
+                    className={`text-left text-[13px] sm:text-sm leading-snug min-w-0 ${
+                      task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+                    }`}
+                    title="点击编辑标题"
+                  >
+                    {task.title}
+                  </button>
+                ) : (
+                  <p
+                    className={`text-[13px] sm:text-sm leading-snug min-w-0 ${
+                      task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+                    }`}
+                  >
+                    {task.title}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {hasSubtasks && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsSubtasksOpen((prev) => !prev);
+                    }}
+                    className="flex items-center gap-1 text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] hover:text-[#CCCCCC]"
+                    aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
+                  >
+                    <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
+                    {isSubtasksOpen ? (
+                      <ChevronUp className="w-3 h-3" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3" />
+                    )}
+                  </button>
+                )}
+                {canDrag && (
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none"
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onTouchStart={(event) => {
+                      event.stopPropagation();
+                    }}
+                    title="拖动排序"
+                  >
+                    拖动排序
+                  </button>
+                )}
+                {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
+                  <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded whitespace-nowrap">
+                    {Math.round((task as any).similarity * 100)}%
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -433,6 +442,7 @@ const TaskItem = ({
                             setEditorDate(nextDate);
                             applyDueDate(nextDate, editorTime);
                           }}
+                          title="选择日期"
                           className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
                         />
                         <input
@@ -443,6 +453,7 @@ const TaskItem = ({
                             setEditorTime(nextTime);
                             applyDueDate(editorDate, nextTime);
                           }}
+                          title="选择时间"
                           className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
                         />
                         <button
@@ -463,10 +474,72 @@ const TaskItem = ({
               {task.tags?.map((tag: string) => (
                 <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
               ))}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                {onQuickSetPriority && (
+                  <>
+                    {[2, 1, 0].map((level) => (
+                      <button
+                        key={`priority-${level}`}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onQuickSetPriority(task.id, level);
+                        }}
+                        className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                          task.priority === level
+                            ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
+                            : 'border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
+                        }`}
+                        title="快捷修改优先级"
+                      >
+                        {level === 2 ? '高' : level === 1 ? '中' : '低'}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {onQuickSetDuePreset && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onQuickSetDuePreset(task.id, 'today');
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      title="快捷设置时间：今天 09:00"
+                    >
+                      今天
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onQuickSetDuePreset(task.id, 'tomorrow');
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      title="快捷设置时间：明天 09:00"
+                    >
+                      明天
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onQuickSetDuePreset(task.id, 'tonight');
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] flex items-center gap-1"
+                      title="快捷设置时间：今晚 20:00"
+                    >
+                      <Bell className="w-3 h-3" />
+                      今晚
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             {hasSubtasks && isSubtasksOpen && (
               <div className="mt-2 space-y-1 border-l border-[#2A2A2A] pl-4">
-                {task.subtasks.map((subtask: Subtask) => (
+                {(task.subtasks ?? []).map((subtask: Subtask) => (
                   <div key={subtask.id} className="flex items-center gap-2 text-[11px] sm:text-xs">
                     <button
                       type="button"

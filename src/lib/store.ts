@@ -32,6 +32,10 @@ export interface Task {
   repeat?: TaskRepeatRule;
   /** 是否置顶 */
   pinned?: boolean;
+  /** 提醒时间（ISO 8601） */
+  reminderAt?: string;
+  /** 提醒模式 */
+  reminderPreset?: 'none' | '9am' | 'custom';
   createdAt: string;
   updatedAt?: string;
   /** 手动排序序号 */
