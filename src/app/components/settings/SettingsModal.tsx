@@ -4,7 +4,12 @@ import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
 
 /**
- * 设置弹窗：包含 AI 配置、通知、同步、WebDAV、导入导出等设置项。
+ * 设置弹窗组件
+ *
+ * 职责：
+ * - 管理 AI 接口、模型、通知、同步、数据库连接等设置项展示
+ * - 接收页面层状态与 setter（受控组件）
+ * - 调用 `persistSettings` 将变更统一持久化
  */
 type CountdownDisplayMode = 'days' | 'date';
 
@@ -36,7 +41,6 @@ type SettingsModalProps = {
   serviceWorkerSupported: boolean;
   requestNotificationPermission: () => void;
   sendTestNotification: () => void;
-  BING_WALLPAPER_API: string;
   isApiSettingsOpen: boolean;
   setIsApiSettingsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   pgHost: string;
@@ -51,11 +55,11 @@ type SettingsModalProps = {
   setPgPassword: React.Dispatch<React.SetStateAction<string>>;
   redisHost: string;
   redisPort: string;
-  redisDb: number;
+  redisDb: string;
   redisPassword: string;
   setRedisHost: React.Dispatch<React.SetStateAction<string>>;
   setRedisPort: React.Dispatch<React.SetStateAction<string>>;
-  setRedisDb: React.Dispatch<React.SetStateAction<number>>;
+  setRedisDb: React.Dispatch<React.SetStateAction<string>>;
   setRedisPassword: React.Dispatch<React.SetStateAction<string>>;
   syncNamespace: string;
   setSyncNamespace: React.Dispatch<React.SetStateAction<string>>;
@@ -102,7 +106,7 @@ type SettingsModalProps = {
     pgPassword: string;
     redisHost: string;
     redisPort: string;
-    redisDb: number;
+    redisDb: string;
     redisPassword: string;
     syncNamespace: string;
     calendarSubscription: string;
@@ -139,7 +143,6 @@ const SettingsModal = ({
   serviceWorkerSupported,
   requestNotificationPermission,
   sendTestNotification,
-  BING_WALLPAPER_API,
   isApiSettingsOpen,
   setIsApiSettingsOpen,
   pgHost,
@@ -332,13 +335,6 @@ const SettingsModal = ({
                 </button>
               </div>
               <p className="text-[11px] sm:text-xs text-[#555555]">提示：浏览器会拦截非用户触发的通知，请确保在手动点击按钮时触发。</p>
-            </div>
-          </div>
-          <div>
-            <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">每日壁纸</label>
-            <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
-              <p>已默认使用必应每日壁纸 API。</p>
-              <p className="text-[11px] sm:text-xs">{BING_WALLPAPER_API}</p>
             </div>
           </div>
           <div className="pt-3 border-t border-[#333333]">

@@ -1,5 +1,5 @@
-const STATIC_CACHE = "recall-static-v2";
-const RUNTIME_CACHE = "recall-runtime-v2";
+const STATIC_CACHE = "recall-static-v4";
+const RUNTIME_CACHE = "recall-runtime-v4";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -23,8 +23,10 @@ const isHtmlRequest = (request) =>
 
 const fetchAndCache = async (request) => {
   const response = await fetch(request);
-  const clone = response.clone();
-  caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
+  if (response && response.ok) {
+    const clone = response.clone();
+    caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
+  }
   return response;
 };
 
@@ -66,18 +68,25 @@ self.addEventListener("fetch", (event) => {
 
   if (isHtmlRequest(event.request)) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
+      fetch(event.request).catch(async () => {
+        const cachedPage = await caches.match(event.request);
+        if (cachedPage) return cachedPage;
+        const appShell = await caches.match("/");
+        if (appShell) return appShell;
+        return new Response("Offline", {
+          status: 503,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      })
     );
     return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetchAndCache(event.request))
+    fetchAndCache(event.request).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      return new Response("", { status: 504 });
+    })
   );
 });

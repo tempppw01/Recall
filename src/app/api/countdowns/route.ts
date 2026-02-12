@@ -1,10 +1,19 @@
+/**
+ * 倒计时（Countdown）API 路由
+ *
+ * GET  /api/countdowns  - 获取当前用户的所有倒计时
+ * POST /api/countdowns  - 创建新倒计时
+ */
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
 
+/** 单机模式下的默认用户 ID */
 const DEFAULT_USER_ID = 'local-user';
 
+/** GET /api/countdowns - 获取所有倒计时，按创建时间降序 */
 export async function GET(request: Request) {
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;

@@ -1,10 +1,24 @@
+/**
+ * 单个任务操作 API 路由
+ *
+ * PUT    /api/tasks/:id  - 更新指定任务
+ * DELETE /api/tasks/:id  - 删除指定任务
+ *
+ * 通过 URL 参数 id 和 userId 双重条件确保数据隔离
+ */
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
 
+/** 单机模式下的默认用户 ID */
 const DEFAULT_USER_ID = 'local-user';
 
+/**
+ * PUT /api/tasks/:id
+ * 更新指定任务的所有可变字段
+ */
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;
@@ -25,6 +39,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   try {
     const payload = await request.json();
 
+    // where 条件同时包含 id 和 userId，确保用户只能修改自己的任务
     const task = await client.task.update({
       where: { id: params.id, userId },
       data: {
@@ -49,6 +64,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
+/**
+ * DELETE /api/tasks/:id
+ * 删除指定任务（硬删除）
+ */
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;

@@ -1,7 +1,19 @@
+/**
+ * AI 模型列表 API 路由
+ *
+ * POST /api/ai/models - 获取 OpenAI 兼容 API 的可用模型列表
+ * 支持自定义 API Base URL 和 API Key
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 
+/** 默认 AI API 地址 */
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 
+/**
+ * 根据 base URL 构建 /models 端点地址
+ * 兼容多种 URL 格式（带/不带 /v1、/models 后缀）
+ */
 const buildModelsUrl = (base: string) => {
   const trimmed = base.replace(/\/$/, '');
   if (trimmed.endsWith('/models')) return trimmed;
@@ -9,6 +21,7 @@ const buildModelsUrl = (base: string) => {
   return `${trimmed}/v1/models`;
 };
 
+/** 从 API 响应中提取模型 ID 列表 */
 const normalizeModels = (payload: any) => {
   const rawItems = Array.isArray(payload?.data) ? payload.data : [];
   return rawItems
@@ -16,6 +29,11 @@ const normalizeModels = (payload: any) => {
     .filter((id: string) => id.length > 0);
 };
 
+/**
+ * POST /api/ai/models
+ * 请求体：{ apiKey?: string, apiBaseUrl?: string }
+ * 返回：{ models: string[] }
+ */
 export async function POST(req: NextRequest) {
   try {
     const { apiKey, apiBaseUrl } = await req.json();

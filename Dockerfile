@@ -14,7 +14,7 @@ ENV DATABASE_URL="file:./data/recall.db"
 RUN mkdir -p /app/data
 RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN npm run build -- --webpack
 
 # Stage 3: Production runner
 FROM node:20-alpine AS runner

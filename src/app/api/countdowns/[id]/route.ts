@@ -1,10 +1,19 @@
+/**
+ * 单个倒计时操作 API 路由
+ *
+ * PUT    /api/countdowns/:id  - 更新指定倒计时（标题、目标日期、置顶状态）
+ * DELETE /api/countdowns/:id  - 删除指定倒计时
+ */
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
 
+/** 单机模式下的默认用户 ID */
 const DEFAULT_USER_ID = 'local-user';
 
+/** PUT /api/countdowns/:id - 更新倒计时 */
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;

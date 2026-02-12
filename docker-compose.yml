@@ -4,9 +4,7 @@ services:
   # Next.js Application
   app:
     container_name: recall_app
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: 34v0wphix/recall:latest
     restart: always
     ports:
       - "3789:3789"

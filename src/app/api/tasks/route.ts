@@ -1,8 +1,23 @@
+/**
+ * 任务（Task）API 路由
+ *
+ * GET  /api/tasks  - 获取当前用户的所有任务
+ * POST /api/tasks  - 创建新任务
+ *
+ * 支持两种认证模式：
+ * 1. NextAuth session（默认）—— 从 JWT 中获取 userId
+ * 2. 动态 PG 连接（通过 x-pg-* 请求头）—— 使用固定的 local-user ID
+ */
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
 
+/**
+ * 安全解析 JSON 字段
+ * Prisma 的 Json 类型字段在数据库中可能存储为字符串或对象，需统一处理
+ */
 const parseJSON = (value: unknown, fallback: any) => {
   if (!value) return fallback;
   try {
@@ -15,9 +30,16 @@ const parseJSON = (value: unknown, fallback: any) => {
   }
 };
 
-const DEFAULT_USER_ID = 'local-user'; // 单机模式默认 ID
+/** 单机模式下的默认用户 ID（动态 PG 连接时使用） */
+const DEFAULT_USER_ID = 'local-user';
 
+/**
+ * GET /api/tasks
+ * 获取当前用户的所有任务，按 sortOrder 降序排列
+ * 返回时将数据库字段转换为前端友好的格式（日期转 ISO 字符串，JSON 字段解析）
+ */
 export async function GET(request: Request) {
+  // 根据请求头判断使用动态 PG 连接还是默认连接
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;
   let userId = '';
@@ -26,10 +48,10 @@ export async function GET(request: Request) {
     const dynamicClient = getDynamicPrisma(pgConfig);
     if (dynamicClient) {
       client = dynamicClient;
-      userId = DEFAULT_USER_ID; // 动态连接时假设单用户或固定ID
-      // 如果需要多用户，可以通过 headers 传递 userId，这里简化为单机模式
+      userId = DEFAULT_USER_ID;
     }
   } else {
+    // 默认模式：通过 NextAuth session 获取用户身份
     const session = await getServerSession(authOptions);
     userId = (session?.user as { id?: string })?.id || '';
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -41,12 +63,12 @@ export async function GET(request: Request) {
       orderBy: { sortOrder: 'desc' },
     });
 
-    // 如果是动态连接，处理完需断开，避免连接池耗尽
-    // 注意：Prisma 在 serverless 环境中不建议频繁 disconnect，但在动态单次连接场景下需要
+    // 动态连接用完即断开，避免连接池耗尽
     if (client !== prisma) {
       await client.$disconnect();
     }
 
+    // 将数据库记录转换为前端 Task 接口格式
     return NextResponse.json(
       tasks.map((task: any) => ({
         id: task.id,
@@ -70,6 +92,11 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * POST /api/tasks
+ * 创建新任务，支持前端透传 id 和 createdAt（用于同步场景）
+ * 动态 PG 连接时会自动创建默认用户（如果不存在）
+ */
 export async function POST(request: Request) {
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;
@@ -90,18 +117,17 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json();
 
-    // 确保 User 存在（仅针对 PG 动态连接且首次写入）
+    // 动态连接时确保用户记录存在（首次写入自动创建）
     if (client !== prisma) {
       const userExists = await client.user.findUnique({ where: { id: userId } });
       if (!userExists) {
-        // 创建默认用户
         await client.user.create({ data: { id: userId, name: 'Local User' } });
       }
     }
 
     const task = await client.task.create({
       data: {
-        id: payload.id, // 允许前端透传 ID
+        id: payload.id,           // 允许前端透传 ID（用于离线同步）
         userId,
         title: payload.title,
         dueDate: payload.dueDate ? new Date(payload.dueDate) : null,

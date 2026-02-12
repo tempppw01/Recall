@@ -1,3 +1,16 @@
+/**
+ * Redis 数据同步 API 路由
+ *
+ * POST /api/sync - 创建同步任务（push/pull/sync）并入队
+ * GET  /api/sync - 查询同步任务状态，若任务未完成则触发队列处理
+ *
+ * 工作流程：
+ * 1. 客户端 POST 创建同步任务 → 返回 jobId（HTTP 202）
+ * 2. 客户端轮询 GET ?jobId=xxx → 服务端处理队列并返回结果
+ *
+ * Redis 配置优先级：环境变量 > 客户端传入的配置
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   createSyncJob,
@@ -8,12 +21,20 @@ import {
   type SyncJobRecord,
 } from '@/lib/syncQueue';
 
+/** 去除首尾空白 */
 const normalizeString = (value?: string) => (value || '').trim();
+
+/** 默认同步命名空间（未指定时使用） */
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 
+/** 将命名空间编码为 Base64 作为 Redis 中的 syncKey */
 const buildSyncKey = (namespace: string) =>
   Buffer.from(namespace).toString('base64');
 
+/**
+ * 解析 Redis 连接配置
+ * 优先使用环境变量，回退到客户端传入的配置
+ */
 const resolveRedisConfig = (fallback?: RedisConfig) => {
   const host = process.env.REDIS_HOST || fallback?.host;
   if (!host) return null;
@@ -25,7 +46,11 @@ const resolveRedisConfig = (fallback?: RedisConfig) => {
   };
 };
 
-
+/**
+ * POST /api/sync
+ * 创建同步任务并入队，立即返回 jobId（异步处理模式）
+ * 请求体：{ action: 'push'|'pull'|'sync', namespace?: string, payload?: any, redisConfig?: RedisConfig }
+ */
 export async function POST(request: NextRequest) {
   try {
     const { action, namespace, payload, redisConfig } = await request.json();
@@ -57,6 +82,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * GET /api/sync?jobId=xxx
+ * 查询同步任务状态
+ * 若任务仍为 pending/processing，会主动触发队列处理（适配 Serverless 环境）
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

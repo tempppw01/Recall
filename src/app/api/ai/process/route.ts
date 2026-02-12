@@ -1,12 +1,36 @@
+/**
+ * AI 处理 API 路由（核心 AI 功能入口）
+ *
+ * POST /api/ai/process - 统一的 AI 处理端点，通过 mode 参数区分功能：
+ *
+ * - mode='time'           → 返回网络校准时间
+ * - mode='organize'       → 一键整理已有任务列表（保留 id）
+ * - mode='todo-agent'     → 聊天式待办助手（支持图片输入、上下文记忆）
+ * - mode='countdown-agent' → 倒数日识别助手
+ * - 默认（Magic Input）    → 单条文本智能拆解为任务
+ *
+ * 特性：
+ * - 支持多 API 端点自动故障转移
+ * - 基于 Redis / 内存的会话上下文记忆
+ * - 中文相对时间解析（基于网络校准时间）
+ * - 自动分类、优先级评估、烹饪任务特殊处理
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
 
+// ─── AI API 配置 ────────────────────────────────────────────
+
+/** 默认 AI API 地址 */
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
+
+/** 备用 API 地址列表（故障转移） */
 const DEFAULT_BASE_URLS = [
   'https://ai.shuaihong.fun/v1',
   'https://shapi.zeabur.app/v1',
 ];
 
+/** 根据 base URL 构建 /chat/completions 端点 */
 const buildChatCompletionsUrl = (base: string) => {
   const trimmed = base.replace(/\/$/, '');
   if (trimmed.endsWith('/chat/completions')) return trimmed;
@@ -14,20 +38,28 @@ const buildChatCompletionsUrl = (base: string) => {
   return `${trimmed}/v1/chat/completions`;
 };
 
+/** 构建 API 端点列表（用户指定的优先，然后是默认备用） */
 const resolveBaseUrlList = (primary?: string) => {
   const list = [primary, ...DEFAULT_BASE_URLS].filter(Boolean) as string[];
   return Array.from(new Set(list));
 };
 
+// ─── 会话上下文记忆系统 ─────────────────────────────────────
+
+/** 单条上下文记录 */
 type ContextEntry = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
 };
 
+/** 内存级上下文缓存（Redis 不可用时的降级方案） */
 const MEMORY_CONTEXT_CACHE = new Map<string, ContextEntry[]>();
+
+/** 每个会话最多保留的上下文条数 */
 const MAX_CONTEXT_ENTRIES = 12;
 
+/** 将 Redis 中的原始字符串数组解析为结构化的上下文条目 */
 function normalizeContextEntries(raw: string[]): ContextEntry[] {
   return raw
     .map((item) => {
@@ -47,6 +79,10 @@ function normalizeContextEntries(raw: string[]): ContextEntry[] {
     .filter(Boolean) as ContextEntry[];
 }
 
+/**
+ * 获取指定会话的历史上下文消息
+ * 优先从 Redis 读取，Redis 不可用时降级到内存缓存
+ */
 async function getContextMessages(redisConfig: any, sessionId: string): Promise<ContextEntry[]> {
   if (!sessionId) {
     return [];
@@ -85,6 +121,11 @@ async function getContextMessages(redisConfig: any, sessionId: string): Promise<
   }
 }
 
+/**
+ * 追加一条上下文记录到会话历史
+ * 使用 Redis LPUSH + LTRIM 实现固定长度的滑动窗口
+ * @param retentionDays - 上下文保留天数（1-3 天）
+ */
 async function appendContextEntry(
   redisConfig: any,
   sessionId: string,
@@ -135,6 +176,11 @@ async function appendContextEntry(
   }
 }
 
+/**
+ * 向 AI API 发送聊天请求（支持多端点故障转移）
+ * 按顺序尝试每个端点，第一个成功的即返回
+ * @throws 所有端点均失败时抛出错误
+ */
 async function requestChat(baseUrls: string[], apiKey: string | undefined, payload: any) {
   const errors: string[] = [];
   for (const base of baseUrls) {
@@ -159,6 +205,7 @@ async function requestChat(baseUrls: string[], apiKey: string | undefined, paylo
   throw new Error(`Chat completion failed: ${errors.join(' | ') || 'all endpoints failed'}`);
 }
 
+/** 从 AI 响应中提取并解析 JSON 内容 */
 function parseChatContent(payload: any) {
   const content = payload?.choices?.[0]?.message?.content;
   if (typeof content !== 'string' || !content.trim()) {
@@ -171,8 +218,15 @@ function parseChatContent(payload: any) {
   }
 }
 
+// ─── 常量与类型定义 ─────────────────────────────────────────
+
+/** 默认聊天模型 */
 const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash-lite';
+
+/** 任务分类选项（AI 输出必须从中选择） */
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
+
+/** 网络时间校准源（按优先级排列） */
 const TIME_SOURCES = [
   'https://www.ntsc.ac.cn',
   'http://www.bjtime.cn',
@@ -245,7 +299,9 @@ const DEFAULT_COUNTDOWN = {
   targetDate: undefined as string | undefined,
 };
 
-// 规范化 AI 返回的任务字段
+// ─── 数据规范化工具 ─────────────────────────────────────────
+
+/** 规范化 AI 返回的任务字段，确保类型安全和默认值 */
 function normalizeTask(data: ParsedTask) {
   const title = typeof data.title === 'string' && data.title.trim().length > 0 ? data.title.trim() : DEFAULT_TASK.title;
   const priority = typeof data.priority === 'number' && Number.isFinite(data.priority)
@@ -282,6 +338,7 @@ function normalizeTask(data: ParsedTask) {
   };
 }
 
+/** 规范化倒数日条目，提取 YYYY-MM-DD 格式的日期 */
 function normalizeCountdownItem(data: CountdownItem) {
   const title = typeof data.title === 'string' && data.title.trim().length > 0
     ? data.title.trim() : DEFAULT_COUNTDOWN.title;
@@ -294,6 +351,7 @@ function normalizeCountdownItem(data: CountdownItem) {
   return { title, targetDate };
 }
 
+/** 基于关键词规则的任务分类（AI 分类失败时的降级方案） */
 function classifyCategory(input: string) {
   const text = input.toLowerCase();
   const rules: Record<string, string[]> = {
@@ -312,11 +370,13 @@ function classifyCategory(input: string) {
   return DEFAULT_TASK.category;
 }
 
+/** 根据截止日期和子任务数量评估优先级（AI 未给出时的降级方案） */
 function evaluatePriority(dueDate?: string, subtaskCount = 0) {
   const baseNow = Date.now();
   return evaluatePriorityWithNow(dueDate, subtaskCount, baseNow);
 }
 
+/** 使用指定的当前时间评估优先级（用于网络校准时间场景） */
 function evaluatePriorityWithNow(dueDate: string | undefined, subtaskCount = 0, nowMs: number) {
   if (dueDate) {
     const due = new Date(dueDate).getTime();
@@ -330,6 +390,7 @@ function evaluatePriorityWithNow(dueDate: string | undefined, subtaskCount = 0, 
   return DEFAULT_TASK.priority;
 }
 
+/** 将 Date 格式化为上海时区的可读字符串（用于 AI 提示词中的时间参考） */
 function formatShanghaiDateTime(date: Date) {
   const parts = new Intl.DateTimeFormat('zh-CN', {
     timeZone: 'Asia/Shanghai',
@@ -345,6 +406,11 @@ function formatShanghaiDateTime(date: Date) {
   return `${pick('year')}-${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')}:${pick('second')}`;
 }
 
+/**
+ * 从多个网络时间源获取校准时间
+ * 通过 HTTP HEAD 请求的 Date 响应头获取服务器时间
+ * 所有源均失败时降级为本地时间
+ */
 async function getNetworkTime() {
   for (const url of TIME_SOURCES) {
     try {
@@ -372,10 +438,12 @@ async function getNetworkTime() {
   return new Date();
 }
 
+/** 判断文本是否为烹饪相关任务 */
 function isCookingTask(text: string) {
   return /(做|炒|煮|炖|蒸|烤|煎|焯|凉拌|菜谱|食谱|做菜|下厨|烧菜|拌|切)/.test(text);
 }
 
+/** 为烹饪任务生成标准化子任务模板 */
 function buildCookingSubtasks(title: string) {
   const cleaned = title.trim();
   return [
@@ -386,6 +454,12 @@ function buildCookingSubtasks(title: string) {
   ];
 }
 
+// ─── 主路由处理器 ───────────────────────────────────────────
+
+/**
+ * POST /api/ai/process
+ * 统一 AI 处理入口，根据 mode 分发到不同的处理逻辑
+ */
 export async function POST(req: NextRequest) {
   try {
     const { input, mode, images, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays } = await req.json();

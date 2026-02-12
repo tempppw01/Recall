@@ -19,13 +19,13 @@ const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
 const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite'];
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 2;
 const DEFAULT_SESSION_ID_KEY = 'recall_session_id';
-const BING_WALLPAPER_API = '/api/bing-wallpaper';
 const DEFAULT_REDIS_DB = 0;
 const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
 const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
-const APP_VERSION = '0.9beta';
+const APP_VERSION = '1.0.0';
 const APP_VERSION_KEY = 'recall_app_version';
+const DEFAULT_TASK_SEED_KEY = 'recall_default_tasks_seeded';
 const LISTS_KEY = 'recall_lists';
 const WEBDAV_URL_KEY = 'recall_webdav_url';
 const WEBDAV_PATH_KEY = 'recall_webdav_path';
@@ -765,7 +765,6 @@ export default function Home() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   const [isSystemTheme, setIsSystemTheme] = useState(true);
-  const [bingWallpaperUrl, setBingWallpaperUrl] = useState('');
   const [notificationSupported, setNotificationSupported] = useState(false);
   const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
@@ -1232,20 +1231,43 @@ export default function Home() {
       refreshHabits();
       refreshCountdowns();
 
-      const loadBingWallpaper = async () => {
-        try {
-          const response = await fetch(BING_WALLPAPER_API);
-          if (!response.ok) return;
-          const data = await response.json();
-          if (data?.url) {
-            setBingWallpaperUrl(data.url);
-          }
-        } catch (error) {
-          console.error('Failed to fetch Bing wallpaper', error);
-        }
+      const seedDefaultTasks = () => {
+        if (typeof window === 'undefined') return;
+        const seeded = localStorage.getItem(DEFAULT_TASK_SEED_KEY);
+        const existingTasks = taskStore.getAll();
+        if (seeded || existingTasks.length > 0) return;
+        const now = new Date();
+        const seedTitles = [
+          '欢迎使用 Recall：先点左侧切换到「今日」看看',
+          '试试输入：明天下午 3 点提醒我开会',
+          '给任务加上 #标签 或 @列表，快速分类',
+          '完成后点小圆圈 ✅，感受一下流程',
+        ];
+        const seededTasks: Task[] = seedTitles.map((title, index) => {
+          const category = classifyCategory(title);
+          return {
+            id: createId(),
+            title,
+            dueDate: index === 0
+              ? new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
+              : undefined,
+            timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
+            priority: evaluatePriority(index === 0 ? new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString() : undefined, 0, now.getTime()),
+            category,
+            status: 'todo',
+            tags: [],
+            pinned: index === 0,
+            subtasks: [],
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+          };
+        });
+        seededTasks.forEach((task) => taskStore.add(task));
+        localStorage.setItem(DEFAULT_TASK_SEED_KEY, 'true');
+        refreshTasks();
       };
 
-      loadBingWallpaper();
+      seedDefaultTasks();
 
       if (!storedKey) {
         const inputKey = window.prompt('未检测到 AI 令牌，可输入以启用完整功能（可跳过）');
@@ -3315,19 +3337,7 @@ export default function Home() {
   const showCountdownAgentBulkAdd = countdownAgentItems.length > 1;
 
   return (
-    <div
-      className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top"
-      style={
-        bingWallpaperUrl
-          ? {
-              backgroundImage: `url(${bingWallpaperUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-            }
-          : undefined
-      }
-    >
+    <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top">
       
       {/* 1. Sidebar */}
       <Sidebar
@@ -4247,201 +4257,207 @@ export default function Home() {
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-              <div className="space-y-4">
-                <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-[#DDDDDD]">AI 助手（碎碎念整理师）</h3>
-                      <p className="text-xs text-[#666666] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[11px] text-[#555555]">todo-agent</span>
-                      <div className="flex items-center gap-2">
-                        {redisHost && (
-                          <div className="flex items-center gap-1 text-[10px] text-[#666666]">
-                            <span>记忆:</span>
-                            <select
-                              value={aiRetentionDays}
-                              onChange={(e) => setAiRetentionDays(Number(e.target.value))}
-                              className="bg-[#1A1A1A] border border-[#333333] rounded px-1 py-0.5 focus:outline-none"
-                            >
-                              <option value={1}>1天</option>
-                              <option value={2}>2天</option>
-                              <option value={3}>3天</option>
-                            </select>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1">
+            <div className="h-[calc(100vh-10rem)] min-h-[560px]">
+              <div className="h-full rounded-2xl p-[1px] bg-gradient-to-br from-blue-500/40 via-violet-500/20 to-cyan-500/40">
+                <div className="h-full bg-gradient-to-b from-[#1C1F2A] via-[#202020] to-[#1B1B1B] rounded-2xl p-4 flex flex-col shadow-[0_0_0_1px_rgba(59,130,246,0.08)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手（碎碎念整理师）</h3>
+                    <p className="text-xs text-[#8D94A8] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
+                    <div className="flex items-center gap-2">
+                      {redisHost && (
+                        <div className="flex items-center gap-1 text-[10px] text-[#666666]">
+                          <span>记忆:</span>
                           <select
-                            value={chatModel}
-                            onChange={(e) => setChatModel(e.target.value)}
-                            className="bg-[#1A1A1A] border border-[#333333] rounded px-1.5 py-0.5 text-[10px] text-[#CCCCCC] focus:outline-none max-w-[100px] truncate"
-                            title="切换模型"
+                            value={aiRetentionDays}
+                            onChange={(e) => setAiRetentionDays(Number(e.target.value))}
+                            className="bg-[#1A1A1A] border border-[#333333] rounded px-1 py-0.5 focus:outline-none"
                           >
-                            {parseModelList(modelListText).map((model) => (
-                              <option key={model} value={model}>{model}</option>
-                            ))}
+                            <option value={1}>1天</option>
+                            <option value={2}>2天</option>
+                            <option value={3}>3天</option>
                           </select>
-                          <button
-                            onClick={fetchModelList}
-                            disabled={isFetchingModels}
-                            className="p-1 rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
-                            title="拉取模型列表"
-                          >
-                            <Cloud className={`w-3 h-3 ${isFetchingModels ? 'animate-bounce' : ''}`} />
-                          </button>
                         </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={chatModel}
+                          onChange={(e) => setChatModel(e.target.value)}
+                          className="bg-[#1A1A1A] border border-[#333333] rounded px-1.5 py-0.5 text-[10px] text-[#CCCCCC] focus:outline-none max-w-[100px] truncate"
+                          title="切换模型"
+                        >
+                          {parseModelList(modelListText).map((model) => (
+                            <option key={model} value={model}>{model}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={fetchModelList}
+                          disabled={isFetchingModels}
+                          className="p-1 rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
+                          title="拉取模型列表"
+                        >
+                          <Cloud className={`w-3 h-3 ${isFetchingModels ? 'animate-bounce' : ''}`} />
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="mt-3 space-y-3">
-                    <div className="rounded-xl border border-dashed border-[#333333] bg-[#1B1B1B] px-3 py-2 text-xs text-[#777777]">
-                      小提示：别怕大目标，我负责把它切成一口一口的“薯片任务”。
+                </div>
+
+                <div className="mt-3 rounded-xl border border-dashed border-violet-400/30 bg-gradient-to-r from-violet-500/15 to-cyan-500/15 px-3 py-2 text-xs text-[#C7D2FE] shadow-[0_0_24px_rgba(99,102,241,0.16)]">
+                  小提示：别怕大目标，我负责把它切成一口一口的“薯片任务”。
+                </div>
+
+                <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                  {agentMessages.length === 0 ? (
+                    <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：想完成什么事情？</div>
+                  ) : (
+                    agentMessages.map((message, idx) => (
+                      <div
+                        key={`${message.role}-${idx}`}
+                        className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                          message.role === 'user'
+                            ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100 ml-auto'
+                            : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                        }`}
+                      >
+                        {message.content}
+                      </div>
+                    ))
+                  )}
+                  {agentError && (
+                    <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
+                      <span>{agentError}</span>
+                      <button
+                        onClick={handleAgentSend}
+                        disabled={agentLoading}
+                        className="text-red-200 underline hover:text-white"
+                      >
+                        重试
+                      </button>
                     </div>
-                    <div className="max-h-[40vh] overflow-y-auto space-y-2 pr-1">
-                      {agentMessages.length === 0 ? (
-                        <div className="text-sm text-[#555555]">先告诉我：想完成什么事情？</div>
-                      ) : (
-                        agentMessages.map((message, idx) => (
-                          <div
-                            key={`${message.role}-${idx}`}
-                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                              message.role === 'user'
-                                ? 'bg-blue-600/20 text-blue-100 ml-auto'
-                                : 'bg-[#2A2A2A] text-[#DDDDDD]'
-                            }`}
-                          >
-                            {message.content}
-                          </div>
-                        ))
-                      )}
-                      {agentError && (
-                        <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
-                          <span>{agentError}</span>
-                          <button
-                            onClick={handleAgentSend}
-                            disabled={agentLoading}
-                            className="text-red-200 underline hover:text-white"
-                          >
-                            重试
-                          </button>
-                        </div>
+                  )}
+
+                  <div className="pt-2 space-y-3 border-t border-[#2C2C2C]">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-[#D7DEEF]">建议待办（切成薯片）</h4>
+                      {showAgentBulkAdd && (
+                        <button
+                          onClick={handleAddAllAgentItems}
+                          disabled={agentItems.length === 0 || addedAgentItemIds.size === agentItems.length}
+                          className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          一键全部添加
+                        </button>
                       )}
                     </div>
-                    {agentImages.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {agentImages.map((image) => (
-                          <div
-                            key={image.id}
-                            className="relative w-16 h-16 rounded-lg border border-[#333333] overflow-hidden"
-                          >
-                            <img
-                              src={image.dataUrl}
-                              alt={image.file.name}
-                              className="w-full h-full object-cover"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeAgentImage(image.id)}
-                              className="absolute top-0.5 right-0.5 bg-black/60 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
-                              title="移除"
-                            >
-                              ×
-                            </button>
+                    {agentItems.length === 0 ? (
+                      <div className="bg-gradient-to-r from-[#1F1F1F] to-[#202634] border border-dashed border-cyan-500/20 rounded-2xl p-4 text-xs text-[#8791A8]">
+                        我会把整理结果放在这里，放心，它不会咬你。
+                      </div>
+                    ) : (
+                      <div className="grid gap-3">
+                        {agentItems.map((item) => (
+                          <div key={item.id} className="bg-gradient-to-br from-[#202020] to-[#232839] border border-violet-500/20 rounded-2xl p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
+                                {item.dueDate && (
+                                  <p className="text-xs text-[#777777] mt-1">
+                                    日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
+                                  </p>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleAddAgentItem(item)}
+                                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
+                                  addedAgentItemIds.has(item.id)
+                                    ? 'border-[#333333] text-[#666666]'
+                                    : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                                }`}
+                              >
+                                {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
+                              </button>
+                            </div>
+                            {item.subtasks?.length ? (
+                              <ul className="mt-3 space-y-1 text-xs text-[#777777] list-disc list-inside">
+                                {item.subtasks.map((subtask, index) => (
+                                  <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
+                                ))}
+                              </ul>
+                            ) : null}
                           </div>
                         ))}
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={agentImageInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleAgentImageChange}
-                        className="hidden"
-                      />
-                      <input
-                        type="text"
-                        value={agentInput}
-                        onChange={(e) => setAgentInput(e.target.value)}
-                        onPaste={handleAgentPaste}
-                        placeholder="例如：帮我规划本周的工作安排"
-                        className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => agentImageInputRef.current?.click()}
-                        className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
-                        title="上传图片"
-                      >
-                        <ImagePlus className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={handleAgentSend}
-                        disabled={!agentInput.trim() && agentImages.length === 0}
-                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
-                      >
-                        {agentLoading ? '整理中…' : '发送'}
-                      </button>
-                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议待办（切成薯片）</h4>
-                  {showAgentBulkAdd && (
-                    <button
-                      onClick={handleAddAllAgentItems}
-                      disabled={agentItems.length === 0 || addedAgentItemIds.size === agentItems.length}
-                      className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      一键全部添加
-                    </button>
-                  )}
-                </div>
-                {agentItems.length === 0 ? (
-                  <div className="bg-[#1F1F1F] border border-dashed border-[#2C2C2C] rounded-2xl p-4 text-xs text-[#666666]">
-                    右侧会出现我整理的清单，放心，它不会咬你。
-                  </div>
-                ) : (
-                  <div className="grid gap-3">
-                    {agentItems.map((item) => (
-                      <div key={item.id} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
-                            {item.dueDate && (
-                              <p className="text-xs text-[#777777] mt-1">
-                                日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleAddAgentItem(item)}
-                            className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                              addedAgentItemIds.has(item.id)
-                                ? 'border-[#333333] text-[#666666]'
-                                : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
-                          </button>
-                        </div>
-                        {item.subtasks?.length ? (
-                          <ul className="mt-3 space-y-1 text-xs text-[#777777] list-disc list-inside">
-                            {item.subtasks.map((subtask, index) => (
-                              <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
-                            ))}
-                          </ul>
-                        ) : null}
+                {agentImages.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {agentImages.map((image) => (
+                      <div
+                        key={image.id}
+                        className="relative w-16 h-16 rounded-lg border border-[#333333] overflow-hidden"
+                      >
+                        <img
+                          src={image.dataUrl}
+                          alt={image.file.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeAgentImage(image.id)}
+                          className="absolute top-0.5 right-0.5 bg-black/60 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+                          title="移除"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
                 )}
+
+                <div className="mt-3 text-xs text-[#B8C7FF] bg-[#1A1F2E] border border-[#2A3348] rounded-lg px-3 py-2">
+                  我是 AI 助手，偶尔会犯错，重要问题记得再核对一下哦～
+                </div>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    ref={agentImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleAgentImageChange}
+                    className="hidden"
+                  />
+                  <input
+                    type="text"
+                    value={agentInput}
+                    onChange={(e) => setAgentInput(e.target.value)}
+                    onPaste={handleAgentPaste}
+                    placeholder="例如：帮我规划本周的工作安排"
+                    className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => agentImageInputRef.current?.click()}
+                    className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                    title="上传图片"
+                  >
+                    <ImagePlus className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleAgentSend}
+                    disabled={!agentInput.trim() && agentImages.length === 0}
+                    className="px-3 py-2 text-sm bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
+                  >
+                    {agentLoading ? '整理中…' : '发送'}
+                  </button>
+                </div>
+                </div>
               </div>
             </div>
           ) : activeFilter === 'habit' ? (
@@ -5030,7 +5046,6 @@ export default function Home() {
         serviceWorkerSupported={serviceWorkerSupported}
         requestNotificationPermission={requestNotificationPermission}
         sendTestNotification={sendTestNotification}
-        BING_WALLPAPER_API={BING_WALLPAPER_API}
         isApiSettingsOpen={isApiSettingsOpen}
         setIsApiSettingsOpen={setIsApiSettingsOpen}
         pgHost={pgHost}
@@ -5208,7 +5223,7 @@ export default function Home() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-base sm:text-lg font-semibold">关于 Recall（幕后花絮）</h2>
-                <p className="text-xs text-[#777777] mt-1">轻量 AI 待办助手</p>
+                <p className="text-xs text-[#777777] mt-1">轻量待办助手</p>
               </div>
               <button
                 onClick={() => setShowAbout(false)}

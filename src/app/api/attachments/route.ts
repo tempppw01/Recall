@@ -1,12 +1,27 @@
+/**
+ * 附件上传 API 路由（WebDAV）
+ *
+ * POST /api/attachments - 上传文件到 WebDAV 服务器
+ *
+ * WebDAV 配置优先级：请求表单字段 > 环境变量
+ * 文件大小限制：30MB
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 
+/** WebDAV 默认配置（从环境变量读取） */
 const DEFAULT_WEBDAV_URL = process.env.WEBDAV_URL;
 const DEFAULT_WEBDAV_USERNAME = process.env.WEBDAV_USERNAME;
 const DEFAULT_WEBDAV_PASSWORD = process.env.WEBDAV_PASSWORD;
 
-// 30MB 限制
+/** 文件大小上限：30MB */
 const MAX_SIZE = 30 * 1024 * 1024;
 
+/**
+ * POST /api/attachments
+ * 接收 multipart/form-data，将文件通过 HTTP PUT 上传到 WebDAV
+ * 返回文件的 WebDAV URL、文件名、大小和类型
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

@@ -1,9 +1,20 @@
 "use client";
 
+/**
+ * 番茄钟组件
+ *
+ * 功能：
+ * - 专注/短休息/长休息循环计时
+ * - 本地持久化当前计时状态（刷新后可恢复）
+ * - 记录专注时段历史（保存到 pomodoroStore）
+ * - 秒级提示音
+ */
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw, Plus, MoreHorizontal, Timer as TimerIcon } from 'lucide-react';
 import { pomodoroStore, PomodoroRecord } from '@/lib/store';
 
+/** 番茄钟阶段 */
 type PomodoroPhase = 'focus' | 'shortBreak' | 'longBreak';
 
 const PHASE_LABELS: Record<PomodoroPhase, string> = {
@@ -21,12 +32,14 @@ const PHASE_DURATIONS: Record<PomodoroPhase, number> = {
 const cycleOrder: PomodoroPhase[] = ['focus', 'shortBreak', 'focus', 'shortBreak', 'focus', 'longBreak'];
 const STORAGE_KEY = 'recall_pomodoro_state';
 
+/** 将秒数格式化为 mm:ss */
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 };
 
+/** 生成本地记录 ID */
 const createId = () => Math.random().toString(36).substring(2, 9);
 
 export default function PomodoroTimer() {

@@ -1,7 +1,23 @@
+/**
+ * 连接测试 API 路由
+ *
+ * POST /api/test-connection - 测试外部服务连接是否可用
+ * 支持三种连接类型：
+ * - pg：PostgreSQL 数据库连接测试
+ * - redis：Redis 连接测试
+ * - webdav：WebDAV 服务连接测试
+ *
+ * 用于设置页面中用户配置连接信息后的验证
+ */
+
 import { NextResponse } from 'next/server';
 import { getDynamicPrisma } from '@/lib/prisma';
 import Redis from 'ioredis';
 
+/**
+ * POST /api/test-connection
+ * 请求体：{ type: 'pg' | 'redis' | 'webdav', config: { ... } }
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -11,6 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing type or config' }, { status: 400 });
     }
 
+    // ─── PostgreSQL 连接测试 ──────────────────────────────
     if (type === 'pg') {
       const client = getDynamicPrisma(config);
       if (!client) {
@@ -27,6 +44,7 @@ export async function POST(request: Request) {
       }
     }
 
+    // ─── Redis 连接测试 ──────────────────────────────────
     if (type === 'redis') {
       const { host, port, db, password } = config;
       if (!host || !port) {
@@ -53,6 +71,7 @@ export async function POST(request: Request) {
       }
     }
 
+    // ─── WebDAV 连接测试（通过 PROPFIND 请求验证） ───────
     if (type === 'webdav') {
       const { url, username, password } = config;
       if (!url || !username || !password) {

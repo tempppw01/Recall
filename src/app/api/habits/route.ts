@@ -1,8 +1,16 @@
+/**
+ * 习惯（Habit）API 路由
+ *
+ * GET  /api/habits  - 获取当前用户的所有习惯
+ * POST /api/habits  - 创建新习惯
+ */
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
 
+/** 安全解析 JSON 字段，兼容字符串和对象两种存储格式 */
 const parseJSON = (value: unknown, fallback: any) => {
   if (!value) return fallback;
   try {
@@ -15,8 +23,10 @@ const parseJSON = (value: unknown, fallback: any) => {
   }
 };
 
+/** 单机模式下的默认用户 ID */
 const DEFAULT_USER_ID = 'local-user';
 
+/** GET /api/habits - 获取所有习惯，按创建时间降序 */
 export async function GET(request: Request) {
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;

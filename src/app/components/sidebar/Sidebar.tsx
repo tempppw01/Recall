@@ -309,8 +309,8 @@ const Sidebar = ({
           <>
             {/* 展开状态下的完整视图 */}
             <div className="flex-1 overflow-y-auto overscroll-contain">
-              <div className="p-4 flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
+              <div className="px-3 py-2.5 flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
                   <div className="relative">
                     <button
                       type="button"
@@ -356,8 +356,8 @@ const Sidebar = ({
                     )}
                   </div>
                   <div>
-                    <h1 className="text-sm font-semibold">Recall AI（轻量不轻浮）</h1>
-                    <p className="text-xs text-[#666666]">轻量 AI 待办｜不拖延搭子</p>
+                    <h1 className="text-sm font-semibold leading-tight">Recall</h1>
+                    <p className="text-[11px] text-[#6A6A6A] leading-tight">待办</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -371,7 +371,7 @@ const Sidebar = ({
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   {/* 移动端关闭按钮 */}
-                  <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#666666]">
+                  <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#666666]" title="关闭侧边栏" aria-label="关闭侧边栏">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
