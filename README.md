@@ -20,6 +20,11 @@ Recall 的初衷是：
 
 ---
 
+<img width="1168" height="730" alt="截屏2026-02-13 12 40 36" src="https://github.com/user-attachments/assets/47cd9f50-391a-4243-99b7-ad8440fa2627" />
+<img width="1164" height="733" alt="截屏2026-02-13 12 40 55" src="https://github.com/user-attachments/assets/7ae8d841-db94-417a-a688-96398784d4fd" />
+<img width="1169" height="741" alt="截屏2026-02-13 12 41 38" src="https://github.com/user-attachments/assets/5b309f57-9365-471f-b837-6c71dba34e3c" />
+
+
 ## 🆕 近期更新（v1.0.1）
 
 本次版本聚焦工程稳定性与发布体验，重点包含：
