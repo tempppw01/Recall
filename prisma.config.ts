@@ -9,6 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // ts: prisma config 需要 string，这里在未配置时回退为空串，避免编译期报错。
+    url: process.env["DATABASE_URL"] ?? "",
   },
 });

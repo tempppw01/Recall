@@ -6,12 +6,17 @@ import PomodoroTimer from '@/app/components/PomodoroTimer';
 import Sidebar from '@/app/components/sidebar/Sidebar';
 import SettingsModal from '@/app/components/settings/SettingsModal';
 import TaskItem from '@/app/components/tasks/TaskItem';
+import TaskQuickActions from '@/app/components/tasks/TaskQuickActions';
+import PageTopBar from '@/app/components/home/PageTopBar';
+import ListComposerPanel from '@/app/components/home/ListComposerPanel';
+import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
+import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import {
-  Command, Send, Plus,
+  Command,
   Calendar, Inbox, Sun, Star, Trash2,
-  Menu, X, CheckCircle2,
-  Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight,
-  CheckSquare, LayoutGrid, Timer, Flame, Moon, Terminal, Settings, Cloud, Loader2,
+  X, CheckCircle2,
+  Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
+  CheckSquare, LayoutGrid, Timer, Flame, Settings, Cloud, CloudSun, CloudRain, CloudFog, CloudSnow,
   ImagePlus, Monitor, Paperclip, Upload,
 } from 'lucide-react';
 
@@ -45,6 +50,8 @@ const REDIS_PASSWORD_KEY = 'recall_redis_password';
 const SYNC_NAMESPACE_KEY = 'recall_sync_namespace';
 const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 const CALENDAR_SUBSCRIPTION_KEY = 'recall_calendar_subscription';
+const CALENDAR_CITY_KEY = 'recall_calendar_city';
+const DELETED_TASKS_KEY = 'recall_deleted_tasks';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const DELETED_HABITS_KEY = 'recall_deleted_habits';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
@@ -229,6 +236,41 @@ const getPriorityColor = (priority: number) => {
 };
 
 const getPriorityLabel = (priority: number) => PRIORITY_LABELS[priority] || PRIORITY_LABELS[0];
+
+
+type WeatherCity = {
+  id: string;
+  name: string;
+  admin1?: string;
+  country?: string;
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+};
+
+type WeatherForecast = {
+  weatherCode?: number;
+  tempMax?: number;
+  tempMin?: number;
+  weatherText?: string;
+  timezone?: string;
+  provider?: string;
+  warning?: string;
+  errors?: string[];
+};
+
+const getWeatherSummary = (weatherCode?: number) => {
+  if (weatherCode === undefined || weatherCode === null) {
+    return { label: '天气未知', Icon: Cloud };
+  }
+  if (weatherCode === 0) return { label: '晴朗', Icon: Sun };
+  if ([1, 2, 3].includes(weatherCode)) return { label: '多云', Icon: CloudSun };
+  if ([45, 48].includes(weatherCode)) return { label: '有雾', Icon: CloudFog };
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 80, 81, 82].includes(weatherCode)) return { label: '降雨', Icon: CloudRain };
+  if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) return { label: '降雪', Icon: CloudSnow };
+  if ([95, 96, 99].includes(weatherCode)) return { label: '雷暴', Icon: CloudRain };
+  return { label: '天气变化', Icon: Cloud };
+};
 
 const formatRepeatLabel = (rule?: TaskRepeatRule) => {
   if (!rule || rule.type === 'none') return '';
@@ -824,6 +866,13 @@ export default function Home() {
   });
   const [calendarNotes, setCalendarNotes] = useState<Record<string, string>>({});
   const [calendarNoteLoading, setCalendarNoteLoading] = useState(false);
+  const [calendarCityInput, setCalendarCityInput] = useState('');
+  const [calendarCity, setCalendarCity] = useState<WeatherCity | null>(null);
+  const [weatherCities, setWeatherCities] = useState<WeatherCity[]>([]);
+  const [isSearchingWeatherCity, setIsSearchingWeatherCity] = useState(false);
+  const [weatherForecast, setWeatherForecast] = useState<WeatherForecast | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherConnectionHint, setWeatherConnectionHint] = useState('');
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [weekDays, setWeekDays] = useState(() => buildWeekDays(weekStart));
   const [weekLabel, setWeekLabel] = useState(() => buildWeekLabel(weekStart));
@@ -1200,6 +1249,7 @@ export default function Home() {
             REDIS_PASSWORD_KEY,
             SYNC_NAMESPACE_KEY,
             CALENDAR_SUBSCRIPTION_KEY,
+            CALENDAR_CITY_KEY,
             LAST_LOCAL_CHANGE_KEY,
             'recall_theme',
             SIDEBAR_WIDTH_KEY,
@@ -1242,6 +1292,7 @@ export default function Home() {
       const storedRedisPassword = localStorage.getItem(REDIS_PASSWORD_KEY);
       const storedCalendarSubscription = localStorage.getItem(CALENDAR_SUBSCRIPTION_KEY);
       const storedSyncNamespace = localStorage.getItem(SYNC_NAMESPACE_KEY);
+      const storedCalendarCity = localStorage.getItem(CALENDAR_CITY_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -1286,6 +1337,17 @@ export default function Home() {
       if (storedRedisPassword) setRedisPassword(storedRedisPassword);
       if (storedCalendarSubscription) setCalendarSubscription(storedCalendarSubscription);
       if (storedSyncNamespace) setSyncNamespace(storedSyncNamespace);
+      if (storedCalendarCity) {
+        try {
+          const parsed = JSON.parse(storedCalendarCity) as WeatherCity;
+          if (parsed?.name && Number.isFinite(parsed?.latitude) && Number.isFinite(parsed?.longitude)) {
+            setCalendarCity(parsed);
+            setCalendarCityInput([parsed.name, parsed.admin1, parsed.country].filter(Boolean).join(' · '));
+          }
+        } catch (error) {
+          console.error('Invalid calendar city cache', error);
+        }
+      }
       if (storedCountdownDisplayMode === 'date') {
         setCountdownDisplayMode('date');
       } else {
@@ -1594,6 +1656,74 @@ export default function Home() {
   }, [calendarMonth]);
 
 
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!calendarCity) return;
+    localStorage.setItem(CALENDAR_CITY_KEY, JSON.stringify(calendarCity));
+  }, [calendarCity]);
+
+  useEffect(() => {
+    if (activeFilter !== 'calendar') return;
+    const keyword = calendarCityInput.trim();
+    if (keyword.length < 2) {
+      setWeatherCities([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setIsSearchingWeatherCity(true);
+      try {
+        const res = await fetch(`/api/weather/search?q=${encodeURIComponent(keyword)}`);
+        const data = await res.json();
+        setWeatherCities(Array.isArray(data?.results) ? data.results : []);
+        setWeatherConnectionHint(typeof data?.warning === 'string' ? data.warning : '');
+      } catch (error) {
+        setWeatherCities([]);
+        setWeatherConnectionHint('城市搜索服务暂时不可用');
+      } finally {
+        setIsSearchingWeatherCity(false);
+      }
+    }, 260);
+
+    return () => window.clearTimeout(timer);
+  }, [calendarCityInput, activeFilter]);
+
+  useEffect(() => {
+    if (!calendarCity) {
+      setWeatherForecast(null);
+      return;
+    }
+
+    const targetDate = selectedCalendarDate || formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
+
+    const fetchForecast = async () => {
+      setWeatherLoading(true);
+      try {
+        const res = await fetch(
+          `/api/weather/forecast?lat=${calendarCity.latitude}&lon=${calendarCity.longitude}&date=${targetDate}`,
+        );
+        if (!res.ok) {
+          setWeatherForecast(null);
+          setWeatherConnectionHint('天气接口请求失败');
+          return;
+        }
+        const data = await res.json();
+        setWeatherForecast(data);
+        if (typeof data?.warning === 'string') {
+          setWeatherConnectionHint(data.warning);
+        }
+      } catch (error) {
+        setWeatherForecast(null);
+        setWeatherConnectionHint('天气服务连接受限');
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+
+    fetchForecast();
+  }, [calendarCity, selectedCalendarDate]);
+
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const body = document.body;
@@ -1684,7 +1814,12 @@ export default function Home() {
 
   const refreshTasks = () => {
     const all = taskStore.getAll();
-    setTasks(all);
+    const deletedMap = readDeletedMap(DELETED_TASKS_KEY);
+    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
+    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
+      persistDeletedMap(DELETED_TASKS_KEY, nextDeleted);
+    }
+    setTasks(filtered);
   };
 
   const refreshHabits = () => {
@@ -2385,6 +2520,7 @@ export default function Home() {
       countdowns: countdownStore.getAll(),
     },
     deletions: {
+      tasks: readDeletedMap(DELETED_TASKS_KEY),
       countdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
       habits: readDeletedMap(DELETED_HABITS_KEY),
     },
@@ -2399,6 +2535,7 @@ export default function Home() {
       countdowns: countdownStore.getAll(),
     },
     deletions: {
+      tasks: readDeletedMap(DELETED_TASKS_KEY),
       countdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
       habits: readDeletedMap(DELETED_HABITS_KEY),
     },
@@ -2686,6 +2823,15 @@ export default function Home() {
       ? countdownsImport
       : mergeById(currentCountdowns, countdownsImport);
 
+    // Deletions: Tasks
+    const localDeletedTasks = readDeletedMap(DELETED_TASKS_KEY);
+    const incomingDeletedTasks = normalizeDeletedMap(
+      payload?.deletions?.tasks ?? payload?.deletedTasks,
+    );
+    const mergedDeletedTasks = mergeDeletedMap(localDeletedTasks, incomingDeletedTasks);
+    const { filtered: filteredTasks, nextDeleted: nextDeletedTasks } =
+      filterByDeletions(nextTasks, mergedDeletedTasks);
+
     // Deletions: Countdowns
     const localDeletedCountdowns = readDeletedMap(DELETED_COUNTDOWNS_KEY);
     const incomingDeletedCountdowns = normalizeDeletedMap(
@@ -2704,19 +2850,20 @@ export default function Home() {
     const { filtered: filteredHabits, nextDeleted: nextDeletedHabits } =
       filterByDeletions(nextHabits, mergedDeletedHabits);
 
-    taskStore.replaceAll(nextTasks);
+    taskStore.replaceAll(filteredTasks);
     habitStore.replaceAll(filteredHabits);
     countdownStore.replaceAll(filteredCountdowns);
     
+    persistDeletedMap(DELETED_TASKS_KEY, nextDeletedTasks);
     persistDeletedMap(DELETED_COUNTDOWNS_KEY, nextDeletedCountdowns);
     persistDeletedMap(DELETED_HABITS_KEY, nextDeletedHabits);
 
-    setTasks(nextTasks);
+    setTasks(filteredTasks);
     setHabits(filteredHabits);
     setCountdowns(filteredCountdowns);
 
-    const nextCategories = Array.from(new Set(nextTasks.map((task) => task.category).filter(Boolean))) as string[];
-    const nextTags = Array.from(new Set(nextTasks.flatMap((task) => task.tags || [])));
+    const nextCategories = Array.from(new Set(filteredTasks.map((task) => task.category).filter(Boolean))) as string[];
+    const nextTags = Array.from(new Set(filteredTasks.flatMap((task) => task.tags || [])));
     setListItems(nextCategories);
     setTagItems(nextTags);
   };
@@ -3244,6 +3391,7 @@ export default function Home() {
 
   const removeTask = (taskId: string) => {
     taskStore.remove(taskId);
+    markDeleted(DELETED_TASKS_KEY, taskId);
     refreshTasks();
     
     // 异步同步到 PG
@@ -3255,12 +3403,15 @@ export default function Home() {
   };
 
   const clearCompletedTasks = () => {
+    const completedIds = taskStore.getAll().filter((task) => task.status === 'completed').map((task) => task.id);
+    completedIds.forEach((taskId) => markDeleted(DELETED_TASKS_KEY, taskId));
     const remaining = taskStore.getAll().filter((task) => task.status !== 'completed');
     taskStore.replaceAll(remaining);
     setTasks(remaining);
     if (selectedTask?.status === 'completed') {
       setSelectedTask(null);
     }
+    completedIds.forEach((taskId) => syncToPg('tasks', 'DELETE', { id: taskId }));
     const nextCategories = Array.from(new Set(remaining.map((task) => task.category).filter(Boolean))) as string[];
     const nextTags = Array.from(new Set(remaining.flatMap((task) => task.tags || [])));
     setListItems(nextCategories);
@@ -3562,6 +3713,8 @@ export default function Home() {
   const selectedCalendarTasks = tasksByDate[effectiveCalendarDate] || [];
   const selectedCalendarDateObject = parseDateKey(effectiveCalendarDate);
   const selectedCalendarLabel = formatDateKey(selectedCalendarDateObject);
+  const weatherSummary = getWeatherSummary(weatherForecast?.weatherCode);
+  const SelectedWeatherIcon = weatherSummary.Icon;
   const dayTasks = selectedCalendarTasks
     .slice()
     .sort((a, b) => {
@@ -3735,206 +3888,61 @@ export default function Home() {
 
       {/* 2. Main Task List */}
       <section
-        className={`flex-1 flex-col min-w-0 bg-[#1A1A1A] overflow-y-auto mobile-scroll ${
+        className={`flex-1 flex-col min-w-0 bg-gradient-to-b from-[#1A1A1A] via-[#1A1A1A] to-[#181B22] overflow-y-auto mobile-scroll ${
           selectedTask ? 'hidden lg:flex' : 'flex'
         }`}
       >
-        <header className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 lg:px-6 sticky top-0 z-20 bg-[#1A1A1A]/95 backdrop-blur">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-1 -ml-1 text-[#888888] hover:text-[#CCCCCC]"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
-              {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-500" />}
-              {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-500" />}
-              {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
-              <span className="truncate">{headerTitle}</span>
-            </h2>
-          </div>
-          <div className="mobile-toolbar flex items-center gap-3 sm:gap-4 text-[#666666]">
-            {isListView && (
-              <button
-                onClick={() => {
-                  if (isBatchMode) {
-                    exitBatchMode();
-                  } else {
-                    setIsBatchMode(true);
-                  }
-                }}
-                className={`px-2 py-1 text-xs rounded border transition-colors ${
-                  isBatchMode
-                    ? 'border-blue-400 text-blue-200 bg-blue-500/10'
-                    : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                }`}
-                title={isBatchMode ? '退出批量模式' : '批量选择'}
-              >
-                {isBatchMode ? '退出批量' : '批量'}
-              </button>
-            )}
-            <button
-              onClick={() => handleWebdavSync('sync')}
-              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
-              title={isSyncingNow ? '同步中…' : '云同步（异步队列）'}
-              disabled={isSyncingNow}
-            >
-              {isSyncingNow ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-blue-400" />
-              ) : (
-                <Cloud className="w-4 h-4 sm:w-5 sm:h-5" />
-              )}
-            </button>
-            {activeFilter === 'completed' && completedTasks > 0 && (
-              <button
-                onClick={() => {
-                  if (typeof window !== 'undefined' && !window.confirm('确认清除所有已完成任务？')) {
-                    return;
-                  }
-                  clearCompletedTasks();
-                }}
-                className="px-3 py-1.5 text-xs sm:text-sm rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10"
-                title="清除已完成"
-              >
-                清除已完成
-              </button>
-            )}
-            <button
-              onClick={() => setShowLogs(true)}
-              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
-              title="运行日志"
-            >
-              <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-            <button
-              onClick={handleThemeToggle}
-              className="p-2 sm:p-1 rounded hover:bg-[#2A2A2A] text-[#888888] hover:text-[#CCCCCC]"
-              title={
-                themePreference === 'system'
-                  ? '主题模式：跟随设备（点击切换）'
-                  : themePreference === 'light'
-                  ? '主题模式：日间（点击切换）'
-                  : '主题模式：夜间（点击切换）'
-              }
-            >
-              {themePreference === 'system' ? (
-                <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
-              ) : themePreference === 'light' ? (
-                <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
-              ) : (
-                <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
-              )}
-            </button>
-          </div>
-        </header>
+        {/* 顶部栏组件：统一管理页面入口按钮与状态动作。 */}
+        <PageTopBar
+          activeFilter={activeFilter}
+          headerTitle={headerTitle}
+          isListView={isListView}
+          isBatchMode={isBatchMode}
+          completedTasks={completedTasks}
+          isSyncingNow={isSyncingNow}
+          themePreference={themePreference}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onToggleBatchMode={() => {
+            if (isBatchMode) {
+              exitBatchMode();
+            } else {
+              setIsBatchMode(true);
+            }
+          }}
+          onSync={() => handleWebdavSync('sync')}
+          onClearCompleted={() => {
+            if (typeof window !== 'undefined' && !window.confirm('确认清除所有已完成任务？')) {
+              return;
+            }
+            clearCompletedTasks();
+          }}
+          onOpenLogs={() => setShowLogs(true)}
+          onToggleTheme={handleThemeToggle}
+        />
 
+        {/* 列表工具组件：聚合输入框、批量操作、排序和分组选项。 */}
         {isListView && (
-          <div className="px-3 sm:px-6 py-4 sm:py-5">
-            {/* 紧凑统计条：不占空间，仅在有任务时展示 */}
-            {totalTasks > 0 && (
-              <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-[#777777]">
-                <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
-                  完成率：<span className="text-[#DDDDDD]">{completionRate}%</span>
-                </span>
-                <span className="px-2 py-1 rounded-full bg-[#1F1F1F] border border-[#2B2B2B]">
-                  拖延指数：<span className="text-[#DDDDDD]">{procrastinationIndex}%</span>
-                </span>
-                <span className="text-[#555555]">别担心，它只是提醒你别太完美。</span>
-              </div>
-            )}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
-              <div className="relative flex items-center gap-3 bg-[#262626] border border-[#333333] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm focus-within:border-[#444444] focus-within:ring-1 focus-within:ring-[#444444] transition-all">
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-[#444444] border-t-blue-500 rounded-full animate-spin" />
-                ) : (
-                  <Plus className="w-5 h-5 text-blue-500" />
-                )}
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleMagicInput()}
-                  placeholder="新增任务…（例如：明天提醒我给小王打电话 #工作）"
-                  className="flex-1 bg-transparent border-none outline-none text-sm placeholder-[#555555]"
-                  disabled={loading}
-                />
-                {input && (
-                  <button
-                    onClick={handleMagicInput}
-                    className="bg-blue-600 text-white p-1 rounded hover:bg-blue-500 transition-colors"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#666666]">
-              {isBatchMode && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-[#888888]">已选 {selectedTaskIds.size}</span>
-                  <button
-                    type="button"
-                    onClick={batchCompleteTasks}
-                    disabled={selectedTaskIds.size === 0}
-                    className="px-2.5 py-1 text-[11px] rounded border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    批量完成
-                  </button>
-                  <button
-                    type="button"
-                    onClick={batchDeleteTasks}
-                    disabled={selectedTaskIds.size === 0}
-                    className="px-2.5 py-1 text-[11px] rounded border border-red-500/40 text-red-300 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    批量删除
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearBatchSelection}
-                    disabled={selectedTaskIds.size === 0}
-                    className="px-2.5 py-1 text-[11px] rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    清空选择
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <label htmlFor="task-sort-mode" className="text-[11px] uppercase text-[#666666]">排序</label>
-                <select
-                  id="task-sort-mode"
-                  value={taskSortMode}
-                  onChange={(event) => setTaskSortMode(event.target.value as TaskSortMode)}
-                  className="bg-[#1F1F1F] border border-[#333333] rounded px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                >
-                  {TASK_SORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="task-group-mode" className="text-[11px] uppercase text-[#666666]">分组</label>
-                <select
-                  id="task-group-mode"
-                  value={taskGroupMode}
-                  onChange={(event) => setTaskGroupMode(event.target.value as TaskGroupMode)}
-                  className="bg-[#1F1F1F] border border-[#333333] rounded px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                >
-                  {TASK_GROUP_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {taskSortMode === 'manual' && taskGroupMode !== 'none' && (
-                <span className="text-[11px] text-[#555555]">手动排序在分组时不可拖动</span>
-              )}
-            </div>
-          </div>
+          <ListComposerPanel
+            totalTasks={totalTasks}
+            completionRate={completionRate}
+            procrastinationIndex={procrastinationIndex}
+            loading={loading}
+            input={input}
+            isBatchMode={isBatchMode}
+            selectedCount={selectedTaskIds.size}
+            taskSortMode={taskSortMode}
+            taskGroupMode={taskGroupMode}
+            sortOptions={TASK_SORT_OPTIONS}
+            groupOptions={TASK_GROUP_OPTIONS}
+            showQuickAdd={activeFilter !== 'completed'}
+            setInput={setInput}
+            onMagicSubmit={handleMagicInput}
+            onBatchComplete={batchCompleteTasks}
+            onBatchDelete={batchDeleteTasks}
+            onBatchClear={clearBatchSelection}
+            onTaskSortModeChange={(mode) => setTaskSortMode(mode as TaskSortMode)}
+            onTaskGroupModeChange={(mode) => setTaskGroupMode(mode as TaskGroupMode)}
+          />
         )}
 
         <div className={`flex-1 px-3 sm:px-6 ${
@@ -3944,68 +3952,28 @@ export default function Home() {
         } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-4 sm:pt-5' : ''}`}>
           {activeFilter === 'calendar' ? (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs flex-wrap">
-                  <button
-                    className={`px-3 py-1 rounded-lg border transition-colors ${
-                      calendarView === 'month'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                    onClick={() => setCalendarView('month')}
-                  >
-                    月视图
-                  </button>
-                  <button
-                    className={`px-3 py-1 rounded-lg border transition-colors ${
-                      calendarView === 'week'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                    onClick={() => setCalendarView('week')}
-                  >
-                    周视图
-                  </button>
-                  <button
-                    className={`px-3 py-1 rounded-lg border transition-colors ${
-                      calendarView === 'day'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                    onClick={() => setCalendarView('day')}
-                  >
-                    日视图
-                  </button>
-                  <button
-                    className={`px-3 py-1 rounded-lg border transition-colors ${
-                      calendarView === 'agenda'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                    }`}
-                    onClick={() => setCalendarView('agenda')}
-                  >
-                    日程视图
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowCompletedInCalendar((prev) => !prev)}
-                    className="px-2.5 py-1 rounded-lg border text-[11px] transition-colors border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
-                    title={showCompletedInCalendar ? '隐藏已完成任务' : '显示已完成任务'}
-                  >
-                    {showCompletedInCalendar ? '隐藏已完成' : '显示已完成'}
-                  </button>
-                  <div className="text-[11px] text-[#666666]">
-                    {calendarView === 'month'
-                      ? '按月总览'
-                      : calendarView === 'week'
-                      ? '按周聚焦'
-                      : calendarView === 'day'
-                      ? '当日任务'
-                      : '近期日程'}
-                  </div>
-                </div>
-              </div>
+              <CalendarTopPanel
+                calendarView={calendarView}
+                showCompletedInCalendar={showCompletedInCalendar}
+                calendarCityInput={calendarCityInput}
+                isSearchingWeatherCity={isSearchingWeatherCity}
+                weatherCities={weatherCities}
+                selectedCalendarLabel={selectedCalendarLabel}
+                cityLabel={calendarCity ? [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ') : '请先搜索并选择城市'}
+                weatherLoading={weatherLoading}
+                weatherSummaryLabel={weatherForecast?.weatherText || weatherSummary.label}
+                weatherTemperatureText={typeof weatherForecast?.tempMin === 'number' && typeof weatherForecast?.tempMax === 'number' ? `${Math.round(weatherForecast.tempMin)}° ~ ${Math.round(weatherForecast.tempMax)}°` : '--'}
+                weatherHintText={weatherConnectionHint}
+                weatherIcon={<SelectedWeatherIcon className="w-5 h-5 text-blue-300" />}
+                onViewChange={setCalendarView}
+                onToggleCompleted={() => setShowCompletedInCalendar((prev) => !prev)}
+                onCityInputChange={setCalendarCityInput}
+                onSelectCity={(city) => {
+                  setCalendarCity(city);
+                  setCalendarCityInput([city.name, city.admin1, city.country].filter(Boolean).join(' · '));
+                  setWeatherCities([]);
+                }}
+              />
 
               {calendarView === 'week' ? (
                 <div className="space-y-4">
@@ -4053,7 +4021,7 @@ export default function Home() {
                           {sortedTasks.length === 0 ? (
                             <div className="text-xs text-[#555555]">暂无任务</div>
                           ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-3 rounded-3xl border border-[#2C2C2C] bg-[#1D1D1D] p-4 sm:p-5">
                               {sortedTasks.map((task) => {
                                 const startTime = task.dueDate
                                   ? formatZonedTime(task.dueDate, getTimezoneOffset(task))
@@ -4212,65 +4180,19 @@ export default function Home() {
                 </div>
               ) : (
                 <>
-                  <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <button
-                        onClick={() => handleMonthChange(-1)}
-                        className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
-                        title="上个月"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <div className="text-sm font-semibold text-[#DDDDDD]">{monthLabel}</div>
-                      <button
-                        onClick={() => handleMonthChange(1)}
-                        className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]"
-                        title="下个月"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-7 text-[11px] text-[#666666] mb-2">
-                      {weekdayLabels.map((label) => (
-                        <div key={label} className="text-center">{label}</div>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 text-sm">
-                      {calendarDays.map((day, idx) => {
-                        if (!day) {
-                          return <div key={`empty-${idx}`} className="h-9" />;
-                        }
-                        const dateKey = `${monthLabel}-${String(day).padStart(2, '0')}`;
-                        const note = calendarNotes[dateKey];
-                        const isToday = dateKey === todayKey;
-                        const isSelected = dateKey === effectiveCalendarDate;
-                        const hasTasks = (tasksByDate[dateKey] || []).length > 0;
-                        return (
-                          <button
-                            key={dateKey}
-                            onClick={() => setSelectedCalendarDate(dateKey)}
-                            className={`relative h-12 rounded-lg flex flex-col items-center justify-center text-xs transition-colors border ${
-                              isSelected
-                                ? 'bg-blue-600/20 border-blue-500 text-white'
-                                : 'border-transparent hover:bg-[#2A2A2A]'
-                            } ${isToday ? 'text-blue-300' : 'text-[#CCCCCC]'}`}
-                          >
-                            <span className="leading-none">{day}</span>
-                            {note && (
-                              <span className="absolute top-1 left-1 text-[9px] text-blue-300 leading-none">
-                                {note}
-                              </span>
-                            )}
-                            <span
-                              className={`absolute top-1 right-1 w-2 h-2 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <CalendarMonthGrid
+                    monthLabel={monthLabel}
+                    weekdayLabels={weekdayLabels}
+                    calendarDays={calendarDays}
+                    effectiveCalendarDate={effectiveCalendarDate}
+                    todayKey={todayKey}
+                    calendarNotes={calendarNotes}
+                    tasksByDate={tasksByDate as Record<string, { id: string }[]>}
+                    onMonthChange={handleMonthChange}
+                    onSelectDate={setSelectedCalendarDate}
+                  />
 
-                  <div className="space-y-2">
+                  <div className="space-y-3 rounded-3xl border border-[#2C2C2C] bg-[#1D1D1D] p-4 sm:p-5">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-[#DDDDDD]">
                         {selectedCalendarDate ? `${selectedCalendarDate} 任务` : `今天 (${todayKey}) 任务`}
@@ -5114,6 +5036,14 @@ export default function Home() {
                 {selectedTask.title}
               </h3>
             </div>
+
+            <TaskQuickActions
+              task={selectedTask}
+              onSetDuePreset={quickSetDuePreset}
+              onClearDueDate={(taskId) => updateTaskDueDate(taskId, undefined)}
+              onSetPriority={quickSetPriority}
+              onTogglePinned={toggleTaskPinned}
+            />
 
             <div className="space-y-6">
               {/* 子任务管理 */}
