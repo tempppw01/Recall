@@ -2,4 +2,11 @@ node_modules
 # Keep environment variables out of version control
 .env
 
+# Next.js build outputs / caches
+.next
+.next/cache
+
+# Optional: common OS/editor noise
+.DS_Store
+
 /src/generated/prisma

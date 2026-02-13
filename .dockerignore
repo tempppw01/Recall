@@ -3,8 +3,17 @@ Dockerfile
 node_modules
 npm-debug.log
 README.md
+
+# Next.js build output should not be sent to docker build context
 .next
+
+# Local env / VCS / docs not needed for image build
 .git
 .env
 docs
 docker-compose.yml
+
+# Common build caches
+**/.cache
+**/.turbo
+**/.swc
