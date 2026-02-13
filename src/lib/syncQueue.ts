@@ -129,7 +129,7 @@ const enqueueJob = async (redis: Redis, job: SyncJobRecord) => {
  * @returns true 表示获取成功
  */
 const acquireLock = async (redis: Redis, syncKey: string, lockValue: string) => {
-  const result = await redis.set(buildLockKey(syncKey), lockValue, 'NX', 'PX', LOCK_TTL_MS);
+  const result = await (redis as any).set(buildLockKey(syncKey), lockValue, 'PX', LOCK_TTL_MS, 'NX');
   return result === 'OK';
 };
 
@@ -160,7 +160,7 @@ const normalizeList = <T extends { id: string }>(items: any): T[] =>
   Array.isArray(items) ? items.filter((item) => item && item.id) : [];
 
 /** 确保每个元素都有 updatedAt 字段（回退到 createdAt 或当前时间） */
-const ensureUpdatedAt = <T extends { updatedAt?: string; createdAt?: string }>(items: T[]) =>
+const ensureUpdatedAt = <T extends { id: string; updatedAt?: string; createdAt?: string }>(items: T[]) =>
   items.map((item) => ({
     ...item,
     updatedAt: item.updatedAt ?? item.createdAt ?? new Date().toISOString(),
@@ -185,10 +185,10 @@ const mergeById = <T extends { id: string; updatedAt?: string }>(current: T[], i
 };
 
 /**
- * 将已删除的 countdowns 数据规范化为 { id: 删除时间 } 的 Record
+ * 将已删除数据规范化为 { id: 删除时间 } 的 Record
  * 兼容旧格式（数组）和新格式（对象）
  */
-const normalizeDeletedCountdowns = (value: any): Record<string, string> => {
+const normalizeDeletedMap = (value: any): Record<string, string> => {
   // 旧格式：string[] → 转为 Record，删除时间统一设为当前时间
   if (Array.isArray(value)) {
     const now = new Date().toISOString();
@@ -214,7 +214,7 @@ const normalizeDeletedCountdowns = (value: any): Record<string, string> => {
  * 合并两份已删除 countdowns 记录
  * 同一 id 取较晚的删除时间
  */
-const mergeDeletedCountdowns = (current: Record<string, string>, incoming: Record<string, string>) => {
+const mergeDeletedMap = (current: Record<string, string>, incoming: Record<string, string>) => {
   const next = { ...current };
   Object.entries(incoming).forEach(([id, time]) => {
     const incomingMs = new Date(time).getTime();
@@ -231,7 +231,7 @@ const mergeDeletedCountdowns = (current: Record<string, string>, incoming: Recor
  * 根据删除记录过滤 countdowns 列表
  * 如果某个 countdown 的 updatedAt 晚于其删除时间，则视为"重新创建"，保留该项
  */
-const filterCountdownsByDeletions = (items: any[], deletedMap: Record<string, string>) => {
+const filterByDeletions = (items: any[], deletedMap: Record<string, string>) => {
   const nextDeleted = { ...deletedMap };
   const filtered = items.filter((item) => {
     const deletedAt = deletedMap[item.id];
@@ -270,7 +270,7 @@ const pickLatestTimestamp = (a?: string, b?: string) => {
  *
  * 合并策略：
  * - tasks / habits / countdowns：按 id + updatedAt 做 last-write-wins 合并
- * - deletions.countdowns：合并删除记录，并过滤已删除的 countdowns
+ * - deletions.tasks / countdowns：合并删除记录，并过滤已删除项
  * - settings / secrets：根据 lastLocalChange 时间戳决定哪一方的配置优先
  *
  * @param existingPayload - Redis 中已有的数据
@@ -297,16 +297,27 @@ const mergeSyncPayload = (
   const mergedHabits = mergeById(currentHabits, incomingHabits);
   const mergedCountdowns = mergeById(currentCountdowns, incomingCountdowns);
 
+  // 合并任务删除记录，并过滤已删除任务
+  const existingDeletedTasks = normalizeDeletedMap(
+    existingPayload?.deletions?.tasks ?? existingPayload?.deletedTasks,
+  );
+  const incomingDeletedTasks = normalizeDeletedMap(
+    incomingPayload?.deletions?.tasks ?? incomingPayload?.deletedTasks,
+  );
+  const mergedDeletedTasks = mergeDeletedMap(existingDeletedTasks, incomingDeletedTasks);
+  const { filtered: filteredTasks, nextDeleted: nextDeletedTasks } =
+    filterByDeletions(mergedTasks, mergedDeletedTasks);
+
   // 合并 countdown 删除记录，并过滤已删除的 countdowns
-  const existingDeleted = normalizeDeletedCountdowns(
+  const existingDeletedCountdowns = normalizeDeletedMap(
     existingPayload?.deletions?.countdowns ?? existingPayload?.deletedCountdowns,
   );
-  const incomingDeleted = normalizeDeletedCountdowns(
+  const incomingDeletedCountdowns = normalizeDeletedMap(
     incomingPayload?.deletions?.countdowns ?? incomingPayload?.deletedCountdowns,
   );
-  const mergedDeleted = mergeDeletedCountdowns(existingDeleted, incomingDeleted);
-  const { filtered: filteredCountdowns, nextDeleted } =
-    filterCountdownsByDeletions(mergedCountdowns, mergedDeleted);
+  const mergedDeletedCountdowns = mergeDeletedMap(existingDeletedCountdowns, incomingDeletedCountdowns);
+  const { filtered: filteredCountdowns, nextDeleted: nextDeletedCountdowns } =
+    filterByDeletions(mergedCountdowns, mergedDeletedCountdowns);
 
   // settings / secrets 根据 lastLocalChange 决定优先方
   const incomingWins = Boolean(
@@ -325,12 +336,13 @@ const mergeSyncPayload = (
       version: incomingPayload?.version ?? existingPayload?.version,
       exportedAt: new Date().toISOString(),
       data: {
-        tasks: mergedTasks,
+        tasks: filteredTasks,
         habits: mergedHabits,
         countdowns: filteredCountdowns,
       },
       deletions: {
-        countdowns: nextDeleted,
+        tasks: nextDeletedTasks,
+        countdowns: nextDeletedCountdowns,
       },
       settings: mergedSettings,
       secrets: mergedSecrets,

@@ -51,8 +51,8 @@ type SidebarProps = {
   agentItems: Array<{ id: string }>;
   hasCalendarTasks: boolean;
   countdowns: Countdown[];
-  activeCategory: string;
-  setActiveCategory: (value: string) => void;
+  activeCategory: string | null;
+  setActiveCategory: (value: string | null) => void;
   listItems: string[];
   renameListItem: (oldName: string, nextName: string) => void;
   removeListItem: (name: string) => void;
@@ -62,8 +62,8 @@ type SidebarProps = {
   setNewListName: React.Dispatch<React.SetStateAction<string>>;
   addListItem: () => void;
   tagUsageMap: Record<string, number>;
-  activeTag: string;
-  setActiveTag: (value: string) => void;
+  activeTag: string | null;
+  setActiveTag: (value: string | null) => void;
   APP_VERSION: string;
   DEFAULT_TIMEZONE_OFFSET: number;
   formatDateKeyByOffset: (date: Date, offsetMinutes: number) => string;
@@ -79,6 +79,11 @@ type SidebarProps = {
 const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 480;
 const COLLAPSED_WIDTH = 56;
+
+type ToolItemKey = 'todo' | 'calendar' | 'quadrant' | 'countdown' | 'habit' | 'pomodoro' | 'completed';
+
+const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'completed'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -128,6 +133,8 @@ const Sidebar = ({
   setIsSidebarCollapsed,
 }: SidebarProps) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [toolOrder, setToolOrder] = useState<ToolItemKey[]>(DEFAULT_TOOL_ORDER);
+  const [draggingToolKey, setDraggingToolKey] = useState<ToolItemKey | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
 
   // 处理拖拽调整宽度
@@ -171,6 +178,124 @@ const Sidebar = ({
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(TOOL_ORDER_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as ToolItemKey[];
+      const valid = parsed.filter((key) => DEFAULT_TOOL_ORDER.includes(key));
+      if (valid.length === DEFAULT_TOOL_ORDER.length) {
+        setToolOrder(valid);
+      }
+    } catch (error) {
+      console.error('Failed to read sidebar tool order', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(TOOL_ORDER_KEY, JSON.stringify(toolOrder));
+  }, [toolOrder]);
+
+  const handleToolDrop = (targetKey: ToolItemKey) => {
+    if (!draggingToolKey || draggingToolKey === targetKey) return;
+    setToolOrder((prev) => {
+      const from = prev.indexOf(draggingToolKey);
+      const to = prev.indexOf(targetKey);
+      if (from < 0 || to < 0) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const toolConfig: Record<ToolItemKey, { icon: React.ComponentType<{ className?: string }>; label: string; count: number; active: boolean; onClick: () => void; iconColor: string }> = {
+    todo: {
+      icon: CheckSquare,
+      label: '待办',
+      count: tasks.filter((t) => t.status !== 'completed').length,
+      active: activeFilter === 'todo',
+      onClick: () => {
+        setActiveFilter('todo');
+        refreshTasks();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-green-400',
+    },
+    calendar: {
+      icon: Calendar,
+      label: '日历',
+      count: 0,
+      active: activeFilter === 'calendar',
+      onClick: () => {
+        setActiveFilter('calendar');
+        refreshTasks();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-cyan-400',
+    },
+    quadrant: {
+      icon: LayoutGrid,
+      label: '四象限',
+      count: 0,
+      active: activeFilter === 'quadrant',
+      onClick: () => {
+        setActiveFilter('quadrant');
+        refreshTasks();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-indigo-400',
+    },
+    countdown: {
+      icon: Timer,
+      label: '倒数日',
+      count: countdowns.length,
+      active: activeFilter === 'countdown',
+      onClick: () => {
+        setActiveFilter('countdown');
+        refreshCountdowns();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-pink-400',
+    },
+    habit: {
+      icon: Flame,
+      label: '习惯打卡',
+      count: 0,
+      active: activeFilter === 'habit',
+      onClick: () => {
+        setActiveFilter('habit');
+        refreshHabits();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-orange-400',
+    },
+    pomodoro: {
+      icon: Timer,
+      label: '番茄时钟',
+      count: 0,
+      active: activeFilter === 'pomodoro',
+      onClick: () => {
+        setActiveFilter('pomodoro');
+        refreshTasks();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-red-400',
+    },
+    completed: {
+      icon: CheckCircle2,
+      label: '已完成',
+      count: 0,
+      active: activeFilter === 'completed',
+      onClick: () => {
+        setActiveFilter('completed');
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-emerald-400',
+    },
+  };
 
   return (
     <>
@@ -459,89 +584,28 @@ const Sidebar = ({
                 </button>
                 {isToolsOpen && (
                   <div className="space-y-1">
-                    <SidebarItem
-                      icon={CheckSquare}
-                      label="待办"
-                      count={tasks.filter((t) => t.status !== 'completed').length}
-                      active={activeFilter === 'todo'}
-                      onClick={() => {
-                        setActiveFilter('todo');
-                        refreshTasks();
-                        setIsSidebarOpen(false);
-                      }}
-                      iconColor="text-green-400"
-                    />
-                    <SidebarItem
-                      icon={Calendar}
-                      label="日历"
-                      count={hasCalendarTasks ? 0 : 0}
-                      active={activeFilter === 'calendar'}
-                      onClick={() => {
-                        setActiveFilter('calendar');
-                        refreshTasks();
-                        setIsSidebarOpen(false);
-                      }}
-                      iconColor="text-cyan-400"
-                    />
-                    <SidebarItem
-                      icon={LayoutGrid}
-                      label="四象限"
-                      count={0}
-                      active={activeFilter === 'quadrant'}
-                      onClick={() => {
-                        setActiveFilter('quadrant');
-                        refreshTasks();
-                        setIsSidebarOpen(false);
-                      }}
-                      iconColor="text-indigo-400"
-                    />
-                    <SidebarItem
-                      icon={Timer}
-                      label="倒数日"
-                      count={countdowns.length}
-                      active={activeFilter === 'countdown'}
-                      onClick={() => {
-                        setActiveFilter('countdown');
-                        refreshCountdowns();
-                        setIsSidebarOpen(false);
-                      }}
-                      iconColor="text-pink-400"
-                    />
-                    <SidebarItem
-                      icon={Flame}
-                      label="习惯打卡"
-                      count={0}
-                      active={activeFilter === 'habit'}
-                      onClick={() => {
-                        setActiveFilter('habit');
-                        refreshHabits();
-                        setIsSidebarOpen(false);
-                      }}
-                      iconColor="text-orange-400"
-                    />
-                    <SidebarItem
-                      icon={Timer}
-                      label="番茄时钟"
-                      count={0}
-                      active={activeFilter === 'pomodoro'}
-                      onClick={() => {
-                        setActiveFilter('pomodoro');
-                        refreshTasks();
-                        setIsSidebarOpen(false);
-                      }}
-                      iconColor="text-red-400"
-                    />
-                    <SidebarItem
-                      icon={CheckCircle2}
-                      label="已完成"
-                      count={0}
-                      active={activeFilter === 'completed'}
-                      onClick={() => {
-                        setActiveFilter('completed');
-                        setIsSidebarOpen(false);
-                      }}
-                      iconColor="text-emerald-400"
-                    />
+                    {/* 功能栏支持拖拽排序：长按/拖动右侧手柄可调整顺序 */}
+                    {toolOrder.map((key) => {
+                      const item = toolConfig[key];
+                      return (
+                        <SidebarItem
+                          key={key}
+                          icon={item.icon}
+                          label={item.label}
+                          count={item.count}
+                          active={item.active}
+                          onClick={item.onClick}
+                          iconColor={item.iconColor}
+                          draggable
+                          onDragStart={() => setDraggingToolKey(key)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={() => handleToolDrop(key)}
+                          onDragEnd={() => setDraggingToolKey(null)}
+                          className={draggingToolKey === key ? 'opacity-60 border border-[#555555]' : ''}
+                          rightSlot={<GripVertical className="w-3.5 h-3.5 text-[#555555]" />}
+                        />
+                      );
+                    })}
                   </div>
                 )}
 
