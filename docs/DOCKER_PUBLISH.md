@@ -16,6 +16,18 @@
 
 - `34v0wphix/recall`
 
+## 多架构构建
+
+当前工作流已启用多架构构建，输出：
+
+- `linux/amd64`
+- `linux/arm64`
+
+工作流通过以下动作完成：
+
+- `docker/setup-qemu-action@v3`
+- `docker/setup-buildx-action@v3`
+
 ## 需要配置的 GitHub Secrets
 
 在 GitHub 仓库设置中添加：

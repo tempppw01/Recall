@@ -1666,7 +1666,16 @@ export default function Home() {
   useEffect(() => {
     if (activeFilter !== 'calendar') return;
     const keyword = calendarCityInput.trim();
+    const selectedCityLabel = calendarCity
+      ? [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ')
+      : '';
+
     if (keyword.length < 2) {
+      setWeatherCities([]);
+      return;
+    }
+
+    if (selectedCityLabel && keyword.toLowerCase() === selectedCityLabel.toLowerCase()) {
       setWeatherCities([]);
       return;
     }
@@ -1687,7 +1696,7 @@ export default function Home() {
     }, 260);
 
     return () => window.clearTimeout(timer);
-  }, [calendarCityInput, activeFilter]);
+  }, [calendarCityInput, activeFilter, calendarCity]);
 
   useEffect(() => {
     if (!calendarCity) {
