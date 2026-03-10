@@ -12,6 +12,9 @@ import RedisSettings from '@/app/components/RedisSettings';
  * - 调用 `persistSettings` 将变更统一持久化
  */
 type CountdownDisplayMode = 'days' | 'date';
+type ThemePreference = 'system' | 'light' | 'dark';
+type AccentTheme = 'blue' | 'violet' | 'emerald' | 'rose';
+type GradientTheme = 'aurora' | 'sunset' | 'ocean' | 'mono';
 
 type SettingsModalProps = {
   showSettings: boolean;
@@ -35,6 +38,12 @@ type SettingsModalProps = {
   DEFAULT_FALLBACK_TIMEOUT_SEC: number;
   countdownDisplayMode: CountdownDisplayMode;
   setCountdownDisplayMode: React.Dispatch<React.SetStateAction<CountdownDisplayMode>>;
+  themePreference: ThemePreference;
+  setThemePreference: (mode: ThemePreference) => void;
+  accentTheme: AccentTheme;
+  setAccentTheme: React.Dispatch<React.SetStateAction<AccentTheme>>;
+  gradientTheme: GradientTheme;
+  setGradientTheme: React.Dispatch<React.SetStateAction<GradientTheme>>;
   notificationSupported: boolean;
   isSecureContext: boolean;
   notificationPermission: NotificationPermission;
@@ -110,6 +119,9 @@ type SettingsModalProps = {
     redisPassword: string;
     syncNamespace: string;
     calendarSubscription: string;
+    themePreference: ThemePreference;
+    accentTheme: AccentTheme;
+    gradientTheme: GradientTheme;
   }) => void;
   webdavPath: string;
   aiRetentionDays: number;
@@ -137,6 +149,12 @@ const SettingsModal = ({
   DEFAULT_FALLBACK_TIMEOUT_SEC,
   countdownDisplayMode,
   setCountdownDisplayMode,
+  themePreference,
+  setThemePreference,
+  accentTheme,
+  setAccentTheme,
+  gradientTheme,
+  setGradientTheme,
   notificationSupported,
   isSecureContext,
   notificationPermission,
@@ -309,6 +327,68 @@ const SettingsModal = ({
                   </button>
                 </div>
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
+              </div>
+
+              <div className="rounded-lg border border-[#333333] bg-[#181818] p-3 space-y-3">
+                <div className="text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase">外观主题</div>
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主题模式</label>
+                  <div className="flex flex-wrap gap-2 text-[12px] sm:text-xs">
+                    {([['system','跟随系统'],['light','浅色'],['dark','深色']] as const).map(([mode,label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setThemePreference(mode)}
+                        className={`px-3 py-1.5 rounded border transition-colors ${
+                          themePreference === mode
+                            ? 'bg-blue-500/20 border-blue-400 text-white'
+                            : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主色</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {([['blue','天空蓝'],['violet','霓虹紫'],['emerald','薄荷绿'],['rose','玫瑰粉']] as const).map(([theme,label]) => (
+                      <button
+                        key={theme}
+                        type="button"
+                        onClick={() => setAccentTheme(theme)}
+                        className={`px-3 py-2 rounded-lg border text-xs transition-colors ${
+                          accentTheme === theme
+                            ? 'bg-blue-500/20 border-blue-400 text-white'
+                            : 'border-[#333333] text-[#BBBBBB] hover:border-[#555555] hover:text-white'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">渐变风格</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {([['aurora','极光'],['sunset','日落'],['ocean','海洋'],['mono','极简']] as const).map(([theme,label]) => (
+                      <button
+                        key={theme}
+                        type="button"
+                        onClick={() => setGradientTheme(theme)}
+                        className={`px-3 py-2 rounded-lg border text-xs transition-colors ${
+                          gradientTheme === theme
+                            ? 'bg-blue-500/20 border-blue-400 text-white'
+                            : 'border-[#333333] text-[#BBBBBB] hover:border-[#555555] hover:text-white'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] sm:text-xs text-[#555555]">第一版先影响整体氛围与主要强调色，后续会继续收敛到完整主题系统。</p>
               </div>
             </div>
           </details>
@@ -607,6 +687,9 @@ const SettingsModal = ({
                   redisPassword,
                   syncNamespace,
                   calendarSubscription,
+                  themePreference,
+                  accentTheme,
+                  gradientTheme,
                 });
                 setShowSettings(false);
               }}

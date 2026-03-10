@@ -58,6 +58,8 @@ const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
 const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
 const SIDEBAR_COLLAPSED_KEY = 'recall_sidebar_collapsed';
+const THEME_ACCENT_KEY = 'recall_theme_accent';
+const THEME_GRADIENT_KEY = 'recall_theme_gradient';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -890,6 +892,8 @@ export default function Home() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   const [isSystemTheme, setIsSystemTheme] = useState(true);
+  const [accentTheme, setAccentTheme] = useState<'blue' | 'violet' | 'emerald' | 'rose'>('blue');
+  const [gradientTheme, setGradientTheme] = useState<'aurora' | 'sunset' | 'ocean' | 'mono'>('aurora');
   const [notificationSupported, setNotificationSupported] = useState(false);
   const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
@@ -1051,6 +1055,9 @@ export default function Home() {
     redisPassword: string;
     syncNamespace: string;
     calendarSubscription: string;
+    themePreference: 'light' | 'dark' | 'system';
+    accentTheme: 'blue' | 'violet' | 'emerald' | 'rose';
+    gradientTheme: 'aurora' | 'sunset' | 'ocean' | 'mono';
   }) => {
     localStorage.setItem('recall_api_key', next.apiKey);
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
@@ -1076,6 +1083,13 @@ export default function Home() {
     localStorage.setItem(REDIS_PASSWORD_KEY, next.redisPassword);
     localStorage.setItem(SYNC_NAMESPACE_KEY, next.syncNamespace);
     localStorage.setItem(CALENDAR_SUBSCRIPTION_KEY, next.calendarSubscription);
+    if (next.themePreference === 'system') {
+      localStorage.removeItem('recall_theme');
+    } else {
+      localStorage.setItem('recall_theme', next.themePreference);
+    }
+    localStorage.setItem(THEME_ACCENT_KEY, next.accentTheme);
+    localStorage.setItem(THEME_GRADIENT_KEY, next.gradientTheme);
     localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
   };
 
@@ -1384,6 +1398,15 @@ export default function Home() {
         const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
         setThemeMode(systemPrefersDark ? 'dark' : 'light');
         setIsSystemTheme(true);
+      }
+
+      const storedAccentTheme = localStorage.getItem(THEME_ACCENT_KEY);
+      if (storedAccentTheme === 'blue' || storedAccentTheme === 'violet' || storedAccentTheme === 'emerald' || storedAccentTheme === 'rose') {
+        setAccentTheme(storedAccentTheme);
+      }
+      const storedGradientTheme = localStorage.getItem(THEME_GRADIENT_KEY);
+      if (storedGradientTheme === 'aurora' || storedGradientTheme === 'sunset' || storedGradientTheme === 'ocean' || storedGradientTheme === 'mono') {
+        setGradientTheme(storedGradientTheme);
       }
 
       refreshTasks();
@@ -1740,19 +1763,24 @@ export default function Home() {
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const body = document.body;
+    const root = document.documentElement;
     if (themeMode === 'light') {
       body.classList.add('theme-light');
     } else {
       body.classList.remove('theme-light');
     }
+    root.dataset.accentTheme = accentTheme;
+    root.dataset.gradientTheme = gradientTheme;
     if (typeof window !== 'undefined') {
       if (isSystemTheme) {
         localStorage.removeItem('recall_theme');
       } else {
         localStorage.setItem('recall_theme', themeMode);
       }
+      localStorage.setItem(THEME_ACCENT_KEY, accentTheme);
+      localStorage.setItem(THEME_GRADIENT_KEY, gradientTheme);
     }
-  }, [themeMode, isSystemTheme]);
+  }, [themeMode, isSystemTheme, accentTheme, gradientTheme]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2657,6 +2685,9 @@ export default function Home() {
       redisPassword: nextRedisPassword,
       syncNamespace: nextSyncNamespace,
       calendarSubscription: nextCalendarSubscription,
+      themePreference,
+      accentTheme,
+      gradientTheme,
     });
   };
 
@@ -5504,6 +5535,12 @@ export default function Home() {
         DEFAULT_FALLBACK_TIMEOUT_SEC={DEFAULT_FALLBACK_TIMEOUT_SEC}
         countdownDisplayMode={countdownDisplayMode}
         setCountdownDisplayMode={setCountdownDisplayMode}
+        themePreference={themePreference}
+        setThemePreference={setThemePreference}
+        accentTheme={accentTheme}
+        setAccentTheme={setAccentTheme}
+        gradientTheme={gradientTheme}
+        setGradientTheme={setGradientTheme}
         notificationSupported={notificationSupported}
         isSecureContext={isSecureContext}
         notificationPermission={notificationPermission}
