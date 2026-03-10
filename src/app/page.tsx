@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import Sidebar from '@/app/components/sidebar/Sidebar';
@@ -61,8 +62,6 @@ const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
 const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
 const SIDEBAR_COLLAPSED_KEY = 'recall_sidebar_collapsed';
-const THEME_ACCENT_KEY = 'recall_theme_accent';
-const THEME_GRADIENT_KEY = 'recall_theme_gradient';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -893,10 +892,6 @@ export default function Home() {
   const [tagSearch, setTagSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
-  const [isSystemTheme, setIsSystemTheme] = useState(true);
-  const [accentTheme, setAccentTheme] = useState<'blue' | 'violet' | 'emerald' | 'rose'>('blue');
-  const [gradientTheme, setGradientTheme] = useState<'aurora' | 'sunset' | 'ocean' | 'mono'>('aurora');
   const [notificationSupported, setNotificationSupported] = useState(false);
   const [serviceWorkerSupported, setServiceWorkerSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
@@ -956,7 +951,6 @@ export default function Home() {
   const selectedReminderTimeValue = selectedTask?.reminderAt
     ? formatZonedTime(selectedTask.reminderAt, selectedTimezoneOffset)
     : '09:00';
-  const themePreference: 'light' | 'dark' | 'system' = isSystemTheme ? 'system' : themeMode;
   const taskItemHelpers = {
     getTimezoneOffset,
     formatZonedDateTime,
@@ -970,29 +964,17 @@ export default function Home() {
     isTaskOverdue,
   };
 
-  const getSystemTheme = () => {
-    if (typeof window === 'undefined') return 'dark';
-    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
-  };
-
-  const setThemePreference = (mode: 'light' | 'dark' | 'system') => {
-    if (mode === 'system') {
-      setIsSystemTheme(true);
-      setThemeMode(getSystemTheme());
-      return;
-    }
-    setIsSystemTheme(false);
-    setThemeMode(mode);
-  };
-
-  const handleThemeToggle = () => {
-    const nextMode = themePreference === 'system'
-      ? 'light'
-      : themePreference === 'light'
-      ? 'dark'
-      : 'system';
-    setThemePreference(nextMode);
-  };
+  const {
+    themeMode,
+    isSystemTheme,
+    themePreference,
+    accentTheme,
+    gradientTheme,
+    setThemePreference,
+    setAccentTheme,
+    setGradientTheme,
+    handleThemeToggle,
+  } = useThemeSettings();
 
   const pushLog = (
     level: 'info' | 'success' | 'warning' | 'error',
@@ -1091,8 +1073,8 @@ export default function Home() {
     } else {
       localStorage.setItem('recall_theme', next.themePreference);
     }
-    localStorage.setItem(THEME_ACCENT_KEY, next.accentTheme);
-    localStorage.setItem(THEME_GRADIENT_KEY, next.gradientTheme);
+    localStorage.setItem('recall_theme_accent', next.accentTheme);
+    localStorage.setItem('recall_theme_gradient', next.gradientTheme);
     localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
   };
 
@@ -1388,28 +1370,6 @@ export default function Home() {
       const storedSidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
       if (storedSidebarCollapsed === 'true') {
         setIsSidebarCollapsed(true);
-      }
-
-      const storedTheme = localStorage.getItem('recall_theme');
-      if (storedTheme === 'light') {
-        setThemeMode('light');
-        setIsSystemTheme(false);
-      } else if (storedTheme === 'dark') {
-        setThemeMode('dark');
-        setIsSystemTheme(false);
-      } else if (typeof window !== 'undefined') {
-        const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
-        setThemeMode(systemPrefersDark ? 'dark' : 'light');
-        setIsSystemTheme(true);
-      }
-
-      const storedAccentTheme = localStorage.getItem(THEME_ACCENT_KEY);
-      if (storedAccentTheme === 'blue' || storedAccentTheme === 'violet' || storedAccentTheme === 'emerald' || storedAccentTheme === 'rose') {
-        setAccentTheme(storedAccentTheme);
-      }
-      const storedGradientTheme = localStorage.getItem(THEME_GRADIENT_KEY);
-      if (storedGradientTheme === 'aurora' || storedGradientTheme === 'sunset' || storedGradientTheme === 'ocean' || storedGradientTheme === 'mono') {
-        setGradientTheme(storedGradientTheme);
       }
 
       refreshTasks();
@@ -1762,51 +1722,6 @@ export default function Home() {
 
     fetchForecast();
   }, [calendarCity, selectedCalendarDate]);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const body = document.body;
-    const root = document.documentElement;
-    if (themeMode === 'light') {
-      body.classList.add('theme-light');
-    } else {
-      body.classList.remove('theme-light');
-    }
-    root.dataset.accentTheme = accentTheme;
-    root.dataset.gradientTheme = gradientTheme;
-    if (typeof window !== 'undefined') {
-      if (isSystemTheme) {
-        localStorage.removeItem('recall_theme');
-      } else {
-        localStorage.setItem('recall_theme', themeMode);
-      }
-      localStorage.setItem(THEME_ACCENT_KEY, accentTheme);
-      localStorage.setItem(THEME_GRADIENT_KEY, gradientTheme);
-    }
-  }, [themeMode, isSystemTheme, accentTheme, gradientTheme]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!isSystemTheme) return;
-
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const applySystemTheme = (isDark: boolean) => {
-      setThemeMode(isDark ? 'dark' : 'light');
-    };
-    applySystemTheme(media.matches);
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      applySystemTheme(event.matches);
-    };
-
-    if (media.addEventListener) {
-      media.addEventListener('change', handleChange);
-      return () => media.removeEventListener('change', handleChange);
-    }
-
-    media.addListener(handleChange);
-    return () => media.removeListener(handleChange);
-  }, [isSystemTheme]);
 
   useEffect(() => {
     setNewSubtaskTitle('');
