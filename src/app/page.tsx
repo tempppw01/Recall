@@ -1617,6 +1617,8 @@ export default function Home() {
       setWeekDays(buildWeekDays(start));
       setWeekLabel(buildWeekLabel(start));
     }
+    setWeatherCities([]);
+    setIsSearchingWeatherCity(false);
   }, [calendarView]);
 
   useEffect(() => {
@@ -1707,7 +1709,9 @@ export default function Home() {
     const targetDate = selectedCalendarDate || formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
 
     const fetchForecast = async () => {
+      setWeatherForecast(null);
       setWeatherLoading(true);
+      setWeatherConnectionHint('');
       try {
         const res = await fetch(
           `/api/weather/forecast?lat=${calendarCity.latitude}&lon=${calendarCity.longitude}&date=${targetDate}`,
@@ -3974,12 +3978,17 @@ export default function Home() {
                 weatherTemperatureText={typeof weatherForecast?.tempMin === 'number' && typeof weatherForecast?.tempMax === 'number' ? `${Math.round(weatherForecast.tempMin)}° ~ ${Math.round(weatherForecast.tempMax)}°` : '--'}
                 weatherHintText={weatherConnectionHint}
                 weatherIcon={<SelectedWeatherIcon className="w-5 h-5 text-blue-300" />}
-                onViewChange={setCalendarView}
+                onViewChange={(view) => {
+                  setCalendarView(view);
+                  setWeatherCities([]);
+                }}
                 onToggleCompleted={() => setShowCompletedInCalendar((prev) => !prev)}
                 onCityInputChange={setCalendarCityInput}
                 onSelectCity={(city) => {
                   setCalendarCity(city);
                   setCalendarCityInput([city.name, city.admin1, city.country].filter(Boolean).join(' · '));
+                  setWeatherForecast(null);
+                  setWeatherConnectionHint('');
                   setWeatherCities([]);
                 }}
               />
