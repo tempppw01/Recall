@@ -21,6 +21,23 @@ const LOCAL_CITY_FALLBACK: CityResult[] = [
   { id: 'local:london', name: 'London', country: 'United Kingdom', latitude: 51.5072, longitude: -0.1276, timezone: 'Europe/London' },
 ];
 
+const buildCityKey = (city: CityResult) => {
+  const name = city.name.trim().toLowerCase();
+  const admin1 = (city.admin1 || '').trim().toLowerCase();
+  const country = (city.country || '').trim().toLowerCase();
+  return `${name}|${admin1}|${country}`;
+};
+
+const dedupeCities = (cities: CityResult[]) => {
+  const seen = new Set<string>();
+  return cities.filter((city) => {
+    const key = buildCityKey(city);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const searchByOpenMeteo = async (query: string): Promise<CityResult[]> => {
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
   url.searchParams.set('name', query);
@@ -32,7 +49,7 @@ const searchByOpenMeteo = async (query: string): Promise<CityResult[]> => {
   if (!response.ok) return [];
   const data = await response.json();
   if (!Array.isArray(data?.results)) return [];
-  return data.results.map((item: any) => ({
+  return dedupeCities(data.results.map((item: any) => ({
     id: `openmeteo:${item.latitude},${item.longitude}`,
     name: item.name,
     admin1: item.admin1,
@@ -40,7 +57,7 @@ const searchByOpenMeteo = async (query: string): Promise<CityResult[]> => {
     latitude: item.latitude,
     longitude: item.longitude,
     timezone: item.timezone,
-  }));
+  })));
 };
 
 const searchByNominatim = async (query: string): Promise<CityResult[]> => {
@@ -58,21 +75,21 @@ const searchByNominatim = async (query: string): Promise<CityResult[]> => {
   const data = await response.json();
   if (!Array.isArray(data)) return [];
 
-  return data.map((item: any) => ({
+  return dedupeCities(data.map((item: any) => ({
     id: `nominatim:${item.lat},${item.lon}`,
     name: item?.address?.city || item?.address?.town || item?.address?.county || item?.name || '未知城市',
     admin1: item?.address?.state,
     country: item?.address?.country,
     latitude: Number(item.lat),
     longitude: Number(item.lon),
-  })).filter((item: CityResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+  })).filter((item: CityResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude)));
 };
 
 const searchLocalFallback = (query: string): CityResult[] => {
   const q = query.trim().toLowerCase();
-  return LOCAL_CITY_FALLBACK.filter((city) =>
+  return dedupeCities(LOCAL_CITY_FALLBACK.filter((city) =>
     [city.name, city.admin1, city.country].filter(Boolean).some((field) => String(field).toLowerCase().includes(q)),
-  ).slice(0, 8);
+  ).slice(0, 8));
 };
 
 export async function GET(request: Request) {
