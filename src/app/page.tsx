@@ -3873,9 +3873,10 @@ export default function Home() {
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top">
-      <div className="pointer-events-none absolute inset-0 opacity-60">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-blue-500/12 blur-3xl" />
+        <div className="absolute top-[28%] left-[12%] h-48 w-48 rounded-full bg-cyan-500/8 blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-violet-500/12 blur-3xl" />
       </div>
       
       {/* 1. Sidebar */}
@@ -3935,7 +3936,7 @@ export default function Home() {
 
       {/* 2. Main Task List */}
       <section
-        className={`flex-1 flex-col min-w-0 bg-gradient-to-b from-[#1A1A1A] via-[#1A1A1A] to-[#181B22] overflow-y-auto mobile-scroll ${
+        className={`flex-1 flex-col min-w-0 bg-gradient-to-b from-[#17181C] via-[#17181C] to-[#14161B] overflow-y-auto mobile-scroll ${
           selectedTask ? 'hidden lg:flex' : 'flex'
         }`}
       >
@@ -3992,13 +3993,13 @@ export default function Home() {
           />
         )}
 
-        <div className={`flex-1 px-3 sm:px-6 ${
+        <div className={`flex-1 px-3 sm:px-6 lg:px-7 ${
           activeFilter === 'agent'
-            ? 'pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3'
-            : 'pb-[calc(3rem+env(safe-area-inset-bottom))] sm:pb-10'
-        } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-4 sm:pt-5' : ''}`}>
+            ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
+            : 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:pb-12'
+        } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-5 sm:pt-6' : 'pt-4 sm:pt-5'}`}>
           {activeFilter === 'calendar' ? (
-            <div className="space-y-6">
+            <div className="stack-gap flex flex-col">
               <CalendarTopPanel
                 calendarView={calendarView}
                 showCompletedInCalendar={showCompletedInCalendar}

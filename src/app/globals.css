@@ -113,6 +113,50 @@ button {
   overscroll-behavior: contain;
 }
 
+.glass-panel {
+  background: linear-gradient(180deg, rgba(34, 34, 34, 0.82), rgba(24, 24, 24, 0.72));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.glass-panel-soft {
+  background: linear-gradient(180deg, rgba(29, 29, 29, 0.78), rgba(23, 23, 23, 0.66));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.section-gap {
+  gap: 1rem;
+}
+
+.stack-gap {
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .section-gap {
+    gap: 1.25rem;
+  }
+
+  .stack-gap {
+    gap: 1.5rem;
+  }
+}
+
 @media (max-width: 640px) {
   input,
   select,

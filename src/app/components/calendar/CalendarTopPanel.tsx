@@ -59,16 +59,16 @@ export default function CalendarTopPanel({
   const showCityDropdown = isSearchingWeatherCity || weatherCities.length > 0;
 
   return (
-    <div className="bg-[#202020] border border-[#2D2D2D] rounded-3xl p-4 sm:p-5 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-xs flex-wrap">
           {(['month', 'week', 'day', 'agenda'] as const).map((view) => (
             <button
               key={view}
-              className={`px-3.5 py-1.5 rounded-xl border transition-colors ${
+              className={`px-3.5 py-1.5 rounded-xl border transition-all ${
                 calendarView === view
-                  ? 'bg-blue-500/20 border-blue-400 text-white'
-                  : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                  ? 'bg-blue-500/20 border-blue-400/60 text-white shadow-[0_8px_24px_rgba(59,130,246,0.14)]'
+                  : 'border-white/8 text-[#9A9A9A] hover:text-white hover:border-white/15 hover:bg-white/5'
               }`}
               onClick={() => onViewChange(view)}
             >
@@ -77,10 +77,10 @@ export default function CalendarTopPanel({
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap justify-end">
           <button
             onClick={onToggleCompleted}
-            className="px-3 py-1.5 rounded-xl border text-[11px] transition-colors border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+            className="px-3 py-1.5 rounded-xl border text-[11px] transition-all border-white/8 text-[#9A9A9A] hover:text-white hover:border-white/15 hover:bg-white/5"
             title={showCompletedInCalendar ? '隐藏已完成任务' : '显示已完成任务'}
           >
             {showCompletedInCalendar ? '隐藏已完成' : '显示已完成'}
@@ -97,9 +97,9 @@ export default function CalendarTopPanel({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="relative">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-[#333333] bg-[#171717]">
+          <div className="glass-panel-soft flex items-center gap-2 px-3.5 py-3 rounded-2xl">
             <Search className="w-4 h-4 text-[#7A7A7A]" />
             <input
               value={calendarCityInput}
@@ -109,7 +109,7 @@ export default function CalendarTopPanel({
             />
           </div>
           {showCityDropdown && (
-            <div className="absolute top-[calc(100%+0.4rem)] left-0 right-0 z-20 rounded-2xl border border-[#333333] bg-[#171717] max-h-56 overflow-y-auto">
+            <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 rounded-2xl border border-white/8 bg-[#171717]/92 backdrop-blur-xl max-h-56 overflow-y-auto shadow-[0_16px_40px_rgba(0,0,0,0.24)]">
               {isSearchingWeatherCity ? (
                 <div className="px-3 py-2 text-xs text-[#777777]">城市搜索中…</div>
               ) : (
@@ -117,7 +117,7 @@ export default function CalendarTopPanel({
                   <button
                     key={city.id}
                     onClick={() => onSelectCity(city)}
-                    className="w-full text-left px-3 py-2 text-sm text-[#CCCCCC] hover:bg-[#222222]"
+                    className="w-full text-left px-3 py-2.5 text-sm text-[#CCCCCC] hover:bg-white/5 transition-colors"
                   >
                     {[city.name, city.admin1, city.country].filter(Boolean).join(' · ')}
                   </button>
@@ -127,15 +127,15 @@ export default function CalendarTopPanel({
           )}
         </div>
 
-        <div className="rounded-2xl border border-[#333333] bg-[#171717] px-4 py-3 flex items-center justify-between gap-3">
+        <div className="glass-panel-soft rounded-2xl px-4 py-3.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[11px] text-[#6E6E6E]">天气预报（{selectedCalendarLabel}）</div>
-            <div className="mt-1 flex items-center gap-2 text-sm text-[#DDDDDD] truncate">
+            <div className="mt-1.5 flex items-center gap-2 text-sm text-[#DDDDDD] truncate">
               <MapPin className="w-3.5 h-3.5 text-blue-300" />
               <span className="truncate">{cityLabel}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-right">
+          <div className="flex items-center gap-2 text-right shrink-0">
             {weatherLoading ? (
               <span className="text-xs text-[#6E6E6E]">加载中…</span>
             ) : (
