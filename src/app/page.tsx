@@ -4029,7 +4029,7 @@ export default function Home() {
               />
 
               {calendarView === 'week' ? (
-                <div className="space-y-4">
+                <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-[#DDDDDD]">
                       {weekLabel}
@@ -4052,7 +4052,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                     {weekDays.map((day, index) => {
                       const dayTasks = tasksByDate[day.dateKey] || [];
                       const sortedTasks = [...dayTasks].sort((a, b) => {
@@ -4061,7 +4061,7 @@ export default function Home() {
                         return aTime - bTime;
                       });
                       return (
-                        <div key={day.dateKey} className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-3 space-y-3">
+                        <div key={day.dateKey} className="glass-panel-soft rounded-[24px] p-3.5 space-y-3.5">
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="text-sm font-semibold text-[#DDDDDD]">{day.label}</div>
@@ -4074,7 +4074,7 @@ export default function Home() {
                           {sortedTasks.length === 0 ? (
                             <div className="text-xs text-[#555555]">暂无任务</div>
                           ) : (
-                            <div className="space-y-3 rounded-3xl border border-[#2C2C2C] bg-[#1D1D1D] p-4 sm:p-5">
+                            <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-3">
                               {sortedTasks.map((task) => {
                                 const startTime = task.dueDate
                                   ? formatZonedTime(task.dueDate, getTimezoneOffset(task))
@@ -4083,7 +4083,7 @@ export default function Home() {
                                   <button
                                     key={task.id}
                                     onClick={() => setSelectedTask(task)}
-                                    className="w-full text-left bg-[#1F1F1F] border border-[#2C2C2C] hover:border-[#444444] rounded-lg p-2 transition-colors"
+                                    className="w-full text-left bg-white/[0.03] border border-white/6 hover:border-white/12 rounded-xl p-2.5 transition-colors"
                                   >
                                     <div className="flex items-center justify-between text-[11px] text-[#999999]">
                                       <span>{startTime}</span>
@@ -4106,7 +4106,7 @@ export default function Home() {
                   </div>
                 </div>
               ) : calendarView === 'day' ? (
-                <div className="space-y-4">
+                <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-[#DDDDDD]">{selectedCalendarLabel}</div>
                     {calendarNotes[selectedCalendarLabel] && (
@@ -4118,13 +4118,13 @@ export default function Home() {
                   <div className="text-[11px] text-[#666666]">
                     显示时段：{pad2(visibleStartHour)}:00 - {pad2(Math.min(23, visibleEndHour + 1))}:00
                   </div>
-                  <div className="max-h-[62vh] overflow-y-auto pr-1">
+                  <div className="max-h-[62vh] overflow-y-auto pr-1 rounded-[24px]">
                     <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
                       <div className="flex flex-col text-[10px] text-[#666666]">
                         {dayVisibleHours.map((hour) => (
                           <div
                             key={hour}
-                            className="h-9 flex items-start justify-end pr-2 border-b border-[#2A2A2A] last:border-b-0"
+                            className="h-9 flex items-start justify-end pr-2 border-b border-white/6 last:border-b-0"
                           >
                             {String(hour).padStart(2, '0')}:00
                           </div>
@@ -4136,7 +4136,7 @@ export default function Home() {
                           <p className="text-sm">这一天没有任务</p>
                         </div>
                       ) : (
-                        <div className="relative border border-[#2A2A2A] rounded-xl overflow-hidden">
+                        <div className="relative border border-white/6 rounded-[24px] overflow-hidden bg-white/[0.02]">
                           {showNowLine && nowLineTop >= 0 && nowLineTop <= dayVisibleHours.length * dayRowHeight && (
                             <div
                               className="absolute left-0 right-0 z-10 pointer-events-none"
@@ -4156,7 +4156,7 @@ export default function Home() {
                             return (
                               <div
                                 key={hour}
-                                className="min-h-[36px] border-b border-[#2A2A2A] last:border-b-0 px-2 py-1"
+                                className="min-h-[36px] border-b border-white/6 last:border-b-0 px-2.5 py-1.5"
                               >
                                 {hourTasks.length === 0 ? (
                                   <div className="text-[10px] text-[#333333]">&nbsp;</div>
@@ -4194,7 +4194,7 @@ export default function Home() {
                   </div>
                 </div>
               ) : calendarView === 'agenda' ? (
-                <div className="space-y-4">
+                <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-4">
                   {agendaTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
                       <Calendar className="w-12 h-12 mb-3 opacity-20" />
@@ -4207,7 +4207,7 @@ export default function Home() {
                         ? formatZonedTime(task.dueDate, getTimezoneOffset(task))
                         : '未设时间';
                       return (
-                        <div key={task.id} className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-3">
+                        <div key={task.id} className="glass-panel-soft rounded-[24px] p-3.5">
                           <div className="flex items-center justify-between text-[11px] text-[#777777]">
                             <span>{dateKey}</span>
                             <span>{timeLabel}</span>
@@ -4245,7 +4245,7 @@ export default function Home() {
                     onSelectDate={setSelectedCalendarDate}
                   />
 
-                  <div className="space-y-3 rounded-3xl border border-[#2C2C2C] bg-[#1D1D1D] p-4 sm:p-5">
+                  <div className="space-y-3 rounded-[24px] border border-white/6 bg-white/[0.02] p-4 sm:p-5">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-[#DDDDDD]">
                         {selectedCalendarDate ? `${selectedCalendarDate} 任务` : `今天 (${todayKey}) 任务`}

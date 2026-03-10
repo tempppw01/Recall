@@ -27,27 +27,27 @@ export default function CalendarMonthGrid({
   onSelectDate,
 }: CalendarMonthGridProps) {
   return (
-    <div className="bg-[#202020] border border-[#2C2C2C] rounded-3xl p-5 sm:p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => onMonthChange(-1)} className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]" title="上个月">
+    <div className="glass-panel rounded-[28px] p-5 sm:p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-5">
+        <button onClick={() => onMonthChange(-1)} className="p-2 rounded-xl hover:bg-white/5 text-[#888888] transition-colors" title="上个月">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <div className="text-sm font-semibold text-[#DDDDDD]">{monthLabel}</div>
-        <button onClick={() => onMonthChange(1)} className="p-1 rounded hover:bg-[#2A2A2A] text-[#888888]" title="下个月">
+        <div className="text-sm font-semibold text-[#E5E5E5]">{monthLabel}</div>
+        <button onClick={() => onMonthChange(1)} className="p-2 rounded-xl hover:bg-white/5 text-[#888888] transition-colors" title="下个月">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 text-xs text-[#727272] mb-3">
+      <div className="grid grid-cols-7 text-xs text-[#727272] mb-3 px-1">
         {weekdayLabels.map((label) => (
           <div key={label} className="text-center">{label}</div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-2 text-sm">
+      <div className="grid grid-cols-7 gap-2.5 text-sm">
         {calendarDays.map((day, idx) => {
           if (!day) {
-            return <div key={`empty-${idx}`} className="h-14" />;
+            return <div key={`empty-${idx}`} className="h-16" />;
           }
           const dateKey = `${monthLabel}-${String(day).padStart(2, '0')}`;
           const note = calendarNotes[dateKey];
@@ -59,17 +59,17 @@ export default function CalendarMonthGrid({
             <button
               key={dateKey}
               onClick={() => onSelectDate(dateKey)}
-              className={`relative h-14 rounded-2xl flex flex-col items-center justify-center text-xs transition-colors border ${
+              className={`relative h-16 rounded-2xl flex flex-col items-center justify-center text-xs transition-all border ${
                 isSelected
-                  ? 'bg-blue-600/20 border-blue-500 text-white'
-                  : 'border-transparent hover:bg-[#2A2A2A]'
-              } ${isToday ? 'text-blue-300' : 'text-[#CCCCCC]'}`}
+                  ? 'bg-blue-600/18 border-blue-500/55 text-white shadow-[0_10px_26px_rgba(59,130,246,0.16)]'
+                  : 'border-white/6 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/12'
+              } ${isToday ? 'text-blue-300' : 'text-[#D0D0D0]'}`}
             >
-              <span className="leading-none">{day}</span>
+              <span className="leading-none font-medium">{day}</span>
               {note && (
-                <span className="absolute top-1 left-1 text-[9px] text-blue-300 leading-none">{note}</span>
+                <span className="absolute top-1.5 left-1.5 text-[9px] text-blue-300 leading-none max-w-[70%] truncate">{note}</span>
               )}
-              <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${hasTasks ? 'bg-blue-400' : 'bg-transparent'}`} />
+              <span className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${hasTasks ? 'bg-blue-400 shadow-[0_0_12px_rgba(96,165,250,0.65)]' : 'bg-transparent'}`} />
             </button>
           );
         })}
