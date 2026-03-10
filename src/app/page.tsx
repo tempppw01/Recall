@@ -11,6 +11,9 @@ import PageTopBar from '@/app/components/home/PageTopBar';
 import ListComposerPanel from '@/app/components/home/ListComposerPanel';
 import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
+import LogsModal from '@/app/components/logs/LogsModal';
+import AboutModal from '@/app/components/about/AboutModal';
+import CountdownFormModal from '@/app/components/countdown/CountdownFormModal';
 import {
   Command,
   Calendar, Inbox, Sun, Star, Trash2,
@@ -5596,153 +5599,32 @@ export default function Home() {
         aiRetentionDays={aiRetentionDays}
       />
 
-      {showCountdownForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              setShowCountdownForm(false);
-              resetCountdownForm();
-            }}
-          />
-          <div
-            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-5 relative"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 className="text-base font-semibold mb-4">{editingCountdown ? '编辑倒数日' : '新建倒数日'}</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] uppercase text-[#888888] mb-2">目标日期</label>
-                <input
-                  type="date"
-                  value={countdownDate}
-                  onChange={(event) => setCountdownDate(event.target.value)}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowCountdownForm(false);
-                    resetCountdownForm();
-                  }}
-                  className="px-3 py-2 text-sm text-[#AAAAAA] hover:text-white"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={saveCountdown}
-                  className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500"
-                >
-                  保存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CountdownFormModal
+        show={showCountdownForm}
+        editingCountdown={Boolean(editingCountdown)}
+        countdownDate={countdownDate}
+        setCountdownDate={setCountdownDate}
+        onClose={() => {
+          setShowCountdownForm(false);
+          resetCountdownForm();
+        }}
+        onSave={saveCountdown}
+      />
 
+      <LogsModal
+        show={showLogs}
+        onClose={() => setShowLogs(false)}
+        logs={logs}
+        onClear={() => setLogs([])}
+        apiBaseUrl={apiBaseUrl}
+        defaultBaseUrl={DEFAULT_BASE_URL}
+      />
 
-      {showLogs && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1rem+env(safe-area-inset-bottom))]"
-          onClick={() => setShowLogs(false)}
-        >
-          <div
-            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-5 sm:p-6 relative"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <h2 className="text-base sm:text-lg font-semibold">运行日志（系统碎碎念）</h2>
-              <button
-                onClick={() => setShowLogs(false)}
-                className="text-xs text-[#888888] hover:text-[#CCCCCC]"
-              >
-                关闭
-              </button>
-            </div>
-            <div className="space-y-2 text-xs text-[#777777] mb-4">
-              <div>数据存储：浏览器 localStorage</div>
-              <div>数据库：未配置</div>
-              <div>AI 接口：{apiBaseUrl || DEFAULT_BASE_URL}</div>
-            </div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs uppercase text-[#666666]">最近日志</span>
-              <button
-                onClick={() => setLogs([])}
-                className="text-xs text-[#888888] hover:text-[#CCCCCC]"
-              >
-                清空
-              </button>
-            </div>
-            <div className="max-h-[50vh] overflow-y-auto mobile-scroll space-y-2 pr-1">
-              {logs.length === 0 ? (
-                <div className="text-sm text-[#555555]">暂无日志</div>
-              ) : (
-                logs.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border border-[#333333] rounded-lg px-3 py-2 bg-[#1F1F1F]"
-                  >
-                    <div className="flex items-center justify-between gap-2 text-[11px] text-[#666666]">
-                      <span>{item.timestamp}</span>
-                      <span
-                        className={
-                          item.level === 'error'
-                            ? 'text-red-400'
-                            : item.level === 'warning'
-                            ? 'text-yellow-400'
-                            : item.level === 'success'
-                            ? 'text-emerald-400'
-                            : 'text-blue-400'
-                        }
-                      >
-                        {item.level.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="text-sm text-[#DDDDDD] mt-1">{item.message}</div>
-                    {item.detail && (
-                      <div className="text-xs text-[#777777] mt-1 whitespace-pre-wrap">{item.detail}</div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAbout && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
-          onClick={() => setShowAbout(false)}
-        >
-          <div
-            className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-5 sm:p-6 relative"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base sm:text-lg font-semibold">关于 Recall（幕后花絮）</h2>
-                <p className="text-xs text-[#777777] mt-1">轻量待办助手</p>
-              </div>
-              <button
-                onClick={() => setShowAbout(false)}
-                className="text-xs text-[#888888] hover:text-white"
-              >
-                关闭
-              </button>
-            </div>
-            <div className="mt-4 text-sm text-[#CCCCCC] space-y-2">
-              <p>版本：v{APP_VERSION}</p>
-      <p>项目主页：<a className="text-blue-300 hover:text-blue-200" href="https://github.com/tempppw01/Recall" target="_blank" rel="noopener noreferrer">https://github.com/tempppw01/Recall</a></p>
-              <p>作者联系：微信 Ethan_BravoEcho</p>
-              <p className="text-xs text-[#666666]">版权所有 © Recall Team</p>
-              <p className="text-xs text-[#666666]">感谢使用 Recall，祝你高效又轻松 ✨</p>
-            </div>
-          </div>
-        </div>
-      )}
+      <AboutModal
+        show={showAbout}
+        onClose={() => setShowAbout(false)}
+        appVersion={APP_VERSION}
+      />
 
     </div>
   );
