@@ -5,7 +5,7 @@
  * DELETE /api/habits/:id  - 删除指定习惯
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
@@ -13,8 +13,13 @@ import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
 /** 单机模式下的默认用户 ID */
 const DEFAULT_USER_ID = 'local-user';
 
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
 /** PUT /api/habits/:id - 更新习惯标题和打卡记录 */
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;
   let userId = '';
@@ -35,7 +40,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const payload = await request.json();
 
     const habit = await client.habit.update({
-      where: { id: params.id, userId },
+      where: { id, userId },
       data: {
         title: payload.title,
         logs: payload.logs ?? [],
@@ -51,7 +56,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;
   let userId = '';
@@ -70,7 +76,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
   try {
     await client.habit.delete({
-      where: { id: params.id, userId },
+      where: { id, userId },
     });
 
     if (client !== prisma) await client.$disconnect();

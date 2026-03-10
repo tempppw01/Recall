@@ -5,7 +5,7 @@
  * DELETE /api/countdowns/:id  - 删除指定倒计时
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
@@ -13,8 +13,13 @@ import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
 /** 单机模式下的默认用户 ID */
 const DEFAULT_USER_ID = 'local-user';
 
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
 /** PUT /api/countdowns/:id - 更新倒计时 */
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;
   let userId = '';
@@ -35,7 +40,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const payload = await request.json();
 
     const countdown = await client.countdown.update({
-      where: { id: params.id, userId },
+      where: { id, userId },
       data: {
         title: payload.title,
         targetDate: payload.targetDate ? new Date(payload.targetDate) : new Date(),
@@ -52,7 +57,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
   const pgConfig = getPgConfigFromHeaders(request.headers);
   let client = prisma;
   let userId = '';
@@ -71,7 +77,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
   try {
     await client.countdown.delete({
-      where: { id: params.id, userId },
+      where: { id, userId },
     });
 
     if (client !== prisma) await client.$disconnect();
