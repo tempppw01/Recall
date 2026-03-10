@@ -56,6 +56,8 @@ export default function CalendarTopPanel({
   onCityInputChange,
   onSelectCity,
 }: CalendarTopPanelProps) {
+  const showCityDropdown = isSearchingWeatherCity || weatherCities.length > 0;
+
   return (
     <div className="bg-[#202020] border border-[#2D2D2D] rounded-3xl p-4 sm:p-5 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -106,12 +108,10 @@ export default function CalendarTopPanel({
               className="w-full bg-transparent text-sm text-[#DDDDDD] placeholder:text-[#5F5F5F] outline-none"
             />
           </div>
-          {calendarCityInput.trim().length >= 2 && (
+          {showCityDropdown && (
             <div className="absolute top-[calc(100%+0.4rem)] left-0 right-0 z-20 rounded-2xl border border-[#333333] bg-[#171717] max-h-56 overflow-y-auto">
               {isSearchingWeatherCity ? (
                 <div className="px-3 py-2 text-xs text-[#777777]">城市搜索中…</div>
-              ) : weatherCities.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-[#666666]">未找到匹配城市</div>
               ) : (
                 weatherCities.map((city) => (
                   <button
