@@ -119,7 +119,7 @@ export default function ListComposerPanel({
                 type="button"
                 onClick={onBatchClear}
                 disabled={selectedCount === 0}
-                className="px-2.5 py-1 text-[11px] rounded-xl border border-white/8 text-[#A0A0A0] hover:text-white hover:border-white/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2.5 py-1 text-[11px] rounded-xl border border-[#3A3F4B]/50 text-[#A0A0A0] hover:text-white hover:border-[#555D6D] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 清空选择
               </button>
@@ -133,7 +133,7 @@ export default function ListComposerPanel({
                 id="task-sort-mode"
                 value={taskSortMode}
                 onChange={(event) => onTaskSortModeChange(event.target.value)}
-                className="bg-[#1F1F1F]/80 border border-white/8 rounded-lg px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                className="bg-[#1F1F1F]/80 border border-[#3A3F4B]/50 rounded-lg px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
               >
                 {sortOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -149,7 +149,7 @@ export default function ListComposerPanel({
                 id="task-group-mode"
                 value={taskGroupMode}
                 onChange={(event) => onTaskGroupModeChange(event.target.value)}
-                className="bg-[#1F1F1F]/80 border border-white/8 rounded-lg px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                className="bg-[#1F1F1F]/80 border border-[#3A3F4B]/50 rounded-lg px-2 py-1 text-[12px] text-[#CCCCCC] focus:outline-none focus:border-blue-500"
               >
                 {groupOptions.map((option) => (
                   <option key={option.value} value={option.value}>

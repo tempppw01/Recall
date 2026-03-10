@@ -37,11 +37,11 @@ export default function PageTopBar({
   onToggleTheme,
 }: PageTopBarProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-white/8 bg-[#151515]/72 backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
+    <header className="sticky top-0 z-20 border-b border-[#3A3F4B]/50 bg-[#151515]/72 backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
       <div className="mx-2 mt-2 rounded-2xl glass-panel-soft px-3 py-3 sm:mx-4 sm:px-4 lg:mx-6 lg:px-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 min-w-0">
-            <button onClick={onOpenSidebar} className="lg:hidden p-2 -ml-1 rounded-xl text-[#888888] hover:text-[#CCCCCC] hover:bg-white/5 transition-colors">
+            <button onClick={onOpenSidebar} className="lg:hidden p-2 -ml-1 rounded-xl text-[#888888] hover:text-[#CCCCCC] hover:bg-[#23262E] transition-colors">
               <Menu className="w-6 h-6" />
             </button>
             <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
@@ -59,7 +59,7 @@ export default function PageTopBar({
                 className={`px-3 py-1.5 text-xs rounded-xl border transition-all ${
                   isBatchMode
                     ? 'border-blue-400/60 text-blue-100 bg-blue-500/12 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]'
-                    : 'border-white/8 text-[#9A9A9A] hover:text-white hover:border-white/15 hover:bg-white/5'
+                    : 'border-[#3A3F4B]/50 text-[#9A9A9A] hover:text-white hover:border-[#555D6D] hover:bg-[#23262E]'
                 }`}
                 title={isBatchMode ? '退出批量模式' : '批量选择'}
               >
@@ -69,7 +69,7 @@ export default function PageTopBar({
 
             <button
               onClick={onSync}
-              className="p-2 rounded-xl hover:bg-white/5 text-[#888888] hover:text-[#CCCCCC] transition-colors"
+              className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] hover:text-[#CCCCCC] transition-colors"
               title={isSyncingNow ? '同步中…' : '云同步（异步队列）'}
               disabled={isSyncingNow}
             >
@@ -92,7 +92,7 @@ export default function PageTopBar({
 
             <button
               onClick={onOpenLogs}
-              className="p-2 rounded-xl hover:bg-white/5 text-[#888888] hover:text-[#CCCCCC] transition-colors"
+              className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] hover:text-[#CCCCCC] transition-colors"
               title="运行日志"
             >
               <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -100,7 +100,7 @@ export default function PageTopBar({
 
             <button
               onClick={onToggleTheme}
-              className="p-2 rounded-xl hover:bg-white/5 text-[#888888] hover:text-[#CCCCCC] transition-colors"
+              className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] hover:text-[#CCCCCC] transition-colors"
               title={
                 themePreference === 'system'
                   ? '主题模式：跟随设备（点击切换）'

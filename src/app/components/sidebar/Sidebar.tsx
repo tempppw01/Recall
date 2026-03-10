@@ -300,7 +300,7 @@ const Sidebar = ({
         ref={sidebarRef}
         className={`
           fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden pb-[calc(0.75rem+env(safe-area-inset-bottom))]
-          bg-[#171717]/82 border-r border-white/8 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.28)]
+          bg-[#171717]/82 border-r border-[#3A3F4B]/50 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.28)]
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:relative lg:translate-x-0 lg:shadow-none
         `}
@@ -312,11 +312,11 @@ const Sidebar = ({
       >
         {isSidebarCollapsed ? (
           <div className="hidden lg:flex flex-col h-full glass-panel-soft">
-            <div className="p-2.5 flex justify-center border-b border-white/8">
+            <div className="p-2.5 flex justify-center border-b border-[#3A3F4B]/50">
               <button
                 type="button"
                 onClick={() => setIsSidebarCollapsed(false)}
-                className="w-10 h-10 rounded-xl glass-card hover:bg-white/6 flex items-center justify-center text-[#9A9A9A] hover:text-[#E5E5E5] transition-colors"
+                className="w-10 h-10 rounded-xl glass-card hover:bg-[#23262E] flex items-center justify-center text-[#9A9A9A] hover:text-[#E5E5E5] transition-colors"
                 title="展开侧边栏"
               >
                 <ChevronRight className="w-5 h-5" />
@@ -337,14 +337,14 @@ const Sidebar = ({
                   key={item.key}
                   type="button"
                   onClick={item.action}
-                  className={`mx-2 w-[calc(100%-1rem)] flex justify-center py-2.5 rounded-xl hover:bg-white/5 transition-colors ${item.color}`}
+                  className={`mx-2 w-[calc(100%-1rem)] flex justify-center py-2.5 rounded-xl hover:bg-[#23262E] transition-colors ${item.color}`}
                   title={item.title}
                 >
                   <item.icon className="w-5 h-5" />
                 </button>
               ))}
             </nav>
-            <div className="px-2 py-2.5 border-t border-white/8 bg-white/[0.02] text-center">
+            <div className="px-2 py-2.5 border-t border-[#3A3F4B]/50 bg-[#1E2128]/78 text-center">
               <div className="text-[10px] text-[#616161]">v{APP_VERSION}</div>
             </div>
           </div>
@@ -371,7 +371,7 @@ const Sidebar = ({
                     </button>
                     {showAppMenu && (
                       <div
-                        className="absolute left-0 top-11 w-44 rounded-2xl border border-white/8 bg-[#191919]/96 backdrop-blur-xl shadow-[0_18px_40px_rgba(0,0,0,0.3)] z-50 overflow-hidden"
+                        className="absolute left-0 top-11 w-44 rounded-2xl border border-[#3A3F4B]/50 bg-[#191919]/96 backdrop-blur-xl shadow-[0_18px_40px_rgba(0,0,0,0.3)] z-50 overflow-hidden"
                         onClick={(event) => event.stopPropagation()}
                       >
                         <button
@@ -380,7 +380,7 @@ const Sidebar = ({
                             setShowAppMenu(false);
                             setShowSettings(true);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm text-[#DDDDDD] hover:bg-white/5"
+                          className="w-full text-left px-4 py-3 text-sm text-[#DDDDDD] hover:bg-[#23262E]"
                         >
                           设置
                         </button>
@@ -390,7 +390,7 @@ const Sidebar = ({
                             setShowAppMenu(false);
                             setShowAbout(true);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm text-[#DDDDDD] hover:bg-white/5"
+                          className="w-full text-left px-4 py-3 text-sm text-[#DDDDDD] hover:bg-[#23262E]"
                         >
                           关于
                         </button>
@@ -406,7 +406,7 @@ const Sidebar = ({
                   <button
                     type="button"
                     onClick={() => setIsSidebarCollapsed(true)}
-                    className="hidden lg:flex w-8 h-8 rounded-xl hover:bg-white/5 items-center justify-center text-[#707070] hover:text-[#D6D6D6] transition-colors"
+                    className="hidden lg:flex w-8 h-8 rounded-xl hover:bg-[#23262E] items-center justify-center text-[#707070] hover:text-[#D6D6D6] transition-colors"
                     title="折叠侧边栏"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -565,7 +565,7 @@ const Sidebar = ({
                             onChange={(e) => setNewListName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && addListItem()}
                             placeholder="列表名称"
-                            className="flex-1 bg-[#1A1A1A]/85 border border-white/8 rounded-lg px-2 py-1.5 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                            className="flex-1 bg-[#1A1A1A]/85 border border-[#3A3F4B]/50 rounded-lg px-2 py-1.5 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
                             autoFocus
                           />
                           <button onClick={addListItem} className="text-blue-400 text-sm">添加</button>
@@ -628,7 +628,7 @@ const Sidebar = ({
                 </div>
               </nav>
             </div>
-            <div className="px-4 py-3 border-t border-white/8 bg-white/[0.02]">
+            <div className="px-4 py-3 border-t border-[#3A3F4B]/50 bg-[#1E2128]/78">
               <div className="text-[10px] text-[#5F5F5F]">v{APP_VERSION}</div>
             </div>
           </>

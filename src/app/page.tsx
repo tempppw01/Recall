@@ -3998,7 +3998,7 @@ export default function Home() {
                                   <button
                                     key={task.id}
                                     onClick={() => setSelectedTask(task)}
-                                    className="w-full text-left bg-white/[0.03] border border-white/6 hover:border-white/12 rounded-xl p-2.5 transition-colors"
+                                    className="w-full text-left bg-[#20232B]/82 border border-[#3A3F4B]/45 hover:border-[#555D6D] rounded-xl p-2.5 transition-colors"
                                   >
                                     <div className="flex items-center justify-between text-[11px] text-[#999999]">
                                       <span>{startTime}</span>
@@ -4039,7 +4039,7 @@ export default function Home() {
                         {dayVisibleHours.map((hour) => (
                           <div
                             key={hour}
-                            className="h-9 flex items-start justify-end pr-2 border-b border-white/6 last:border-b-0"
+                            className="h-9 flex items-start justify-end pr-2 border-b border-[#3A3F4B]/45 last:border-b-0"
                           >
                             {String(hour).padStart(2, '0')}:00
                           </div>
@@ -4051,7 +4051,7 @@ export default function Home() {
                           <p className="text-sm">这一天没有任务</p>
                         </div>
                       ) : (
-                        <div className="relative border border-white/6 rounded-[24px] overflow-hidden bg-white/[0.02]">
+                        <div className="relative border border-[#3A3F4B]/45 rounded-[24px] overflow-hidden bg-[#1E2128]/78">
                           {showNowLine && nowLineTop >= 0 && nowLineTop <= dayVisibleHours.length * dayRowHeight && (
                             <div
                               className="absolute left-0 right-0 z-10 pointer-events-none"
@@ -4071,7 +4071,7 @@ export default function Home() {
                             return (
                               <div
                                 key={hour}
-                                className="min-h-[36px] border-b border-white/6 last:border-b-0 px-2.5 py-1.5"
+                                className="min-h-[36px] border-b border-[#3A3F4B]/45 last:border-b-0 px-2.5 py-1.5"
                               >
                                 {hourTasks.length === 0 ? (
                                   <div className="text-[10px] text-[#333333]">&nbsp;</div>
@@ -4160,7 +4160,7 @@ export default function Home() {
                     onSelectDate={setSelectedCalendarDate}
                   />
 
-                  <div className="space-y-3 rounded-[24px] border border-white/6 bg-white/[0.02] p-4 sm:p-5">
+                  <div className="space-y-3 rounded-[24px] border border-[#3A3F4B]/45 bg-[#1E2128]/78 p-4 sm:p-5">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-[#DDDDDD]">
                         {selectedCalendarDate ? `${selectedCalendarDate} 任务` : `今天 (${todayKey}) 任务`}

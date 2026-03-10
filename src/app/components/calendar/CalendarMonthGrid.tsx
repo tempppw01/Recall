@@ -29,11 +29,11 @@ export default function CalendarMonthGrid({
   return (
     <div className="glass-panel rounded-[28px] p-5 sm:p-6 shadow-sm">
       <div className="flex items-center justify-between mb-5">
-        <button onClick={() => onMonthChange(-1)} className="p-2 rounded-xl hover:bg-white/5 text-[#888888] transition-colors" title="上个月">
+        <button onClick={() => onMonthChange(-1)} className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] transition-colors" title="上个月">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="text-sm font-semibold text-[#E5E5E5]">{monthLabel}</div>
-        <button onClick={() => onMonthChange(1)} className="p-2 rounded-xl hover:bg-white/5 text-[#888888] transition-colors" title="下个月">
+        <button onClick={() => onMonthChange(1)} className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] transition-colors" title="下个月">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -62,7 +62,7 @@ export default function CalendarMonthGrid({
               className={`relative h-16 rounded-2xl flex flex-col items-center justify-center text-xs transition-all border ${
                 isSelected
                   ? 'bg-blue-600/18 border-blue-500/55 text-white shadow-[0_10px_26px_rgba(59,130,246,0.16)]'
-                  : 'border-white/6 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/12'
+                  : 'border-[#3A3F4B]/45 bg-[#1E2128]/78 hover:bg-white/[0.05] hover:border-[#555D6D]'
               } ${isToday ? 'text-blue-300' : 'text-[#D0D0D0]'}`}
             >
               <span className="leading-none font-medium">{day}</span>

@@ -68,7 +68,7 @@ export default function CalendarTopPanel({
               className={`px-3.5 py-1.5 rounded-xl border transition-all ${
                 calendarView === view
                   ? 'bg-blue-500/20 border-blue-400/60 text-white shadow-[0_8px_24px_rgba(59,130,246,0.14)]'
-                  : 'border-white/8 text-[#9A9A9A] hover:text-white hover:border-white/15 hover:bg-white/5'
+                  : 'border-[#3A3F4B]/50 text-[#9A9A9A] hover:text-white hover:border-[#555D6D] hover:bg-[#23262E]'
               }`}
               onClick={() => onViewChange(view)}
             >
@@ -80,7 +80,7 @@ export default function CalendarTopPanel({
         <div className="flex items-center gap-2.5 flex-wrap justify-end">
           <button
             onClick={onToggleCompleted}
-            className="px-3 py-1.5 rounded-xl border text-[11px] transition-all border-white/8 text-[#9A9A9A] hover:text-white hover:border-white/15 hover:bg-white/5"
+            className="px-3 py-1.5 rounded-xl border text-[11px] transition-all border-[#3A3F4B]/50 text-[#9A9A9A] hover:text-white hover:border-[#555D6D] hover:bg-[#23262E]"
             title={showCompletedInCalendar ? '隐藏已完成任务' : '显示已完成任务'}
           >
             {showCompletedInCalendar ? '隐藏已完成' : '显示已完成'}
@@ -109,7 +109,7 @@ export default function CalendarTopPanel({
             />
           </div>
           {showCityDropdown && (
-            <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 rounded-2xl border border-white/8 bg-[#171717]/92 backdrop-blur-xl max-h-56 overflow-y-auto shadow-[0_16px_40px_rgba(0,0,0,0.24)]">
+            <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 rounded-2xl border border-[#3A3F4B]/50 bg-[#171717]/92 backdrop-blur-xl max-h-56 overflow-y-auto shadow-[0_16px_40px_rgba(0,0,0,0.24)]">
               {isSearchingWeatherCity ? (
                 <div className="px-3 py-2 text-xs text-[#777777]">城市搜索中…</div>
               ) : (
@@ -117,7 +117,7 @@ export default function CalendarTopPanel({
                   <button
                     key={city.id}
                     onClick={() => onSelectCity(city)}
-                    className="w-full text-left px-3 py-2.5 text-sm text-[#CCCCCC] hover:bg-white/5 transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-sm text-[#CCCCCC] hover:bg-[#23262E] transition-colors"
                   >
                     {[city.name, city.admin1, city.country].filter(Boolean).join(' · ')}
                   </button>
