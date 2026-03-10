@@ -7,7 +7,7 @@ openapi: 3.0.1
 info:
   title: ''
   description: ''
-  version: 1.0.0
+  version: 0.1.0
 paths:
   /api.tiax.cn/almanac/:
     get:
