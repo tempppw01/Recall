@@ -1,5 +1,8 @@
 import { Cloud, Flame, Inbox, Loader2, Menu, Monitor, Moon, Sun, Terminal } from 'lucide-react';
 
+const iconButtonClassName = 'p-2 rounded-xl text-[#888888] hover:text-[#CCCCCC] hover:bg-[#23262E] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
+const actionButtonClassName = 'px-3 py-1.5 text-xs rounded-xl border transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60';
+
 type ThemePreference = 'system' | 'light' | 'dark';
 
 type PageTopBarProps = {
@@ -41,7 +44,7 @@ export default function PageTopBar({
       <div className="mx-2 mt-2 rounded-2xl glass-panel-soft px-3 py-3 sm:mx-4 sm:px-4 lg:mx-6 lg:px-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 min-w-0">
-            <button onClick={onOpenSidebar} className="lg:hidden p-2 -ml-1 rounded-xl text-[#888888] hover:text-[#CCCCCC] hover:bg-[#23262E] transition-colors">
+            <button onClick={onOpenSidebar} className={`lg:hidden -ml-1 ${iconButtonClassName}`}>
               <Menu className="w-6 h-6" />
             </button>
             <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
@@ -56,7 +59,7 @@ export default function PageTopBar({
             {isListView && (
               <button
                 onClick={onToggleBatchMode}
-                className={`px-3 py-1.5 text-xs rounded-xl border transition-all ${
+                className={`${actionButtonClassName} ${
                   isBatchMode
                     ? 'border-blue-400/60 text-blue-100 bg-blue-500/12 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]'
                     : 'border-[#3A3F4B]/50 text-[#9A9A9A] hover:text-white hover:border-[#555D6D] hover:bg-[#23262E]'
@@ -69,7 +72,7 @@ export default function PageTopBar({
 
             <button
               onClick={onSync}
-              className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] hover:text-[#CCCCCC] transition-colors"
+              className={iconButtonClassName}
               title={isSyncingNow ? '同步中…' : '云同步（异步队列）'}
               disabled={isSyncingNow}
             >
@@ -83,7 +86,7 @@ export default function PageTopBar({
             {activeFilter === 'completed' && completedTasks > 0 && (
               <button
                 onClick={onClearCompleted}
-                className="px-3 py-1.5 text-xs sm:text-sm rounded-xl border border-red-500/35 text-red-300 hover:bg-red-500/10 transition-colors"
+                className={`${actionButtonClassName} text-xs sm:text-sm border-red-500/35 text-red-300 hover:bg-red-500/10`}
                 title="清除已完成"
               >
                 清除已完成
@@ -92,7 +95,7 @@ export default function PageTopBar({
 
             <button
               onClick={onOpenLogs}
-              className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] hover:text-[#CCCCCC] transition-colors"
+              className={iconButtonClassName}
               title="运行日志"
             >
               <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -100,7 +103,7 @@ export default function PageTopBar({
 
             <button
               onClick={onToggleTheme}
-              className="p-2 rounded-xl hover:bg-[#23262E] text-[#888888] hover:text-[#CCCCCC] transition-colors"
+              className={iconButtonClassName}
               title={
                 themePreference === 'system'
                   ? '主题模式：跟随设备（点击切换）'

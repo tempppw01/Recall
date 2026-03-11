@@ -25,7 +25,9 @@ const buildCityKey = (city: CityResult) => {
   const name = city.name.trim().toLowerCase();
   const admin1 = (city.admin1 || '').trim().toLowerCase();
   const country = (city.country || '').trim().toLowerCase();
-  return `${name}|${admin1}|${country}`;
+  const lat = Number.isFinite(city.latitude) ? (Math.round(city.latitude * 1000) / 1000).toFixed(3) : '';
+  const lon = Number.isFinite(city.longitude) ? (Math.round(city.longitude * 1000) / 1000).toFixed(3) : '';
+  return `${name}|${admin1}|${country}|${lat}|${lon}`;
 };
 
 const dedupeCities = (cities: CityResult[]) => {

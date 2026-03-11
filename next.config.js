@@ -3,7 +3,8 @@
  *
  * 说明：
  * - output=standalone：输出可独立部署的产物（适合 Docker）
- * - ignoreDuringBuilds / ignoreBuildErrors：构建时忽略 lint 与 TS 错误
+ * - ignoreBuildErrors：构建时忽略 TS 错误
+ * - turbopack: {}：显式声明使用 Turbopack，避免 Next 16 在存在 webpack 配置时直接报错
  * - webpack alias：禁用 Node 侧原生依赖，兼容部分 AI/推理库在当前环境的打包
  */
 
@@ -12,10 +13,8 @@ const nextConfig = {
     // 生成 standalone 输出，便于容器化部署
     output: 'standalone',
 
-    // 构建阶段忽略 ESLint 校验
-    eslint: {
-        ignoreDuringBuilds: true,
-    },
+    // 显式声明 Turbopack 配置，避免 Next 16 默认行为与 webpack 扩展冲突
+    turbopack: {},
 
     // 构建阶段忽略 TypeScript 类型错误
     typescript: {

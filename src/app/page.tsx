@@ -1647,35 +1647,80 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!calendarCity) return;
+    if (!calendarCity) {
+      localStorage.removeItem(CALENDAR_CITY_KEY);
+      return;
+    }
     localStorage.setItem(CALENDAR_CITY_KEY, JSON.stringify(calendarCity));
   }, [calendarCity]);
 
   useEffect(() => {
     if (activeFilter !== 'calendar') return;
+
+    const normalizeCityText = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/[·•\-_,，。]/g, '');
+
     const keyword = calendarCityInput.trim();
+    const keywordNormalized = normalizeCityText(keyword);
     const selectedCityLabel = calendarCity
       ? [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ')
       : '';
+    const selectedCityLabelNormalized = normalizeCityText(selectedCityLabel);
 
     if (keyword.length < 2) {
       setWeatherCities([]);
+      setIsSearchingWeatherCity(false);
       return;
     }
 
-    if (selectedCityLabel && keyword.toLowerCase() === selectedCityLabel.toLowerCase()) {
+    // 输入框和已选城市一致：不需要再展示候选项。
+    if (selectedCityLabelNormalized && keywordNormalized === selectedCityLabelNormalized) {
       setWeatherCities([]);
+      setIsSearchingWeatherCity(false);
       return;
     }
+
+    const dedupeClientCities = (cities: WeatherCity[]) => {
+      const seenName = new Set<string>();
+      const seenCoord = new Set<string>();
+
+      const round3 = (num: number) => Math.round(num * 1000) / 1000;
+
+      return cities.filter((city) => {
+        const nameKey = normalizeCityText([city.name, city.admin1, city.country].filter(Boolean).join('|'));
+        const lat = Number(city.latitude);
+        const lon = Number(city.longitude);
+        const coordKey = Number.isFinite(lat) && Number.isFinite(lon)
+          ? `${round3(lat)},${round3(lon)}`
+          : '';
+
+        if (coordKey && seenCoord.has(coordKey)) return false;
+        if (nameKey && seenName.has(nameKey)) return false;
+
+        if (coordKey) seenCoord.add(coordKey);
+        if (nameKey) seenName.add(nameKey);
+        return true;
+      });
+    };
+
+    const controller = new AbortController();
 
     const timer = window.setTimeout(async () => {
       setIsSearchingWeatherCity(true);
+      setWeatherCities([]);
       try {
-        const res = await fetch(`/api/weather/search?q=${encodeURIComponent(keyword)}`);
+        const res = await fetch(`/api/weather/search?q=${encodeURIComponent(keyword)}`, {
+          signal: controller.signal,
+        });
         const data = await res.json();
-        setWeatherCities(Array.isArray(data?.results) ? data.results : []);
+        const results = Array.isArray(data?.results) ? data.results : [];
+        setWeatherCities(dedupeClientCities(results));
         setWeatherConnectionHint(typeof data?.warning === 'string' ? data.warning : '');
       } catch (error) {
+        if ((error as any)?.name === 'AbortError') return;
         setWeatherCities([]);
         setWeatherConnectionHint('城市搜索服务暂时不可用');
       } finally {
@@ -1683,7 +1728,10 @@ export default function Home() {
       }
     }, 260);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
   }, [calendarCityInput, activeFilter, calendarCity]);
 
   useEffect(() => {
@@ -3933,7 +3981,26 @@ export default function Home() {
                   setWeatherCities([]);
                 }}
                 onToggleCompleted={() => setShowCompletedInCalendar((prev) => !prev)}
-                onCityInputChange={setCalendarCityInput}
+                onCityInputChange={(value) => {
+                  setCalendarCityInput(value);
+                  // 当用户开始编辑城市关键词时，清空当前已选城市，避免输入框/候选列表/天气卡片三者状态不一致。
+                  if (calendarCity) {
+                    const normalizeCityText = (text: string) =>
+                      text
+                        .toLowerCase()
+                        .replace(/\s+/g, '')
+                        .replace(/[·•\-_,，。]/g, '');
+
+                    const selectedLabel = [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ');
+                    if (normalizeCityText(value.trim()) !== normalizeCityText(selectedLabel)) {
+                      setCalendarCity(null);
+                      setWeatherForecast(null);
+                      setWeatherConnectionHint('');
+                      setWeatherCities([]);
+                      setIsSearchingWeatherCity(false);
+                    }
+                  }
+                }}
                 onSelectCity={(city) => {
                   setCalendarCity(city);
                   setCalendarCityInput([city.name, city.admin1, city.country].filter(Boolean).join(' · '));

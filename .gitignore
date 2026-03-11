@@ -5,6 +5,7 @@ node_modules
 # Next.js build outputs / caches
 .next
 .next/cache
+*.tsbuildinfo
 
 # Optional: common OS/editor noise
 .DS_Store
