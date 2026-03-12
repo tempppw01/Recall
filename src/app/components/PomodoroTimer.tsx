@@ -214,13 +214,13 @@ export default function PomodoroTimer() {
     };
   }, []);
 
-  const handleNextPhase = () => {
+  const handleNextPhase = useCallback(() => {
     const nextIndex = (phaseIndex + 1) % cycleOrder.length;
     setPhaseIndex(nextIndex);
     setRemaining(PHASE_DURATIONS[cycleOrder[nextIndex]]);
     setIsRunning(false);
     sessionStartTimeRef.current = null;
-  };
+  }, [phaseIndex]);
 
   useEffect(() => {
     if (remaining === 0 && !isRunning) {
@@ -228,10 +228,10 @@ export default function PomodoroTimer() {
       // 这里可以处理阶段切换，给用户一个手动确认的过程会更好，但这里先自动切
       const timer = setTimeout(() => {
         handleNextPhase();
-      }, 1000); 
+      }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [remaining, isRunning]);
+  }, [remaining, isRunning, handleNextPhase]);
 
   const resetTimer = () => {
     setIsRunning(false);

@@ -376,6 +376,7 @@ const Sidebar = ({
                       className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow"
                       aria-label="打开应用菜单"
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="https://disk.shuaihong.fun/f/VPCq/home.png"
                         alt="Recall"

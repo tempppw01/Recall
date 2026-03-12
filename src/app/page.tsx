@@ -12,6 +12,7 @@ import PageTopBar from '@/app/components/home/PageTopBar';
 import ListComposerPanel from '@/app/components/home/ListComposerPanel';
 import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
+import TimelinePanel from '@/app/components/timeline/TimelinePanel';
 import LogsModal from '@/app/components/logs/LogsModal';
 import AboutModal from '@/app/components/about/AboutModal';
 import CountdownFormModal from '@/app/components/countdown/CountdownFormModal';
@@ -1780,13 +1781,9 @@ export default function Home() {
   }, [selectedTask?.id]);
 
   useEffect(() => {
-    if (selectedTask) {
-      setSelectedTask(null);
-    }
-    if (editingTaskId) {
-      setEditingTaskId(null);
-      setEditingTaskTitle('');
-    }
+    setSelectedTask(null);
+    setEditingTaskId(null);
+    setEditingTaskTitle('');
   }, [activeFilter, activeCategory, activeTag]);
 
   useEffect(() => {
@@ -2761,7 +2758,7 @@ export default function Home() {
     if (!redisHost) return;
     const intervalMs = Math.max(1, autoSyncInterval) * 60 * 1000;
     const timer = window.setInterval(() => {
-      handleWebdavSync('sync', { silent: true });
+      webdavSyncRef.current?.('sync', { silent: true });
     }, intervalMs);
     return () => window.clearInterval(timer);
   }, [autoSyncEnabled, autoSyncInterval, redisHost]);
@@ -4500,21 +4497,7 @@ export default function Home() {
               </div>
             </div>
           ) : activeFilter === 'timeline' ? (
-            <div className="stack-gap flex flex-col">
-              <div className="glass-panel rounded-[28px] p-4 sm:p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-[#DDDDDD]">时间轴（原型）</div>
-                    <div className="text-xs text-[#777777] mt-1">按时间回顾任务：已完成 / 未完成 / 过期（v0.3.3 目标）</div>
-                  </div>
-                  <span className="text-[10px] text-[#616161]">Timeline</span>
-                </div>
-                <div className="mt-4 text-sm text-[#CCCCCC] space-y-2">
-                  <p>当前仅实现入口与页面骨架，后续会补：分组、筛选、折叠、动效。</p>
-                  <div className="text-xs text-[#777777]">数据：复用现有 Task（不引入新模型）。</div>
-                </div>
-              </div>
-            </div>
+            <TimelinePanel />
           ) : activeFilter === 'quadrant' ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {quadrantGroups.map((group) => {
@@ -4743,6 +4726,7 @@ export default function Home() {
                         key={image.id}
                         className="relative w-16 h-16 rounded-lg border border-[#333333] overflow-hidden"
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={image.dataUrl}
                           alt={image.file.name}
