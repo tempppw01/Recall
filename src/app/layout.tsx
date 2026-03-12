@@ -7,23 +7,25 @@
  * - 定义全站元信息（标题、描述、图标、manifest 等）
  */
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import PWARegister from "@/app/components/PWARegister";
 import Providers from "@/app/providers";
 import "./globals.css";
+
+/** Next.js 推荐：将 viewport / themeColor 等移动到 viewport export */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1A1A1A",
+};
 
 /** 全站元信息 */
 export const metadata: Metadata = {
   title: "Recall - AI GTD",
   description: "AI-driven personal Getting Things Done system",
   manifest: "/manifest.webmanifest",
-  themeColor: "#1A1A1A",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    viewportFit: "cover",
-  },
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
