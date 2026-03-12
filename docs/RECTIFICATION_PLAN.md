@@ -19,7 +19,7 @@
 3. ✅ **保持功能不大改，只做小步稳定修复**
    - 本版本不做大规模数据层改造。
    - 目标是先把界面体验收顺，再进入结构性重构。
-   - 已补齐：lint 脚本（Next.js 16 移除 `next lint` 后改用 ESLint）、基础 typecheck 脚本。
+   - 已补齐：lint 脚本（Next.js 16 移除 `next lint` 后改用 ESLint，当前 lint 0 warning）、基础 typecheck 脚本。
    - 已校验：Docker 镜像可构建、可启动（/signin smoke 通过），并推送到 Docker Hub。
 
 4. ✅ **补充视觉表现规划：按钮特效增强**
