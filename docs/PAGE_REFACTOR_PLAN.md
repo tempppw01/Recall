@@ -240,3 +240,21 @@ src/app/
 而且应该 **先拆 UI 块，再拆状态域，再拆副作用系统**。
 
 这是最稳、返工最少的路线。
+
+---
+
+## ✅ 近期已完成的拆分进度（自动记录）
+
+- ✅ 已拆 LogsModal：`src/app/components/logs/LogsModal.tsx`
+- ✅ 已拆 AboutModal：`src/app/components/about/AboutModal.tsx`
+- ✅ 已拆 CountdownFormModal：`src/app/components/countdown/CountdownFormModal.tsx`
+- ✅ 已抽主题 hook：`src/app/hooks/useThemeSettings.ts`
+- ✅ 已新增 Timeline 面板组件（骨架）：`src/app/components/timeline/TimelinePanel.tsx`
+- ✅ 已抽任务筛选逻辑 hook：`src/app/hooks/useTaskFilters.ts`
+
+下一步建议（按风险从低到高）：
+- 抽同步域：`useSyncManager`（把 `handleWebdavSync` / autoSync effect / settings sync 收进去）
+- 抽日历域：`useCalendarState` / `useWeatherState`
+- 抽任务域：`useTaskState`（CRUD + selection + batch）
+
+> 原则：每次只抽一个域，抽完就提交；先搬迁、保持行为一致，再谈重写。
