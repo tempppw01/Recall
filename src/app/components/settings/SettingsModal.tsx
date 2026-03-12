@@ -306,7 +306,7 @@ const SettingsModal = ({
                   <button
                     type="button"
                     onClick={() => setCountdownDisplayMode('days')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
+                    className={`btn btn-sm ${
                       countdownDisplayMode === 'days'
                         ? 'bg-blue-500/20 border-blue-400 text-white'
                         : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
@@ -317,7 +317,7 @@ const SettingsModal = ({
                   <button
                     type="button"
                     onClick={() => setCountdownDisplayMode('date')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
+                    className={`btn btn-sm ${
                       countdownDisplayMode === 'date'
                         ? 'bg-blue-500/20 border-blue-400 text-white'
                         : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
@@ -339,7 +339,7 @@ const SettingsModal = ({
                         key={mode}
                         type="button"
                         onClick={() => setThemePreference(mode)}
-                        className={`px-3 py-1.5 rounded border transition-colors ${
+                        className={`btn btn-sm ${
                           themePreference === mode
                             ? 'bg-blue-500/20 border-blue-400 text-white'
                             : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
@@ -415,14 +415,14 @@ const SettingsModal = ({
                 <button
                   type="button"
                   onClick={requestNotificationPermission}
-                  className="px-3 py-2 text-[13px] sm:text-sm rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10"
+                  className="btn btn-md btn-ghost"
                 >
                   申请权限
                 </button>
                 <button
                   type="button"
                   onClick={sendTestNotification}
-                  className="px-3 py-2 text-[13px] sm:text-sm rounded-lg border border-[#333333] text-[#CCCCCC] hover:border-[#555555] hover:text-white"
+                  className="btn btn-md btn-secondary"
                 >
                   发送测试通知
                 </button>
@@ -619,7 +619,7 @@ const SettingsModal = ({
                   <button
                     type="button"
                     onClick={() => setImportMode('merge')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
+                    className={`btn btn-sm ${
                       importMode === 'merge'
                         ? 'bg-blue-500/20 border-blue-400 text-white'
                         : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
@@ -630,7 +630,7 @@ const SettingsModal = ({
                   <button
                     type="button"
                     onClick={() => setImportMode('overwrite')}
-                    className={`px-3 py-1.5 rounded border transition-colors ${
+                    className={`btn btn-sm ${
                       importMode === 'overwrite'
                         ? 'bg-blue-500/20 border-blue-400 text-white'
                         : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
