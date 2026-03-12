@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
+import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import Sidebar from '@/app/components/sidebar/Sidebar';
@@ -517,6 +518,23 @@ const isTaskOverdue = (task: Task) => {
   if (!task.dueDate) return false;
   if (task.status === 'completed') return false;
   return new Date(task.dueDate).getTime() < Date.now();
+};
+
+const isTaskDueToday = (task: Task, now: Date) => {
+  if (!task.dueDate) return false;
+  const due = new Date(task.dueDate);
+  return due.getFullYear() === now.getFullYear() && due.getMonth() === now.getMonth() && due.getDate() === now.getDate();
+};
+
+const isTaskDueWithinDays = (task: Task, now: Date, days: number) => {
+  if (!task.dueDate) return false;
+  const dueMs = new Date(task.dueDate).getTime();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + Math.max(0, days));
+  end.setHours(23, 59, 59, 999);
+  return dueMs >= start.getTime() && dueMs <= end.getTime();
 };
 
 const normalizeAgentDueDate = (value?: string) => {
@@ -2041,41 +2059,29 @@ export default function Home() {
   };
 
   // Filter Logic
-  const filteredTasks = tasks
-    .filter((t) => {
-      if (activeFilter === 'agent') return true;
-      if (activeFilter === 'completed') return t.status === 'completed';
-      if (t.status === 'completed') return false; // Hide completed in other views
+  const filterNow = new Date();
 
-      if (activeFilter === 'today') {
-        if (!t.dueDate) return false;
-        const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
-        const taskKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
-        return taskKey === todayKey;
-      }
+  const { filteredTasks, overdueCount, activeDueCount } = useTaskFilters({
+    tasks,
+    activeFilter,
+    activeCategory,
+    activeTag,
+    now: filterNow,
+    isTaskOverdue,
+    isTaskDueToday,
+    isTaskDueWithinDays,
+  });
 
-      if (activeFilter === 'category') {
-        return activeCategory ? t.category === activeCategory : true;
-      }
-
-      if (activeFilter === 'tag') {
-        return activeTag ? (t.tags || []).includes(activeTag) : true;
-      }
-
-      return true; // Default (todo/inbox/other views use full list for now)
-    });
-  const sortedTasks = sortTasks(filteredTasks, taskSortMode);
-  const groupedTasks = groupTasks(sortedTasks, taskGroupMode);
-
-  // 统计：完成率 & 拖延指数（仅用于概览展示）
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.status === 'completed').length;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const activeDueTasks = tasks.filter((task) => task.status !== 'completed' && task.dueDate);
-  const overdueTasks = activeDueTasks.filter((task) => isTaskOverdue(task)).length;
-  const procrastinationIndex = activeDueTasks.length > 0
-    ? Math.round((overdueTasks / activeDueTasks.length) * 100)
+  const activeDueTasks = activeDueCount;
+  const overdueTasks = overdueCount;
+  const procrastinationIndex = activeDueTasks > 0
+    ? Math.round((overdueTasks / activeDueTasks) * 100)
     : 0;
+
+  const sortedTasks = sortTasks(filteredTasks, taskSortMode);
+  const completedTasks = tasks.filter((task) => task.status === 'completed').length;
+  const totalTasks = tasks.length;
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const normalizeTimeoutSec = (value: number) => {
     const numeric = Number(value);
