@@ -11,6 +11,7 @@ import {
   Flame,
   GripVertical,
   Hash,
+  History,
   Inbox,
   LayoutGrid,
   Plus,
@@ -80,10 +81,10 @@ const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 480;
 const COLLAPSED_WIDTH = 56;
 
-type ToolItemKey = 'todo' | 'calendar' | 'quadrant' | 'countdown' | 'habit' | 'pomodoro' | 'completed';
+type ToolItemKey = 'todo' | 'calendar' | 'timeline' | 'quadrant' | 'countdown' | 'habit' | 'pomodoro' | 'completed';
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
-const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'completed'];
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'quadrant', 'countdown', 'habit', 'pomodoro', 'completed'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -232,6 +233,18 @@ const Sidebar = ({
         setIsSidebarOpen(false);
       },
       iconColor: 'text-cyan-400',
+    },
+    timeline: {
+      icon: History,
+      label: '时间轴',
+      count: 0,
+      active: activeFilter === 'timeline',
+      onClick: () => {
+        setActiveFilter('timeline');
+        refreshTasks();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-violet-400',
     },
     quadrant: {
       icon: LayoutGrid,
