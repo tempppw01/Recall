@@ -113,6 +113,13 @@ button {
   overscroll-behavior: contain;
 }
 
+/* Sticky header performance tweaks (especially iOS Safari with backdrop-filter) */
+.sticky-glass {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 .glass-panel {
   background: linear-gradient(180deg, rgba(34, 34, 34, 0.82), rgba(24, 24, 24, 0.72));
   border: 1px solid rgba(110, 118, 138, 0.18);

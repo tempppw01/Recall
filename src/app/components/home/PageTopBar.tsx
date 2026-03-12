@@ -40,7 +40,7 @@ export default function PageTopBar({
   onToggleTheme,
 }: PageTopBarProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-[#3A3F4B]/50 bg-[#151515]/72 backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
+    <header className="sticky top-0 z-20 sticky-glass border-b border-[#3A3F4B]/50 bg-[#151515]/72 backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
       <div className="mx-2 mt-2 rounded-2xl glass-panel-soft px-3 py-3 sm:mx-4 sm:px-4 lg:mx-6 lg:px-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 min-w-0">
