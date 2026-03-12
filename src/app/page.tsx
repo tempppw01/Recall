@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncJobPolling } from '@/app/hooks/useSyncJobPolling';
+import { executeRedisSyncJob } from '@/app/services/redisSyncClient';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
@@ -2664,31 +2665,20 @@ export default function Home() {
     try {
       const executeRequest = async (requestAction: 'push' | 'pull' | 'sync') => {
         const lastLocalChange = getLastLocalChange();
-        const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: requestAction,
-            namespace: syncNamespace,
-            redisConfig: {
-              host: redisHost,
-              port: redisPort,
-              db: redisDb,
-              password: redisPassword,
-            },
-            ...(requestAction !== 'pull'
-              ? { payload: { data: buildSyncPayload(), meta: { lastLocalChange } } }
-              : {}),
-          }),
+        const result = await executeRedisSyncJob({
+          action: requestAction,
+          namespace: syncNamespace,
+          redisConfig: {
+            host: redisHost,
+            port: Number(redisPort) || DEFAULT_REDIS_PORT,
+            db: Number(redisDb) || DEFAULT_REDIS_DB,
+            password: redisPassword || undefined,
+          },
+          payload: requestAction !== 'pull'
+            ? { data: buildSyncPayload(), meta: { lastLocalChange } }
+            : undefined,
+          pollSyncJob,
         });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data?.error || '云同步失败');
-        }
-        if (!data?.jobId) {
-          throw new Error('同步任务缺失');
-        }
-        const result = await pollSyncJob(data.jobId);
         return { ok: true, result };
       };
 
