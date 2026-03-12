@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncJobPolling } from '@/app/hooks/useSyncJobPolling';
 import { executeRedisSyncJob } from '@/app/services/redisSyncClient';
+import { applyRemoteSyncPayload } from '@/app/services/applyRemoteSyncPayload';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
@@ -2686,8 +2687,7 @@ export default function Home() {
         const data = await executeRequest('pull');
         const remotePayload = data?.result?.data;
         if (remotePayload) {
-          applyImportedData(remotePayload, 'merge');
-          applySyncedSettings(remotePayload);
+          applyRemoteSyncPayload({ remotePayload, applyImportedData, applySyncedSettings });
           if (!options?.silent) {
             pushLog('success', '云同步完成', `导入任务 ${remotePayload?.data?.tasks?.length ?? 0} 条`);
           }
@@ -2703,8 +2703,7 @@ export default function Home() {
         const data = await executeRequest('sync');
         const remotePayload = data?.result?.data;
         if (remotePayload) {
-          applyImportedData(remotePayload, 'merge');
-          applySyncedSettings(remotePayload);
+          applyRemoteSyncPayload({ remotePayload, applyImportedData, applySyncedSettings });
           const remoteLastChange = data?.result?.meta?.lastLocalChange;
           const localLastChange = getLastLocalChange();
           if (remoteLastChange && localLastChange) {
