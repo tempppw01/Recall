@@ -22,10 +22,11 @@
    - 已补齐：lint 脚本（Next.js 16 移除 `next lint` 后改用 ESLint）、基础 typecheck 脚本。
    - 已校验：Docker 镜像可构建、可启动（/signin smoke 通过），并推送到 Docker Hub。
 
-4. **补充视觉表现规划：按钮特效增强**
+4. ✅ **补充视觉表现规划：按钮特效增强**
    - 后续版本需要为主要按钮加入更明确的视觉反馈。
    - 包括但不限于：hover、press、scale、glow、渐变、阴影、状态过渡。
    - 原则是“增强质感”，不是“为了炫而炫”。
+   - 已落地：新增按钮交互规范与全局 btn 样式系统（`docs/UI_BUTTON_SYSTEM.md` + `globals.css`），并在 Settings 中开始应用。
 
 5. **补充主题系统规划：可切换整体 UI 颜色**
    - 设置中加入主题切换功能。
