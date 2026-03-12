@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
+import { useSyncJobPolling } from '@/app/hooks/useSyncJobPolling';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
@@ -1010,29 +1011,12 @@ export default function Home() {
     setLogs((prev) => [entry, ...prev].slice(0, 200));
   };
 
-  const pollSyncJob = async (jobId: string, timeoutMs = 60_000) => {
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      const syncParams = new URLSearchParams({ jobId });
-      if (redisHost) syncParams.set('redisHost', redisHost);
-      if (redisPort) syncParams.set('redisPort', redisPort);
-      if (redisDb) syncParams.set('redisDb', redisDb);
-      if (redisPassword) syncParams.set('redisPassword', redisPassword);
-      const res = await fetch(`/api/sync?${syncParams.toString()}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || '同步状态获取失败');
-      }
-      if (data.status === 'done') {
-        return data.result;
-      }
-      if (data.status === 'failed') {
-        throw new Error(data?.error || '同步失败');
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-    throw new Error('同步超时');
-  };
+  const { pollSyncJob } = useSyncJobPolling({
+    redisHost,
+    redisPort,
+    redisDb,
+    redisPassword,
+  });
 
   const persistSettings = (next: {
     apiKey: string;
