@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -208,6 +208,18 @@ const Sidebar = ({
       return next;
     });
   };
+
+  const categoryUsageMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    tasks.forEach((task) => {
+      if (!task) return;
+      if (task.status === 'completed') return;
+      const category = task.category;
+      if (!category) return;
+      map[category] = (map[category] ?? 0) + 1;
+    });
+    return map;
+  }, [tasks]);
 
   const toolConfig: Record<ToolItemKey, { icon: React.ComponentType<{ className?: string }>; label: string; count: number; active: boolean; onClick: () => void; iconColor: string }> = {
     todo: {
@@ -559,7 +571,7 @@ const Sidebar = ({
                           key={item}
                           icon={Hash}
                           label={item}
-                          count={tasks.filter((task) => task.category === item && task.status !== 'completed').length}
+                          count={categoryUsageMap[item] ?? 0}
                           active={activeFilter === 'category' && activeCategory === item}
                           onClick={() => {
                             setActiveFilter('category');
