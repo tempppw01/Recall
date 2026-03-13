@@ -3937,21 +3937,29 @@ export default function Home() {
                         const bTime = b.dueDate ? new Date(b.dueDate).getTime() : 0;
                         return aTime - bTime;
                       });
+                      const isToday = day.dateKey === todayKey;
                       return (
-                        <div key={day.dateKey} className="glass-panel-soft rounded-[24px] p-3.5 space-y-3.5">
-                          <div className="flex items-center justify-between">
+                        <div
+                          key={day.dateKey}
+                          className={`rounded-[24px] p-3.5 space-y-3.5 border ${
+                            isToday
+                              ? 'bg-blue-500/10 border-blue-400/45 shadow-[0_12px_28px_rgba(59,130,246,0.14)]'
+                              : 'glass-panel-soft border-[#3A3F4B]/45'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
                             <div>
-                              <div className="text-sm font-semibold text-[#DDDDDD]">{day.label}</div>
-                              <div className="text-[11px] text-[#777777]">周{weekdayLabels[index]}</div>
+                              <div className={`text-sm font-semibold ${isToday ? 'text-blue-100' : 'text-[#DDDDDD]'}`}>{day.label}</div>
+                              <div className={`text-[11px] ${isToday ? 'text-blue-200/80' : 'text-[#777777]'}`}>周{weekdayLabels[index]}</div>
                             </div>
-                            {day.dateKey === todayKey && (
-                              <span className="text-[10px] text-blue-300">今天</span>
+                            {isToday && (
+                              <span className="px-2 py-0.5 rounded-full bg-blue-500/18 border border-blue-400/35 text-[10px] text-blue-100">今天</span>
                             )}
                           </div>
                           {sortedTasks.length === 0 ? (
                             <div className="text-xs text-[#555555]">暂无任务</div>
                           ) : (
-                            <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-3">
+                            <div className="space-y-2.5">
                               {sortedTasks.map((task) => {
                                 const startTime = task.dueDate
                                   ? formatZonedTime(task.dueDate, getTimezoneOffset(task))
@@ -3960,16 +3968,16 @@ export default function Home() {
                                   <button
                                     key={task.id}
                                     onClick={() => setSelectedTask(task)}
-                                    className="w-full text-left bg-[#20232B]/82 border border-[#3A3F4B]/45 hover:border-[#555D6D] rounded-xl p-2.5 transition-colors"
+                                    className="w-full text-left bg-[#20232B]/84 border border-[#3A3F4B]/45 hover:border-[#5E6778] rounded-2xl px-3 py-2.5 transition-colors"
                                   >
-                                    <div className="flex items-center justify-between text-[11px] text-[#999999]">
-                                      <span>{startTime}</span>
-                                      <span className={`flex items-center gap-1 ${getPriorityColor(task.priority)}`}>
+                                    <div className="flex items-center justify-between gap-2 text-[10px] text-[#9A9A9A]">
+                                      <span className="shrink-0">{startTime}</span>
+                                      <span className={`shrink-0 flex items-center gap-1 ${getPriorityColor(task.priority)}`}>
                                         <Flag className="w-3 h-3" />
                                         {getPriorityLabel(task.priority)}
                                       </span>
                                     </div>
-                                    <div className={`text-sm mt-1 ${task.status === 'completed' ? 'line-through text-[#666666]' : 'text-[#EEEEEE]'}`}>
+                                    <div className={`text-[13px] leading-5 mt-1.5 break-words line-clamp-2 ${task.status === 'completed' ? 'line-through text-[#666666]' : 'text-[#EEEEEE]'}`}>
                                       {task.title}
                                     </div>
                                   </button>

@@ -61,13 +61,15 @@ export default function CalendarMonthGrid({
               onClick={() => onSelectDate(dateKey)}
               className={`relative h-16 rounded-2xl flex flex-col items-center justify-center text-xs transition-all border ${
                 isSelected
-                  ? 'bg-blue-600/18 border-blue-500/55 text-white shadow-[0_10px_26px_rgba(59,130,246,0.16)]'
-                  : 'border-[#3A3F4B]/45 bg-[#1E2128]/78 hover:bg-white/[0.05] hover:border-[#555D6D]'
-              } ${isToday ? 'text-blue-300' : 'text-[#D0D0D0]'}`}
+                  ? 'bg-blue-600/22 border-blue-400/70 text-white shadow-[0_12px_30px_rgba(59,130,246,0.22)]'
+                  : isToday
+                    ? 'border-blue-400/60 bg-blue-500/14 text-blue-100 shadow-[0_10px_28px_rgba(59,130,246,0.16)] hover:bg-blue-500/18 hover:border-blue-300/70'
+                    : 'border-[#3A3F4B]/45 bg-[#1E2128]/78 text-[#D0D0D0] hover:bg-white/[0.05] hover:border-[#555D6D]'
+              } ${isToday ? 'ring-1 ring-inset ring-blue-300/45' : ''}`}
             >
-              <span className="leading-none font-medium">{day}</span>
+              <span className={`leading-none ${isToday ? 'font-semibold text-blue-50' : 'font-medium'}`}>{day}</span>
               {note && (
-                <span className="absolute top-1.5 left-1.5 text-[9px] text-blue-300 leading-none max-w-[70%] truncate">{note}</span>
+                <span className={`absolute top-1.5 left-1.5 text-[9px] leading-none max-w-[70%] truncate ${isToday ? 'text-blue-100' : 'text-blue-300'}`}>{note}</span>
               )}
               <span className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${hasTasks ? 'bg-blue-400 shadow-[0_0_12px_rgba(96,165,250,0.65)]' : 'bg-transparent'}`} />
             </button>
