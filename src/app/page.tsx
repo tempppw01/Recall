@@ -3681,6 +3681,15 @@ export default function Home() {
                   setWeatherCitySearchMessage('');
                 }}
                 onToggleCompleted={() => setShowCompletedInCalendar((prev) => !prev)}
+                onCityInputFocus={() => {
+                  const keyword = calendarCityInput.trim();
+                  // 聚焦但没有有效输入时，确保候选/提示不残留。
+                  if (keyword.length < 2) {
+                    setWeatherCities([]);
+                    setWeatherCitySearchMessage('');
+                    setIsSearchingWeatherCity(false);
+                  }
+                }}
                 onCityInputChange={(value) => {
                   setCalendarCityInput(value);
                   // 当用户开始编辑城市关键词时，清空当前已选城市，避免输入框/候选列表/天气卡片三者状态不一致。
