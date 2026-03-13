@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncJobPolling } from '@/app/hooks/useSyncJobPolling';
+import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
 import { executeRedisSyncJob } from '@/app/services/redisSyncClient';
 import { applyRemoteSyncPayload } from '@/app/services/applyRemoteSyncPayload';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
