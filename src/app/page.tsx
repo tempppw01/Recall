@@ -9,6 +9,7 @@ import { usePgMirrorSync } from '@/app/hooks/usePgMirrorSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { buildExportPayload as buildExportPayloadData, buildSyncPayload as buildSyncPayloadData } from '@/app/services/syncPayload';
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
+import { resolveSyncedSettings } from '@/app/services/syncedSettings';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
@@ -2403,45 +2404,59 @@ export default function Home() {
   });
 
   const applySyncedSettings = (payload: any) => {
-    const settings = payload?.settings ?? {};
-    const secrets = payload?.secrets ?? {};
-
-    const nextApiBaseUrl = settings.apiBaseUrl || DEFAULT_BASE_URL;
-    const nextModelListText = settings.modelListText || DEFAULT_MODEL_LIST.join('\n');
-    const nextChatModel = settings.chatModel || DEFAULT_MODEL_LIST[0];
-    const nextFallback = Number.isFinite(Number(settings.fallbackTimeoutSec))
-      ? Number(settings.fallbackTimeoutSec)
-      : DEFAULT_FALLBACK_TIMEOUT_SEC;
-    const nextAutoSyncEnabled = settings.autoSyncEnabled === true;
-    const nextAutoSyncInterval = Number(settings.autoSyncInterval) || DEFAULT_AUTO_SYNC_INTERVAL_MIN;
-    const nextCountdownDisplayMode = settings.countdownDisplayMode === 'date' ? 'date' : 'days';
-    const nextAiRetentionDays = Math.max(1, Math.min(3, Number(settings.aiRetentionDays) || 1));
-
-    setApiBaseUrl(nextApiBaseUrl);
-    setModelListText(nextModelListText);
-    setChatModel(nextChatModel);
-    setFallbackTimeoutSec(nextFallback);
-    setAutoSyncEnabled(nextAutoSyncEnabled);
-    setAutoSyncInterval(nextAutoSyncInterval);
-    setCountdownDisplayMode(nextCountdownDisplayMode);
-    setAiRetentionDays(nextAiRetentionDays);
-
-    const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : apiKey;
-    const nextPgHost = typeof settings.pgHost === 'string' ? settings.pgHost : pgHost;
-    const nextPgPort = typeof settings.pgPort === 'string' ? settings.pgPort : pgPort;
-    const nextPgDatabase = typeof settings.pgDatabase === 'string' ? settings.pgDatabase : pgDatabase;
-    const nextPgUsername = typeof settings.pgUsername === 'string' ? settings.pgUsername : pgUsername;
-    const nextPgPassword = typeof secrets.pgPassword === 'string' ? secrets.pgPassword : pgPassword;
-    const nextRedisHost = typeof settings.redisHost === 'string' ? settings.redisHost : redisHost;
-    const nextRedisPort = typeof settings.redisPort === 'string' ? settings.redisPort : redisPort;
-    const nextRedisDb = typeof settings.redisDb === 'string' ? settings.redisDb : redisDb;
-    const nextRedisPassword = typeof secrets.redisPassword === 'string' ? secrets.redisPassword : redisPassword;
-    const nextCalendarSubscription = typeof settings.calendarSubscription === 'string'
-      ? settings.calendarSubscription
-      : calendarSubscription;
-    const nextSyncNamespace = typeof settings.syncNamespace === 'string' && settings.syncNamespace.trim().length > 0
-      ? settings.syncNamespace
-      : syncNamespace;
+    const {
+      nextApiBaseUrl,
+      nextModelListText,
+      nextChatModel,
+      nextFallback,
+      nextAutoSyncEnabled,
+      nextAutoSyncInterval,
+      nextCountdownDisplayMode,
+      nextAiRetentionDays,
+      nextApiKey,
+      nextPgHost,
+      nextPgPort,
+      nextPgDatabase,
+      nextPgUsername,
+      nextPgPassword,
+      nextRedisHost,
+      nextRedisPort,
+      nextRedisDb,
+      nextRedisPassword,
+      nextCalendarSubscription,
+      nextSyncNamespace,
+    } = resolveSyncedSettings({
+      payload,
+      current: {
+        apiBaseUrl,
+        modelListText,
+        chatModel,
+        fallbackTimeoutSec,
+        autoSyncEnabled,
+        autoSyncInterval,
+        countdownDisplayMode,
+        aiRetentionDays,
+        apiKey,
+        pgHost,
+        pgPort,
+        pgDatabase,
+        pgUsername,
+        pgPassword,
+        redisHost,
+        redisPort,
+        redisDb,
+        redisPassword,
+        calendarSubscription,
+        syncNamespace,
+      },
+      defaults: {
+        defaultApiBaseUrl: DEFAULT_BASE_URL,
+        defaultModelListText: DEFAULT_MODEL_LIST.join('\n'),
+        defaultChatModel: DEFAULT_MODEL_LIST[0],
+        defaultFallbackTimeoutSec: DEFAULT_FALLBACK_TIMEOUT_SEC,
+        defaultAutoSyncIntervalMin: DEFAULT_AUTO_SYNC_INTERVAL_MIN,
+      },
+    });
 
     setApiKey(nextApiKey);
     setPgHost(nextPgHost);
