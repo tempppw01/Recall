@@ -89,3 +89,27 @@ docker run --rm -p 3000:3789 34v0wphix/recall:latest
 ## 说明
 
 如果你希望“只有打 Git tag 才发版本号标签，而 push main 只发 latest”，也可以再改一版。
+
+
+### Compose 连接远程 PostgreSQL
+
+如果你不想在 Compose 里启动本地 `postgres`，可以直接给 `app` 提供远程库连接：
+
+```bash
+export DB_HOST=your-remote-pg-host
+export DB_PORT=5432
+export DB_NAME=recall
+export DB_USER=postgres
+export DB_PASSWORD=your-password
+export NEXTAUTH_URL=http://localhost:3789
+export NEXTAUTH_SECRET=your-strong-secret
+
+docker compose up -d
+```
+
+或者直接传完整连接串：
+
+```bash
+export DATABASE_URL='postgresql://postgres:your-password@your-remote-pg-host:5432/recall'
+docker compose up -d
+```

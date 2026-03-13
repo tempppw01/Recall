@@ -5,14 +5,15 @@ services:
     image: postgres:16-alpine
     container_name: recall_postgres
     restart: always
+    profiles: ["local-db"]
     environment:
-      POSTGRES_DB: recall
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-recall}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - recall_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d recall"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-recall}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -23,9 +24,6 @@ services:
     container_name: recall_app
     image: 34v0wphix/recall:latest
     restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "3789:3789"
     environment:
@@ -34,7 +32,8 @@ services:
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3789}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-in-prod}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/recall}
+      # 默认连远程/外部 PG；若使用内置 postgres profile，可把 DB_HOST 设为 postgres
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-recall}}
     networks:
       - recall_network
 

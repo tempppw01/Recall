@@ -91,12 +91,15 @@ docker run -d \
 
 ### 2) Docker Compose 示例
 
+#### 方案 A：使用内置 PostgreSQL（推荐本地自部署）
+
 ```yaml
 version: '3.8'
 
 services:
   postgres:
     image: postgres:16-alpine
+    profiles: ["local-db"]
     environment:
       POSTGRES_DB: recall
       POSTGRES_USER: postgres
@@ -105,9 +108,6 @@ services:
   app:
     image: 34v0wphix/recall:latest
     restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "3789:3789"
     environment:
@@ -117,8 +117,38 @@ services:
 ```
 
 ```bash
+docker compose --profile local-db up -d
+```
+
+#### 方案 B：连接远程 PostgreSQL
+
+```yaml
+version: '3.8'
+
+services:
+  app:
+    image: 34v0wphix/recall:latest
+    restart: always
+    ports:
+      - "3789:3789"
+    environment:
+      NEXTAUTH_URL: http://localhost:3789
+      NEXTAUTH_SECRET: change-me-in-prod
+      DATABASE_URL: postgresql://USERNAME:PASSWORD@REMOTE_HOST:5432/recall
+```
+
+```bash
 docker compose up -d
 ```
+
+也可以不直接写完整 `DATABASE_URL`，而是用下面这些变量组合：
+
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+
 
 ---
 
