@@ -841,6 +841,7 @@ export default function Home() {
   const [calendarCityInput, setCalendarCityInput] = useState('');
   const [calendarCity, setCalendarCity] = useState<WeatherCity | null>(null);
   const [weatherCities, setWeatherCities] = useState<WeatherCity[]>([]);
+  const [weatherCitySearchMessage, setWeatherCitySearchMessage] = useState('');
   const [isSearchingWeatherCity, setIsSearchingWeatherCity] = useState(false);
   const [weatherForecast, setWeatherForecast] = useState<WeatherForecast | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -1527,13 +1528,15 @@ export default function Home() {
 
     if (keyword.length < 2) {
       setWeatherCities([]);
+      setWeatherCitySearchMessage('');
       setIsSearchingWeatherCity(false);
       return;
     }
 
-    // 输入框和已选城市一致：不需要再展示候选项。
+    // 输入框和已选城市一致：不需要再展示候选项，也不显示“未找到”类提示。
     if (selectedCityLabelNormalized && keywordNormalized === selectedCityLabelNormalized) {
       setWeatherCities([]);
+      setWeatherCitySearchMessage('');
       setIsSearchingWeatherCity(false);
       return;
     }
@@ -1566,17 +1569,21 @@ export default function Home() {
     const timer = window.setTimeout(async () => {
       setIsSearchingWeatherCity(true);
       setWeatherCities([]);
+      setWeatherCitySearchMessage('');
       try {
         const res = await fetch(`/api/weather/search?q=${encodeURIComponent(keyword)}`, {
           signal: controller.signal,
         });
         const data = await res.json();
         const results = Array.isArray(data?.results) ? data.results : [];
-        setWeatherCities(dedupeClientCities(results));
+        const dedupedResults = dedupeClientCities(results);
+        setWeatherCities(dedupedResults);
+        setWeatherCitySearchMessage(dedupedResults.length === 0 ? '未找到匹配城市' : '');
         setWeatherConnectionHint(typeof data?.warning === 'string' ? data.warning : '');
       } catch (error) {
         if ((error as any)?.name === 'AbortError') return;
         setWeatherCities([]);
+        setWeatherCitySearchMessage('城市搜索服务暂时不可用');
         setWeatherConnectionHint('城市搜索服务暂时不可用');
       } finally {
         setIsSearchingWeatherCity(false);
@@ -3660,6 +3667,7 @@ export default function Home() {
                 calendarCityInput={calendarCityInput}
                 isSearchingWeatherCity={isSearchingWeatherCity}
                 weatherCities={weatherCities}
+                weatherCitySearchMessage={weatherCitySearchMessage}
                 selectedCalendarLabel={selectedCalendarLabel}
                 cityLabel={calendarCity ? [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ') : '请先搜索并选择城市'}
                 weatherLoading={weatherLoading}
@@ -3670,6 +3678,7 @@ export default function Home() {
                 onViewChange={(view) => {
                   setCalendarView(view);
                   setWeatherCities([]);
+                  setWeatherCitySearchMessage('');
                 }}
                 onToggleCompleted={() => setShowCompletedInCalendar((prev) => !prev)}
                 onCityInputChange={(value) => {
@@ -3688,6 +3697,7 @@ export default function Home() {
                       setWeatherForecast(null);
                       setWeatherConnectionHint('');
                       setWeatherCities([]);
+                      setWeatherCitySearchMessage('');
                       setIsSearchingWeatherCity(false);
                     }
                   }
@@ -3698,6 +3708,7 @@ export default function Home() {
                   setWeatherForecast(null);
                   setWeatherConnectionHint('');
                   setWeatherCities([]);
+                  setWeatherCitySearchMessage('');
                 }}
               />
 

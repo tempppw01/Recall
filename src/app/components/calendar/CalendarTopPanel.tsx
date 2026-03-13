@@ -19,6 +19,7 @@ type CalendarTopPanelProps = {
   calendarCityInput: string;
   isSearchingWeatherCity: boolean;
   weatherCities: WeatherCity[];
+  weatherCitySearchMessage?: string;
   selectedCalendarLabel: string;
   cityLabel: string;
   weatherLoading: boolean;
@@ -44,6 +45,7 @@ export default function CalendarTopPanel({
   calendarCityInput,
   isSearchingWeatherCity,
   weatherCities,
+  weatherCitySearchMessage,
   selectedCalendarLabel,
   cityLabel,
   weatherLoading,
@@ -56,7 +58,8 @@ export default function CalendarTopPanel({
   onCityInputChange,
   onSelectCity,
 }: CalendarTopPanelProps) {
-  const showCityDropdown = isSearchingWeatherCity || weatherCities.length > 0;
+  const showCityDropdown =
+    isSearchingWeatherCity || weatherCities.length > 0 || Boolean(weatherCitySearchMessage);
 
   return (
     <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-5">
@@ -112,7 +115,7 @@ export default function CalendarTopPanel({
             <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 rounded-2xl border border-[#3A3F4B]/50 bg-[#171717]/92 backdrop-blur-xl max-h-56 overflow-y-auto shadow-[0_16px_40px_rgba(0,0,0,0.24)]">
               {isSearchingWeatherCity ? (
                 <div className="px-3 py-2 text-xs text-[#777777]">城市搜索中…</div>
-              ) : (
+              ) : weatherCities.length > 0 ? (
                 weatherCities.map((city) => (
                   <button
                     key={city.id}
@@ -122,7 +125,9 @@ export default function CalendarTopPanel({
                     {[city.name, city.admin1, city.country].filter(Boolean).join(' · ')}
                   </button>
                 ))
-              )}
+              ) : weatherCitySearchMessage ? (
+                <div className="px-3 py-2 text-xs text-[#777777]">{weatherCitySearchMessage}</div>
+              ) : null}
             </div>
           )}
         </div>
