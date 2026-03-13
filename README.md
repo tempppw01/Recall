@@ -95,12 +95,25 @@ docker run -d \
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: recall
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
   app:
     image: 34v0wphix/recall:latest
-    container_name: recall_app
     restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "3789:3789"
+    environment:
+      NEXTAUTH_URL: http://localhost:3789
+      NEXTAUTH_SECRET: change-me-in-prod
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/recall
 ```
 
 ```bash
@@ -116,12 +129,15 @@ docker compose up -d
 | `OPENAI_API_KEY` | AI 接口密钥 | - |
 | `OPENAI_BASE_URL` | AI 接口地址 | `https://ai.shuaihong.fun/v1` |
 | `EMBEDDING_PROVIDER` | 向量提供商（`openai` / `local`） | `openai` |
+| `NEXTAUTH_URL` | NextAuth 对外访问地址 | `http://localhost:3789` |
+| `NEXTAUTH_SECRET` | NextAuth 密钥（生产必须覆盖） | `change-me-in-prod` |
+| `DATABASE_URL` | 服务端数据库连接串（默认 PostgreSQL） | `postgresql://postgres:postgres@postgres:5432/recall` |
 | `REDIS_HOST` | Redis 主机 | - |
 | `REDIS_PORT` | Redis 端口 | `6379` |
 | `REDIS_DB` | Redis 数据库编号 | `0` |
 | `REDIS_PASSWORD` | Redis 密码 | - |
 
-> 以上均为可选；不配置时，项目依然可以以本地模式运行。
+> 当前默认服务端模式为 **PostgreSQL**。浏览器端仍保留 LocalStorage 体验，但 Docker / Prisma / 鉴权链路统一按 PostgreSQL 描述。
 
 ---
 

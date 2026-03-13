@@ -55,9 +55,10 @@
    - 展示版本、包版本、发布说明保持一致。
    - 建议后续以 `package.json` 为单一来源，前端构建时注入展示版本。
 
-2. **修复数据库配置不一致（Prisma vs Docker）**
-   - 当前 `prisma/schema.prisma` 使用 `postgresql`，但 Docker 默认 `DATABASE_URL=file:...`（SQLite 风格）。
-   - 明确一条默认链路（建议默认 PostgreSQL，或改为真正 SQLite 二选一），避免“能构建不能运行”。
+2. ✅ **修复数据库配置不一致（Prisma vs Docker）**
+   - 已统一默认服务端数据库链路为 **PostgreSQL**。
+   - `prisma/schema.prisma`、`Dockerfile`、`docker-compose.yml`、README 与部署文档已一致。
+   - 浏览器 LocalStorage 仍保留，但被明确归类为本地模式，不再与服务端默认 DB 方案混淆。
 
 3. **梳理鉴权与动态 PG 连接边界**
    - 现状中通过 `x-pg-*` 请求头可进入动态连接分支，需确认是否可绕过标准登录流程。

@@ -84,9 +84,9 @@
 ## 具体整改项
 
 ### P0
-- [ ] 确定默认数据库方案（PostgreSQL / SQLite 二选一）
-- [ ] 统一 `schema.prisma`、`Dockerfile`、README、环境变量说明
-- [ ] 写清“本地模式 / 服务端模式”文档
+- [x] 确定默认数据库方案：**PostgreSQL**
+- [x] 统一 `schema.prisma`、`Dockerfile`、README、`docker-compose.yml`、环境变量说明
+- [x] 写清“本地模式 / 服务端模式”文档（本地浏览器 LocalStorage；服务端 / Docker 默认 PostgreSQL）
 
 ### P1
 - [ ] 审查 `src/lib/prisma.ts` 动态 client 创建策略
@@ -104,3 +104,10 @@
 - Docker 部署与 Prisma schema 不冲突
 - 不再出现“构建像 SQLite、Schema 像 PostgreSQL”的混乱状态
 - 关键 API 的数据库行为可预测、可描述、可调试
+
+
+## 当前结论（已执行）
+
+- Prisma schema 继续保持 `postgresql`，不再与 Docker 默认值冲突。
+- Docker / Compose 默认服务端部署链路统一为 PostgreSQL。
+- 轻量体验仍然存在，但定义为**浏览器本地模式**，不再伪装成 SQLite 服务端默认模式。

@@ -10,7 +10,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV DATABASE_URL="file:./data/recall.db"
+ENV DATABASE_URL="postgresql://postgres:postgres@postgres:5432/recall"
 RUN mkdir -p /app/data
 RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -25,7 +25,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # NextAuth 在 production 必须设置 secret，否则 /api/auth/session 会 500。
 # 生产部署请务必覆盖该值（不要使用默认值）。
 ENV NEXTAUTH_SECRET="change-me-in-prod"
-ENV DATABASE_URL="file:./data/recall.db"
+ENV DATABASE_URL="postgresql://postgres:postgres@postgres:5432/recall"
 ENV PORT=3789
 ENV HOSTNAME="0.0.0.0"
 
