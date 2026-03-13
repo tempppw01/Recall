@@ -1501,6 +1501,15 @@ export default function Home() {
 
 
 
+
+  // clearWeatherCitySearchStateOnLeave: 避免切换到其他页面后残留候选框/提示。
+  useEffect(() => {
+    if (activeFilter === 'calendar') return;
+    setWeatherCities([]);
+    setWeatherCitySearchMessage('');
+    setIsSearchingWeatherCity(false);
+  }, [activeFilter]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!calendarCity) {
@@ -1579,12 +1588,12 @@ export default function Home() {
         const dedupedResults = dedupeClientCities(results);
         setWeatherCities(dedupedResults);
         setWeatherCitySearchMessage(dedupedResults.length === 0 ? '未找到匹配城市' : '');
-        setWeatherConnectionHint(typeof data?.warning === 'string' ? data.warning : '');
+        
       } catch (error) {
         if ((error as any)?.name === 'AbortError') return;
         setWeatherCities([]);
         setWeatherCitySearchMessage('城市搜索服务暂时不可用');
-        setWeatherConnectionHint('城市搜索服务暂时不可用');
+        
       } finally {
         setIsSearchingWeatherCity(false);
       }
@@ -3671,8 +3680,8 @@ export default function Home() {
                 selectedCalendarLabel={selectedCalendarLabel}
                 cityLabel={calendarCity ? [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ') : '请先搜索并选择城市'}
                 weatherLoading={weatherLoading}
-                weatherSummaryLabel={weatherForecast?.weatherText || weatherSummary.label}
-                weatherTemperatureText={typeof weatherForecast?.tempMin === 'number' && typeof weatherForecast?.tempMax === 'number' ? `${Math.round(weatherForecast.tempMin)}° ~ ${Math.round(weatherForecast.tempMax)}°` : '--'}
+                weatherSummaryLabel={calendarCity ? (weatherForecast?.weatherText || weatherSummary.label) : '请先选择城市'}
+                weatherTemperatureText={calendarCity && typeof weatherForecast?.tempMin === 'number' && typeof weatherForecast?.tempMax === 'number' ? `${Math.round(weatherForecast.tempMin)}° ~ ${Math.round(weatherForecast.tempMax)}°` : '--'}
                 weatherHintText={weatherConnectionHint}
                 weatherIcon={<SelectedWeatherIcon className="w-5 h-5 text-blue-300" />}
                 onViewChange={(view) => {
