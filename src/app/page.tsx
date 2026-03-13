@@ -5,6 +5,7 @@ import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
 import { usePgBootstrapSync } from '@/app/hooks/usePgBootstrapSync';
+import { usePgMirrorSync } from '@/app/hooks/usePgMirrorSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
@@ -852,6 +853,18 @@ export default function Home() {
   const [pgDatabase, setPgDatabase] = useState('');
   const [pgUsername, setPgUsername] = useState('');
   const [pgPassword, setPgPassword] = useState('');
+
+  const { syncToPg } = usePgMirrorSync({
+    enabled: Boolean(pgHost),
+    config: {
+      pgHost,
+      pgPort,
+      pgDatabase,
+      pgUsername,
+      pgPassword,
+    },
+    pushLog,
+  });
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [redisHost, setRedisHost] = useState('');
   const [redisPort, setRedisPort] = useState(String(DEFAULT_REDIS_PORT));
@@ -1013,11 +1026,11 @@ export default function Home() {
     handleThemeToggle,
   } = useThemeSettings();
 
-  const pushLog = (
+  function pushLog(
     level: 'info' | 'success' | 'warning' | 'error',
     message: string,
     detail?: string,
-  ) => {
+  ) {
     const entry = {
       id: createId(),
       level,
@@ -1026,7 +1039,7 @@ export default function Home() {
       timestamp: new Date().toLocaleString('zh-CN', { hour12: false }),
     };
     setLogs((prev) => [entry, ...prev].slice(0, 200));
-  };
+  }
 
 
   const persistSettings = (next: {
@@ -3032,35 +3045,9 @@ export default function Home() {
       setLoading(false);
     }
   };
-
-  const syncToPg = async (type: 'tasks' | 'habits' | 'countdowns', method: 'POST' | 'PUT' | 'DELETE', data: any) => {
-    if (!pgHost) return;
-    try {
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-pg-host': pgHost,
-        'x-pg-port': pgPort || '5432',
-        'x-pg-database': pgDatabase,
-        'x-pg-username': pgUsername,
-        'x-pg-password': pgPassword,
-      };
       
-      // 构建 URL，如果是 PUT/DELETE 可能需要 ID
-      let url = `/api/${type}`;
-      if ((method === 'PUT' || method === 'DELETE') && data.id) {
-        url = `/api/${type}/${data.id}`;
-      }
 
-      await fetch(url, {
-        method,
-        headers,
-        body: method !== 'DELETE' ? JSON.stringify(data) : undefined,
-      });
-    } catch (error) {
-      console.error(`Failed to sync ${type} to PG`, error);
-      pushLog('error', 'PG 同步失败', String(error));
-    }
-  };
+
 
   const updateTask = (updatedTask: Task) => {
     const now = new Date().toISOString();
