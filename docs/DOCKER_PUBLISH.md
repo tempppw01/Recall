@@ -35,6 +35,23 @@
 docker run --rm -p 43100:3789 34v0wphix/recall:latest
 ```
 
+### NextAuth 环境变量（避免 /api/auth/session 500）
+
+NextAuth 在 `NODE_ENV=production` 下 **必须** 配置 `NEXTAUTH_SECRET`，否则会出现：
+
+- `/api/auth/session` 500
+- `[next-auth][error][NO_SECRET]`
+
+示例：
+
+```bash
+docker run --rm \
+  -p 43100:3789 \
+  -e NEXTAUTH_URL=http://localhost:43100 \
+  -e NEXTAUTH_SECRET="your-strong-secret" \
+  34v0wphix/recall:latest
+```
+
 如果你希望对外暴露 3000，也可以这样做：
 
 ```bash
