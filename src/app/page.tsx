@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncJobPolling } from '@/app/hooks/useSyncJobPolling';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
+import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { executeRedisSyncJob } from '@/app/services/redisSyncClient';
 import { applyRemoteSyncPayload } from '@/app/services/applyRemoteSyncPayload';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
@@ -38,8 +39,6 @@ const DEFAULT_REDIS_DB = 0;
 const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
 const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
-const APP_VERSION_KEY = 'recall_app_version';
 const DEFAULT_TASK_SEED_KEY = 'recall_default_tasks_seeded';
 const LISTS_KEY = 'recall_lists';
 const WEBDAV_URL_KEY = 'recall_webdav_url';
@@ -1224,12 +1223,12 @@ export default function Home() {
   // Load Initial Data
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const cachedVersion = localStorage.getItem(APP_VERSION_KEY);
+      const cachedVersion = localStorage.getItem(APP_VERSION_STORAGE_KEY);
       if (cachedVersion !== APP_VERSION) {
         try {
           // 升级版本时仅清理业务数据，保留用户配置与同步信息，避免升级后丢失设置
           const keysToPreserve = new Set([
-            APP_VERSION_KEY,
+            APP_VERSION_STORAGE_KEY,
             'recall_api_key',
             'recall_api_base_url',
             'recall_model_list',
@@ -1267,7 +1266,7 @@ export default function Home() {
           preservedEntries.forEach(([key, value]) => {
             if (value !== null) localStorage.setItem(key, value);
           });
-          localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
+          localStorage.setItem(APP_VERSION_STORAGE_KEY, APP_VERSION);
         } catch (error) {
           console.error('Failed to migrate localStorage version', error);
         }
