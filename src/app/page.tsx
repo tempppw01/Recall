@@ -2,11 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
-import { useSyncJobPolling } from '@/app/hooks/useSyncJobPolling';
+import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
-import { executeRedisSyncJob } from '@/app/services/redisSyncClient';
-import { applyRemoteSyncPayload } from '@/app/services/applyRemoteSyncPayload';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
@@ -864,8 +862,24 @@ export default function Home() {
   const [autoSyncInterval, setAutoSyncInterval] = useState(DEFAULT_AUTO_SYNC_INTERVAL_MIN);
   const [countdownDisplayMode, setCountdownDisplayMode] = useState<CountdownDisplayMode>('days');
   const [aiRetentionDays, setAiRetentionDays] = useState(1);
-  const [isSyncingNow, setIsSyncingNow] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
+
+
+  const syncManager = useSyncManager({
+    redisHost,
+    redisPort: Number(redisPort) || DEFAULT_REDIS_PORT,
+    redisDb: Number(redisDb) || DEFAULT_REDIS_DB,
+    redisPassword,
+    syncNamespace,
+    autoSyncEnabled,
+    autoSyncIntervalMin: autoSyncInterval,
+    buildSyncPayload: () => buildSyncPayload(),
+    getLastLocalChange: () => getLastLocalChange(),
+    applyImportedData: (payload, mode) => applyImportedData(payload, mode),
+    applySyncedSettings: (payload) => applySyncedSettings(payload),
+    pushLog: (level, title, detail, extra) => pushLog(level, title, detail, extra),
+    onNeedSettings: () => setShowSettings(true),
+  });
+  const { syncStatus, isSyncingNow } = syncManager;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(240); // PC端侧边栏宽度（像素）
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // PC端侧边栏是否折叠
@@ -1013,12 +1027,6 @@ export default function Home() {
     setLogs((prev) => [entry, ...prev].slice(0, 200));
   };
 
-  const { pollSyncJob } = useSyncJobPolling({
-    redisHost,
-    redisPort,
-    redisDb,
-    redisPassword,
-  });
 
   const persistSettings = (next: {
     apiKey: string;
@@ -2649,100 +2657,9 @@ export default function Home() {
   };
 
   const handleWebdavSync = async (action: 'push' | 'pull' | 'sync', options?: { silent?: boolean }) => {
-    if (syncStatus === 'syncing') return;
-    if (!redisHost) {
-      if (!options?.silent) {
-        pushLog('warning', 'Redis 配置不完整', '请填写 Redis Host 以开启云同步');
-        setShowSettings(true);
-      }
-      return;
-    }
-
-    setSyncStatus('syncing');
-    setIsSyncingNow(true);
-    if (!options?.silent) {
-      const label = action === 'push' ? '云同步上传中' : action === 'pull' ? '云同步拉取中' : '云同步合并中';
-      pushLog('info', label);
-    }
-
-    try {
-      const executeRequest = async (requestAction: 'push' | 'pull' | 'sync') => {
-        const lastLocalChange = getLastLocalChange();
-        const result = await executeRedisSyncJob({
-          action: requestAction,
-          namespace: syncNamespace,
-          redisConfig: {
-            host: redisHost,
-            port: Number(redisPort) || DEFAULT_REDIS_PORT,
-            db: Number(redisDb) || DEFAULT_REDIS_DB,
-            password: redisPassword || undefined,
-          },
-          payload: requestAction !== 'pull'
-            ? { data: buildSyncPayload(), meta: { lastLocalChange } }
-            : undefined,
-          pollSyncJob,
-        });
-        return { ok: true, result };
-      };
-
-      if (action === 'pull') {
-        const data = await executeRequest('pull');
-        const remotePayload = data?.result?.data;
-        if (remotePayload) {
-          applyRemoteSyncPayload({ remotePayload, applyImportedData, applySyncedSettings });
-          if (!options?.silent) {
-            pushLog('success', '云同步完成', `导入任务 ${remotePayload?.data?.tasks?.length ?? 0} 条`);
-          }
-        } else if (!options?.silent) {
-          pushLog('warning', '云同步失败', '未读取到远端数据');
-        }
-      } else if (action === 'push') {
-        await executeRequest('push');
-        if (!options?.silent) {
-          pushLog('success', '云同步上传完成');
-        }
-      } else {
-        const data = await executeRequest('sync');
-        const remotePayload = data?.result?.data;
-        if (remotePayload) {
-          applyRemoteSyncPayload({ remotePayload, applyImportedData, applySyncedSettings });
-          const remoteLastChange = data?.result?.meta?.lastLocalChange;
-          const localLastChange = getLastLocalChange();
-          if (remoteLastChange && localLastChange) {
-            const remoteMs = new Date(remoteLastChange).getTime();
-            const localMs = new Date(localLastChange).getTime();
-            if (remoteMs > localMs && !options?.silent) {
-              pushLog('info', '检测到远端更新，已合并', remoteLastChange);
-            }
-          }
-        } else if (!options?.silent) {
-          pushLog('warning', '云同步失败', '未读取到远端数据');
-        }
-        if (!options?.silent) {
-          pushLog('success', '云同步完成', '已完成服务端合并');
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      if (!options?.silent) {
-        pushLog('error', '云同步失败', String((error as Error)?.message || error));
-      }
-    } finally {
-      setSyncStatus('idle');
-      setIsSyncingNow(false);
-    }
+    await syncManager.handleSync(action, options);
   };
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!autoSyncEnabled) return;
-    if (!redisHost) return;
-    const intervalMs = Math.max(1, autoSyncInterval) * 60 * 1000;
-    const timer = window.setInterval(() => {
-      webdavSyncRef.current?.('sync', { silent: true });
-    }, intervalMs);
-    return () => window.clearInterval(timer);
-  }, [autoSyncEnabled, autoSyncInterval, redisHost]);
 
   const triggerDownload = (filename: string, content: string) => {
     if (typeof window === 'undefined') return;
