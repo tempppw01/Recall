@@ -1544,6 +1544,10 @@ export default function Home() {
 
     // 输入框和已选城市一致：不需要再展示候选项，也不显示“未找到”类提示。
     if (selectedCityLabelNormalized && keywordNormalized === selectedCityLabelNormalized) {
+      // 保持输入框与已选城市标签一致（避免用户输入不同分隔符/空格导致视觉不一致）。
+      if (selectedCityLabel && keyword.trim() != selectedCityLabel) {
+        setCalendarCityInput(selectedCityLabel);
+      }
       setWeatherCities([]);
       setWeatherCitySearchMessage('');
       setIsSearchingWeatherCity(false);
@@ -3713,6 +3717,7 @@ export default function Home() {
                     if (normalizeCityText(value.trim()) !== normalizeCityText(selectedLabel)) {
                       setCalendarCity(null);
                       setWeatherForecast(null);
+                      setWeatherLoading(false);
                       setWeatherConnectionHint('');
                       setWeatherCities([]);
                       setWeatherCitySearchMessage('');
@@ -3723,7 +3728,9 @@ export default function Home() {
                 onSelectCity={(city) => {
                   setCalendarCity(city);
                   setCalendarCityInput([city.name, city.admin1, city.country].filter(Boolean).join(' · '));
+                  // 先进入 loading，避免旧的天气状态在下一次 effect 触发前短暂残留。
                   setWeatherForecast(null);
+                  setWeatherLoading(true);
                   setWeatherConnectionHint('');
                   setWeatherCities([]);
                   setWeatherCitySearchMessage('');
