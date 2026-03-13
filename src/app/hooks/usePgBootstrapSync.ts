@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 type ItemBase = { id: string; updatedAt?: string; createdAt?: string };
 
@@ -50,6 +50,14 @@ const mergeData = <T extends ItemBase>(local: T[], remote: T[]) => {
   return { merged: Array.from(map.values()), hasChange };
 };
 
+/**
+ * PG 引导同步（bootstrap）
+ *
+ * 重要：该 hook 会触发 setState（setTasks/setHabits/setCountdowns），因此不能把 pushLog / setter 本身作为 useEffect 依赖，
+ * 否则会在每次 render 时反复触发，导致“日志里一直在连接 PG 数据库”。
+ *
+ * 这里采用 ref 保存外部函数，并将 effect 依赖收敛到 PG 配置本身。
+ */
 export function usePgBootstrapSync<TTask extends ItemBase, THabit extends ItemBase, TCountdown extends ItemBase>(
   params: UsePgBootstrapSyncParams<TTask, THabit, TCountdown>,
 ) {
@@ -69,8 +77,34 @@ export function usePgBootstrapSync<TTask extends ItemBase, THabit extends ItemBa
     setCountdowns,
   } = params;
 
+  const pushLogRef = useRef(pushLog);
+  const setTasksRef = useRef(setTasks);
+  const setHabitsRef = useRef(setHabits);
+  const setCountdownsRef = useRef(setCountdowns);
+
+  useEffect(() => {
+    pushLogRef.current = pushLog;
+  }, [pushLog]);
+  useEffect(() => {
+    setTasksRef.current = setTasks;
+  }, [setTasks]);
+  useEffect(() => {
+    setHabitsRef.current = setHabits;
+  }, [setHabits]);
+  useEffect(() => {
+    setCountdownsRef.current = setCountdowns;
+  }, [setCountdowns]);
+
+  const lastRunKeyRef = useRef<string>('');
+
   useEffect(() => {
     if (!enabled || !pgHost) return;
+
+    const key = [pgHost, pgPort || '5432', pgDatabase, pgUsername].join('|');
+    if (lastRunKeyRef.current === key) {
+      return;
+    }
+    lastRunKeyRef.current = key;
 
     const headers = {
       'x-pg-host': pgHost,
@@ -93,7 +127,7 @@ export function usePgBootstrapSync<TTask extends ItemBase, THabit extends ItemBa
           if (Array.isArray(remoteTasks)) {
             const localTasks = taskStore.getAll();
             if (remoteTasks.length === 0 && localTasks.length > 0) {
-              pushLog('info', 'PG 数据库为空', '正在上传本地数据...');
+              pushLogRef.current('info', 'PG 数据库为空', '正在上传本地数据...');
               Promise.all(
                 localTasks.map((task) =>
                   fetch('/api/tasks', {
@@ -103,13 +137,13 @@ export function usePgBootstrapSync<TTask extends ItemBase, THabit extends ItemBa
                   }),
                 ),
               )
-                .then(() => pushLog('success', '本地数据已上传至 PG'))
-                .catch((error) => pushLog('error', '上传失败', String(error)));
+                .then(() => pushLogRef.current('success', '本地数据已上传至 PG'))
+                .catch((error) => pushLogRef.current('error', '上传失败', String(error)));
             } else {
               const { merged, hasChange } = mergeData(localTasks, remoteTasks as TTask[]);
               if (hasChange || localTasks.length !== merged.length) {
                 taskStore.replaceAll(merged);
-                setTasks(merged);
+                setTasksRef.current(merged);
               }
             }
           }
@@ -132,7 +166,7 @@ export function usePgBootstrapSync<TTask extends ItemBase, THabit extends ItemBa
             } else {
               const { merged } = mergeData(localHabits, remoteHabits as THabit[]);
               habitStore.replaceAll(merged);
-              setHabits(merged);
+              setHabitsRef.current(merged);
             }
           }
         }
@@ -154,32 +188,18 @@ export function usePgBootstrapSync<TTask extends ItemBase, THabit extends ItemBa
             } else {
               const { merged } = mergeData(localCountdowns, remoteCountdowns as TCountdown[]);
               countdownStore.replaceAll(merged);
-              setCountdowns(merged);
+              setCountdownsRef.current(merged);
             }
           }
         }
 
-        pushLog('success', '已连接 PG 数据库', `Host: ${pgHost}`);
+        pushLogRef.current('success', '已连接 PG 数据库', `Host: ${pgHost}`);
       } catch (error) {
         console.error('Failed to load from PG', error);
-        pushLog('error', 'PG 连接/加载失败', String(error));
+        pushLogRef.current('error', 'PG 连接/加载失败', String(error));
       }
     };
 
     loadFromPg();
-  }, [
-    enabled,
-    pgHost,
-    pgPort,
-    pgDatabase,
-    pgUsername,
-    pgPassword,
-    pushLog,
-    taskStore,
-    habitStore,
-    countdownStore,
-    setTasks,
-    setHabits,
-    setCountdowns,
-  ]);
+  }, [enabled, pgHost, pgPort, pgDatabase, pgUsername, pgPassword, taskStore, habitStore, countdownStore]);
 }
