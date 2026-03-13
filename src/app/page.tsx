@@ -8,6 +8,7 @@ import { usePgBootstrapSync } from '@/app/hooks/usePgBootstrapSync';
 import { usePgMirrorSync } from '@/app/hooks/usePgMirrorSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
+import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import Sidebar from '@/app/components/sidebar/Sidebar';
@@ -29,6 +30,7 @@ import {
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
   CheckSquare, LayoutGrid, Timer, Flame, Settings, Cloud, CloudSun, CloudRain, CloudFog, CloudSnow,
   ImagePlus, Monitor, Paperclip, Upload,
+  Phone,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -1001,6 +1003,8 @@ export default function Home() {
   const selectedReminderTimeValue = selectedTask?.reminderAt
     ? formatZonedTime(selectedTask.reminderAt, selectedTimezoneOffset)
     : '09:00';
+
+  const selectedTaskPhoneNumbers = selectedTask ? extractPhoneNumbers(selectedTask.title) : [];
   const taskItemHelpers = {
     getTimezoneOffset,
     formatZonedDateTime,
@@ -4867,11 +4871,27 @@ export default function Home() {
                   <CheckCircle2 className="w-3.5 h-3.5 animate-[pop-in_280ms_ease-out]" />
                 )}
               </button>
-              <h3 className={`text-xl font-semibold leading-snug ${
-                selectedTask.status === 'completed' ? 'line-through text-[#666666]' : ''
-              }`}>
-                {selectedTask.title}
-              </h3>
+              <div className="min-w-0 flex-1">
+                <h3 className={`text-xl font-semibold leading-snug break-words ${
+                  selectedTask.status === 'completed' ? 'line-through text-[#666666]' : ''
+                }`}>
+                  {selectedTask.title}
+                </h3>
+                {selectedTaskPhoneNumbers.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {selectedTaskPhoneNumbers.map((phone) => (
+                      <a
+                        key={phone.normalized}
+                        href={buildTelHref(phone)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-blue-400/30 bg-blue-500/12 text-blue-100 hover:bg-blue-500/18 transition-colors"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        拨打 {phone.raw}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <TaskQuickActions
