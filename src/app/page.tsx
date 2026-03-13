@@ -8,6 +8,7 @@ import { usePgBootstrapSync } from '@/app/hooks/usePgBootstrapSync';
 import { usePgMirrorSync } from '@/app/hooks/usePgMirrorSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { buildExportPayload as buildExportPayloadData, buildSyncPayload as buildSyncPayloadData } from '@/app/services/syncPayload';
+import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
@@ -2601,30 +2602,6 @@ export default function Home() {
         window.alert('数据导出失败，请稍后重试');
       }
     }
-  };
-
-  const normalizeImportList = <T extends { id: string }>(items: T[] | undefined) =>
-    Array.isArray(items) ? items.filter((item) => item && item.id) : [];
-
-  const ensureUpdatedAt = <T extends { updatedAt?: string; createdAt?: string }>(items: T[]) =>
-    items.map((item) => ({
-      ...item,
-      updatedAt: item.updatedAt ?? item.createdAt ?? new Date().toISOString(),
-    }));
-
-  const mergeById = <T extends { id: string; updatedAt?: string }>(current: T[], incoming: T[]) => {
-    const merged = new Map(current.map((item) => [item.id, item]));
-    incoming.forEach((item) => {
-      const existing = merged.get(item.id);
-      if (!existing) {
-        merged.set(item.id, item);
-        return;
-      }
-      const existingUpdated = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-      const incomingUpdated = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
-      merged.set(item.id, incomingUpdated >= existingUpdated ? item : existing);
-    });
-    return Array.from(merged.values());
   };
 
   const applyImportedData = (payload: any, mode: 'merge' | 'overwrite' = importMode) => {
