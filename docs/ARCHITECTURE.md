@@ -44,3 +44,22 @@ Recall/
 - `POST /api/ai/process`: 
   - `mode: 'create'`: 输入自然语言，返回结构化 Task + Embedding。
   - `mode: 'search'`: 输入查询词，返回 Embedding。
+
+
+## 动态 PG（x-pg-*）模式边界
+
+项目存在一种“高级模式”：客户端通过请求头 `x-pg-*` 传入 PostgreSQL 连接信息，API 会按需创建动态 PrismaClient。
+
+### 风险与建议
+
+- 该模式会扩大攻击面（服务端可能被当作 DB 代理）。
+- 建议仅在你完全信任调用方的场景使用（自部署/内网）。
+
+### 防护开关
+
+可通过环境变量启用额外保护：
+
+- `PG_HEADERS_TOKEN`：若设置，则请求必须携带 `x-pg-token` 且匹配，否则服务端忽略动态 PG 头。
+- `PG_HEADERS_HOST_ALLOWLIST`：可选，逗号分隔允许的 `x-pg-host` 列表。
+
+默认行为：仍支持动态 PG，但当存在 NextAuth session 时 **优先使用 session user 的服务端数据库**，不会被请求头覆盖。

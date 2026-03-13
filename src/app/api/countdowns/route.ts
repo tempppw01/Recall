@@ -15,21 +15,23 @@ const DEFAULT_USER_ID = 'local-user';
 
 /** GET /api/countdowns - 获取所有倒计时，按创建时间降序 */
 export async function GET(request: Request) {
-  const pgConfig = getPgConfigFromHeaders(request.headers);
+  const session = await getServerSession(authOptions);
   let client = prisma;
-  let userId = '';
+  let userId = (session?.user as { id?: string })?.id || '';
 
-  if (pgConfig) {
-    const dynamicClient = getDynamicPrisma(pgConfig);
-    if (dynamicClient) {
-      client = dynamicClient;
-      userId = DEFAULT_USER_ID;
+  if (!userId) {
+    // 未登录时，才允许使用动态 PG（通过 x-pg-* 请求头），并使用固定 local-user
+    const pgConfig = getPgConfigFromHeaders(request.headers);
+    if (pgConfig) {
+      const dynamicClient = getDynamicPrisma(pgConfig);
+      if (dynamicClient) {
+        client = dynamicClient;
+        userId = DEFAULT_USER_ID;
+      }
     }
-  } else {
-    const session = await getServerSession(authOptions);
-    userId = (session?.user as { id?: string })?.id || '';
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const countdowns = await client.countdown.findMany({

@@ -40,79 +40,23 @@ const DEFAULT_USER_ID = 'local-user';
  */
 export async function GET(request: Request) {
   // 根据请求头判断使用动态 PG 连接还是默认连接
-  const pgConfig = getPgConfigFromHeaders(request.headers);
+  const session = await getServerSession(authOptions);
   let client = prisma;
-  let userId = '';
+  let userId = (session?.user as { id?: string })?.id || '';
 
-  if (pgConfig) {
-    const dynamicClient = getDynamicPrisma(pgConfig);
-    if (dynamicClient) {
-      client = dynamicClient;
-      userId = DEFAULT_USER_ID;
+  if (!userId) {
+    // 未登录时，才允许使用动态 PG（通过 x-pg-* 请求头），并使用固定 local-user
+    const pgConfig = getPgConfigFromHeaders(request.headers);
+    if (pgConfig) {
+      const dynamicClient = getDynamicPrisma(pgConfig);
+      if (dynamicClient) {
+        client = dynamicClient;
+        userId = DEFAULT_USER_ID;
+      }
     }
-  } else {
-    // 默认模式：通过 NextAuth session 获取用户身份
-    const session = await getServerSession(authOptions);
-    userId = (session?.user as { id?: string })?.id || '';
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  try {
-    const tasks = await client.task.findMany({
-      where: { userId },
-      orderBy: { sortOrder: 'desc' },
-    });
-
-    // 动态连接用完即断开，避免连接池耗尽
-    if (client !== prisma) {
-      await client.$disconnect();
-    }
-
-    // 将数据库记录转换为前端 Task 接口格式
-    return NextResponse.json(
-      tasks.map((task: any) => ({
-        id: task.id,
-        title: task.title,
-        dueDate: task.dueDate ? task.dueDate.toISOString() : undefined,
-        priority: task.priority,
-        category: task.category ?? undefined,
-        status: task.status,
-        tags: parseJSON(task.tags, []),
-        subtasks: parseJSON(task.subtasks, []),
-        attachments: parseJSON(task.attachments, []),
-        repeat: parseJSON(task.repeat, undefined),
-        createdAt: task.createdAt.toISOString(),
-        sortOrder: task.sortOrder,
-      })),
-    );
-  } catch (error) {
-    console.error('API Error', error);
-    if (client !== prisma) await client.$disconnect();
-    return NextResponse.json({ error: 'Database Error' }, { status: 500 });
-  }
-}
-
-/**
- * POST /api/tasks
- * 创建新任务，支持前端透传 id 和 createdAt（用于同步场景）
- * 动态 PG 连接时会自动创建默认用户（如果不存在）
- */
-export async function POST(request: Request) {
-  const pgConfig = getPgConfigFromHeaders(request.headers);
-  let client = prisma;
-  let userId = '';
-
-  if (pgConfig) {
-    const dynamicClient = getDynamicPrisma(pgConfig);
-    if (dynamicClient) {
-      client = dynamicClient;
-      userId = DEFAULT_USER_ID;
-    }
-  } else {
-    const session = await getServerSession(authOptions);
-    userId = (session?.user as { id?: string })?.id || '';
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const payload = await request.json();

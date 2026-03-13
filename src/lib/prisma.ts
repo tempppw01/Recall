@@ -83,6 +83,18 @@ export const getDynamicPrisma = (config: PgConfig) => {
  * @param headers - HTTP 请求头对象
  * @returns 解析后的 PgConfig，必填字段缺失时返回 null
  */
+
+/**
+ * 动态 PG 透传保护：可选 Token 与 host allowlist
+ * - PG_HEADERS_TOKEN: 若设置，则必须在请求头带 x-pg-token 且匹配
+ * - PG_HEADERS_HOST_ALLOWLIST: 逗号分隔允许的 host 列表（可选）
+ */
+const getPgHeadersToken = () => (process.env.PG_HEADERS_TOKEN || '').trim();
+const getPgHostAllowlist = () =>
+  (process.env.PG_HEADERS_HOST_ALLOWLIST || '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
 export const getPgConfigFromHeaders = (headers: Headers): PgConfig | null => {
   const host = headers.get('x-pg-host');
   const port = headers.get('x-pg-port');
@@ -90,7 +102,23 @@ export const getPgConfigFromHeaders = (headers: Headers): PgConfig | null => {
   const username = headers.get('x-pg-username');
   const password = headers.get('x-pg-password');
 
+  // 未提供完整字段则不启用动态 PG
   if (!host || !database || !username) {
+    return null;
+  }
+
+  // 可选安全保护：要求 token
+  const requiredToken = getPgHeadersToken();
+  if (requiredToken) {
+    const providedToken = headers.get('x-pg-token') || '';
+    if (providedToken !== requiredToken) {
+      return null;
+    }
+  }
+
+  // 可选安全保护：host allowlist
+  const allowlist = getPgHostAllowlist();
+  if (allowlist.length > 0 && !allowlist.includes(host)) {
     return null;
   }
 
