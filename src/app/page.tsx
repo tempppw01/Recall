@@ -7,6 +7,7 @@ import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
 import { usePgBootstrapSync } from '@/app/hooks/usePgBootstrapSync';
 import { usePgMirrorSync } from '@/app/hooks/usePgMirrorSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
+import { buildExportPayload as buildExportPayloadData, buildSyncPayload as buildSyncPayloadData } from '@/app/services/syncPayload';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
@@ -2443,34 +2444,24 @@ export default function Home() {
   };
 
 
-  const buildExportPayload = () => ({
-    version: APP_VERSION,
-    exportedAt: new Date().toISOString(),
-    data: {
-      tasks: taskStore.getAll(),
-      habits: habitStore.getAll(),
-      countdowns: countdownStore.getAll(),
-    },
-    deletions: {
-      tasks: readDeletedMap(DELETED_TASKS_KEY),
-      countdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
-      habits: readDeletedMap(DELETED_HABITS_KEY),
-    },
+  const buildExportPayload = () => buildExportPayloadData({
+    appVersion: APP_VERSION,
+    tasks: taskStore.getAll(),
+    habits: habitStore.getAll(),
+    countdowns: countdownStore.getAll(),
+    deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
+    deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
+    deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
   });
 
-  const buildSyncPayload = () => ({
-    version: APP_VERSION,
-    exportedAt: new Date().toISOString(),
-    data: {
-      tasks: taskStore.getAll(),
-      habits: habitStore.getAll(),
-      countdowns: countdownStore.getAll(),
-    },
-    deletions: {
-      tasks: readDeletedMap(DELETED_TASKS_KEY),
-      countdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
-      habits: readDeletedMap(DELETED_HABITS_KEY),
-    },
+  const buildSyncPayload = () => buildSyncPayloadData({
+    appVersion: APP_VERSION,
+    tasks: taskStore.getAll(),
+    habits: habitStore.getAll(),
+    countdowns: countdownStore.getAll(),
+    deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
+    deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
+    deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
     settings: {
       apiBaseUrl,
       modelListText,
