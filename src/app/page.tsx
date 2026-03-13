@@ -2065,6 +2065,8 @@ export default function Home() {
     : 0;
 
   const sortedTasks = sortTasks(filteredTasks, taskSortMode);
+  const groupedTasks = groupTasks(sortedTasks, taskGroupMode);
+
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const totalTasks = tasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
