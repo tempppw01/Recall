@@ -126,6 +126,17 @@ async function getContextMessages(redisConfig: any, sessionId: string): Promise<
  * 使用 Redis LPUSH + LTRIM 实现固定长度的滑动窗口
  * @param retentionDays - 上下文保留天数（1-3 天）
  */
+
+
+/**
+ * 只保留最近 N 轮上下文，避免旧任务被误带入当前识别。
+ * 每轮按单条消息计数（user / assistant 各一条）。
+ */
+function getRecentContextMessages(messages: ContextEntry[], maxEntries: number): ContextEntry[] {
+  if (!Array.isArray(messages) || messages.length === 0) return [];
+  if (maxEntries <= 0) return [];
+  return messages.slice(-maxEntries);
+}
 async function appendContextEntry(
   redisConfig: any,
   sessionId: string,
@@ -553,9 +564,13 @@ export async function POST(req: NextRequest) {
     }
 
     const contextMessages = await getContextMessages(redisConfig, sessionId);
-    const historyMessages = contextMessages.map(msg => ({
+    const historyMessages = contextMessages.map((msg) => ({
       role: msg.role,
-      content: msg.content
+      content: msg.content,
+    }));
+    const recentHistoryMessages = getRecentContextMessages(contextMessages, 2).map((msg) => ({
+      role: msg.role,
+      content: msg.content,
     }));
 
     if (mode === 'organize') {
@@ -654,10 +669,12 @@ export async function POST(req: NextRequest) {
 5) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
 6) subtasks 仅保留 title。
 7) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-8) **核心记忆功能**：请务必结合提供的“历史对话上下文”来补充当前请求中缺失的信息。如果用户之前提到了时间、地点或任务背景，而当前请求中没有明确说明，请将其合并到新的待办事项中。
-9) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
+8) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 items 里。
+9) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 items；不要因为历史上下文而追加旧任务。
+10) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
+11) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
           },
-          ...historyMessages,
+          ...recentHistoryMessages,
           { role: 'user', content: userContent },
         ],
         response_format: { type: 'json_object' },
