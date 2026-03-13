@@ -9,6 +9,7 @@ import { usePgMirrorSync } from '@/app/hooks/usePgMirrorSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { buildExportPayload as buildExportPayloadData, buildSyncPayload as buildSyncPayloadData } from '@/app/services/syncPayload';
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
+import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
@@ -631,94 +632,6 @@ const readImageAsDataUrl = (file: File) =>
 const filterImageFiles = (files: File[]) =>
   files.filter((file) => file.type.startsWith('image/'));
 
-const readDeletedMap = (key: string): Record<string, string> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return {};
-    return parsed as Record<string, string>;
-  } catch (error) {
-    console.error(`Failed to read deleted map for ${key}`, error);
-    return {};
-  }
-};
-
-const persistDeletedMap = (key: string, next: Record<string, string>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(next));
-  } catch (error) {
-    console.error(`Failed to write deleted map for ${key}`, error);
-  }
-};
-
-const markDeleted = (key: string, id: string, deletedAt = new Date().toISOString()) => {
-  const current = readDeletedMap(key);
-  const existing = current[id];
-  const incomingMs = new Date(deletedAt).getTime();
-  const existingMs = existing ? new Date(existing).getTime() : 0;
-  if (!existing || incomingMs > existingMs) {
-    current[id] = deletedAt;
-    persistDeletedMap(key, current);
-  }
-  return current;
-};
-
-const normalizeDeletedMap = (value: any): Record<string, string> => {
-  if (Array.isArray(value)) {
-    const now = new Date().toISOString();
-    return value.reduce<Record<string, string>>((acc, id) => {
-      if (typeof id === 'string') acc[id] = now;
-      return acc;
-    }, {});
-  }
-  if (value && typeof value === 'object') {
-    const next: Record<string, string> = {};
-    Object.entries(value as Record<string, unknown>).forEach(([id, time]) => {
-      if (typeof id === 'string' && typeof time === 'string') {
-        next[id] = time;
-      }
-    });
-    return next;
-  }
-  return {};
-};
-
-const mergeDeletedMap = (current: Record<string, string>, incoming: Record<string, string>) => {
-  const next = { ...current };
-  Object.entries(incoming).forEach(([id, time]) => {
-    const incomingMs = new Date(time).getTime();
-    const existingMs = next[id] ? new Date(next[id]).getTime() : 0;
-    if (Number.isNaN(incomingMs)) return;
-    if (!next[id] || incomingMs > existingMs) {
-      next[id] = time;
-    }
-  });
-  return next;
-};
-
-const filterByDeletions = <T extends { id: string; updatedAt?: string; createdAt: string }>(
-  items: T[],
-  deletedMap: Record<string, string>
-) => {
-  const nextDeleted = { ...deletedMap };
-  const filtered = items.filter((item) => {
-    const deletedAt = deletedMap[item.id];
-    if (!deletedAt) return true;
-    const deletedMs = new Date(deletedAt).getTime();
-    const updatedMs = item.updatedAt
-      ? new Date(item.updatedAt).getTime()
-      : new Date(item.createdAt).getTime();
-    if (updatedMs > deletedMs) {
-      delete nextDeleted[item.id];
-      return true;
-    }
-    return false;
-  });
-  return { filtered, nextDeleted };
-};
 
 const getDefaultRepeatRule = (type: RepeatType, task: Task): TaskRepeatRule => {
   const baseDate = task.dueDate ? new Date(task.dueDate) : new Date();
