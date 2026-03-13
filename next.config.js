@@ -9,9 +9,15 @@
  */
 
 /** @type {import('next').NextConfig} */
+const pkg = require('./package.json');
+
 const nextConfig = {
     // 生成 standalone 输出，便于容器化部署
     output: 'standalone',
+
+    env: {
+        NEXT_PUBLIC_APP_VERSION: pkg.version,
+    },
 
     // 显式声明 Turbopack 配置，避免 Next 16 默认行为与 webpack 扩展冲突
     turbopack: {},
