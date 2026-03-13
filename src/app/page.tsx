@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
+import { usePgBootstrapSync } from '@/app/hooks/usePgBootstrapSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
@@ -1435,114 +1436,22 @@ export default function Home() {
   // 避免在用户编辑设置时意外丢失密钥
 
   // PG 数据加载逻辑
-  useEffect(() => {
-    if (!pgHost || !settingsLoaded) return;
-    
-    const loadFromPg = async () => {
-      try {
-        const headers = {
-          'x-pg-host': pgHost,
-          'x-pg-port': pgPort || '5432',
-          'x-pg-database': pgDatabase,
-          'x-pg-username': pgUsername,
-          'x-pg-password': pgPassword,
-        };
-        
-        const [tasksRes, habitsRes, countdownsRes] = await Promise.all([
-          fetch('/api/tasks', { headers }),
-          fetch('/api/habits', { headers }),
-          fetch('/api/countdowns', { headers }),
-        ]);
+  usePgBootstrapSync({
+    enabled: Boolean(pgHost) && settingsLoaded,
+    pgHost,
+    pgPort,
+    pgDatabase,
+    pgUsername,
+    pgPassword,
+    pushLog,
+    taskStore,
+    habitStore,
+    countdownStore,
+    setTasks,
+    setHabits,
+    setCountdowns,
+  });
 
-        // 定义简单的合并函数：以 updatedAt 为准，若远程较新则覆盖
-        const mergeData = <T extends { id: string; updatedAt?: string; createdAt?: string }>(local: T[], remote: T[]) => {
-          const map = new Map<string, T>();
-          // 先放入本地数据
-          local.forEach(item => map.set(item.id, item));
-          
-          let hasChange = false;
-          // 合并远程数据
-          remote.forEach(item => {
-            const existing = map.get(item.id);
-            if (!existing) {
-              map.set(item.id, item);
-              hasChange = true;
-            } else {
-              const localTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-              const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-              if (remoteTime > localTime) {
-                map.set(item.id, item);
-                hasChange = true;
-              }
-            }
-          });
-          return { merged: Array.from(map.values()), hasChange };
-        };
-
-        // 处理 Tasks
-        if (tasksRes.ok) {
-          const remoteTasks = await tasksRes.json();
-          if (Array.isArray(remoteTasks)) {
-            const localTasks = taskStore.getAll();
-            if (remoteTasks.length === 0 && localTasks.length > 0) {
-              // 场景：PG 为空，本地有数据 -> 触发初次上传
-              pushLog('info', 'PG 数据库为空', '正在上传本地数据...');
-              // 异步逐个上传，避免阻塞 UI
-              Promise.all(localTasks.map(t => 
-                fetch('/api/tasks', { method: 'POST', headers, body: JSON.stringify(t) })
-              )).then(() => pushLog('success', '本地数据已上传至 PG')).catch(e => pushLog('error', '上传失败', String(e)));
-            } else {
-              const { merged, hasChange } = mergeData(localTasks, remoteTasks);
-              if (hasChange || localTasks.length !== merged.length) {
-                taskStore.replaceAll(merged);
-                setTasks(merged);
-              }
-            }
-          }
-        }
-
-        // 处理 Habits
-        if (habitsRes.ok) {
-          const remoteHabits = await habitsRes.json();
-          if (Array.isArray(remoteHabits)) {
-            const localHabits = habitStore.getAll();
-            if (remoteHabits.length === 0 && localHabits.length > 0) {
-              Promise.all(localHabits.map(h => 
-                fetch('/api/habits', { method: 'POST', headers, body: JSON.stringify(h) })
-              ));
-            } else {
-              const { merged } = mergeData(localHabits, remoteHabits);
-              habitStore.replaceAll(merged);
-              setHabits(merged);
-            }
-          }
-        }
-
-        // 处理 Countdowns
-        if (countdownsRes.ok) {
-          const remoteCountdowns = await countdownsRes.json();
-          if (Array.isArray(remoteCountdowns)) {
-            const localCountdowns = countdownStore.getAll();
-            if (remoteCountdowns.length === 0 && localCountdowns.length > 0) {
-              Promise.all(localCountdowns.map(c => 
-                fetch('/api/countdowns', { method: 'POST', headers, body: JSON.stringify(c) })
-              ));
-            } else {
-              const { merged } = mergeData(localCountdowns, remoteCountdowns);
-              countdownStore.replaceAll(merged);
-              setCountdowns(merged);
-            }
-          }
-        }
-        pushLog('success', '已连接 PG 数据库', `Host: ${pgHost}`);
-      } catch (error) {
-        console.error('Failed to load from PG', error);
-        pushLog('error', 'PG 连接/加载失败', String(error));
-      }
-    };
-
-    loadFromPg();
-  }, [pgHost, pgPort, pgDatabase, pgUsername, pgPassword, settingsLoaded]);
 
   useEffect(() => {
     pushLog('info', '应用已启动', pgHost ? `数据存储：PG (${pgHost})` : '数据存储：浏览器 localStorage');
