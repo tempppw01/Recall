@@ -11,6 +11,9 @@ type TimelinePanelProps = {
   isTaskOverdue: (task: Task) => boolean;
 };
 
+
+type TimelineStatusFilter = 'all' | 'completed' | 'todo' | 'overdue';
+
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
 const formatDateKeyByOffset = (date: Date, offsetMinutes: number) => {
@@ -61,10 +64,62 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     isTaskOverdue,
   } = props;
 
+
+  const [statusFilter, setStatusFilter] = useState<TimelineStatusFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [tagFilter, setTagFilter] = useState<string>('');
+
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    tasks.forEach((t) => {
+      if (t?.category) set.add(t.category);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }, [tasks]);
+
+  const availableTags = useMemo(() => {
+    const set = new Set<string>();
+    tasks.forEach((t) => {
+      (t?.tags || []).forEach((tag) => {
+        const text = String(tag || '').trim();
+        if (text) set.add(text);
+      });
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }, [tasks]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      if (!task) return false;
+
+      if (categoryFilter && (task.category || '') !== categoryFilter) {
+        return false;
+      }
+
+      if (tagFilter) {
+        const tags = (task.tags || []).map((t) => String(t || '').trim()).filter(Boolean);
+        if (!tags.includes(tagFilter)) return false;
+      }
+
+      if (statusFilter === 'all') return true;
+
+      const overdue =
+        task.status !== 'completed' && Boolean(task.dueDate) && isTaskOverdue(task);
+
+      if (statusFilter === 'completed') return task.status === 'completed';
+      if (statusFilter === 'overdue') return overdue;
+      // 未完成：不含已完成，且把过期单独分出去
+      if (statusFilter === 'todo') return task.status !== 'completed' && !overdue;
+
+      return true;
+    });
+  }, [tasks, categoryFilter, tagFilter, statusFilter, isTaskOverdue]);
+
   const groups = useMemo(() => {
-    const items = tasks
+    const items = filteredTasks
       .slice()
       .sort((a, b) => {
         const aIso = getAnchorIso(a);
@@ -124,6 +179,83 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         <div className="mt-4 text-xs text-[#777777]">
           数据：复用现有 Task（不引入新模型）。点击卡片可查看详情。
         </div>
+
+
+      <div className="glass-panel-soft rounded-2xl p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                { key: 'all', label: '全部' },
+                { key: 'completed', label: '已完成' },
+                { key: 'todo', label: '未完成' },
+                { key: 'overdue', label: '已过期' },
+              ] as const
+            ).map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setStatusFilter(item.key)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  statusFilter === item.key
+                    ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
+                    : 'border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC]"
+              aria-label="按列表筛选"
+            >
+              <option value="">全部列表</option>
+              {availableCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC]"
+              aria-label="按标签筛选"
+            >
+              <option value="">全部标签</option>
+              {availableTags.map((t) => (
+                <option key={t} value={t}>
+                  #{t}
+                </option>
+              ))}
+            </select>
+
+            {(categoryFilter || tagFilter || statusFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('all');
+                  setCategoryFilter('');
+                  setTagFilter('');
+                }}
+                className="text-xs px-3 py-1.5 rounded-xl border border-[#333333] text-[#888888] hover:text-[#DDDDDD]"
+              >
+                清除筛选
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2 text-[11px] text-[#666666]">
+          当前展示：{filteredTasks.length} / {tasks.length} 项
+        </div>
+      </div>
       </div>
 
       {monthGroups.length === 0 ? (
