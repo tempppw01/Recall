@@ -123,3 +123,5 @@
 
 ### Bugfix
 - [x] 修复打开时间轴页面崩溃（TimelinePanel props 缺失）
+
+- [x] 修复打开番茄时钟页面崩溃（PomodoroTimer 缺少 useCallback 导入）
