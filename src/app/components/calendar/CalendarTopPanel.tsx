@@ -115,7 +115,7 @@ export default function CalendarTopPanel({
             />
           </div>
           {showCityDropdown && (
-            <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 rounded-2xl border border-[#3A3F4B]/50 bg-[#171717]/92 backdrop-blur-xl max-h-56 overflow-y-auto shadow-[0_16px_40px_rgba(0,0,0,0.24)]">
+            <div className="z-20 mt-2 w-full rounded-2xl border border-[#3A3F4B]/50 bg-[#171717]/92 backdrop-blur-xl max-h-[40vh] overflow-y-auto overscroll-contain shadow-[0_16px_40px_rgba(0,0,0,0.24)] sm:absolute sm:mt-0 sm:top-[calc(100%+0.5rem)] sm:left-0 sm:right-0 sm:max-h-56">
               {isSearchingWeatherCity ? (
                 <div className="px-3 py-2 text-xs text-[#777777]">城市搜索中…</div>
               ) : weatherCities.length > 0 ? (
@@ -135,7 +135,7 @@ export default function CalendarTopPanel({
           )}
         </div>
 
-        <div className="glass-panel-soft rounded-2xl px-4 py-3.5 flex items-center justify-between gap-3">
+        <div className="glass-panel-soft rounded-2xl px-4 py-3.5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="text-[11px] text-[#6E6E6E]">天气预报（{selectedCalendarLabel}）</div>
             <div className="mt-1.5 flex items-center gap-2 text-sm text-[#DDDDDD] truncate">
@@ -143,7 +143,7 @@ export default function CalendarTopPanel({
               <span className="truncate">{cityLabel}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-right shrink-0">
+          <div className="flex w-full items-center justify-between gap-2 text-right sm:w-auto sm:justify-end shrink-0">
             {weatherLoading ? (
               <span className="text-xs text-[#6E6E6E]">加载中…</span>
             ) : (
