@@ -3739,8 +3739,25 @@ export default function Home() {
                   }
                 }}
                 onCityInputBlur={() => {
+                  const normalizeCityText = (value: string) =>
+                    value
+                      .toLowerCase()
+                      .replace(/\s+/g, '')
+                      .replace(/[·•\-_,，。]/g, '');
+
                   const keyword = calendarCityInput.trim();
-                  if (keyword.length < 2) {
+                  const selectedLabel = calendarCity
+                    ? [calendarCity.name, calendarCity.admin1, calendarCity.country]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : '';
+
+                  // 失焦时不保留“无结果/不可用”提示，避免遮挡或误导。
+                  // 如果当前输入本身就是已选城市，也应确保候选框完全关闭。
+                  if (
+                    keyword.length < 2 ||
+                    (selectedLabel && normalizeCityText(keyword) === normalizeCityText(selectedLabel))
+                  ) {
                     setWeatherCities([]);
                     setWeatherCitySearchMessage('');
                     setIsSearchingWeatherCity(false);
