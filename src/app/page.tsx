@@ -523,6 +523,9 @@ type ImageAttachment = {
 
 type CountdownDisplayMode = 'days' | 'date';
 
+type AiAssistantMode = 'record' | 'manage';
+
+
 const isTaskOverdue = (task: Task) => {
   if (!task.dueDate) return false;
   if (task.status === 'completed') return false;
@@ -884,6 +887,7 @@ export default function Home() {
   >([]);
   // todo-agent 聊天状态
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
+  const [aiAssistantMode, setAiAssistantMode] = useState<AiAssistantMode>('record');
   const [agentInput, setAgentInput] = useState('');
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentImages, setAgentImages] = useState<ImageAttachment[]>([]);
@@ -891,6 +895,12 @@ export default function Home() {
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [manageAgentInput, setManageAgentInput] = useState('');
+  const [manageAgentMessages, setManageAgentMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [manageAgentLoading, setManageAgentLoading] = useState(false);
+  const [manageAgentError, setManageAgentError] = useState<string | null>(null);
+  const [manageRecommendations, setManageRecommendations] = useState<Array<{ id: string; title: string; reason?: string; suggestedPriority?: number }>>([]);
+
   // 倒数日 AI 聊天状态
   const [countdownAgentMessages, setCountdownAgentMessages] = useState<AgentMessage[]>([]);
   const [countdownAgentInput, setCountdownAgentInput] = useState('');
@@ -2123,6 +2133,78 @@ export default function Home() {
     }
   };
 
+
+
+  const buildTaskSummaryForManageAgent = () => {
+    // 仅传必要字段，避免 prompt 过长。
+    const items = tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      dueDate: t.dueDate || null,
+      priority: typeof t.priority === 'number' ? t.priority : 0,
+      category: t.category || '',
+      tags: Array.isArray(t.tags) ? t.tags : [],
+    }));
+    return items;
+  };
+
+  const handleManageAgentSend = async () => {
+    const content = manageAgentInput.trim();
+    if (!content) return;
+    if (!apiKey.trim()) {
+      setManageAgentError('未配置 AI Key，请先前往设置页完成配置');
+      return;
+    }
+
+    setManageAgentLoading(true);
+    setManageAgentError(null);
+    setManageAgentMessages((prev) => [...prev, { role: 'user', content }]);
+
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'manage-agent',
+          input: content,
+          tasks: buildTaskSummaryForManageAgent(),
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          chatModel: chatModel?.trim() || undefined,
+          sessionId,
+          retentionDays: aiRetentionDays,
+          redisConfig: {
+            host: redisHost,
+            port: redisPort,
+            db: redisDb,
+            password: redisPassword,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'manage-agent request failed');
+      }
+      const replyText = typeof data?.reply === 'string' ? data.reply : '已生成建议。';
+      setManageAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+      const recs = Array.isArray(data?.recommendations) ? data.recommendations : [];
+      setManageRecommendations(
+        recs.map((r: any) => ({
+          id: String(r.id || ''),
+          title: String(r.title || ''),
+          reason: typeof r.reason === 'string' ? r.reason : undefined,
+          suggestedPriority: typeof r.suggestedPriority === 'number' ? r.suggestedPriority : undefined,
+        })),
+      );
+      setManageAgentInput('');
+    } catch (error) {
+      const message = (error as any)?.message || 'AI 管理助手无响应，请稍后重试';
+      setManageAgentError(message);
+    } finally {
+      setManageAgentLoading(false);
+    }
+  };
   const handleAddAgentItem = (item: AgentItem) => {
     if (addedAgentItemIds.has(item.id)) return;
     const task = createTaskFromAgentItem(item);
@@ -4379,7 +4461,23 @@ export default function Home() {
                 <div className="h-full bg-gradient-to-b from-[#1C1F2A] via-[#202020] to-[#1B1B1B] rounded-2xl p-4 flex flex-col shadow-[0_0_0_1px_rgba(59,130,246,0.08)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手（碎碎念整理师）</h3>
+                    <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手</h3>
+                    <div className="mt-2 inline-flex rounded-full border border-[#2A3348] bg-[#141826] p-1">
+                      <button
+                        type="button"
+                        onClick={() => setAiAssistantMode('record')}
+                        className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'record' ? 'bg-blue-600 text-white' : 'text-[#9AA8C7] hover:text-white'}`}
+                      >
+                        记录助手
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAiAssistantMode('manage')}
+                        className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'manage' ? 'bg-violet-600 text-white' : 'text-[#9AA8C7] hover:text-white'}`}
+                      >
+                        管理助手
+                      </button>
+                    </div>
                     <p className="text-xs text-[#8D94A8] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -4428,104 +4526,158 @@ export default function Home() {
                 </div>
 
                 <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-                  {!hasApiKey ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSettings(true);
-                        setIsApiSettingsOpen(true);
-                      }}
-                      className="w-full text-left rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 hover:border-amber-300/60 hover:bg-amber-500/15 transition-colors"
-                      title="未配置 AI Key，点击前往设置"
-                    >
-                      <div className="text-sm text-amber-200 font-medium">未检测到 AI Key，AI 助手暂不可用</div>
-                      <div className="text-xs text-amber-100/80 mt-1">点击这里前往设置页面填写 Key</div>
-                    </button>
-                  ) : agentMessages.length === 0 ? (
-                    <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：想完成什么事情？</div>
-                  ) : (
-                    agentMessages.map((message, idx) => (
-                      <div
-                        key={`${message.role}-${idx}`}
-                        className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                          message.role === 'user'
-                            ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100 ml-auto'
-                            : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
-                        }`}
-                      >
-                        {message.content}
-                      </div>
-                    ))
-                  )}
-                  {hasApiKey && agentError && (
-                    <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
-                      <span>{agentError}</span>
-                      <button
-                        onClick={handleAgentSend}
-                        disabled={agentLoading}
-                        className="text-red-200 underline hover:text-white"
-                      >
-                        重试
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="pt-2 space-y-3 border-t border-[#2C2C2C]">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-[#D7DEEF]">建议待办（切成薯片）</h4>
-                      {showAgentBulkAdd && (
+                  {aiAssistantMode === 'record' ? (
+                    <>
+                      {!hasApiKey ? (
                         <button
-                          onClick={handleAddAllAgentItems}
-                          disabled={agentItems.length === 0 || addedAgentItemIds.size === agentItems.length}
-                          className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                          type="button"
+                          onClick={() => {
+                            setShowSettings(true);
+                            setIsApiSettingsOpen(true);
+                          }}
+                          className="w-full text-left rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 hover:border-amber-300/60 hover:bg-amber-500/15 transition-colors"
+                          title="未配置 AI Key，点击前往设置"
                         >
-                          一键全部添加
+                          <div className="text-sm text-amber-200 font-medium">未检测到 AI Key，AI 助手暂不可用</div>
+                          <div className="text-xs text-amber-100/80 mt-1">点击这里前往设置页面填写 Key</div>
                         </button>
-                      )}
-                    </div>
-                    {agentItems.length === 0 ? (
-                      <div className="bg-gradient-to-r from-[#1F1F1F] to-[#202634] border border-dashed border-cyan-500/20 rounded-2xl p-4 text-xs text-[#8791A8]">
-                        我会把整理结果放在这里，放心，它不会咬你。
-                      </div>
-                    ) : (
-                      <div className="grid gap-3">
-                        {agentItems.map((item) => (
-                          <div key={item.id} className="bg-gradient-to-br from-[#202020] to-[#232839] border border-violet-500/20 rounded-2xl p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
-                                {item.dueDate && (
-                                  <p className="text-xs text-[#777777] mt-1">
-                                    日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
-                                  </p>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => handleAddAgentItem(item)}
-                                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                                  addedAgentItemIds.has(item.id)
-                                    ? 'border-[#333333] text-[#666666]'
-                                    : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                                }`}
-                              >
-                                {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
-                              </button>
-                            </div>
-                            {item.subtasks?.length ? (
-                              <ul className="mt-3 space-y-1 text-xs text-[#777777] list-disc list-inside">
-                                {item.subtasks.map((subtask, index) => (
-                                  <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
-                                ))}
-                              </ul>
-                            ) : null}
+                      ) : agentMessages.length === 0 ? (
+                        <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：想完成什么事情？</div>
+                      ) : (
+                        agentMessages.map((message, idx) => (
+                          <div
+                            key={`${message.role}-${idx}`}
+                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                              message.role === 'user'
+                                ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100 ml-auto'
+                                : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                            }`}
+                          >
+                            {message.content}
                           </div>
-                        ))}
+                        ))
+                      )}
+
+                      {hasApiKey && agentError && (
+                        <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
+                          <span>{agentError}</span>
+                          <button
+                            onClick={handleAgentSend}
+                            disabled={agentLoading}
+                            className="text-red-200 underline hover:text-white"
+                          >
+                            重试
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="pt-2 space-y-3 border-t border-[#2C2C2C]">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-[#D7DEEF]">建议待办（切成薯片）</h4>
+                          {showAgentBulkAdd && (
+                            <button
+                              onClick={handleAddAllAgentItems}
+                              disabled={agentItems.length === 0 || addedAgentItemIds.size === agentItems.length}
+                              className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              一键全部添加
+                            </button>
+                          )}
+                        </div>
+                        {agentItems.length === 0 ? (
+                          <div className="bg-gradient-to-r from-[#1F1F1F] to-[#202634] border border-dashed border-cyan-500/20 rounded-2xl p-4 text-xs text-[#8791A8]">
+                            我会把整理结果放在这里。
+                          </div>
+                        ) : (
+                          <div className="grid gap-3">
+                            {agentItems.map((item) => (
+                              <div key={item.id} className="bg-gradient-to-br from-[#202020] to-[#232839] border border-violet-500/20 rounded-2xl p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
+                                    {item.dueDate && (
+                                      <p className="text-xs text-[#777777] mt-1">
+                                        日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
+                                      </p>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => handleAddAgentItem(item)}
+                                    className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
+                                      addedAgentItemIds.has(item.id)
+                                        ? 'border-[#333333] text-[#666666]'
+                                        : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                                    }`}
+                                  >
+                                    {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
+                                  </button>
+                                </div>
+                                {item.subtasks?.length ? (
+                                  <ul className="mt-3 space-y-1 text-xs text-[#777777] list-disc list-inside">
+                                    {item.subtasks.map((subtask, index) => (
+                                      <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[11px] text-[#8FA1C8] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">
+                        管理助手可以读取你当前的任务列表，并给出优先级/推荐/下一步建议。
+                      </div>
+
+                      {manageAgentMessages.length === 0 ? (
+                        <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
+                      ) : (
+                        manageAgentMessages.map((message, idx) => (
+                          <div
+                            key={`${message.role}-${idx}`}
+                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                              message.role === 'user'
+                                ? 'bg-gradient-to-r from-violet-500/25 to-blue-500/25 border border-violet-400/30 text-blue-100 ml-auto'
+                                : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                            }`}
+                          >
+                            {message.content}
+                          </div>
+                        ))
+                      )}
+
+                      {manageAgentError && (
+                        <div className="text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">{manageAgentError}</div>
+                      )}
+
+                      {manageRecommendations.length > 0 && (
+                        <div className="pt-2 space-y-2 border-t border-[#2C2C2C]">
+                          <div className="text-sm font-semibold text-[#D7DEEF]">推荐</div>
+                          <div className="grid gap-2">
+                            {manageRecommendations.map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => {
+                                  const target = tasks.find((t) => t.id === r.id);
+                                  if (target) setSelectedTask(target);
+                                }}
+                                className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] transition-colors p-3"
+                              >
+                                <div className="text-sm text-[#EEEEEE] font-medium">{r.title}</div>
+                                {r.reason && <div className="mt-1 text-xs text-[#777777]">{r.reason}</div>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
-                {agentImages.length > 0 && (
+                {aiAssistantMode === 'record' && agentImages.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {agentImages.map((image) => (
                       <div
@@ -4551,55 +4703,79 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="mt-3 text-xs text-[#B8C7FF] bg-[#1A1F2E] border border-[#2A3348] rounded-lg px-3 py-2">
-                  我是 AI 助手，偶尔会犯错，重要问题记得再核对一下哦～
-                </div>
-
                 <div className="mt-2 flex items-center gap-2">
-                  <input
-                    ref={agentImageInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleAgentImageChange}
-                    className="hidden"
-                    disabled={!hasApiKey}
-                  />
-                  <input
-                    type="text"
-                    value={agentInput}
-                    onChange={(e) => setAgentInput(e.target.value)}
-                    onPaste={handleAgentPaste}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                        e.preventDefault();
-                        handleAgentSend();
-                      }
-                    }}
-                    placeholder={hasApiKey ? '例如：帮我规划本周的工作安排' : '请先在设置中填写 AI Key'}
-                    className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
-                    disabled={!hasApiKey}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => agentImageInputRef.current?.click()}
-                    className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
-                    title="上传图片"
-                    disabled={!hasApiKey}
-                  >
-                    <ImagePlus className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleAgentSend}
-                    disabled={!hasApiKey || (!agentInput.trim() && agentImages.length === 0)}
-                    className="px-3 py-2 text-sm bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
-                  >
-                    {agentLoading ? '整理中…' : '发送'}
-                  </button>
-                </div>
+                  {aiAssistantMode === 'record' ? (
+                    <>
+                      <input
+                        ref={agentImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleAgentImageChange}
+                        className="hidden"
+                        disabled={!hasApiKey}
+                      />
+                      <input
+                        type="text"
+                        value={agentInput}
+                        onChange={(e) => setAgentInput(e.target.value)}
+                        onPaste={handleAgentPaste}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                            e.preventDefault();
+                            handleAgentSend();
+                          }
+                        }}
+                        placeholder={hasApiKey ? '例如：帮我规划本周的工作安排' : '请先在设置中填写 AI Key'}
+                        className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
+                        disabled={!hasApiKey}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => agentImageInputRef.current?.click()}
+                        className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
+                        title="上传图片"
+                        disabled={!hasApiKey}
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleAgentSend}
+                        disabled={!hasApiKey || (!agentInput.trim() && agentImages.length === 0)}
+                        className="px-3 py-2 text-sm bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
+                      >
+                        {agentLoading ? '整理中…' : '发送'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={manageAgentInput}
+                        onChange={(e) => setManageAgentInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                            e.preventDefault();
+                            handleManageAgentSend();
+                          }
+                        }}
+                        placeholder={hasApiKey ? '例如：从我的任务里推荐今天最该做的 5 个' : '请先在设置中填写 AI Key'}
+                        className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
+                        disabled={!hasApiKey}
+                      />
+                      <button
+                        onClick={handleManageAgentSend}
+                        disabled={!hasApiKey || !manageAgentInput.trim()}
+                        className="px-3 py-2 text-sm bg-gradient-to-r from-violet-600 to-blue-600 text-white rounded-lg hover:from-violet-500 hover:to-blue-500 disabled:opacity-50"
+                      >
+                        {manageAgentLoading ? '分析中…' : '发送'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
+          </div>
           ) : activeFilter === 'habit' ? (
             <div className="space-y-5 sm:space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 sm:p-5">

@@ -6,6 +6,7 @@
  * - mode='time'           → 返回网络校准时间
  * - mode='organize'       → 一键整理已有任务列表（保留 id）
  * - mode='todo-agent'     → 聊天式待办助手（支持图片输入、上下文记忆）
+ * - mode='manage-agent'   → 管理助手（基于当前任务列表给出推荐/排序建议）
  * - mode='countdown-agent' → 倒数日识别助手
  * - 默认（Magic Input）    → 单条文本智能拆解为任务
  *
@@ -717,7 +718,96 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (mode === 'habit-agent') {
+    
+
+    if (mode === 'manage-agent') {
+      const networkNow = await getNetworkTime();
+      const serverTimeText = formatShanghaiDateTime(networkNow);
+      const incomingTasks = Array.isArray(body?.tasks) ? body.tasks : [];
+
+      // 精简任务，避免 prompt 过长
+      const normalizedTasks = incomingTasks
+        .map((t: any) => ({
+          id: String(t?.id || ''),
+          title: String(t?.title || '').trim(),
+          status: t?.status === 'completed' ? 'completed' : t?.status === 'in_progress' ? 'in_progress' : 'todo',
+          dueDate: typeof t?.dueDate === 'string' ? t.dueDate : null,
+          priority: typeof t?.priority === 'number' ? t.priority : 0,
+          category: typeof t?.category === 'string' ? t.category : '',
+          tags: Array.isArray(t?.tags) ? t.tags : [],
+        }))
+        .filter((t: any) => t.id && t.title);
+
+      const managePayload = {
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是 manage-agent（任务管理助手），基于用户的任务列表给出建议。
+
+输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2}] }。
+
+规则：
+1) 推荐最多 8 条。
+2) 必须从给定 tasks 中挑选，id 必须存在于 tasks。
+3) suggestedPriority 必须为 0/1/2。
+4) 优先考虑：逾期、今天到期、重要（priority高）、长期未完成。
+5) 当前时间 ${serverTimeText}（中国标准时间，UTC+8）。
+6) 只输出 JSON，不要 Markdown。`,
+          },
+          ...recentHistoryMessages,
+          {
+            role: 'user',
+            content: JSON.stringify({
+              input: normalizedInput,
+              tasks: normalizedTasks,
+            }),
+          },
+        ],
+        response_format: { type: 'json_object' },
+      };
+
+      const { res: manageRes } = await requestChat(baseUrlList, apiKey, managePayload);
+      const managePayloadJson = await manageRes.json();
+      const raw = parseChatContent(managePayloadJson) as any;
+
+      const recommendations = Array.isArray(raw?.recommendations) ? raw.recommendations : [];
+      const allowedIds = new Set(normalizedTasks.map((t: any) => t.id));
+
+      const normalizedRecs = recommendations
+        .map((r: any) => ({
+          id: String(r?.id || ''),
+          title: String(r?.title || '').trim(),
+          reason: String(r?.reason || '').trim(),
+          suggestedPriority: typeof r?.suggestedPriority === 'number' ? r.suggestedPriority : 0,
+        }))
+        .filter((r: any) => r.id && allowedIds.has(r.id) && r.title)
+        .slice(0, 8)
+        .map((r: any) => ({
+          ...r,
+          suggestedPriority: r.suggestedPriority === 2 ? 2 : r.suggestedPriority === 1 ? 1 : 0,
+        }));
+
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'user',
+        content: `[manage-agent] ${normalizedInput}`,
+        timestamp: Date.now(),
+      }, retentionDays);
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'assistant',
+        content: typeof raw?.reply === 'string' ? raw.reply : '已生成管理建议。',
+        timestamp: Date.now(),
+      }, retentionDays);
+
+      return NextResponse.json({
+        reply: typeof raw?.reply === 'string' && raw.reply.trim().length > 0 ? raw.reply.trim() : '已生成管理建议。',
+        recommendations: normalizedRecs,
+        serverTime: networkNow.toISOString(),
+        serverTimeText,
+      });
+    }
+
+if (mode === 'habit-agent') {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const habitPayload = {
