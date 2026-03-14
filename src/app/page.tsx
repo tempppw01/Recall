@@ -842,10 +842,10 @@ export default function Home() {
   const [calendarCity, setCalendarCity] = useState<WeatherCity | null>(null);
   const [weatherCities, setWeatherCities] = useState<WeatherCity[]>([]);
   const [weatherCitySearchMessage, setWeatherCitySearchMessage] = useState('');
+  const [weatherForecastHint, setWeatherForecastHint] = useState('');
   const [isSearchingWeatherCity, setIsSearchingWeatherCity] = useState(false);
   const [weatherForecast, setWeatherForecast] = useState<WeatherForecast | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
-  const [weatherConnectionHint, setWeatherConnectionHint] = useState('');
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [weekDays, setWeekDays] = useState(() => buildWeekDays(weekStart));
   const [weekLabel, setWeekLabel] = useState(() => buildWeekLabel(weekStart));
@@ -1507,6 +1507,7 @@ export default function Home() {
     if (activeFilter === 'calendar') return;
     setWeatherCities([]);
     setWeatherCitySearchMessage('');
+    setWeatherForecastHint('');
     setIsSearchingWeatherCity(false);
   }, [activeFilter]);
 
@@ -1620,24 +1621,24 @@ export default function Home() {
     const fetchForecast = async () => {
       setWeatherForecast(null);
       setWeatherLoading(true);
-      setWeatherConnectionHint('');
+      setWeatherForecastHint('');
       try {
         const res = await fetch(
           `/api/weather/forecast?lat=${calendarCity.latitude}&lon=${calendarCity.longitude}&date=${targetDate}`,
         );
         if (!res.ok) {
           setWeatherForecast(null);
-          setWeatherConnectionHint('天气接口请求失败');
+          setWeatherForecastHint('天气接口请求失败');
           return;
         }
         const data = await res.json();
         setWeatherForecast(data);
         if (typeof data?.warning === 'string') {
-          setWeatherConnectionHint(data.warning);
+          setWeatherForecastHint(data.warning);
         }
       } catch (error) {
         setWeatherForecast(null);
-        setWeatherConnectionHint('天气服务连接受限');
+        setWeatherForecastHint('天气服务连接受限');
       } finally {
         setWeatherLoading(false);
       }
@@ -3686,7 +3687,7 @@ export default function Home() {
                 weatherLoading={weatherLoading}
                 weatherSummaryLabel={calendarCity ? (weatherForecast?.weatherText || weatherSummary.label) : '请先选择城市'}
                 weatherTemperatureText={calendarCity && typeof weatherForecast?.tempMin === 'number' && typeof weatherForecast?.tempMax === 'number' ? `${Math.round(weatherForecast.tempMin)}° ~ ${Math.round(weatherForecast.tempMax)}°` : '--'}
-                weatherHintText={weatherConnectionHint}
+                weatherHintText={weatherForecastHint}
                 weatherIcon={<SelectedWeatherIcon className="w-5 h-5 text-blue-300" />}
                 onViewChange={(view) => {
                   setCalendarView(view);
@@ -3718,7 +3719,7 @@ export default function Home() {
                       setCalendarCity(null);
                       setWeatherForecast(null);
                       setWeatherLoading(false);
-                      setWeatherConnectionHint('');
+                      setWeatherForecastHint('');
                       setWeatherCities([]);
                       setWeatherCitySearchMessage('');
                       setIsSearchingWeatherCity(false);
@@ -3731,7 +3732,7 @@ export default function Home() {
                   // 先进入 loading，避免旧的天气状态在下一次 effect 触发前短暂残留。
                   setWeatherForecast(null);
                   setWeatherLoading(true);
-                  setWeatherConnectionHint('');
+                  setWeatherForecastHint('');
                   setWeatherCities([]);
                   setWeatherCitySearchMessage('');
                 }}
