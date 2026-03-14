@@ -3827,9 +3827,9 @@ export default function Home() {
                 <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-[#DDDDDD]">{selectedCalendarLabel}</div>
-                    {calendarNotes[selectedCalendarLabel] && (
+                    {calendarNotes[effectiveCalendarDate] && (
                       <span className="text-[11px] text-blue-300">
-                        {calendarNotes[selectedCalendarLabel]}
+                        {calendarNotes[effectiveCalendarDate]}
                       </span>
                     )}
                   </div>
