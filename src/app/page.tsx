@@ -525,6 +525,9 @@ type CountdownDisplayMode = 'days' | 'date';
 
 type AiAssistantMode = 'record' | 'manage';
 
+// 管理助手筛选：全部/只看未完成/只看今日/只看逾期
+type ManageAgentFilter = 'all' | 'todo' | 'today' | 'overdue';
+
 
 const isTaskOverdue = (task: Task) => {
   if (!task.dueDate) return false;
@@ -888,6 +891,8 @@ export default function Home() {
   // todo-agent 聊天状态
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
   const [aiAssistantMode, setAiAssistantMode] = useState<AiAssistantMode>('record');
+  const [manageAgentFilter, setManageAgentFilter] = useState<ManageAgentFilter>('all');
+
   const [agentInput, setAgentInput] = useState('');
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentImages, setAgentImages] = useState<ImageAttachment[]>([]);
@@ -2136,8 +2141,29 @@ export default function Home() {
 
 
   const buildTaskSummaryForManageAgent = () => {
-    // 仅传必要字段，避免 prompt 过长。
-    const items = tasks.map((t) => ({
+    // 仅传必要字段 + 做筛选/截断，避免 prompt 过长。
+    const now = new Date();
+    const todayKey = formatDateKey(now);
+
+    const filtered = tasks.filter((t) => {
+      if (manageAgentFilter === 'all') return true;
+      if (manageAgentFilter === 'todo') return t.status !== 'completed';
+      if (manageAgentFilter === 'today') {
+        if (!t.dueDate) return false;
+        const dueKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
+        return dueKey === todayKey;
+      }
+      if (manageAgentFilter === 'overdue') {
+        return t.status !== 'completed' && Boolean(t.dueDate) && isTaskOverdue(t);
+      }
+      return true;
+    });
+
+    // 给一个上限，避免任务很多时 token 爆炸。
+    const MAX_TASKS = 120;
+    const slice = filtered.slice(0, MAX_TASKS);
+
+    return slice.map((t) => ({
       id: t.id,
       title: t.title,
       status: t.status,
@@ -2146,7 +2172,6 @@ export default function Home() {
       category: t.category || '',
       tags: Array.isArray(t.tags) ? t.tags : [],
     }));
-    return items;
   };
 
   const handleManageAgentSend = async () => {
@@ -4630,6 +4655,68 @@ export default function Home() {
                       <div className="text-[11px] text-[#8FA1C8] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">
                         管理助手可以读取你当前的任务列表，并给出优先级/推荐/下一步建议。
                       </div>
+
+
+                      <div className="mt-2 inline-flex flex-wrap gap-2">
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => setManageAgentFilter('all')}
+
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'all' ? 'bg-[#2B3448] border-[#3B82F6]/40 text-[#D7DEEF]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+
+                        >
+
+                          全部
+
+                        </button>
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => setManageAgentFilter('todo')}
+
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'todo' ? 'bg-[#2B3448] border-[#3B82F6]/40 text-[#D7DEEF]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+
+                        >
+
+                          未完成
+
+                        </button>
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => setManageAgentFilter('today')}
+
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'today' ? 'bg-[#2B3448] border-[#3B82F6]/40 text-[#D7DEEF]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+
+                        >
+
+                          今日
+
+                        </button>
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => setManageAgentFilter('overdue')}
+
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'overdue' ? 'bg-[#2B3448] border-[#F43F5E]/40 text-[#FFD1DC]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+
+                        >
+
+                          逾期
+
+                        </button>
+
+                      </div>
+
 
                       {manageAgentMessages.length === 0 ? (
                         <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
