@@ -1613,10 +1613,13 @@ export default function Home() {
   useEffect(() => {
     if (!calendarCity) {
       setWeatherForecast(null);
+      setWeatherLoading(false);
+      setWeatherForecastHint('');
       return;
     }
 
     const targetDate = selectedCalendarDate || formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
+    const controller = new AbortController();
 
     const fetchForecast = async () => {
       setWeatherForecast(null);
@@ -1625,6 +1628,7 @@ export default function Home() {
       try {
         const res = await fetch(
           `/api/weather/forecast?lat=${calendarCity.latitude}&lon=${calendarCity.longitude}&date=${targetDate}`,
+          { signal: controller.signal },
         );
         if (!res.ok) {
           setWeatherForecast(null);
@@ -1637,14 +1641,21 @@ export default function Home() {
           setWeatherForecastHint(data.warning);
         }
       } catch (error) {
+        if ((error as any)?.name === 'AbortError') return;
         setWeatherForecast(null);
         setWeatherForecastHint('天气服务连接受限');
       } finally {
-        setWeatherLoading(false);
+        if (!controller.signal.aborted) {
+          setWeatherLoading(false);
+        }
       }
     };
 
     fetchForecast();
+
+    return () => {
+      controller.abort();
+    };
   }, [calendarCity, selectedCalendarDate]);
 
   useEffect(() => {
