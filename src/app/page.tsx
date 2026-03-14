@@ -1601,13 +1601,16 @@ export default function Home() {
         const res = await fetch(`/api/weather/search?q=${encodeURIComponent(keyword)}`, {
           signal: controller.signal,
         });
+        if (!res.ok) {
+          throw new Error('weather city search failed');
+        }
         const data = await res.json();
         const results = Array.isArray(data?.results) ? data.results : [];
         const dedupedResults = dedupeClientCities(results);
         // 忽略过期请求（例如用户已选择城市/切换关键词后，旧请求才返回）
         if (requestId !== weatherCitySearchAliveRef.current) return;
         setWeatherCities(dedupedResults);
-        setWeatherCitySearchMessage(dedupedResults.length === 0 ? '未找到匹配城市' : '');
+        setWeatherCitySearchMessage(dedupedResults.length === 0 ? '未找到匹配城市，请换个关键词试试' : '');
         
       } catch (error) {
         if ((error as any)?.name === 'AbortError') return;
