@@ -138,9 +138,9 @@ export default function CalendarTopPanel({
         <div className="glass-panel-soft rounded-2xl px-4 py-3.5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="text-[11px] text-[#6E6E6E]">天气预报（{selectedCalendarLabel}）</div>
-            <div className="mt-1.5 flex items-center gap-2 text-sm text-[#DDDDDD] truncate">
+            <div className="mt-1.5 flex items-start gap-2 text-sm text-[#DDDDDD]">
               <MapPin className="w-3.5 h-3.5 text-blue-300" />
-              <span className="truncate">{cityLabel}</span>
+              <span className="break-words">{cityLabel}</span>
             </div>
           </div>
           <div className="flex w-full items-center justify-between gap-2 text-right sm:w-auto sm:justify-end shrink-0">
