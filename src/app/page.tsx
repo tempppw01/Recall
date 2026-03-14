@@ -3715,6 +3715,14 @@ export default function Home() {
                     setIsSearchingWeatherCity(false);
                   }
                 }}
+                onCityInputBlur={() => {
+                  const keyword = calendarCityInput.trim();
+                  if (keyword.length < 2) {
+                    setWeatherCities([]);
+                    setWeatherCitySearchMessage('');
+                    setIsSearchingWeatherCity(false);
+                  }
+                }}
                 onCityInputChange={(value) => {
                   setCalendarCityInput(value);
                   // 当用户开始编辑城市关键词时，清空当前已选城市，避免输入框/候选列表/天气卡片三者状态不一致。

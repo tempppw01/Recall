@@ -31,6 +31,7 @@ type CalendarTopPanelProps = {
   onToggleCompleted: () => void;
   onCityInputChange: (value: string) => void;
   onCityInputFocus?: () => void;
+  onCityInputBlur?: () => void;
   onSelectCity: (city: WeatherCity) => void;
 };
 
@@ -58,6 +59,7 @@ export default function CalendarTopPanel({
   onToggleCompleted,
   onCityInputChange,
   onCityInputFocus,
+  onCityInputBlur,
   onSelectCity,
 }: CalendarTopPanelProps) {
   const showCityDropdown =
@@ -110,6 +112,7 @@ export default function CalendarTopPanel({
               value={calendarCityInput}
               onChange={(event) => onCityInputChange(event.target.value)}
               onFocus={() => onCityInputFocus?.()}
+              onBlur={() => onCityInputBlur?.()}
               placeholder="搜索城市：例如 北京、上海、Tokyo"
               className="w-full bg-transparent text-sm text-[#DDDDDD] placeholder:text-[#5F5F5F] outline-none"
             />
