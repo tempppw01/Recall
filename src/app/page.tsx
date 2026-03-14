@@ -4715,7 +4715,7 @@ export default function Home() {
                 <div className="flex flex-col items-center justify-center h-64 text-[#444444]">
                   <Inbox className="w-16 h-16 mb-4 opacity-20" />
                   {/* 空状态：加入一点幽默元素 */}
-                  <p className="text-sm">暂无任务，今天可以安心摸鱼 😎</p>
+                  <p className="text-sm">暂无任务，今天可以安心休息一下</p>
                   <p className="text-xs text-[#555555] mt-2">要不要来点新任务，让我也有点存在感？</p>
                 </div>
               ) : (
