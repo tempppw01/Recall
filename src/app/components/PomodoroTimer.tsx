@@ -10,7 +10,7 @@
  * - 秒级提示音
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw, Timer as TimerIcon } from 'lucide-react';
 import { pomodoroStore, PomodoroRecord } from '@/lib/store';
 
