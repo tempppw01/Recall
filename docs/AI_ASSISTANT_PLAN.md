@@ -7,12 +7,12 @@
 
 ## Phase 1（可用版）
 
-- [ ] 顶部胶囊按钮：记录助手 / 管理助手
-- [ ] 管理助手：将当前任务列表摘要传给后端（仅必要字段）
-- [ ] 新增后端 mode：`manage-agent`（返回 reply + recommendations）
-- [ ] 管理助手 UI：展示 AI 回复 + 推荐列表（可点击打开任务详情）
-- [ ] 构建通过（npm run build）
-- [ ] commit + push
+- [x] 顶部胶囊按钮：记录助手 / 管理助手
+- [x] 管理助手：将当前任务列表摘要传给后端（仅必要字段）
+- [x] 新增后端 mode：`manage-agent`（返回 reply + recommendations）
+- [x] 管理助手 UI：展示 AI 回复 + 推荐列表（可点击打开任务详情）
+- [x] 构建通过（npm run build）
+- [x] commit + push
 
 ## Phase 2（增强版）
 
