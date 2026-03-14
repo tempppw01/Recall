@@ -4255,7 +4255,15 @@ export default function Home() {
               </div>
             </div>
           ) : activeFilter === 'timeline' ? (
-            <TimelinePanel />
+            <TimelinePanel
+              tasks={tasks}
+              onSelectTask={(task) => setSelectedTask(task)}
+              defaultTimezoneOffset={DEFAULT_TIMEZONE_OFFSET}
+              getTimezoneOffset={(task) => getTimezoneOffset(task)}
+              formatZonedDateTime={formatZonedDateTime}
+              formatZonedDate={formatZonedDate}
+              isTaskOverdue={isTaskOverdue}
+            />
           ) : activeFilter === 'quadrant' ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {quadrantGroups.map((group) => {
