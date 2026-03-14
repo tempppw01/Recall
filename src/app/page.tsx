@@ -842,6 +842,8 @@ export default function Home() {
   const [calendarCity, setCalendarCity] = useState<WeatherCity | null>(null);
   const [weatherCities, setWeatherCities] = useState<WeatherCity[]>([]);
   const [weatherCitySearchMessage, setWeatherCitySearchMessage] = useState('');
+  const suppressWeatherCitySearchRef = useRef(false);
+  const weatherCitySearchAliveRef = useRef(0);
   const [weatherForecastHint, setWeatherForecastHint] = useState('');
   const [isSearchingWeatherCity, setIsSearchingWeatherCity] = useState(false);
   const [weatherForecast, setWeatherForecast] = useState<WeatherForecast | null>(null);
@@ -1581,9 +1583,20 @@ export default function Home() {
     const controller = new AbortController();
 
     const timer = window.setTimeout(async () => {
+      // 如果刚刚是“选择城市”导致输入框回填，跳过一次搜索，避免重复候选回弹。
+      if (suppressWeatherCitySearchRef.current) {
+        suppressWeatherCitySearchRef.current = false;
+        setIsSearchingWeatherCity(false);
+        setWeatherCities([]);
+        setWeatherCitySearchMessage('');
+        return;
+      }
+
       setIsSearchingWeatherCity(true);
       setWeatherCities([]);
       setWeatherCitySearchMessage('');
+
+      const requestId = (weatherCitySearchAliveRef.current += 1);
       try {
         const res = await fetch(`/api/weather/search?q=${encodeURIComponent(keyword)}`, {
           signal: controller.signal,
@@ -1591,21 +1604,28 @@ export default function Home() {
         const data = await res.json();
         const results = Array.isArray(data?.results) ? data.results : [];
         const dedupedResults = dedupeClientCities(results);
+        // 忽略过期请求（例如用户已选择城市/切换关键词后，旧请求才返回）
+        if (requestId !== weatherCitySearchAliveRef.current) return;
         setWeatherCities(dedupedResults);
         setWeatherCitySearchMessage(dedupedResults.length === 0 ? '未找到匹配城市' : '');
         
       } catch (error) {
         if ((error as any)?.name === 'AbortError') return;
+        if (requestId !== weatherCitySearchAliveRef.current) return;
         setWeatherCities([]);
         setWeatherCitySearchMessage('城市搜索服务暂时不可用');
         
       } finally {
-        setIsSearchingWeatherCity(false);
+        if (requestId === weatherCitySearchAliveRef.current) {
+          setIsSearchingWeatherCity(false);
+        }
       }
     }, 260);
 
     return () => {
       controller.abort();
+      // 让所有未返回的请求失效，避免晚到的响应污染 UI。
+      weatherCitySearchAliveRef.current += 1;
       window.clearTimeout(timer);
     };
   }, [calendarCityInput, activeFilter, calendarCity]);
