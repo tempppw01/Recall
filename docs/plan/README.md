@@ -12,7 +12,7 @@
 
 ## 进度统计
 
-- v0.2：**5/6**（见 `docs/plan/versions/v0.2.md`）
+- v0.2：**6/6**（见 `docs/plan/versions/v0.2.md`）
 
 ## 导航
 

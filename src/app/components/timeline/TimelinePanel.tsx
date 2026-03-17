@@ -459,13 +459,13 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-3">
+              <div className="mt-3 columns-1 gap-3 xl:columns-2">
                 {month.days.map((day) => (
                   <div
                     key={day.dateKey}
-                    className="rounded-2xl border border-[#262626] bg-[#171717] p-3 scroll-mt-24"
+                    className="mb-3 break-inside-avoid rounded-2xl border border-[#262626] bg-[#171717] p-3 scroll-mt-24"
                   >
-                    <div className="flex items-center justify-between sticky top-0 z-10 -mx-3 px-3 py-2 rounded-2xl bg-[#171717]/90 backdrop-blur border-b border-[#232323]">
+                    <div className="flex items-center justify-between -mx-3 px-3 py-2 rounded-2xl bg-[#171717]/90 backdrop-blur border-b border-[#232323] xl:sticky xl:top-0 xl:z-10">
                       <div className="text-xs font-semibold text-[#DDDDDD]">
                         {day.dateKey}
                       </div>
