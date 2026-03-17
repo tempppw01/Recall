@@ -6,31 +6,11 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
+import { getRequestDbContext } from '@/lib/request-db';
+import { prisma, ensureLocalUser } from '@/lib/prisma';
 
-/** 单机模式下的默认用户 ID */
-const DEFAULT_USER_ID = 'local-user';
-
-/** GET /api/countdowns - 获取所有倒计时，按创建时间降序 */
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  let client = prisma;
-  let userId = (session?.user as { id?: string })?.id || '';
-
-  if (!userId) {
-    // 未登录时，才允许使用动态 PG（通过 x-pg-* 请求头），并使用固定 local-user
-    const pgConfig = getPgConfigFromHeaders(request.headers);
-    if (pgConfig) {
-      const dynamicClient = getDynamicPrisma(pgConfig);
-      if (dynamicClient) {
-        client = dynamicClient;
-        userId = DEFAULT_USER_ID;
-      }
-    }
-  }
-
+  const { client, userId } = await getRequestDbContext(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
@@ -39,8 +19,6 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (client !== prisma) await client.$disconnect();
-
     return NextResponse.json(
       countdowns.map((item: any) => ({
         id: item.id,
@@ -48,40 +26,24 @@ export async function GET(request: Request) {
         targetDate: item.targetDate.toISOString(),
         pinned: item.pinned,
         createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt?.toISOString?.() ?? undefined,
       })),
     );
   } catch (error) {
     console.error('API Error', error);
-    if (client !== prisma) await client.$disconnect();
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const pgConfig = getPgConfigFromHeaders(request.headers);
-  let client = prisma;
-  let userId = '';
-
-  if (pgConfig) {
-    const dynamicClient = getDynamicPrisma(pgConfig);
-    if (dynamicClient) {
-      client = dynamicClient;
-      userId = DEFAULT_USER_ID;
-    }
-  } else {
-    const session = await getServerSession(authOptions);
-    userId = (session?.user as { id?: string })?.id || '';
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { client, userId } = await getRequestDbContext(request);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const payload = await request.json();
 
     if (client !== prisma) {
-      const userExists = await client.user.findUnique({ where: { id: userId } });
-      if (!userExists) {
-        await client.user.create({ data: { id: userId, name: 'Local User' } });
-      }
+      await ensureLocalUser(client, userId);
     }
 
     const countdown = await client.countdown.create({
@@ -95,11 +57,9 @@ export async function POST(request: Request) {
       },
     });
 
-    if (client !== prisma) await client.$disconnect();
     return NextResponse.json({ id: countdown.id });
   } catch (error) {
     console.error('API Error', error);
-    if (client !== prisma) await client.$disconnect();
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
   }
 }

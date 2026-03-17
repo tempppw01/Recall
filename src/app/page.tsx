@@ -10,7 +10,7 @@ import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { buildExportPayload as buildExportPayloadData, buildSyncPayload as buildSyncPayloadData } from '@/app/services/syncPayload';
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
 import { resolveSyncedSettings } from '@/app/services/syncedSettings';
-import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions } from '@/app/services/deletions';
+import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
@@ -814,7 +814,7 @@ export default function Home() {
     getLastLocalChange: () => getLastLocalChange(),
     applyImportedData: (payload, mode) => applyImportedData(payload, mode),
     applySyncedSettings: (payload) => applySyncedSettings(payload),
-    pushLog: (level, title, detail, extra) => pushLog(level, title, detail, extra),
+    pushLog,
     onNeedSettings: () => setShowSettings(true),
   });
   const { syncStatus, isSyncingNow } = syncManager;
@@ -904,7 +904,16 @@ export default function Home() {
   const [manageAgentMessages, setManageAgentMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [manageAgentLoading, setManageAgentLoading] = useState(false);
   const [manageAgentError, setManageAgentError] = useState<string | null>(null);
-  const [manageRecommendations, setManageRecommendations] = useState<Array<{ id: string; title: string; reason?: string; suggestedPriority?: number }>>([]);
+  const [manageRecommendations, setManageRecommendations] = useState<Array<{ id: string; title: string; reason?: string; suggestedPriority?: number; suggestedPinned?: boolean; suggestedDuePreset?: 'today' | 'tomorrow' | 'tonight' }>>([]);
+  const [manageRecActions, setManageRecActions] = useState<Record<string, { pin?: boolean; priority?: number; dueDate?: string }>>({});
+
+  const applyManageActionToTask = (task: Task, action: { pin?: boolean; priority?: number; dueDate?: string }) => {
+    const next: Task = { ...task };
+    if (typeof action.pin === 'boolean') next.pinned = action.pin;
+    if (typeof action.priority === 'number') next.priority = action.priority;
+    if (typeof action.dueDate === 'string') next.dueDate = action.dueDate;
+    return next;
+  };
 
   // 倒数日 AI 聊天状态
   const [countdownAgentMessages, setCountdownAgentMessages] = useState<AgentMessage[]>([]);
@@ -2220,6 +2229,8 @@ export default function Home() {
           title: String(r.title || ''),
           reason: typeof r.reason === 'string' ? r.reason : undefined,
           suggestedPriority: typeof r.suggestedPriority === 'number' ? r.suggestedPriority : undefined,
+          suggestedPinned: typeof r.suggestedPinned === 'boolean' ? r.suggestedPinned : undefined,
+          suggestedDuePreset: r.suggestedDuePreset === 'today' || r.suggestedDuePreset === 'tomorrow' || r.suggestedDuePreset === 'tonight' ? r.suggestedDuePreset : undefined,
         })),
       );
       setManageAgentInput('');
@@ -2645,7 +2656,7 @@ export default function Home() {
       webdavPassword,
       autoSyncEnabled: nextAutoSyncEnabled,
       autoSyncInterval: nextAutoSyncInterval,
-      countdownDisplayMode: nextCountdownDisplayMode,
+      countdownDisplayMode: nextCountdownDisplayMode as CountdownDisplayMode,
       aiRetentionDays: nextAiRetentionDays,
       pgHost: nextPgHost,
       pgPort: nextPgPort,
@@ -4755,6 +4766,88 @@ export default function Home() {
                               >
                                 <div className="text-sm text-[#EEEEEE] font-medium">{r.title}</div>
                                 {r.reason && <div className="mt-1 text-xs text-[#777777]">{r.reason}</div>}
+
+                                {(typeof r.suggestedPinned === 'boolean' ||
+                                  typeof r.suggestedPriority === 'number' ||
+                                  (r.suggestedDuePreset === 'today' || r.suggestedDuePreset === 'tomorrow' || r.suggestedDuePreset === 'tonight')) && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {typeof r.suggestedPinned === 'boolean' && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const target = taskStore.getAll().find((t) => t.id === r.id);
+                                          if (!target) return;
+
+                                          setManageRecActions((prev) => ({
+                                            ...prev,
+                                            [r.id]: { ...(prev[r.id] ?? {}), pin: r.suggestedPinned },
+                                          }));
+                                          updateTask(applyManageActionToTask(target, { pin: r.suggestedPinned }));
+                                          setManageRecommendations((prev) => prev.filter((item) => item.id !== r.id));
+                                          pushLog('success', `已${r.suggestedPinned ? '置顶' : '取消置顶'}：${r.title}`);
+                                        }}
+                                        className="px-2.5 py-1 text-[11px] rounded-full border border-[#2A3348] text-[#8FA1C8] hover:text-white hover:border-[#3A3F55]"
+                                      >
+                                        {r.suggestedPinned ? '一键置顶' : '一键取消置顶'}
+                                      </button>
+                                    )}
+
+                                    {typeof r.suggestedPriority === 'number' && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const suggestedPriority = r.suggestedPriority;
+                                          if (typeof suggestedPriority !== 'number') return;
+                                          setManageRecActions((prev) => ({
+                                            ...prev,
+                                            [r.id]: { ...(prev[r.id] ?? {}), priority: suggestedPriority },
+                                          }));
+                                          quickSetPriority(r.id, suggestedPriority);
+                                          setManageRecommendations((prev) => prev.filter((item) => item.id !== r.id));
+                                          pushLog('success', `已更新优先级：${r.title}`);
+                                        }}
+                                        className="px-2.5 py-1 text-[11px] rounded-full border border-[#2A3348] text-[#8FA1C8] hover:text-white hover:border-[#3A3F55]"
+                                      >
+                                        一键设为{getPriorityLabel(r.suggestedPriority)}
+                                      </button>
+                                    )}
+
+                                    {(r.suggestedDuePreset === 'today' || r.suggestedDuePreset === 'tomorrow' || r.suggestedDuePreset === 'tonight') && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const duePreset = r.suggestedDuePreset;
+                                          if (duePreset !== 'today' && duePreset !== 'tomorrow' && duePreset !== 'tonight') return;
+                                          const target = taskStore.getAll().find((t) => t.id === r.id);
+                                          if (!target) return;
+
+                                          const timezoneOffset = target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
+                                          const baseNow = new Date();
+                                          const dateText =
+                                            duePreset === 'tomorrow'
+                                              ? formatDateKeyByOffset(new Date(baseNow.getTime() + 24 * 60 * 60 * 1000), timezoneOffset)
+                                              : formatDateKeyByOffset(baseNow, timezoneOffset);
+                                          const timeText = duePreset === 'tonight' ? '20:00' : '09:00';
+                                          const dueDate = buildDueDateIso(dateText, timeText, timezoneOffset);
+
+                                          setManageRecActions((prev) => ({
+                                            ...prev,
+                                            [r.id]: { ...(prev[r.id] ?? {}), dueDate },
+                                          }));
+                                          quickSetDuePreset(r.id, duePreset);
+                                          setManageRecommendations((prev) => prev.filter((item) => item.id !== r.id));
+                                          pushLog('success', `已更新日期：${r.title}`);
+                                        }}
+                                        className="px-2.5 py-1 text-[11px] rounded-full border border-[#2A3348] text-[#8FA1C8] hover:text-white hover:border-[#3A3F55]"
+                                      >
+                                        一键设为{r.suggestedDuePreset === 'today' ? '今天' : r.suggestedDuePreset === 'tomorrow' ? '明天' : '今晚'}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </button>
                             ))}
                           </div>

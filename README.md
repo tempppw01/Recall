@@ -43,9 +43,33 @@ Recall 的初衷是：
 - **任务管理完整闭环**：创建、完成、筛选、排序、标签、清单、子任务
 - **习惯打卡 + 倒数日**：覆盖高频个人效率场景
 - **AI 助手（Todo Agent）**：辅助拆解任务与整理行动清单
+- **AI 管理助手（Manage Agent）**：不仅会推荐任务，还支持直接在推荐卡片里一键执行建议动作（置顶 / 改优先级 / 改到今天、明天、今晚）
 - **本地优先存储**：默认 LocalStorage，可离线/低依赖使用
 - **可选远程能力**：Redis / PostgreSQL / WebDAV 按需接入
 - **PWA 支持**：可安装、可缓存、可通知
+
+---
+
+## 🧠 AI 助手说明
+
+Recall 目前有两类 AI 助手：
+
+- **AI 记录助手（Todo Agent）**：适合把自然语言输入整理成待办、拆分行动项。
+- **AI 管理助手（Manage Agent）**：适合基于当前任务列表给出优先级建议、今日推荐、逾期处理建议。
+
+### 管理助手的直接操作
+
+管理助手返回 recommendation 时，前端会根据字段自动显示可执行按钮：
+
+- `suggestedPriority` → 一键改优先级
+- `suggestedPinned` → 一键置顶 / 取消置顶
+- `suggestedDuePreset` → 一键改到今天 / 明天 / 今晚
+
+这些动作不会走旁路，仍然复用现有任务更新链路：
+- 本地状态更新：`updateTask / quickSetPriority / quickSetDuePreset`
+- 若已配置 PG 同步：会继续复用 `syncToPg('tasks', 'PUT', ...)`
+
+也就是说，管理助手的“一键执行”只是现有任务编辑能力的快捷入口，不会引入单独的数据写入分支。
 
 ---
 
@@ -168,6 +192,40 @@ docker compose up -d
 | `REDIS_PASSWORD` | Redis 密码 | - |
 
 > 当前默认服务端模式为 **PostgreSQL**。浏览器端仍保留 LocalStorage 体验，但 Docker / Prisma / 鉴权链路统一按 PostgreSQL 描述。
+
+---
+
+## 🐘 数据库初始化与动态 PG 说明
+
+服务端持久化默认依赖 Prisma + PostgreSQL。
+更详细文档见：`docs/database.md`
+
+### 快速初始化
+
+```bash
+export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/recall'
+npx prisma generate
+npx prisma db push
+```
+
+### 快速验证
+
+```bash
+DATABASE_URL='postgresql://postgres:postgres@localhost:5432/recall' ./scripts/db-check.sh
+```
+
+### 动态 PG（高级模式）
+
+Recall 仍保留基于 `x-pg-*` 请求头的动态 PG 模式，但已经收紧为：
+- 默认关闭（需显式设置 `ENABLE_DYNAMIC_PG_HEADERS=true`）
+- 仅在**未登录**请求时生效
+- 已登录 session 始终优先走服务端数据库
+
+建议同时配置：
+- `PG_HEADERS_TOKEN`
+- `PG_HEADERS_HOST_ALLOWLIST`
+
+仅建议在自部署 / 内网 / 受信环境下使用。
 
 ---
 

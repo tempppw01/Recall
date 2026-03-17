@@ -143,7 +143,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
       monthKey: dateKey.slice(0, 7),
       list,
     }));
-  }, [tasks, defaultTimezoneOffset, getTimezoneOffset]);
+  }, [filteredTasks, defaultTimezoneOffset, getTimezoneOffset]);
 
   const monthGroups = useMemo(() => {
     const map = new Map<string, { monthKey: string; days: typeof groups }>();

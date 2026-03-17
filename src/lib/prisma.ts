@@ -1,40 +1,41 @@
 /**
  * Prisma 数据库客户端模块
  *
- * 提供两种连接方式：
- * 1. 静态连接 —— 使用环境变量 DATABASE_URL，适用于服务端默认数据库
- * 2. 动态连接 —— 根据前端传入的 PG 配置（通过请求头）按需创建实例，
- *    适用于用户自定义数据库场景
+ * 默认模式：使用环境变量 DATABASE_URL 对服务端数据库建连。
+ *
+ * 高级模式（默认关闭）：允许未登录请求通过 `x-pg-*` 请求头连到自定义 PostgreSQL，
+ * 仅建议用于自部署/受信网络。
  */
 
 import { PrismaClient } from '@prisma/client';
 
-/**
- * 扩展 globalThis 类型，用于在开发环境下缓存 PrismaClient 实例，
- * 避免 Next.js 热重载时反复创建连接导致连接池耗尽。
- */
 type GlobalForPrisma = typeof globalThis & {
   prisma?: PrismaClient;
 };
 
+type DynamicPrismaCacheEntry = {
+  client: PrismaClient;
+  lastUsedAt: number;
+};
+
+export type RequestDbContext = {
+  client: PrismaClient;
+  userId: string;
+  source: 'session' | 'dynamic-pg' | 'none';
+};
+
 const globalForPrisma = globalThis as GlobalForPrisma;
 
-/**
- * 默认的静态 Prisma 实例（使用环境变量 DATABASE_URL）
- * 开发环境下挂载到 globalThis 以复用连接
- */
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: ['error', 'warn'],
   });
 
-// 开发环境下缓存实例，防止热重载时重复创建
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
-/** 动态 PostgreSQL 连接配置 */
 export interface PgConfig {
   host?: string;
   port?: string | number;
@@ -43,71 +44,173 @@ export interface PgConfig {
   password?: string;
 }
 
-/**
- * 根据用户提供的 PG 配置动态创建 Prisma Client 实例
- *
- * 注意：由于 Next.js API Routes 的无状态性，频繁创建连接可能导致连接池耗尽。
- * 在生产环境中，建议使用连接池（如 PgBouncer）或限制并发。
- * 调用方使用完毕后需手动调用 `$disconnect()` 释放连接。
- *
- * @param config - 用户提供的数据库连接参数
- * @returns PrismaClient 实例，配置不完整时返回 null（回退到默认连接）
- */
-export const getDynamicPrisma = (config: PgConfig) => {
-  // 必填字段缺失时返回 null，由调用方回退到默认 prisma
-  if (!config.host || !config.database || !config.username) {
-    return null;
-  }
+export const DEFAULT_DYNAMIC_PG_USER_ID = 'local-user';
 
-  // 拼接 PostgreSQL 连接字符串，密码需 URL 编码
-  const { host, port = 5432, database, username, password } = config;
-  const encodedPassword = encodeURIComponent(password || '');
-  const url = `postgresql://${username}:${encodedPassword}@${host}:${port}/${database}`;
+const DYNAMIC_PG_ENABLED = (process.env.ENABLE_DYNAMIC_PG_HEADERS || '').trim() === 'true';
+const DYNAMIC_PG_MAX_CLIENTS = Math.max(Number(process.env.DYNAMIC_PG_MAX_CLIENTS || 3), 1);
+const DYNAMIC_PG_IDLE_TTL_MS = Math.max(Number(process.env.DYNAMIC_PG_IDLE_TTL_MS || 2 * 60 * 1000), 30_000);
+const DYNAMIC_PG_CONNECT_TIMEOUT_MS = Math.max(Number(process.env.DYNAMIC_PG_CONNECT_TIMEOUT_MS || 5_000), 1_000);
+const DYNAMIC_PG_POOL_TIMEOUT_MS = Math.max(Number(process.env.DYNAMIC_PG_POOL_TIMEOUT_MS || 10_000), 1_000);
+const DYNAMIC_PG_CONNECTION_LIMIT = Math.max(Number(process.env.DYNAMIC_PG_CONNECTION_LIMIT || 1), 1);
 
-  return new PrismaClient({
-    datasources: {
-      db: {
-        url,
-      },
-    },
-    log: ['error', 'warn'],
-  });
-};
+const dynamicClientCache = new Map<string, DynamicPrismaCacheEntry>();
 
-/**
- * 从 HTTP 请求头中解析 PG 连接配置
- *
- * 前端通过自定义请求头 `x-pg-*` 传递数据库连接信息，
- * 实现"用户在浏览器端配置自己的数据库"的功能。
- *
- * @param headers - HTTP 请求头对象
- * @returns 解析后的 PgConfig，必填字段缺失时返回 null
- */
-
-/**
- * 动态 PG 透传保护：可选 Token 与 host allowlist
- * - PG_HEADERS_TOKEN: 若设置，则必须在请求头带 x-pg-token 且匹配
- * - PG_HEADERS_HOST_ALLOWLIST: 逗号分隔允许的 host 列表（可选）
- */
 const getPgHeadersToken = () => (process.env.PG_HEADERS_TOKEN || '').trim();
 const getPgHostAllowlist = () =>
   (process.env.PG_HEADERS_HOST_ALLOWLIST || '')
     .split(',')
     .map((v) => v.trim())
     .filter(Boolean);
+
+const normalizePort = (value?: string | number) => {
+  const raw = String(value || '5432').trim();
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    return null;
+  }
+  return String(parsed);
+};
+
+const normalizePgConfig = (config: PgConfig): Required<PgConfig> | null => {
+  const host = config.host?.trim();
+  const database = config.database?.trim();
+  const username = config.username?.trim();
+  const port = normalizePort(config.port);
+
+  if (!host || !database || !username || !port) {
+    return null;
+  }
+
+  return {
+    host,
+    port,
+    database,
+    username,
+    password: config.password || '',
+  };
+};
+
+const buildConnectionUrl = (config: Required<PgConfig>) => {
+  const password = encodeURIComponent(config.password || '');
+  const params = new URLSearchParams({
+    connection_limit: String(DYNAMIC_PG_CONNECTION_LIMIT),
+    connect_timeout: String(Math.ceil(DYNAMIC_PG_CONNECT_TIMEOUT_MS / 1000)),
+    pool_timeout: String(Math.ceil(DYNAMIC_PG_POOL_TIMEOUT_MS / 1000)),
+  });
+  return `postgresql://${config.username}:${password}@${config.host}:${config.port}/${config.database}?${params.toString()}`;
+};
+
+const buildDynamicCacheKey = (config: Required<PgConfig>) =>
+  [config.host, config.port, config.database, config.username].join(':');
+
+const disconnectEntry = async (key: string, entry: DynamicPrismaCacheEntry) => {
+  dynamicClientCache.delete(key);
+  try {
+    await entry.client.$disconnect();
+  } catch (error) {
+    console.error('[prisma] failed to disconnect dynamic client', error);
+  }
+};
+
+const sweepDynamicClientCache = async () => {
+  if (dynamicClientCache.size === 0) return;
+
+  const now = Date.now();
+  const entries = Array.from(dynamicClientCache.entries());
+
+  for (const [key, entry] of entries) {
+    if (now - entry.lastUsedAt > DYNAMIC_PG_IDLE_TTL_MS) {
+      await disconnectEntry(key, entry);
+    }
+  }
+
+  if (dynamicClientCache.size <= DYNAMIC_PG_MAX_CLIENTS) return;
+
+  const survivors = Array.from(dynamicClientCache.entries()).sort((a, b) => a[1].lastUsedAt - b[1].lastUsedAt);
+  while (survivors.length > DYNAMIC_PG_MAX_CLIENTS) {
+    const oldest = survivors.shift();
+    if (!oldest) break;
+    await disconnectEntry(oldest[0], oldest[1]);
+  }
+};
+
+export const createDynamicPrismaClient = (config: PgConfig) => {
+  const normalized = normalizePgConfig(config);
+  if (!normalized) {
+    return null;
+  }
+
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: buildConnectionUrl(normalized),
+      },
+    },
+    log: ['error', 'warn'],
+  });
+};
+
+export const getDynamicPrisma = (config: PgConfig) => {
+  const normalized = normalizePgConfig(config);
+  if (!normalized) {
+    return null;
+  }
+
+  void sweepDynamicClientCache();
+
+  const cacheKey = buildDynamicCacheKey(normalized);
+  const cached = dynamicClientCache.get(cacheKey);
+  if (cached) {
+    cached.lastUsedAt = Date.now();
+    return cached.client;
+  }
+
+  const client = createDynamicPrismaClient(normalized);
+  if (!client) {
+    return null;
+  }
+
+  dynamicClientCache.set(cacheKey, {
+    client,
+    lastUsedAt: Date.now(),
+  });
+
+  void sweepDynamicClientCache();
+  return client;
+};
+
+export const disconnectDynamicPrisma = async (client: PrismaClient | null | undefined) => {
+  if (!client) return;
+  try {
+    await client.$disconnect();
+  } catch (error) {
+    console.error('[prisma] failed to disconnect prisma client', error);
+  }
+};
+
 export const getPgConfigFromHeaders = (headers: Headers): PgConfig | null => {
+  if (!DYNAMIC_PG_ENABLED) {
+    return null;
+  }
+
   const host = headers.get('x-pg-host');
   const port = headers.get('x-pg-port');
   const database = headers.get('x-pg-database');
   const username = headers.get('x-pg-username');
   const password = headers.get('x-pg-password');
 
-  // 未提供完整字段则不启用动态 PG
-  if (!host || !database || !username) {
+  const normalized = normalizePgConfig({
+    host: host || undefined,
+    port: port || undefined,
+    database: database || undefined,
+    username: username || undefined,
+    password: password || undefined,
+  });
+
+  if (!normalized) {
     return null;
   }
 
-  // 可选安全保护：要求 token
   const requiredToken = getPgHeadersToken();
   if (requiredToken) {
     const providedToken = headers.get('x-pg-token') || '';
@@ -116,17 +219,60 @@ export const getPgConfigFromHeaders = (headers: Headers): PgConfig | null => {
     }
   }
 
-  // 可选安全保护：host allowlist
   const allowlist = getPgHostAllowlist();
-  if (allowlist.length > 0 && !allowlist.includes(host)) {
+  if (allowlist.length > 0 && !allowlist.includes(normalized.host)) {
     return null;
   }
 
+  return normalized;
+};
+
+export const resolveRequestDbContext = async (
+  request: Request,
+  getUserId: () => Promise<string>,
+): Promise<RequestDbContext> => {
+  const userId = await getUserId();
+  if (userId) {
+    return {
+      client: prisma,
+      userId,
+      source: 'session',
+    };
+  }
+
+  const pgConfig = getPgConfigFromHeaders(request.headers);
+  if (!pgConfig) {
+    return {
+      client: prisma,
+      userId: '',
+      source: 'none',
+    };
+  }
+
+  const dynamicClient = getDynamicPrisma(pgConfig);
+  if (!dynamicClient) {
+    return {
+      client: prisma,
+      userId: '',
+      source: 'none',
+    };
+  }
+
   return {
-    host,
-    port: port || 5432,
-    database,
-    username,
-    password: password || '',
+    client: dynamicClient,
+    userId: DEFAULT_DYNAMIC_PG_USER_ID,
+    source: 'dynamic-pg',
   };
 };
+
+export const ensureLocalUser = async (client: PrismaClient, userId: string) => {
+  if (userId !== DEFAULT_DYNAMIC_PG_USER_ID) {
+    return;
+  }
+
+  const userExists = await client.user.findUnique({ where: { id: userId } });
+  if (!userExists) {
+    await client.user.create({ data: { id: userId, name: 'Local User' } });
+  }
+};
+

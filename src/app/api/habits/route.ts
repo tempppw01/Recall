@@ -6,44 +6,21 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma, getPgConfigFromHeaders, getDynamicPrisma } from '@/lib/prisma';
+import { getRequestDbContext } from '@/lib/request-db';
+import { prisma, ensureLocalUser } from '@/lib/prisma';
 
-/** 安全解析 JSON 字段，兼容字符串和对象两种存储格式 */
 const parseJSON = (value: unknown, fallback: any) => {
   if (!value) return fallback;
   try {
-    if (typeof value === 'string') {
-      return JSON.parse(value);
-    }
+    if (typeof value === 'string') return JSON.parse(value);
     return value;
   } catch {
     return fallback;
   }
 };
 
-/** 单机模式下的默认用户 ID */
-const DEFAULT_USER_ID = 'local-user';
-
-/** GET /api/habits - 获取所有习惯，按创建时间降序 */
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  let client = prisma;
-  let userId = (session?.user as { id?: string })?.id || '';
-
-  if (!userId) {
-    // 未登录时，才允许使用动态 PG（通过 x-pg-* 请求头），并使用固定 local-user
-    const pgConfig = getPgConfigFromHeaders(request.headers);
-    if (pgConfig) {
-      const dynamicClient = getDynamicPrisma(pgConfig);
-      if (dynamicClient) {
-        client = dynamicClient;
-        userId = DEFAULT_USER_ID;
-      }
-    }
-  }
-
+  const { client, userId } = await getRequestDbContext(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
@@ -52,48 +29,30 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (client !== prisma) await client.$disconnect();
-
     return NextResponse.json(
       habits.map((habit: any) => ({
         id: habit.id,
         title: habit.title,
         createdAt: habit.createdAt.toISOString(),
+        updatedAt: habit.updatedAt?.toISOString?.() ?? undefined,
         logs: parseJSON(habit.logs, []),
       })),
     );
   } catch (error) {
     console.error('API Error', error);
-    if (client !== prisma) await client.$disconnect();
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const pgConfig = getPgConfigFromHeaders(request.headers);
-  let client = prisma;
-  let userId = '';
-
-  if (pgConfig) {
-    const dynamicClient = getDynamicPrisma(pgConfig);
-    if (dynamicClient) {
-      client = dynamicClient;
-      userId = DEFAULT_USER_ID;
-    }
-  } else {
-    const session = await getServerSession(authOptions);
-    userId = (session?.user as { id?: string })?.id || '';
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { client, userId } = await getRequestDbContext(request);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const payload = await request.json();
 
     if (client !== prisma) {
-      const userExists = await client.user.findUnique({ where: { id: userId } });
-      if (!userExists) {
-        await client.user.create({ data: { id: userId, name: 'Local User' } });
-      }
+      await ensureLocalUser(client, userId);
     }
 
     const habit = await client.habit.create({
@@ -106,11 +65,9 @@ export async function POST(request: Request) {
       },
     });
 
-    if (client !== prisma) await client.$disconnect();
     return NextResponse.json({ id: habit.id });
   } catch (error) {
     console.error('API Error', error);
-    if (client !== prisma) await client.$disconnect();
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
   }
 }
