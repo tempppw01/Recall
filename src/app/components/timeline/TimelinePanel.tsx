@@ -298,7 +298,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                       <div className="text-[11px] text-[#666666]">{day.list.length} 项</div>
                     </div>
 
-                    <div className="mt-2 grid gap-2 relative before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[#3A4A7A] before:via-[#2D2D2D] before:to-transparent before:content-['']">
+                    <div className="mt-2 grid gap-2 relative before:absolute before:left-2 before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[#303A52] before:via-[#262626] before:to-transparent before:content-['']">
                       {day.dateKey === todayKey ? (
                         <div className="text-[11px] text-[#7C8499] px-2 py-1 rounded-xl border border-[#2C2C2C] bg-[#1B1B1B]">
                           今天
@@ -325,12 +325,9 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             key={task.id}
                             type="button"
                             onClick={() => onSelectTask(task)}
-                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] transition-colors p-3 relative pl-6 animate-[fadeInUp_240ms_ease-out]"
+                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] transition-colors p-3 relative animate-[fadeInUp_240ms_ease-out]"
                             style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
                           >
-                            <span
-                              className={`absolute left-[11px] top-5 inline-flex h-2.5 w-2.5 rounded-full ring-4 ring-[#171717] ${badge.dotClassName}`}
-                            />
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
