@@ -317,7 +317,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             </div>
             <div className="mt-3 h-2 rounded-full bg-[#111111] overflow-hidden border border-[#262626]">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-500/70 via-indigo-400/70 to-emerald-400/70 transition-all duration-500"
+                className="h-full rounded-full transition-all duration-500 bg-[linear-gradient(90deg,rgba(var(--theme-grad-start),0.75),rgba(var(--theme-accent),0.65),rgba(var(--theme-grad-end),0.75))]"
                 style={{ width: `${item.data.completionRate}%` }}
               />
             </div>
@@ -341,12 +341,12 @@ export default function TimelinePanel(props: TimelinePanelProps) {
               level === 0
                 ? 'bg-[#121212]'
                 : level === 1
-                  ? 'bg-blue-500/15'
+                  ? 'bg-[rgba(var(--theme-accent),0.12)]'
                   : level === 2
-                    ? 'bg-blue-500/28'
+                    ? 'bg-[rgba(var(--theme-accent),0.22)]'
                     : level === 3
-                      ? 'bg-indigo-500/35'
-                      : 'bg-emerald-500/40';
+                      ? 'bg-[rgba(var(--theme-accent-soft),0.30)]'
+                      : 'bg-[rgba(var(--theme-grad-end),0.35)]';
 
             return (
               <div
@@ -472,7 +472,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                       <div className="text-[11px] text-[#666666]">{day.list.length} 项</div>
                     </div>
 
-                    <div className="mt-2 grid gap-2 relative before:absolute before:left-2 before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[#303A52] before:via-[#262626] before:to-transparent before:content-['']">
+                    <div className="mt-2 grid gap-2 relative before:absolute before:left-2 before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[rgba(var(--theme-grad-start),0.55)] before:via-[#262626] before:to-transparent before:content-['']">
                       {day.dateKey === todayKey ? (
                         <div className="text-[11px] text-[#7C8499] px-2 py-1 rounded-xl border border-[#2C2C2C] bg-[#1B1B1B]">
                           今天
