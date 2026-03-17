@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Simple DB link verification for Recall.
 # Usage:
-#   DATABASE_URL='postgresql://...' ./scripts_db_check.sh
+#   DATABASE_URL='postgresql://...' ./scripts/db-check.sh
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
   echo "[db-check] DATABASE_URL is required" >&2

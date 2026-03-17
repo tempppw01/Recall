@@ -25,15 +25,15 @@ npx prisma generate
 
 ## 3) 初始化数据库（创建表）
 
-当前仓库没有内置 migrations 目录，因此你可以选择两种方式之一：
+仓库已纳入初始 migrations（见 `prisma/migrations/`），你可以选择两种方式之一：
 
-### 方案 A：开发环境（推荐）
+### 方案 A：开发环境（快速）
 
 ```bash
 npx prisma db push
 ```
 
-### 方案 B：生产/可追溯迁移
+### 方案 B：生产/可追溯迁移（推荐）
 
 1. 生成迁移：
 
@@ -70,3 +70,21 @@ DATABASE_URL='postgresql://...' ./scripts/db-check.sh
 - `PG_HEADERS_HOST_ALLOWLIST=host1,host2`：可选，限制可连接的 host
 
 相关代码：`src/lib/prisma.ts`。
+
+#### 已有数据库如何接入 migrations（基线）
+
+如果你之前已经用 `prisma db push` 建过表，再切到 migrations 流程，可能会遇到“迁移已存在但数据库也已存在”的状态不一致。
+
+推荐做法（谨慎操作）：
+1) 确保当前数据库结构与 `prisma/schema.prisma` 一致（最好在空库上重建验证一遍）；
+2) 使用 Prisma 将初始迁移标记为已应用（避免重复建表）：
+
+```bash
+npx prisma migrate resolve --applied 20260317_init
+```
+
+然后后续使用：
+
+```bash
+npx prisma migrate deploy
+```
