@@ -541,7 +541,7 @@ function buildCookingSubtasks(title: string) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays } = await req.json();
+    const { input, mode, images, tasks, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
@@ -723,7 +723,7 @@ export async function POST(req: NextRequest) {
     if (mode === 'manage-agent') {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
-      const incomingTasks = Array.isArray(body?.tasks) ? body.tasks : [];
+      const incomingTasks = Array.isArray(tasks) ? tasks : [];
 
       // 精简任务，避免 prompt 过长
       const normalizedTasks = incomingTasks
@@ -745,12 +745,14 @@ export async function POST(req: NextRequest) {
             role: 'system',
             content: `你是 manage-agent（任务管理助手），基于用户的任务列表给出建议。
 
-输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2}] }。
+输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2, "suggestedPinned"?: boolean, "suggestedDuePreset"?: "today"|"tomorrow"|"tonight"}] }。
 
 规则：
 1) 推荐最多 8 条。
 2) 必须从给定 tasks 中挑选，id 必须存在于 tasks。
 3) suggestedPriority 必须为 0/1/2。
+3.1) suggestedPinned 若提供，必须为 boolean。仅在你明确建议“置顶/取消置顶”时给出。
+3.2) suggestedDuePreset 若提供，只能为 today/tomorrow/tonight。仅在你明确建议“改日期到今天/明天/今晚”时给出。
 4) 优先考虑：逾期、今天到期、重要（priority高）、长期未完成。
 5) 当前时间 ${serverTimeText}（中国标准时间，UTC+8）。
 6) 只输出 JSON，不要 Markdown。`,
@@ -780,6 +782,11 @@ export async function POST(req: NextRequest) {
           title: String(r?.title || '').trim(),
           reason: String(r?.reason || '').trim(),
           suggestedPriority: typeof r?.suggestedPriority === 'number' ? r.suggestedPriority : 0,
+          suggestedPinned: typeof r?.suggestedPinned === 'boolean' ? r.suggestedPinned : undefined,
+          suggestedDuePreset:
+            r?.suggestedDuePreset === 'today' || r?.suggestedDuePreset === 'tomorrow' || r?.suggestedDuePreset === 'tonight'
+              ? r.suggestedDuePreset
+              : undefined,
         }))
         .filter((r: any) => r.id && allowedIds.has(r.id) && r.title)
         .slice(0, 8)

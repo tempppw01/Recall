@@ -11,8 +11,9 @@ type TimelinePanelProps = {
   isTaskOverdue: (task: Task) => boolean;
 };
 
-
 type TimelineStatusFilter = 'all' | 'completed' | 'todo' | 'overdue';
+
+type TimelineStatus = 'completed' | 'overdue' | 'in_progress' | 'todo';
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
@@ -23,32 +24,36 @@ const formatDateKeyByOffset = (date: Date, offsetMinutes: number) => {
 
 const getAnchorIso = (task: Task) => task.dueDate || task.updatedAt || task.createdAt;
 
-const getTimelineStatus = (task: Task, isOverdue: boolean) => {
+const getTimelineStatus = (task: Task, isOverdue: boolean): TimelineStatus => {
   if (task.status === 'completed') return 'completed';
   if (isOverdue) return 'overdue';
   if (task.status === 'in_progress') return 'in_progress';
   return 'todo';
 };
 
-const statusBadge: Record<string, { label: string; className: string; dotClassName: string }> = {
+const statusBadge: Record<TimelineStatus, { label: string; icon: string; className: string; dotClassName: string }> = {
   completed: {
     label: '已完成',
-    className: 'text-green-200 bg-green-500/10 border-green-500/20',
+    icon: '✅',
+    className: 'text-green-200 bg-green-500/12 border-green-500/25',
     dotClassName: 'bg-green-400',
   },
   overdue: {
     label: '已过期',
-    className: 'text-red-200 bg-red-500/10 border-red-500/20',
+    icon: '⏰',
+    className: 'text-red-200 bg-red-500/12 border-red-500/25',
     dotClassName: 'bg-red-400',
   },
   in_progress: {
     label: '进行中',
-    className: 'text-amber-200 bg-amber-500/10 border-amber-500/20',
+    icon: '🟠',
+    className: 'text-amber-200 bg-amber-500/12 border-amber-500/25',
     dotClassName: 'bg-amber-400',
   },
   todo: {
     label: '未完成',
-    className: 'text-blue-200 bg-blue-500/10 border-blue-500/20',
+    icon: '⭕',
+    className: 'text-blue-200 bg-blue-500/10 border-blue-500/25',
     dotClassName: 'bg-blue-400',
   },
 };
@@ -106,8 +111,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
 
       if (statusFilter === 'all') return true;
 
-      const overdue =
-        task.status !== 'completed' && Boolean(task.dueDate) && isTaskOverdue(task);
+      const overdue = task.status !== 'completed' && Boolean(task.dueDate) && isTaskOverdue(task);
 
       if (statusFilter === 'completed') return task.status === 'completed';
       if (statusFilter === 'overdue') return overdue;
@@ -117,6 +121,11 @@ export default function TimelinePanel(props: TimelinePanelProps) {
       return true;
     });
   }, [tasks, categoryFilter, tagFilter, statusFilter, isTaskOverdue]);
+
+  const todayKey = useMemo(
+    () => formatDateKeyByOffset(new Date(), defaultTimezoneOffset),
+    [defaultTimezoneOffset],
+  );
 
   const groups = useMemo(() => {
     const items = filteredTasks
@@ -280,14 +289,21 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                 {month.days.map((day) => (
                   <div
                     key={day.dateKey}
-                    className="rounded-2xl border border-[#262626] bg-[#171717] p-3"
+                    className="rounded-2xl border border-[#262626] bg-[#171717] p-3 scroll-mt-24"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-semibold text-[#BBBBBB]">{day.dateKey}</div>
-                      <div className="text-[11px] text-[#555555]">{day.list.length} 项</div>
+                    <div className="flex items-center justify-between sticky top-0 z-10 -mx-3 px-3 py-2 rounded-2xl bg-[#171717]/90 backdrop-blur border-b border-[#232323]">
+                      <div className="text-xs font-semibold text-[#DDDDDD]">
+                        {day.dateKey}
+                      </div>
+                      <div className="text-[11px] text-[#666666]">{day.list.length} 项</div>
                     </div>
 
-                    <div className="mt-2 grid gap-2">
+                    <div className="mt-2 grid gap-2 relative before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[#3A4A7A] before:via-[#2D2D2D] before:to-transparent before:content-['']">
+                      {day.dateKey === todayKey ? (
+                        <div className="text-[11px] text-[#7C8499] px-2 py-1 rounded-xl border border-[#2C2C2C] bg-[#1B1B1B]">
+                          今天
+                        </div>
+                      ) : null}
                       {day.list.map((task) => {
                         const offset = task.dueDate
                           ? getTimezoneOffset(task)
@@ -309,8 +325,12 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             key={task.id}
                             type="button"
                             onClick={() => onSelectTask(task)}
-                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] transition-colors p-3"
+                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] transition-colors p-3 relative pl-6 animate-[fadeInUp_240ms_ease-out]"
+                            style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
                           >
+                            <span
+                              className={`absolute left-[11px] top-5 inline-flex h-2.5 w-2.5 rounded-full ring-4 ring-[#171717] ${badge.dotClassName}`}
+                            />
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
@@ -318,6 +338,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                   <span
                                     className={`text-[10px] px-2 py-0.5 rounded-full border ${badge.className}`}
                                   >
+                                    <span className="mr-1">{badge.icon}</span>
                                     {badge.label}
                                   </span>
                                   {task.category ? (
@@ -328,11 +349,11 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                 </div>
 
                                 <div
-                                  className={`mt-2 text-[13px] leading-5 break-words ${
+                                  className={`mt-2 overflow-hidden text-[13px] leading-5 break-words transition-all duration-300 ease-out ${
                                     task.status === 'completed'
                                       ? 'line-through text-[#666666]'
                                       : 'text-[#EEEEEE]'
-                                  } ${!isExpanded && shouldFold ? 'line-clamp-2' : ''}`}
+                                  } ${!isExpanded && shouldFold ? 'line-clamp-2 max-h-10' : 'max-h-40'}`}
                                 >
                                   {task.title}
                                 </div>

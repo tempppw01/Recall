@@ -237,6 +237,17 @@ button {
   gap: 1.25rem;
 }
 
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (min-width: 640px) {
   .section-gap {
     gap: 1.25rem;
@@ -257,57 +268,4 @@ button {
   .mobile-scroll {
     scroll-padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   }
-
-  .mobile-modal {
-    border-radius: 16px;
-  }
-
-  .mobile-toolbar {
-    gap: 0.5rem;
-  }
-
-}
-
-@keyframes pop-in {
-  0% {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-  70% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #444;
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-::selection {
-  background: rgba(var(--theme-accent), 0.35);
-  color: #fff;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(var(--theme-accent-soft), 0.45);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--theme-accent-soft), 0.68);
 }
