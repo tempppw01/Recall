@@ -40,6 +40,22 @@ const getMonthStart = (date: Date) => {
   return copy;
 };
 
+const buildRecentDayKeys = (days: number, offsetMinutes: number) => {
+  const today = new Date();
+  // normalize to start-of-day in the selected offset
+  const todayKey = formatDateKeyByOffset(today, offsetMinutes);
+  const [y, m, d] = todayKey.split('-').map((v) => parseInt(v, 10));
+  // Create a UTC date matching the offset-zone day start
+  const end = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+
+  const result: string[] = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const day = new Date(end.getTime() - i * 24 * 60 * 60 * 1000);
+    result.push(formatDateKeyByOffset(day, offsetMinutes));
+  }
+  return result;
+};
+
 const getTopCategoryLabel = (tasks: Task[]) => {
   const counts = new Map<string, number>();
   tasks.forEach((task) => {
@@ -207,6 +223,44 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     };
   }, [filteredTasks]);
 
+  const heatmap = useMemo(() => {
+    const offsetMinutes = defaultTimezoneOffset;
+    const keys = buildRecentDayKeys(28, offsetMinutes);
+    const counts = new Map<string, number>();
+
+    filteredTasks.forEach((task) => {
+      if (task.status !== 'completed') return;
+      const iso = task.updatedAt || task.dueDate || task.createdAt;
+      if (!iso) return;
+      const key = formatDateKeyByOffset(new Date(iso), offsetMinutes);
+      if (!counts.has(key)) counts.set(key, 0);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+
+    const days = keys.map((dateKey) => ({
+      dateKey,
+      count: counts.get(dateKey) || 0,
+    }));
+
+    const max = days.reduce((acc, d) => Math.max(acc, d.count), 0);
+
+    const levelOf = (count: number) => {
+      if (count <= 0) return 0;
+      if (max <= 1) return 4;
+      const ratio = count / max;
+      if (ratio <= 0.25) return 1;
+      if (ratio <= 0.5) return 2;
+      if (ratio <= 0.75) return 3;
+      return 4;
+    };
+
+    return {
+      days,
+      max,
+      levelOf,
+    };
+  }, [filteredTasks, defaultTimezoneOffset]);
+
   const monthGroups = useMemo(() => {
     const map = new Map<string, { monthKey: string; days: typeof groups }>();
     groups.forEach((group) => {
@@ -269,6 +323,45 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="glass-panel-soft rounded-2xl p-3 sm:p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-[#DDDDDD]">完成密度</div>
+            <div className="text-[11px] text-[#6F7890] mt-1">近 28 天（按 completed 任务的 updatedAt 统计）</div>
+          </div>
+          <div className="text-[11px] text-[#666666]">峰值：{heatmap.max}/天</div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-7 gap-1.5">
+          {heatmap.days.map((d) => {
+            const level = heatmap.levelOf(d.count);
+            const bg =
+              level === 0
+                ? 'bg-[#121212]'
+                : level === 1
+                  ? 'bg-blue-500/15'
+                  : level === 2
+                    ? 'bg-blue-500/28'
+                    : level === 3
+                      ? 'bg-indigo-500/35'
+                      : 'bg-emerald-500/40';
+
+            return (
+              <div
+                key={d.dateKey}
+                title={`${d.dateKey}：${d.count} 完成`}
+                className={`h-3.5 rounded-[5px] border border-[#262626] ${bg}`}
+              />
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-[10px] text-[#666666]">
+          <span>更淡 → 更密</span>
+          <span>0 / · / ·· / ··· / ····</span>
+        </div>
       </div>
 
       <div className="glass-panel-soft rounded-2xl p-3 sm:p-4">
