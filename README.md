@@ -113,6 +113,11 @@ docker run -d \
 
 访问：`http://<你的服务器IP>:3789`
 
+健康检查：
+```bash
+curl -fsS http://localhost:3789/api/health
+```
+
 ### 2) Docker Compose 示例
 
 #### 方案 A：使用内置 PostgreSQL（推荐本地自部署）
@@ -136,7 +141,7 @@ services:
       - "3789:3789"
     environment:
       NEXTAUTH_URL: http://localhost:3789
-      NEXTAUTH_SECRET: change-me-in-prod
+      NEXTAUTH_SECRET: <set-a-strong-secret>
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/recall
 ```
 
@@ -157,7 +162,7 @@ services:
       - "3789:3789"
     environment:
       NEXTAUTH_URL: http://localhost:3789
-      NEXTAUTH_SECRET: change-me-in-prod
+      NEXTAUTH_SECRET: <set-a-strong-secret>
       DATABASE_URL: postgresql://USERNAME:PASSWORD@REMOTE_HOST:5432/recall
 ```
 
@@ -184,7 +189,7 @@ docker compose up -d
 | `OPENAI_BASE_URL` | AI 接口地址 | `https://ai.shuaihong.fun/v1` |
 | `EMBEDDING_PROVIDER` | 向量提供商（`openai` / `local`） | `openai` |
 | `NEXTAUTH_URL` | NextAuth 对外访问地址 | `http://localhost:3789` |
-| `NEXTAUTH_SECRET` | NextAuth 密钥（生产必须覆盖） | `change-me-in-prod` |
+| `NEXTAUTH_SECRET` | NextAuth 密钥（生产必须设置强随机值） | - |
 | `DATABASE_URL` | 服务端数据库连接串（默认 PostgreSQL） | `postgresql://postgres:postgres@postgres:5432/recall` |
 | `REDIS_HOST` | Redis 主机 | - |
 | `REDIS_PORT` | Redis 端口 | `6379` |

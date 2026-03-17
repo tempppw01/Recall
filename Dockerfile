@@ -24,7 +24,6 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 # NextAuth 在 production 必须设置 secret，否则 /api/auth/session 会 500。
 # 生产部署请务必覆盖该值（不要使用默认值）。
-ENV NEXTAUTH_SECRET="change-me-in-prod"
 ENV DATABASE_URL="postgresql://postgres:postgres@postgres:5432/recall"
 ENV PORT=3789
 ENV HOSTNAME="0.0.0.0"
@@ -38,8 +37,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+COPY --chown=nextjs:nodejs docker/entrypoint.sh /app/entrypoint.sh
+
 USER nextjs
 
 EXPOSE 3789
 
-CMD ["node", "server.js"]
+CMD ["/app/entrypoint.sh"]
