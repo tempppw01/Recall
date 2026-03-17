@@ -198,7 +198,7 @@ docker compose up -d
 ## 🐘 数据库初始化与动态 PG 说明
 
 服务端持久化默认依赖 Prisma + PostgreSQL。
-更详细文档见：`docs/database.md`
+更详细文档见：`docs/plan/database.md`
 
 ### 快速初始化
 

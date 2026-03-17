@@ -1,0 +1,16 @@
+# CHANGELOG
+
+> 发布历史（与 GitHub Releases 对应）。
+
+## v0.2.0
+
+- GitHub Release: https://github.com/tempppw01/Recall/releases/tag/v0.2.0
+- Docker:
+  - 34v0wphix/recall:0.2.0
+  - 34v0wphix/recall:latest
+
+变更概览：
+- 动态 PG / Prisma 边界收敛（默认关闭、仅未登录生效，连接参数守卫）
+- 时间轴体验增强（sticky 日期、状态更秒懂、动效与定位提示）
+
+详见：`docs/plan/releases/release_notes_v0.2.0.md`
