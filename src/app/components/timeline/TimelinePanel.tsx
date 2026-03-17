@@ -24,6 +24,32 @@ const formatDateKeyByOffset = (date: Date, offsetMinutes: number) => {
 
 const getAnchorIso = (task: Task) => task.dueDate || task.updatedAt || task.createdAt;
 
+const getWeekStart = (date: Date) => {
+  const copy = new Date(date);
+  const day = copy.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  copy.setHours(0, 0, 0, 0);
+  copy.setDate(copy.getDate() + diff);
+  return copy;
+};
+
+const getMonthStart = (date: Date) => {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  copy.setDate(1);
+  return copy;
+};
+
+const getTopCategoryLabel = (tasks: Task[]) => {
+  const counts = new Map<string, number>();
+  tasks.forEach((task) => {
+    const key = task.category?.trim() || '未分类';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  if (counts.size === 0) return '—';
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0];
+};
+
 const getTimelineStatus = (task: Task, isOverdue: boolean): TimelineStatus => {
   if (task.status === 'completed') return 'completed';
   if (isOverdue) return 'overdue';
@@ -154,6 +180,33 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     }));
   }, [filteredTasks, defaultTimezoneOffset, getTimezoneOffset]);
 
+  const summary = useMemo(() => {
+    const now = new Date();
+    const weekStart = getWeekStart(now);
+    const monthStart = getMonthStart(now);
+
+    const classifyWindow = (start: Date) => {
+      const inWindow = filteredTasks.filter((task) => {
+        const anchor = new Date(getAnchorIso(task));
+        return anchor >= start && anchor <= now;
+      });
+      const completed = inWindow.filter((task) => task.status === 'completed');
+      const completionRate = inWindow.length > 0 ? Math.round((completed.length / inWindow.length) * 100) : 0;
+
+      return {
+        total: inWindow.length,
+        completed: completed.length,
+        completionRate,
+        topCategory: getTopCategoryLabel(completed.length > 0 ? completed : inWindow),
+      };
+    };
+
+    return {
+      week: classifyWindow(weekStart),
+      month: classifyWindow(monthStart),
+    };
+  }, [filteredTasks]);
+
   const monthGroups = useMemo(() => {
     const map = new Map<string, { monthKey: string; days: typeof groups }>();
     groups.forEach((group) => {
@@ -189,6 +242,34 @@ export default function TimelinePanel(props: TimelinePanelProps) {
           数据：复用现有 Task（不引入新模型）。点击卡片可查看详情。
         </div>
 
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[
+          { key: 'week', label: '本周总结', data: summary.week },
+          { key: 'month', label: '本月总结', data: summary.month },
+        ].map((item) => (
+          <div key={item.key} className="glass-panel-soft rounded-2xl p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-[#DDDDDD]">{item.label}</div>
+                <div className="text-[11px] text-[#6F7890] mt-1">
+                  完成 {item.data.completed} / {item.data.total} · 完成率 {item.data.completionRate}%
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-[#F3F6FF]">{item.data.completionRate}%</div>
+                <div className="text-[10px] text-[#666666]">Top：{item.data.topCategory}</div>
+              </div>
+            </div>
+            <div className="mt-3 h-2 rounded-full bg-[#111111] overflow-hidden border border-[#262626]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-500/70 via-indigo-400/70 to-emerald-400/70 transition-all duration-500"
+                style={{ width: `${item.data.completionRate}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div className="glass-panel-soft rounded-2xl p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
