@@ -88,3 +88,10 @@ Recall 当前的 Redis 云同步是“任务队列 + 服务端合并”的模型
 - `requestId`（关联请求）
 - `jobId` / `syncKey`（当可用时）
 - `error`（错误简述）
+
+
+## 安全收敛
+
+- `POST /api/sync` 仅在服务端环境变量未配置 Redis 时，才接受客户端传入的 Redis 连接参数作为 fallback。
+- `GET /api/sync` 不再接受 query string 中的 Redis 凭据参数，避免凭据暴露在 URL / 日志 / 代理层。
+- 推荐生产环境统一通过服务端 `REDIS_*` 环境变量配置。

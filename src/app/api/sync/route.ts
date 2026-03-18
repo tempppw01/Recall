@@ -88,14 +88,15 @@ const buildErrorResponse = (
  * 解析 Redis 连接配置
  * 优先使用环境变量，回退到客户端传入的配置
  */
-const resolveRedisConfig = (fallback?: RedisConfig) => {
-  const host = process.env.REDIS_HOST || fallback?.host;
+const resolveRedisConfig = (fallback?: RedisConfig, options?: { allowClientFallback?: boolean }) => {
+  const allowClientFallback = options?.allowClientFallback ?? false;
+  const host = process.env.REDIS_HOST || (allowClientFallback ? fallback?.host : undefined);
   if (!host) return null;
   return {
     host,
-    port: Number(process.env.REDIS_PORT || fallback?.port || 6379),
-    password: process.env.REDIS_PASSWORD || fallback?.password || undefined,
-    db: Number(process.env.REDIS_DB || fallback?.db || 0),
+    port: Number(process.env.REDIS_PORT || (allowClientFallback ? fallback?.port : undefined) || 6379),
+    password: process.env.REDIS_PASSWORD || (allowClientFallback ? fallback?.password : undefined) || undefined,
+    db: Number(process.env.REDIS_DB || (allowClientFallback ? fallback?.db : undefined) || 0),
   };
 };
 
@@ -135,12 +136,12 @@ export async function POST(request: NextRequest) {
 
     const normalizedNamespace = normalizeString(namespace) || DEFAULT_SYNC_NAMESPACE;
 
-    const resolvedRedis = resolveRedisConfig(redisConfig);
+    const resolvedRedis = resolveRedisConfig(redisConfig, { allowClientFallback: true });
     if (!resolvedRedis) {
       return buildErrorResponse(
         requestId,
         SYNC_ERROR.REDIS_CONFIG_MISSING,
-        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env.',
+        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env. Client-side Redis params are only accepted on POST enqueue.',
         400,
       );
     }
@@ -181,27 +182,18 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get('jobId');
-    const redisHost = searchParams.get('redisHost') || undefined;
-    const redisPort = searchParams.get('redisPort') || undefined;
-    const redisDb = searchParams.get('redisDb') || undefined;
-    const redisPassword = searchParams.get('redisPassword') || undefined;
 
     if (!jobId) {
       return buildErrorResponse(requestId, SYNC_ERROR.JOB_ID_REQUIRED, 'jobId is required', 400);
     }
 
-    const resolvedRedis = resolveRedisConfig({
-      host: redisHost,
-      port: redisPort,
-      db: redisDb,
-      password: redisPassword,
-    });
+    const resolvedRedis = resolveRedisConfig(undefined, { allowClientFallback: false });
 
     if (!resolvedRedis) {
       return buildErrorResponse(
         requestId,
         SYNC_ERROR.REDIS_CONFIG_MISSING,
-        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env.',
+        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env for sync polling.',
         400,
       );
     }
