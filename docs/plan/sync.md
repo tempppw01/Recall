@@ -56,3 +56,35 @@ Recall 当前的 Redis 云同步是“任务队列 + 服务端合并”的模型
 1. 在前端同步日志中展示 `conflicts` 摘要；
 2. 为关键资源引入统一错误码；
 3. 评估是否需要 `completedAt`、`version` 或更明确的冲突字段。
+
+
+## 错误码与日志字段（v0.3）
+
+`/api/sync` 目前采用统一错误响应结构：
+
+```json
+{
+  "ok": false,
+  "code": "SYNC_INVALID_ACTION",
+  "error": "Unknown action",
+  "message": "Unknown action",
+  "requestId": "uuid"
+}
+```
+
+已定义错误码：
+
+- `SYNC_INVALID_JSON`
+- `SYNC_INVALID_ACTION`
+- `SYNC_REDIS_CONFIG_MISSING`
+- `SYNC_JOB_ID_REQUIRED`
+- `SYNC_JOB_NOT_FOUND`
+- `SYNC_QUEUE_PROCESS_ERROR`
+- `SYNC_INTERNAL_ERROR`
+
+日志字段（结构化）：
+- `scope`（固定 `sync-api`）
+- `event`（如 `job-enqueued`、`queue-process-failed`）
+- `requestId`（关联请求）
+- `jobId` / `syncKey`（当可用时）
+- `error`（错误简述）
