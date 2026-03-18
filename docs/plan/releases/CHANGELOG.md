@@ -27,3 +27,8 @@
 - 重点：同步可靠性与可观测性（sync 文档 / conflicts 摘要 / 错误码与 requestId / deep health）
 - Release Notes：`docs/plan/releases/release_notes_v0.3.0.md`
 
+## v0.3.1
+
+- 重点：部署兼容性热修（NEXTAUTH_SECRET 改为可选兜底生成）
+- Release Notes：`docs/plan/releases/release_notes_v0.3.1.md`
+
