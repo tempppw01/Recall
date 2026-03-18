@@ -239,7 +239,7 @@ const TaskItem = ({
 
   return (
     <div
-      className={`relative rounded-2xl ${isDragging ? 'ring-2 ring-blue-500/60 scale-[0.98]' : ''}`}
+      className={`relative rounded-2xl ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {
@@ -275,7 +275,7 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[#1F1F1F] hover:bg-[#232323] ${
+        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[var(--ui-surface-1)] hover:bg-[#232323] ${
           selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
         }`}
         style={{
@@ -361,7 +361,7 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsSubtasksOpen((prev) => !prev);
                     }}
-                    className="flex items-center gap-1 text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] hover:text-[#CCCCCC]"
+                    className="flex items-center gap-1 text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[var(--ui-surface-0)] hover:text-[#CCCCCC]"
                     aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
                   >
                     <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
@@ -378,7 +378,7 @@ const TaskItem = ({
                     draggable
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
-                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] cursor-grab active:cursor-grabbing touch-none"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[var(--ui-surface-0)] cursor-grab active:cursor-grabbing touch-none"
                     onMouseDown={(event) => {
                       event.stopPropagation();
                     }}
@@ -430,7 +430,7 @@ const TaskItem = ({
                   </button>
                   {isDueEditorOpen && (
                     <div
-                      className="absolute z-20 mt-2 rounded-lg border border-[#333333] bg-[#1A1A1A] p-2 shadow-lg"
+                      className="absolute z-20 mt-2 rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-0)] p-2 shadow-lg"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <div className="flex items-center gap-2">
@@ -443,7 +443,7 @@ const TaskItem = ({
                             applyDueDate(nextDate, editorTime);
                           }}
                           title="选择日期"
-                          className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
+                          className="bg-[#111111] border border-[var(--ui-border-soft)] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
                         />
                         <input
                           type="time"
@@ -454,12 +454,12 @@ const TaskItem = ({
                             applyDueDate(editorDate, nextTime);
                           }}
                           title="选择时间"
-                          className="bg-[#111111] border border-[#333333] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
+                          className="bg-[#111111] border border-[var(--ui-border-soft)] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
                         />
                         <button
                           type="button"
                           onClick={() => setIsDueEditorOpen(false)}
-                          className="px-2 py-1 text-[10px] rounded border border-[#333333] text-[#CCCCCC] hover:border-[#555555]"
+                          className="px-2 py-1 text-[10px] rounded border border-[var(--ui-border-soft)] text-[#CCCCCC] hover:border-[#555555]"
                         >
                           完成
                         </button>
@@ -488,7 +488,7 @@ const TaskItem = ({
                         className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
                           task.priority === level
                             ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
-                            : 'border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
+                            : 'border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
                         }`}
                         title="快捷修改优先级"
                       >
@@ -505,7 +505,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'today');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
                       title="快捷设置时间：今天 09:00"
                     >
                       今天
@@ -516,7 +516,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tomorrow');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
                       title="快捷设置时间：明天 09:00"
                     >
                       明天
@@ -527,7 +527,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tonight');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] flex items-center gap-1"
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] flex items-center gap-1"
                       title="快捷设置时间：今晚 20:00"
                     >
                       <Bell className="w-3 h-3" />
@@ -571,7 +571,7 @@ const TaskItem = ({
         <>
           <div className="fixed inset-0 z-50" onClick={closeContextMenu} />
           <div
-            className="fixed z-50 min-w-[160px] rounded-lg border border-[#333333] bg-[#1F1F1F] shadow-2xl overflow-hidden"
+            className="fixed z-50 min-w-[160px] rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-1)] shadow-2xl overflow-hidden"
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
             onClick={(event) => event.stopPropagation()}
           >

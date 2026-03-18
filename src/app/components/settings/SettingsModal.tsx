@@ -215,12 +215,12 @@ const SettingsModal = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6">
       <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
       <div
-        className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
+        className="mobile-modal mobile-modal-body glass-panel w-full max-w-md rounded-2xl border border-[var(--ui-border-strong)] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>
         <div className="space-y-3 sm:space-y-4 text-sm">
-          <details open className="rounded-lg border border-[#333333] bg-[#1F1F1F] p-3">
+          <details open className="glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2">
               <span>AI 基础设置（点击展开/收起）</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A]" />
@@ -262,7 +262,7 @@ const SettingsModal = ({
                     type="button"
                     onClick={fetchModelList}
                     disabled={isFetchingModels}
-                    className="px-3 py-1.5 text-[12px] sm:text-xs rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn btn-sm btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isFetchingModels ? '拉取中…' : '拉取模型列表'}
                   </button>
@@ -329,7 +329,7 @@ const SettingsModal = ({
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
               </div>
 
-              <div className="rounded-lg border border-[#333333] bg-[#181818] p-3 space-y-3">
+              <div className="glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3 space-y-3">
                 <div className="text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase">外观主题</div>
                 <div>
                   <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主题模式</label>
