@@ -379,10 +379,10 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                 key={item.key}
                 type="button"
                 onClick={() => setStatusFilter(item.key)}
-                className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ${
+                className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
                   statusFilter === item.key
                     ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                    : 'border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]'
+                    : 'border-[#333333] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690] hover:shadow-[0_10px_20px_rgba(0,0,0,0.18)] active:bg-[#252A33]'
                 }`}
               >
                 {item.label}
@@ -394,7 +394,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC]"
+              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
               aria-label="按列表筛选"
             >
               <option value="">全部列表</option>
@@ -408,7 +408,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             <select
               value={tagFilter}
               onChange={(e) => setTagFilter(e.target.value)}
-              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC]"
+              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
               aria-label="按标签筛选"
             >
               <option value="">全部标签</option>
@@ -427,7 +427,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                   setCategoryFilter('');
                   setTagFilter('');
                 }}
-                className="text-xs px-3 py-1.5 rounded-xl border border-[#333333] text-[#888888] hover:text-[#DDDDDD] motion-card motion-press"
+                className="text-xs px-3 py-1.5 rounded-xl border border-[#333333] text-[#888888] hover:text-[#F0F4FF] hover:border-[#5A6690] motion-card motion-press ui-state-hover ui-state-press"
               >
                 清除筛选
               </button>

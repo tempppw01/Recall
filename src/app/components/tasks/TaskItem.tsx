@@ -276,12 +276,12 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer motion-card motion-press motion-glow border ${
+        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
           selected
-            ? 'border-[rgba(var(--theme-accent),0.38)] bg-[rgba(var(--theme-accent),0.12)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.08),0_12px_30px_rgba(0,0,0,0.22)]'
+            ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
               ? 'border-[rgba(94,94,94,0.55)] bg-[rgba(255,255,255,0.03)] shadow-[0_8px_22px_rgba(0,0,0,0.12)]'
-              : 'border-transparent bg-[var(--ui-surface-1)] hover:bg-[#222222] hover:border-[rgba(var(--theme-accent),0.16)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]'
+              : 'border-transparent bg-[var(--ui-surface-1)] hover:bg-[#23262D] hover:border-[rgba(var(--theme-accent),0.24)] hover:shadow-[0_14px_30px_rgba(0,0,0,0.20)] active:bg-[#252A33]'
         } ${isSubtasksOpen ? 'shadow-[0_16px_36px_rgba(0,0,0,0.24)]' : ''}`}
         style={{
           transform: `translateX(${offsetX}px)`,
@@ -383,7 +383,7 @@ const TaskItem = ({
                     draggable
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
-                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[var(--ui-surface-0)] cursor-grab active:cursor-grabbing touch-none"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[var(--ui-surface-0)] cursor-grab active:cursor-grabbing touch-none hover:text-[#D6DFF7] hover:border-[#4A5572] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)]"
                     onMouseDown={(event) => {
                       event.stopPropagation();
                     }}

@@ -27,6 +27,12 @@
   --motion-slow: 300ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Interaction state tokens */
+  --state-hover-bg: rgba(255, 255, 255, 0.04);
+  --state-active-bg: rgba(255, 255, 255, 0.07);
+  --state-selected-bg: rgba(var(--theme-accent), 0.12);
+  --state-disabled-opacity: 0.55;
 }
 
 :root[data-accent-theme='violet'] {
@@ -358,4 +364,29 @@ button {
 
 .safe-scroll-with-footer {
   padding-bottom: calc(var(--footer-safe-height, 4.5rem) + env(safe-area-inset-bottom));
+}
+
+
+.ui-state-hover {
+  transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+}
+
+.ui-state-hover:hover {
+  background-color: var(--state-hover-bg);
+}
+
+.ui-state-press:active {
+  background-color: var(--state-active-bg);
+  transform: scale(0.985);
+}
+
+.ui-state-selected {
+  background-color: var(--state-selected-bg);
+  box-shadow: 0 0 0 1px rgba(var(--theme-accent), 0.10), 0 10px 26px rgba(0, 0, 0, 0.20);
+}
+
+.ui-state-disabled,
+.ui-state-disabled:disabled {
+  opacity: var(--state-disabled-opacity);
+  cursor: not-allowed;
 }

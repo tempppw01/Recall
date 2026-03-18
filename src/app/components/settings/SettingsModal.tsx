@@ -221,7 +221,7 @@ const SettingsModal = ({
         <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>
         <div className="space-y-3 sm:space-y-4 text-sm">
           <details open className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>AI 基础设置（点击展开/收起）</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
@@ -699,7 +699,7 @@ const SettingsModal = ({
                 });
                 setShowSettings(false);
               }}
-              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm font-medium hover:bg-blue-500 transition-colors"
+              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm font-medium hover:bg-blue-500 active:bg-blue-700 transition-colors ui-state-hover ui-state-press"
             >
               保存
             </button>
