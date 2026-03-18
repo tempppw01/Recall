@@ -116,6 +116,7 @@ docker run -d \
 健康检查：
 ```bash
 curl -fsS http://localhost:3789/api/health
+curl -fsS http://localhost:3789/api/health?deep=1
 ```
 
 ### 2) Docker Compose 示例

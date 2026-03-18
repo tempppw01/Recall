@@ -12,7 +12,7 @@
 
 ## 进度统计
 
-- v0.3：**2/3**（见 `docs/plan/versions/v0.3.md`）
+- v0.3：**3/3**（见 `docs/plan/versions/v0.3.md`）
 
 ## 导航
 
