@@ -375,7 +375,7 @@ const Sidebar = ({
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div className="flex-1 overflow-y-auto overscroll-contain mobile-scroll pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
               <div className="px-3 py-3 flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2.5">
                   <div className="relative">
@@ -443,7 +443,7 @@ const Sidebar = ({
                 </div>
               </div>
 
-              <nav className="px-2.5 space-y-2.5 pb-4">
+              <nav className="px-2.5 space-y-2.5 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
                 <div className="glass-card rounded-2xl p-1.5">
                   <SidebarItem
                     icon={Command}
@@ -654,7 +654,7 @@ const Sidebar = ({
                 </div>
               </nav>
             </div>
-            <div className="px-4 py-3 border-t border-[#3A3F4B]/50 bg-[#1E2128]/78">
+            <div className="px-4 py-3 border-t border-[#3A3F4B]/50 bg-[#1E2128]/78 shrink-0">
               <div className="text-[10px] text-[#5F5F5F]">v{APP_VERSION}</div>
             </div>
           </>
