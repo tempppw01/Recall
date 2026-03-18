@@ -390,3 +390,35 @@ button {
   opacity: var(--state-disabled-opacity);
   cursor: not-allowed;
 }
+
+
+@keyframes skeletonPulse {
+  0% { opacity: 0.42; }
+  50% { opacity: 0.78; }
+  100% { opacity: 0.42; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.10), rgba(255,255,255,0.05));
+  background-size: 200% 100%;
+  animation: skeletonPulse var(--motion-slow) var(--ease-standard) infinite;
+  border: 1px solid rgba(110, 118, 138, 0.14);
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
+  animation: shimmer 1.4s var(--ease-standard) infinite;
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}

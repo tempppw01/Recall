@@ -4664,6 +4664,14 @@ export default function Home() {
                 <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
                   {aiAssistantMode === 'record' ? (
                     <>
+                      {hasApiKey && agentLoading && agentMessages.length === 0 && (
+                        <div className="space-y-2">
+                          <div className="skeleton skeleton-shimmer rounded-lg h-10" />
+                          <div className="skeleton skeleton-shimmer rounded-lg h-16" />
+                          <div className="skeleton skeleton-shimmer rounded-lg h-12" />
+                        </div>
+                      )}
+
                       {!hasApiKey ? (
                         <button
                           type="button"
@@ -4839,7 +4847,12 @@ export default function Home() {
                       </div>
 
 
-                      {manageAgentMessages.length === 0 ? (
+                      {manageAgentLoading && manageAgentMessages.length === 0 ? (
+                        <div className="space-y-2">
+                          <div className="skeleton skeleton-shimmer rounded-lg h-10" />
+                          <div className="skeleton skeleton-shimmer rounded-lg h-12" />
+                        </div>
+                      ) : manageAgentMessages.length === 0 ? (
                         <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
                       ) : (
                         manageAgentMessages.map((message, idx) => (

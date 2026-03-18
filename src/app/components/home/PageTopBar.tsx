@@ -83,6 +83,13 @@ export default function PageTopBar({
               )}
             </button>
 
+            {isSyncingNow && (
+              <div className="skeleton skeleton-shimmer hidden sm:flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] text-blue-100">
+                <span className="w-2 h-2 rounded-full bg-blue-300" />
+                同步队列处理中
+              </div>
+            )}
+
             {activeFilter === 'completed' && completedTasks > 0 && (
               <button
                 onClick={onClearCompleted}

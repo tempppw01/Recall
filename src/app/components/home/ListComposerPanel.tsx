@@ -71,7 +71,7 @@ export default function ListComposerPanel({
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[rgba(var(--theme-grad-start),0.18)] via-[rgba(var(--theme-accent),0.10)] to-[rgba(var(--theme-grad-end),0.18)] blur-xl opacity-70 group-focus-within:opacity-100 transition-opacity" />
             <div className="relative glass-panel-soft flex items-center gap-3 rounded-2xl px-3.5 sm:px-4 py-3 sm:py-3.5 focus-within:border-white/12 transition-all">
               {loading ? (
-                <div className="w-5 h-5 border-2 border-[#444444] border-t-blue-500 rounded-full animate-spin" />
+                <div className="skeleton skeleton-shimmer rounded-xl h-9 w-9 shrink-0" />
               ) : (
                 <div className="w-9 h-9 rounded-xl glass-card flex items-center justify-center shrink-0">
                   <Plus className="w-5 h-5 text-blue-400" />
