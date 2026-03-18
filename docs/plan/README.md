@@ -12,7 +12,7 @@
 
 ## 进度统计
 
-- v1.0：**4/5**（见 `docs/plan/versions/v1.0.md`）
+- v1.0：**5/5**（见 `docs/plan/versions/v1.0.md`）
 
 ## 导航
 
@@ -22,3 +22,4 @@
 - 发布记录：`docs/plan/releases/CHANGELOG.md`
 - UI 规范提案：`docs/plan/ui-system.md`
 - UI 正式规范：`docs/plan/ui-spec.md`
+- 稳定发布 Runbook：`docs/plan/releases/stability_runbook.md`
