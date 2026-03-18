@@ -379,10 +379,10 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                 key={item.key}
                 type="button"
                 onClick={() => setStatusFilter(item.key)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ${
                   statusFilter === item.key
-                    ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
-                    : 'border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
+                    ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                    : 'border-[#333333] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]'
                 }`}
               >
                 {item.label}
@@ -427,7 +427,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                   setCategoryFilter('');
                   setTagFilter('');
                 }}
-                className="text-xs px-3 py-1.5 rounded-xl border border-[#333333] text-[#888888] hover:text-[#DDDDDD]"
+                className="text-xs px-3 py-1.5 rounded-xl border border-[#333333] text-[#888888] hover:text-[#DDDDDD] motion-card motion-press"
               >
                 清除筛选
               </button>

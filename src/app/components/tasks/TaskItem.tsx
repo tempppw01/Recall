@@ -116,6 +116,7 @@ const TaskItem = ({
     ? Math.round((completedSubtasks / subtaskTotal) * 100)
     : 0;
   const hasSubtasks = subtaskTotal > 0;
+  const isCompleted = task.status === 'completed';
   const dueLabel = task.dueDate
     ? formatZonedDateTime(task.dueDate, timezoneOffset)
     : '未设时间';
@@ -275,9 +276,13 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer motion-card motion-press border border-transparent bg-[var(--ui-surface-1)] hover:bg-[#232323] ${
-          selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
-        }`}
+        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer motion-card motion-press motion-glow border ${
+          selected
+            ? 'border-[rgba(var(--theme-accent),0.38)] bg-[rgba(var(--theme-accent),0.12)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.08),0_12px_30px_rgba(0,0,0,0.22)]'
+            : isCompleted
+              ? 'border-[rgba(94,94,94,0.55)] bg-[rgba(255,255,255,0.03)] shadow-[0_8px_22px_rgba(0,0,0,0.12)]'
+              : 'border-transparent bg-[var(--ui-surface-1)] hover:bg-[#222222] hover:border-[rgba(var(--theme-accent),0.16)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]'
+        } ${isSubtasksOpen ? 'shadow-[0_16px_36px_rgba(0,0,0,0.24)]' : ''}`}
         style={{
           transform: `translateX(${offsetX}px)`,
           transition: isSwiping ? 'none' : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -285,7 +290,7 @@ const TaskItem = ({
       >
         {subtaskTotal > 0 && (
           <div
-            className="absolute inset-y-0 left-0 bg-blue-500/20 rounded-l-2xl"
+            className="absolute inset-y-0 left-0 rounded-l-2xl bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.2),rgba(var(--theme-grad-end),0.14))] transition-all duration-300"
             style={{ width: `${subtaskProgress}%` }}
           />
         )}
@@ -299,7 +304,7 @@ const TaskItem = ({
               }}
               className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
                 isChecked
-                  ? 'bg-blue-500 border-blue-500 text-white'
+                  ? 'bg-[rgba(var(--theme-accent),0.95)] border-[rgba(var(--theme-accent),0.95)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.14)]'
                   : 'border-[#555555] text-transparent hover:border-[#888888]'
               }`}
               aria-label={isChecked ? '取消选择任务' : '选择任务'}
@@ -314,8 +319,8 @@ const TaskItem = ({
             }}
             className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors ${
               task.status === 'completed'
-                ? 'bg-[#5E5E5E] border-[#5E5E5E] text-white'
-                : 'border-[#555555] hover:border-[#888888]'
+                ? 'bg-[rgba(var(--theme-accent),0.9)] border-[rgba(var(--theme-accent),0.9)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.12)]'
+                : 'border-[#555555] hover:border-[rgba(var(--theme-accent),0.55)] hover:bg-[rgba(var(--theme-accent),0.08)]'
             }`}
           >
             {task.status === 'completed' && (
@@ -361,14 +366,14 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsSubtasksOpen((prev) => !prev);
                     }}
-                    className="flex items-center gap-1 text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[var(--ui-surface-0)] hover:text-[#CCCCCC]"
+                    className={`flex items-center gap-1 text-[10px] sm:text-xs px-2 py-1 sm:py-0.5 rounded-full border bg-[var(--ui-surface-0)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#666666] border-[#2A2A2A] hover:text-[#CCCCCC]'}`}
                     aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
                   >
                     <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
                     {isSubtasksOpen ? (
-                      <ChevronUp className="w-3 h-3" />
+                      <ChevronUp className="w-3 h-3 transition-transform duration-200" />
                     ) : (
-                      <ChevronDown className="w-3 h-3" />
+                      <ChevronDown className="w-3 h-3 transition-transform duration-200" />
                     )}
                   </button>
                 )}
@@ -537,8 +542,10 @@ const TaskItem = ({
                 )}
               </div>
             </div>
-            {hasSubtasks && isSubtasksOpen && (
-              <div className="mt-2 space-y-1 border-l border-[#2A2A2A] pl-4">
+            {hasSubtasks && (
+              <div className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${isSubtasksOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                <div className="overflow-hidden">
+                  <div className="space-y-1 border-l border-[#2A2A2A] pl-4">
                 {(task.subtasks ?? []).map((subtask: Subtask) => (
                   <div key={subtask.id} className="flex items-center gap-2 text-[11px] sm:text-xs">
                     <button
@@ -561,6 +568,8 @@ const TaskItem = ({
                     </span>
                   </div>
                 ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

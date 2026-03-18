@@ -342,3 +342,8 @@ button {
     transform: none !important;
   }
 }
+
+
+.motion-glow {
+  transition: box-shadow 220ms ease, border-color 180ms ease, background-color 180ms ease;
+}
