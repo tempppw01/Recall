@@ -13,6 +13,13 @@
   --theme-accent-soft: 96, 165, 250;
   --theme-grad-start: 59, 130, 246;
   --theme-grad-end: 168, 85, 247;
+
+  /* Semantic UI surfaces (v1.0 UI system baseline) */
+  --ui-surface-0: #14161b;
+  --ui-surface-1: #1b1d22;
+  --ui-surface-2: #22252c;
+  --ui-border-strong: rgba(110, 118, 138, 0.22);
+  --ui-border-soft: rgba(110, 118, 138, 0.14);
 }
 
 :root[data-accent-theme='violet'] {
