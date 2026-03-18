@@ -2306,14 +2306,25 @@ export default function Home() {
       setManageAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
       const recs = Array.isArray(data?.recommendations) ? data.recommendations : [];
       setManageRecommendations(
-        recs.map((r: any) => ({
-          id: String(r.id || ''),
-          title: String(r.title || ''),
-          reason: typeof r.reason === 'string' ? r.reason : undefined,
-          suggestedPriority: typeof r.suggestedPriority === 'number' ? r.suggestedPriority : undefined,
-          suggestedPinned: typeof r.suggestedPinned === 'boolean' ? r.suggestedPinned : undefined,
-          suggestedDuePreset: r.suggestedDuePreset === 'today' || r.suggestedDuePreset === 'tomorrow' || r.suggestedDuePreset === 'tonight' ? r.suggestedDuePreset : undefined,
-        })),
+        recs.map((r: any) => {
+          const task = tasks.find((t) => t.id === String(r.id || ''));
+          const suggestedPriority = typeof r.suggestedPriority === 'number'
+            ? r.suggestedPriority
+            : (() => {
+                if (!task) return 1;
+                if (task.status === 'completed') return 0;
+                if (task.dueDate && isTaskOverdue(task)) return 2;
+                return typeof task.priority === 'number' ? task.priority : 1;
+              })();
+          return {
+            id: String(r.id || ''),
+            title: String(r.title || ''),
+            reason: typeof r.reason === 'string' ? r.reason : undefined,
+            suggestedPriority,
+            suggestedPinned: typeof r.suggestedPinned === 'boolean' ? r.suggestedPinned : undefined,
+            suggestedDuePreset: r.suggestedDuePreset === 'today' || r.suggestedDuePreset === 'tomorrow' || r.suggestedDuePreset === 'tonight' ? r.suggestedDuePreset : undefined,
+          };
+        }),
       );
       setManageAgentInput('');
     } catch (error) {

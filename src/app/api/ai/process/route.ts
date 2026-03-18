@@ -762,6 +762,7 @@ export async function POST(req: NextRequest) {
 3) suggestedPriority 必须为 0/1/2。
 3.1) suggestedPinned 若提供，必须为 boolean。仅在你明确建议“置顶/取消置顶”时给出。
 3.2) suggestedDuePreset 若提供，只能为 today/tomorrow/tonight。仅在你明确建议“改日期到今天/明天/今晚”时给出。
+3.3) 每条推荐至少给出一个可执行快捷建议（suggestedPriority / suggestedPinned / suggestedDuePreset 其一）。
 4) 优先考虑：逾期、今天到期、重要（priority高）、长期未完成。
 5) 当前时间 ${serverTimeText}（中国标准时间，UTC+8）。
 6) 只输出 JSON，不要 Markdown。`,
@@ -784,25 +785,55 @@ export async function POST(req: NextRequest) {
 
       const recommendations = Array.isArray(raw?.recommendations) ? raw.recommendations : [];
       const allowedIds = new Set(normalizedTasks.map((t: any) => t.id));
+      const taskMap = new Map(normalizedTasks.map((t: any) => [t.id, t] as const));
+      const nowMs = networkNow.getTime();
+
+      const inferSuggestedPriority = (task: any) => {
+        if (!task) return 1;
+        if (task.status === 'completed') return 0;
+        if (task.dueDate) {
+          const dueMs = new Date(task.dueDate).getTime();
+          if (Number.isFinite(dueMs)) {
+            const diff = dueMs - nowMs;
+            if (diff <= 0) return 2;
+            if (diff <= 24 * 60 * 60 * 1000) return 2;
+            if (diff <= 3 * 24 * 60 * 60 * 1000) return 1;
+          }
+        }
+        return typeof task.priority === 'number'
+          ? (task.priority === 2 ? 2 : task.priority === 1 ? 1 : 0)
+          : 1;
+      };
 
       const normalizedRecs = recommendations
-        .map((r: any) => ({
-          id: String(r?.id || ''),
-          title: String(r?.title || '').trim(),
-          reason: String(r?.reason || '').trim(),
-          suggestedPriority: typeof r?.suggestedPriority === 'number' ? r.suggestedPriority : 0,
-          suggestedPinned: typeof r?.suggestedPinned === 'boolean' ? r.suggestedPinned : undefined,
-          suggestedDuePreset:
+        .map((r: any) => {
+          const id = String(r?.id || '');
+          const task = taskMap.get(id);
+          const suggestedPriority = typeof r?.suggestedPriority === 'number'
+            ? (r.suggestedPriority === 2 ? 2 : r.suggestedPriority === 1 ? 1 : 0)
+            : undefined;
+          const suggestedPinned = typeof r?.suggestedPinned === 'boolean' ? r.suggestedPinned : undefined;
+          const suggestedDuePreset =
             r?.suggestedDuePreset === 'today' || r?.suggestedDuePreset === 'tomorrow' || r?.suggestedDuePreset === 'tonight'
               ? r.suggestedDuePreset
-              : undefined,
-        }))
+              : undefined;
+
+          const hasQuickAction =
+            typeof suggestedPinned === 'boolean'
+            || typeof suggestedPriority === 'number'
+            || Boolean(suggestedDuePreset);
+
+          return {
+            id,
+            title: String(r?.title || '').trim(),
+            reason: String(r?.reason || '').trim(),
+            suggestedPriority: hasQuickAction ? suggestedPriority : inferSuggestedPriority(task),
+            suggestedPinned,
+            suggestedDuePreset,
+          };
+        })
         .filter((r: any) => r.id && allowedIds.has(r.id) && r.title)
-        .slice(0, 8)
-        .map((r: any) => ({
-          ...r,
-          suggestedPriority: r.suggestedPriority === 2 ? 2 : r.suggestedPriority === 1 ? 1 : 0,
-        }));
+        .slice(0, 8);
 
       await appendContextEntry(redisConfig, sessionId, {
         role: 'user',
