@@ -324,7 +324,7 @@ const Sidebar = ({
       <aside
         ref={sidebarRef}
         className={`
-          fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden pb-[calc(0.75rem+env(safe-area-inset-bottom))]
+          fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden
           bg-[#171717]/82 border-r border-[#3A3F4B]/50 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.28)]
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:relative lg:translate-x-0 lg:shadow-none
@@ -375,7 +375,7 @@ const Sidebar = ({
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto overscroll-contain mobile-scroll safe-scroll-with-footer">
+            <div className="flex-1 overflow-y-auto overscroll-contain mobile-scroll safe-scroll-with-footer [--footer-safe-height:0.75rem]">
               <div className="px-3 py-3 flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2.5">
                   <div className="relative">
