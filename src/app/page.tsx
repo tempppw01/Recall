@@ -73,6 +73,8 @@ const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
 const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
 const SIDEBAR_COLLAPSED_KEY = 'recall_sidebar_collapsed';
+const ACTIVE_FILTER_KEY = 'recall_active_filter';
+const QUICK_ACCESS_OPEN_KEY = 'recall_quick_access_open';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -1228,6 +1230,8 @@ export default function Home() {
             'recall_theme',
             SIDEBAR_WIDTH_KEY,
             SIDEBAR_COLLAPSED_KEY,
+            ACTIVE_FILTER_KEY,
+            QUICK_ACCESS_OPEN_KEY,
           ]);
           const preservedEntries = Object.keys(localStorage)
             .filter((key) => keysToPreserve.has(key))
@@ -1346,6 +1350,14 @@ export default function Home() {
       if (storedSidebarCollapsed === 'true') {
         setIsSidebarCollapsed(true);
       }
+
+      const storedActiveFilter = localStorage.getItem(ACTIVE_FILTER_KEY);
+      if (storedActiveFilter) {
+        setActiveFilter(storedActiveFilter);
+      }
+      const storedQuickAccessOpen = localStorage.getItem(QUICK_ACCESS_OPEN_KEY);
+      if (storedQuickAccessOpen === 'true') setIsQuickAccessOpen(true);
+      if (storedQuickAccessOpen === 'false') setIsQuickAccessOpen(false);
 
       refreshTasks();
       refreshHabits();
@@ -5836,3 +5848,4 @@ export default function Home() {
     </div>
   );
 }
+
