@@ -3672,6 +3672,8 @@ export default function Home() {
     ? (activeCategory ?? FILTER_LABELS.category)
     : activeFilter === 'tag'
     ? (activeTag ? `#${activeTag}` : FILTER_LABELS.tag)
+    : activeFilter === 'timeline'
+    ? ''
     : (FILTER_LABELS[activeFilter] ?? '待办');
   const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
