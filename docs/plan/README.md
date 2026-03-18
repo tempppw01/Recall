@@ -20,3 +20,4 @@
 - 当前版本任务：`docs/plan/versions/v0.3.md`
 - 审计报告：`docs/plan/audits/`
 - 发布记录：`docs/plan/releases/CHANGELOG.md`
+- UI 规范提案：`docs/plan/ui-system.md`
