@@ -1,22 +1,24 @@
 #!/usr/bin/env sh
 set -eu
 
-# Fail fast on insecure defaults.
-# NextAuth in production requires a stable secret. Using a hardcoded default is unsafe.
+# Startup secret handling:
+# - Prefer user-provided NEXTAUTH_SECRET
+# - If missing (or insecure default), auto-generate a fallback so the app can start
+#
+# Note: auto-generated secret changes on container recreate/restart,
+# which will invalidate existing sessions. For stable production sessions,
+# set NEXTAUTH_SECRET explicitly.
 
 default_secret="change-me-in-prod"
 
 if [ "${NODE_ENV:-}" = "production" ]; then
-  if [ -z "${NEXTAUTH_SECRET:-}" ]; then
-    echo "[startup] NEXTAUTH_SECRET is required in production (set a strong random value)." >&2
-    echo "[startup] Example: export NEXTAUTH_SECRET=\"$(openssl rand -base64 32 2>/dev/null || echo '<random>')\"" >&2
-    exit 1
-  fi
+  current="${NEXTAUTH_SECRET:-}"
 
-  if [ "${NEXTAUTH_SECRET}" = "${default_secret}" ]; then
-    echo "[startup] Refusing to start: NEXTAUTH_SECRET is still the insecure default (${default_secret})." >&2
-    echo "[startup] Please set NEXTAUTH_SECRET to a strong random value." >&2
-    exit 1
+  if [ -z "$current" ] || [ "$current" = "$default_secret" ]; then
+    generated="${HOSTNAME:-recall}-$(date +%s)-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo fallback)"
+    export NEXTAUTH_SECRET="$generated"
+    echo "[startup][warn] NEXTAUTH_SECRET is not set (or insecure default). Auto-generated a temporary secret." >&2
+    echo "[startup][warn] Sessions may be invalidated after restart. Set NEXTAUTH_SECRET explicitly for stable production." >&2
   fi
 fi
 

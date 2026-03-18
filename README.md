@@ -113,6 +113,8 @@ docker run -d \
 
 访问：`http://<你的服务器IP>:3789`
 
+> 若未设置 `NEXTAUTH_SECRET`，容器会临时生成 secret 以保证可启动（重启后会失效，建议生产显式配置）。
+
 健康检查：
 ```bash
 curl -fsS http://localhost:3789/api/health
@@ -142,7 +144,7 @@ services:
       - "3789:3789"
     environment:
       NEXTAUTH_URL: http://localhost:3789
-      NEXTAUTH_SECRET: <set-a-strong-secret>
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/recall
 ```
 
@@ -163,7 +165,7 @@ services:
       - "3789:3789"
     environment:
       NEXTAUTH_URL: http://localhost:3789
-      NEXTAUTH_SECRET: <set-a-strong-secret>
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
       DATABASE_URL: postgresql://USERNAME:PASSWORD@REMOTE_HOST:5432/recall
 ```
 
@@ -190,7 +192,7 @@ docker compose up -d
 | `OPENAI_BASE_URL` | AI 接口地址 | `https://ai.shuaihong.fun/v1` |
 | `EMBEDDING_PROVIDER` | 向量提供商（`openai` / `local`） | `openai` |
 | `NEXTAUTH_URL` | NextAuth 对外访问地址 | `http://localhost:3789` |
-| `NEXTAUTH_SECRET` | NextAuth 密钥（生产必须设置强随机值） | - |
+| `NEXTAUTH_SECRET` | NextAuth 密钥（建议显式设置；未设置时容器会临时生成） | - |
 | `DATABASE_URL` | 服务端数据库连接串（默认 PostgreSQL） | `postgresql://postgres:postgres@postgres:5432/recall` |
 | `REDIS_HOST` | Redis 主机 | - |
 | `REDIS_PORT` | Redis 端口 | `6379` |
