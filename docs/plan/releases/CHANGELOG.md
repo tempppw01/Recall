@@ -23,6 +23,7 @@
 
 ## v0.3.0
 
+- GitHub Release: https://github.com/tempppw01/Recall/releases/tag/v0.3.0
 - 重点：同步可靠性与可观测性（sync 文档 / conflicts 摘要 / 错误码与 requestId / deep health）
 - Release Notes：`docs/plan/releases/release_notes_v0.3.0.md`
 
