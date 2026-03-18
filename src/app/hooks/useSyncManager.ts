@@ -18,7 +18,75 @@ export type SyncManagerParams = {
   onNeedSettings?: () => void;
 };
 
+type SyncErrorShape = {
+  status?: number;
+  code?: string;
+  message?: string;
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const normalizeSyncError = (error: unknown): SyncErrorShape => {
+  if (error && typeof error === 'object') {
+    const e = error as SyncErrorShape;
+    return {
+      status: typeof e.status === 'number' ? e.status : undefined,
+      code: typeof e.code === 'string' ? e.code : undefined,
+      message: typeof e.message === 'string' ? e.message : String(error),
+    };
+  }
+  return { message: String(error || 'unknown error') };
+};
+
+const classifySyncErrorMessage = (error: unknown) => {
+  const { status, code, message } = normalizeSyncError(error);
+  const msg = (message || '').toLowerCase();
+
+  if (msg.includes('同步超时')) {
+    return {
+      title: '云同步超时',
+      detail: '网络较慢或服务端繁忙，请稍后重试',
+    };
+  }
+
+  if (code === 'SYNC_REDIS_CONFIG_MISSING' || msg.includes('redis config missing')) {
+    return {
+      title: '云同步配置不完整',
+      detail: '请检查 Redis Host/Port/DB/Password 配置',
+    };
+  }
+
+  if (status === 401 || status === 403 || msg.includes('unauthorized') || msg.includes('forbidden')) {
+    return {
+      title: '云同步鉴权失败',
+      detail: '当前同步凭据不可用，请检查权限后重试',
+    };
+  }
+
+  if (
+    msg.includes('failed to fetch')
+    || msg.includes('networkerror')
+    || msg.includes('network request failed')
+    || msg.includes('load failed')
+  ) {
+    return {
+      title: '云同步网络异常',
+      detail: '请检查网络连接后重试',
+    };
+  }
+
+  if (status && status >= 500) {
+    return {
+      title: '云同步服务异常',
+      detail: '服务端暂时不可用，请稍后重试',
+    };
+  }
+
+  return {
+    title: '云同步失败',
+    detail: message || '未知错误',
+  };
+};
 
 export function useSyncManager(params: SyncManagerParams) {
   const {
@@ -47,18 +115,38 @@ export function useSyncManager(params: SyncManagerParams) {
       if (redisHost) query.set('redisHost', redisHost);
       if (Number.isFinite(redisPort)) query.set('redisPort', String(redisPort));
       if (Number.isFinite(redisDb)) query.set('redisDb', String(redisDb));
-      if (redisPassword) query.set('redisPassword', redisPassword);
 
-      const res = await fetch(`/api/sync?${query.toString()}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || '同步状态获取失败');
+      const res = await fetch(`/api/sync?${query.toString()}`, {
+        headers: redisPassword ? { 'x-sync-redis-password': redisPassword } : undefined,
+      });
+
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (error) {
+        throw {
+          status: res.status,
+          message: '同步状态解析失败',
+        } satisfies SyncErrorShape;
       }
+
+      if (!res.ok) {
+        throw {
+          status: res.status,
+          code: data?.code,
+          message: data?.error || '同步状态获取失败',
+        } satisfies SyncErrorShape;
+      }
+
       if (data.status === 'done') {
         return data.result;
       }
       if (data.status === 'failed') {
-        throw new Error(data?.error || '同步失败');
+        throw {
+          status: 400,
+          code: 'SYNC_JOB_FAILED',
+          message: data?.error || '同步失败',
+        } satisfies SyncErrorShape;
       }
       await sleep(1000);
     }
@@ -105,9 +193,22 @@ export function useSyncManager(params: SyncManagerParams) {
           }),
         });
 
-        const data = await res.json();
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch (error) {
+          throw {
+            status: res.status,
+            message: '同步响应解析失败',
+          } satisfies SyncErrorShape;
+        }
+
         if (!res.ok) {
-          throw new Error(data?.error || '云同步失败');
+          throw {
+            status: res.status,
+            code: data?.code,
+            message: data?.error || '云同步失败',
+          } satisfies SyncErrorShape;
         }
         if (!data?.jobId) {
           throw new Error('同步任务缺失');
@@ -165,7 +266,8 @@ export function useSyncManager(params: SyncManagerParams) {
     } catch (error) {
       console.error(error);
       if (!options?.silent) {
-        pushLog('error', '云同步失败', String((error as Error)?.message || error));
+        const mapped = classifySyncErrorMessage(error);
+        pushLog('error', mapped.title, mapped.detail);
       }
     } finally {
       setSyncStatus('idle');
