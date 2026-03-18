@@ -332,7 +332,7 @@ const Sidebar = ({
         style={{
           width: isDesktop ? `${pcWidth}px` : '78vw',
           maxWidth: isDesktop ? `${pcWidth}px` : '300px',
-          transition: isDragging ? 'none' : 'width 0.2s ease-in-out, transform 0.3s ease-in-out',
+          transition: isDragging ? 'none' : 'width var(--motion-base) var(--ease-standard), transform var(--motion-slow) var(--ease-emphasis)',
         }}
       >
         {isSidebarCollapsed ? (
@@ -675,7 +675,7 @@ const Sidebar = ({
 
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-30 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-30 lg:hidden motion-modal-overlay"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}

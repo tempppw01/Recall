@@ -5319,7 +5319,7 @@ export default function Home() {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[320px] bg-[#222222] border-l border-[#333333] flex flex-col animate-in slide-in-from-right duration-200">
+        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[320px] bg-[#222222] border-l border-[#333333] flex flex-col motion-drawer-surface">
           <div className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 shrink-0">
             <button
               onClick={() => setSelectedTask(null)}

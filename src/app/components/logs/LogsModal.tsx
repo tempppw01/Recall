@@ -29,18 +29,18 @@ export default function LogsModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1rem+env(safe-area-inset-bottom))] motion-modal-overlay"
       onClick={onClose}
     >
       <div
-        className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-md rounded-xl border border-[#333333] shadow-2xl p-5 sm:p-6 relative"
+        className="mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-md rounded-2xl border border-[var(--ui-border-strong)] shadow-2xl p-5 sm:p-6 relative"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 mb-4">
           <h2 className="text-base sm:text-lg font-semibold">运行日志（系统碎碎念）</h2>
           <button
             onClick={onClose}
-            className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+            className="text-xs text-[#888888] hover:text-[#CCCCCC] ui-state-hover ui-state-press rounded-md px-2 py-1"
           >
             关闭
           </button>
@@ -54,7 +54,7 @@ export default function LogsModal({
           <span className="text-xs uppercase text-[#666666]">最近日志</span>
           <button
             onClick={onClear}
-            className="text-xs text-[#888888] hover:text-[#CCCCCC]"
+            className="text-xs text-[#888888] hover:text-[#CCCCCC] ui-state-hover ui-state-press rounded-md px-2 py-1"
           >
             清空
           </button>

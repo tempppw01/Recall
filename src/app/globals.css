@@ -315,6 +315,32 @@ button {
   animation: overlayFadeIn var(--motion-base) var(--ease-standard);
 }
 
+
+@keyframes drawerSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.motion-modal-overlay {
+  animation: overlayFadeIn var(--motion-base) var(--ease-standard);
+}
+
+.motion-modal-surface {
+  animation: popInSoft var(--motion-slow) var(--ease-emphasis);
+  transition: transform var(--motion-base) var(--ease-emphasis), box-shadow var(--motion-slow) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), background-color var(--motion-base) var(--ease-standard);
+}
+
+.motion-drawer-surface {
+  animation: drawerSlideInRight var(--motion-slow) var(--ease-emphasis);
+  transition: transform var(--motion-slow) var(--ease-emphasis), box-shadow var(--motion-slow) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), background-color var(--motion-base) var(--ease-standard);
+}
+
 .motion-press {
   transition: transform var(--motion-fast) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), background-color var(--motion-base) var(--ease-standard);
 }
@@ -346,6 +372,9 @@ button {
 
   .motion-enter,
   .motion-overlay,
+  .motion-modal-overlay,
+  .motion-modal-surface,
+  .motion-drawer-surface,
   .motion-card,
   .motion-press,
   .animate-\[fadeInUp_240ms_ease-out\],

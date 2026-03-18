@@ -11,11 +11,11 @@ export default function AboutModal({ show, onClose, appVersion }: AboutModalProp
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] motion-modal-overlay"
       onClick={onClose}
     >
       <div
-        className="mobile-modal mobile-modal-body bg-[#262626] w-full max-w-sm rounded-xl border border-[#333333] shadow-2xl p-5 sm:p-6 relative"
+        className="mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-sm rounded-2xl border border-[var(--ui-border-strong)] shadow-2xl p-5 sm:p-6 relative"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -25,7 +25,7 @@ export default function AboutModal({ show, onClose, appVersion }: AboutModalProp
           </div>
           <button
             onClick={onClose}
-            className="text-xs text-[#888888] hover:text-white"
+            className="text-xs text-[#888888] hover:text-white ui-state-hover ui-state-press rounded-md px-2 py-1"
           >
             关闭
           </button>
