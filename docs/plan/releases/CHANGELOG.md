@@ -29,6 +29,7 @@
 
 ## v0.3.1
 
+- GitHub Release: https://github.com/tempppw01/Recall/releases/tag/v0.3.1
 - 重点：部署兼容性热修（NEXTAUTH_SECRET 改为可选兜底生成）
 - Release Notes：`docs/plan/releases/release_notes_v0.3.1.md`
 
