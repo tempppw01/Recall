@@ -212,10 +212,10 @@ const SettingsModal = ({
   if (!showSettings) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 motion-overlay">
       <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
       <div
-        className="mobile-modal mobile-modal-body glass-panel w-full max-w-md rounded-2xl border border-[var(--ui-border-strong)] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
+        className="mobile-modal mobile-modal-body glass-panel motion-enter w-full max-w-md rounded-2xl border border-[var(--ui-border-strong)] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>

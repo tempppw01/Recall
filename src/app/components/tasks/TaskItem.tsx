@@ -239,7 +239,7 @@ const TaskItem = ({
 
   return (
     <div
-      className={`relative rounded-2xl ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
+      className={`relative rounded-2xl motion-enter ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {
@@ -275,12 +275,12 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all border border-transparent bg-[var(--ui-surface-1)] hover:bg-[#232323] ${
+        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer motion-card motion-press border border-transparent bg-[var(--ui-surface-1)] hover:bg-[#232323] ${
           selected ? 'bg-[#2C2C2C]' : 'hover:bg-[#222222]'
         }`}
         style={{
           transform: `translateX(${offsetX}px)`,
-          transition: isSwiping ? 'none' : 'transform 180ms ease',
+          transition: isSwiping ? 'none' : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
         {subtaskTotal > 0 && (

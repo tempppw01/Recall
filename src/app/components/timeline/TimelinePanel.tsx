@@ -282,7 +282,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
 
   return (
     <div className="stack-gap flex flex-col">
-      <div className="glass-panel rounded-[28px] p-4 sm:p-5">
+      <div className="glass-panel motion-enter rounded-[28px] p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-[#DDDDDD]">时间轴</div>
@@ -302,7 +302,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
           { key: 'week', label: '本周总结', data: summary.week },
           { key: 'month', label: '本月总结', data: summary.month },
         ].map((item) => (
-          <div key={item.key} className="glass-panel-soft rounded-2xl p-3 sm:p-4">
+          <div key={item.key} className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-[#DDDDDD]">{item.label}</div>
@@ -325,7 +325,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         ))}
       </div>
 
-      <div className="glass-panel-soft rounded-2xl p-3 sm:p-4">
+      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-[#DDDDDD]">完成密度</div>
@@ -364,7 +364,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         </div>
       </div>
 
-      <div className="glass-panel-soft rounded-2xl p-3 sm:p-4">
+      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             {(
@@ -499,7 +499,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             key={task.id}
                             type="button"
                             onClick={() => onSelectTask(task)}
-                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] transition-colors p-3 relative animate-[fadeInUp_240ms_ease-out]"
+                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] motion-card motion-press p-3 relative animate-[fadeInUp_240ms_ease-out]"
                             style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
                           >
                             <div className="flex items-start justify-between gap-3">
