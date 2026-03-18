@@ -902,6 +902,7 @@ export default function Home() {
   const [agentImages, setAgentImages] = useState<ImageAttachment[]>([]);
   const agentImageInputRef = useRef<HTMLInputElement | null>(null);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
+  const [agentGuidance, setAgentGuidance] = useState<string[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
   const [manageAgentInput, setManageAgentInput] = useState('');
@@ -2203,14 +2204,22 @@ export default function Home() {
             title: item.title?.trim() || 'Untitled',
           }))
         : [];
+      const nextGuidance: string[] = Array.isArray(data?.guidance)
+        ? data.guidance
+            .map((tip: string) => (typeof tip === 'string' ? tip.trim() : ''))
+            .filter((tip: string) => tip.length > 0)
+            .slice(0, 4)
+        : [];
       setAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
       setAgentItems(nextItems);
+      setAgentGuidance(nextGuidance);
       setAddedAgentItemIds(new Set());
       pushLog('success', 'todo-agent 返回成功', `建议待办 ${nextItems.length} 条`);
     } catch (error) {
       console.error(error);
       const message = (error as any)?.message || 'AI 助手无响应，请稍后重试';
       setAgentError(message);
+      setAgentGuidance([]);
       // 不要添加 assistant 消息，而是让错误提示显示出来
       pushLog('error', 'todo-agent 请求失败', String(message));
     } finally {
@@ -4688,6 +4697,16 @@ export default function Home() {
                       )}
 
                       <div className="pt-2 space-y-3 border-t border-[#2C2C2C]">
+                        {agentGuidance.length > 0 && (
+                          <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100 space-y-1">
+                            <div className="font-medium text-cyan-200">行动拆解建议</div>
+                            <ul className="list-disc list-inside space-y-1">
+                              {agentGuidance.map((tip, idx) => (
+                                <li key={`tip-${idx}`}>{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-semibold text-[#D7DEEF]">建议待办（切成薯片）</h4>
                           {showAgentBulkAdd && (

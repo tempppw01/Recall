@@ -298,6 +298,7 @@ type HabitAgentItem = {
 
 type AgentPayload = {
   reply?: string;
+  guidance?: string[];
   items?: AgentItem[];
 };
 
@@ -664,16 +665,17 @@ export async function POST(req: NextRequest) {
             role: 'system',
             content: `你是 todo-agent 助理，负责和用户聊天并输出可执行待办清单。请遵循：
 1) 用简短中文回复用户，字段名 reply，不要输出 Markdown 或多余前缀。
-2) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks / repeat。
-3) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
-4) priority 必须为 0/1/2。
-5) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
-6) subtasks 仅保留 title。
-7) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-8) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 items 里。
-9) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 items；不要因为历史上下文而追加旧任务。
-10) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
-11) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
+2) 生成 guidance 数组（2-4条），用于给用户“拆解思路/执行建议”，每条简短可执行。
+3) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks / repeat。
+4) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
+5) priority 必须为 0/1/2。
+6) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
+7) subtasks 仅保留 title。
+8) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
+9) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 items 里。
+10) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 items；不要因为历史上下文而追加旧任务。
+11) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
+12) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
           },
           ...recentHistoryMessages,
           { role: 'user', content: userContent },
@@ -686,6 +688,12 @@ export async function POST(req: NextRequest) {
       const rawResult = parseChatContent(agentPayloadJson) as AgentPayload;
       const normalizedItems = Array.isArray(rawResult?.items)
         ? rawResult.items.map((item) => normalizeTask(item))
+        : [];
+      const normalizedGuidance = Array.isArray(rawResult?.guidance)
+        ? rawResult.guidance
+            .map((tip) => (typeof tip === 'string' ? tip.trim() : ''))
+            .filter((tip) => tip.length > 0)
+            .slice(0, 4)
         : [];
       const normalizedCategoryItems = normalizedItems.map((item) => ({
         ...item,
@@ -712,6 +720,7 @@ export async function POST(req: NextRequest) {
         reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
           ? rawResult.reply.trim()
           : '已整理成待办清单，点一下即可加入。',
+        guidance: normalizedGuidance,
         items: normalizedCategoryItems,
         serverTime: networkNow.toISOString(),
         serverTimeText,
