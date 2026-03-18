@@ -29,6 +29,13 @@ Recall 已经有：
 - 阴影 token
 - 动效 token
 
+### 1.5 Motion System
+- 页面进入 / 退出节奏
+- 卡片 hover / active / selection 反馈
+- 展开 / 收起 / modal / drawer 动画
+- 列表重排 / 时间轴 / 看板的运动语言
+- 减少“只有淡入”的廉价感，强调层级与惯性
+
 ### 2) 组件规范
 - 面板（panel / glass-panel / soft-panel）
 - 卡片（信息卡 / 列表卡 / 可点击卡）
