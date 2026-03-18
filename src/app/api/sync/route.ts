@@ -100,6 +100,23 @@ const resolveRedisConfig = (fallback?: RedisConfig, options?: { allowClientFallb
   };
 };
 
+
+const resolveRedisFallbackFromSearchParams = (searchParams: URLSearchParams): RedisConfig | undefined => {
+  const host = normalizeString(searchParams.get('redisHost') || '');
+  if (!host) return undefined;
+
+  const portRaw = normalizeString(searchParams.get('redisPort') || '');
+  const dbRaw = normalizeString(searchParams.get('redisDb') || '');
+  const password = normalizeString(searchParams.get('redisPassword') || '') || undefined;
+
+  return {
+    host,
+    port: Number(portRaw || '6379'),
+    db: Number(dbRaw || '0'),
+    password,
+  };
+};
+
 /**
  * POST /api/sync
  * 创建同步任务并入队，立即返回 jobId（异步处理模式）
@@ -187,13 +204,14 @@ export async function GET(request: NextRequest) {
       return buildErrorResponse(requestId, SYNC_ERROR.JOB_ID_REQUIRED, 'jobId is required', 400);
     }
 
-    const resolvedRedis = resolveRedisConfig(undefined, { allowClientFallback: false });
+    const redisFallback = resolveRedisFallbackFromSearchParams(searchParams);
+    const resolvedRedis = resolveRedisConfig(redisFallback, { allowClientFallback: true });
 
     if (!resolvedRedis) {
       return buildErrorResponse(
         requestId,
         SYNC_ERROR.REDIS_CONFIG_MISSING,
-        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env for sync polling.',
+        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env, or pass redisHost/redisPort/redisDb/redisPassword during sync polling.',
         400,
       );
     }
