@@ -15,9 +15,10 @@ export function useSyncJobPolling(params: {
       if (redisHost) syncParams.set('redisHost', redisHost);
       if (redisPort) syncParams.set('redisPort', redisPort);
       if (redisDb) syncParams.set('redisDb', redisDb);
-      if (redisPassword) syncParams.set('redisPassword', redisPassword);
 
-      const res = await fetch(`/api/sync?${syncParams.toString()}`);
+      const res = await fetch(`/api/sync?${syncParams.toString()}`, {
+        headers: redisPassword ? { 'x-sync-redis-password': redisPassword } : undefined,
+      });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error || '同步状态获取失败');

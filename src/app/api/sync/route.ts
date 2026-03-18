@@ -101,13 +101,15 @@ const resolveRedisConfig = (fallback?: RedisConfig, options?: { allowClientFallb
 };
 
 
-const resolveRedisFallbackFromSearchParams = (searchParams: URLSearchParams): RedisConfig | undefined => {
+const resolveRedisFallbackFromRequest = (request: NextRequest, searchParams: URLSearchParams): RedisConfig | undefined => {
   const host = normalizeString(searchParams.get('redisHost') || '');
   if (!host) return undefined;
 
   const portRaw = normalizeString(searchParams.get('redisPort') || '');
   const dbRaw = normalizeString(searchParams.get('redisDb') || '');
-  const password = normalizeString(searchParams.get('redisPassword') || '') || undefined;
+  const headerPassword = normalizeString(request.headers.get('x-sync-redis-password') || '');
+  const queryPassword = normalizeString(searchParams.get('redisPassword') || '');
+  const password = headerPassword || queryPassword || undefined;
 
   return {
     host,
@@ -204,14 +206,14 @@ export async function GET(request: NextRequest) {
       return buildErrorResponse(requestId, SYNC_ERROR.JOB_ID_REQUIRED, 'jobId is required', 400);
     }
 
-    const redisFallback = resolveRedisFallbackFromSearchParams(searchParams);
+    const redisFallback = resolveRedisFallbackFromRequest(request, searchParams);
     const resolvedRedis = resolveRedisConfig(redisFallback, { allowClientFallback: true });
 
     if (!resolvedRedis) {
       return buildErrorResponse(
         requestId,
         SYNC_ERROR.REDIS_CONFIG_MISSING,
-        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env, or pass redisHost/redisPort/redisDb/redisPassword during sync polling.',
+        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env, or pass redisHost/redisPort/redisDb and x-sync-redis-password during sync polling.',
         400,
       );
     }
