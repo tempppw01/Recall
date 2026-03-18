@@ -46,10 +46,13 @@
 - 页面动效优先表达层级与状态变化，不只是淡入淡出
 - hover / active / focus / selected 需要有一致反馈语言
 - 弹窗、详情区、时间轴展开等场景应有成体系的过渡
-- 动效时长建议分层：
-  - `fast`: 120~160ms
-  - `base`: 180~240ms
-  - `slow`: 280~360ms
+- 动效时长建议分层（统一 token）：
+  - `--motion-fast`: 140ms
+  - `--motion-base`: 200ms
+  - `--motion-slow`: 300ms
+- 缓动建议（统一 token）：
+  - `--ease-standard`: cubic-bezier(0.2, 0, 0, 1)
+  - `--ease-emphasis`: cubic-bezier(0.22, 1, 0.36, 1)
 - 避免：
   - 只靠 opacity
   - 每个模块各写一套节奏

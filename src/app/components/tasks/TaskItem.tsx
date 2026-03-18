@@ -290,7 +290,7 @@ const TaskItem = ({
       >
         {subtaskTotal > 0 && (
           <div
-            className="absolute inset-y-0 left-0 rounded-l-2xl bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.2),rgba(var(--theme-grad-end),0.14))] transition-all duration-300"
+            className="absolute inset-y-0 left-0 rounded-l-2xl bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.2),rgba(var(--theme-grad-end),0.14))] transition-all duration-[var(--motion-slow)]"
             style={{ width: `${subtaskProgress}%` }}
           />
         )}
@@ -371,9 +371,9 @@ const TaskItem = ({
                   >
                     <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
                     {isSubtasksOpen ? (
-                      <ChevronUp className="w-3 h-3 transition-transform duration-200" />
+                      <ChevronUp className="w-3 h-3 transition-transform duration-[var(--motion-base)]" />
                     ) : (
-                      <ChevronDown className="w-3 h-3 transition-transform duration-200" />
+                      <ChevronDown className="w-3 h-3 transition-transform duration-[var(--motion-base)]" />
                     )}
                   </button>
                 )}
@@ -543,7 +543,7 @@ const TaskItem = ({
               </div>
             </div>
             {hasSubtasks && (
-              <div className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${isSubtasksOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+              <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-slow)] ease-out ${isSubtasksOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
                 <div className="overflow-hidden">
                   <div className="space-y-1 border-l border-[#2A2A2A] pl-4">
                 {(task.subtasks ?? []).map((subtask: Subtask) => (

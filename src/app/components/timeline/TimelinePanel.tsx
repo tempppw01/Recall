@@ -317,7 +317,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             </div>
             <div className="mt-3 h-2 rounded-full bg-[#111111] overflow-hidden border border-[#262626]">
               <div
-                className="h-full rounded-full transition-all duration-500 bg-[linear-gradient(90deg,rgba(var(--theme-grad-start),0.75),rgba(var(--theme-accent),0.65),rgba(var(--theme-grad-end),0.75))]"
+                className="h-full rounded-full transition-all duration-[calc(var(--motion-slow)+200ms)] bg-[linear-gradient(90deg,rgba(var(--theme-grad-start),0.75),rgba(var(--theme-accent),0.65),rgba(var(--theme-grad-end),0.75))]"
                 style={{ width: `${item.data.completionRate}%` }}
               />
             </div>
@@ -325,7 +325,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         ))}
       </div>
 
-      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4 transition-[box-shadow,border-color,background-color] duration-300">
+      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4 transition-[box-shadow,border-color,background-color] duration-[var(--motion-slow)]">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-[#DDDDDD]">完成密度</div>
@@ -519,7 +519,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                   ) : null}
                                 </div>
 
-                                <div className={`mt-2 grid transition-[grid-template-rows,opacity] duration-300 ease-out ${isExpanded || !shouldFold ? 'grid-rows-[1fr]' : 'grid-rows-[0.34fr]'}`}>
+                                <div className={`mt-2 grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out ${isExpanded || !shouldFold ? 'grid-rows-[1fr]' : 'grid-rows-[0.34fr]'}`}>
                                   <div
                                     className={`overflow-hidden text-[13px] leading-5 break-words ${
                                       task.status === 'completed'
@@ -567,7 +567,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                 )}
                               </div>
 
-                              <div className={`shrink-0 text-[11px] text-[#555555] transition-transform duration-200 ${isExpanded ? 'translate-x-0.5' : ''}`}>›</div>
+                              <div className={`shrink-0 text-[11px] text-[#555555] transition-transform duration-[var(--motion-base)] ${isExpanded ? 'translate-x-0.5' : ''}`}>›</div>
                             </div>
                           </button>
                         );

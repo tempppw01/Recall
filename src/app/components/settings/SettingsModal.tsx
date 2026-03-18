@@ -223,9 +223,9 @@ const SettingsModal = ({
           <details open className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2">
               <span>AI 基础设置（点击展开/收起）</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-200 group-open:rotate-180" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
-            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-300 ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
               <div className="mt-3 space-y-3 overflow-hidden">
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
@@ -397,9 +397,9 @@ const SettingsModal = ({
           <details className="group pt-3 border-t border-[#333333]">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
               <span>浏览器通知（点击展开/收起）</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-200 group-open:rotate-180" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
-            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-300 ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
               <div className="space-y-3 overflow-hidden">
               <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
                 <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
@@ -441,9 +441,9 @@ const SettingsModal = ({
               className="w-full flex items-center justify-between text-[11px] sm:text-xs font-medium text-[#888888] mb-3 uppercase hover:text-[#CCCCCC]"
             >
               <span>API 专用设置组</span>
-              {isApiSettingsOpen ? <ChevronUp className="w-3.5 h-3.5 transition-transform duration-200" /> : <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />}
+              {isApiSettingsOpen ? <ChevronUp className="w-3.5 h-3.5 transition-transform duration-[var(--motion-base)]" /> : <ChevronDown className="w-3.5 h-3.5 transition-transform duration-[var(--motion-base)]" />}
             </button>
-            <div className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${isApiSettingsOpen ? 'grid-rows-[1fr] opacity-100 mt-0' : 'grid-rows-[0fr] opacity-80 mt-0'}`}>
+            <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-slow)] ease-out ${isApiSettingsOpen ? 'grid-rows-[1fr] opacity-100 mt-0' : 'grid-rows-[0fr] opacity-80 mt-0'}`}>
               <div className="space-y-4 overflow-hidden">
                 <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
                   用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
@@ -598,9 +598,9 @@ const SettingsModal = ({
           <details className="group pt-3 border-t border-[#333333]">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
               <span>数据导入导出（搬家专用，点击展开/收起）</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-200 group-open:rotate-180" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
-            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-300 ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
               <div className="overflow-hidden">
               <div className="flex flex-wrap gap-2">
                 <button
