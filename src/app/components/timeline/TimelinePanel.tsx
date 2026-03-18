@@ -499,7 +499,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             key={task.id}
                             type="button"
                             onClick={() => onSelectTask(task)}
-                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] motion-card motion-press p-3 relative animate-[fadeInUp_240ms_ease-out]"
+                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] motion-enter motion-card motion-press p-3 relative"
                             style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
                           >
                             <div className="flex items-start justify-between gap-3">

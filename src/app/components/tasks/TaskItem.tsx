@@ -239,7 +239,7 @@ const TaskItem = ({
 
   return (
     <div
-      className={`relative rounded-2xl motion-enter ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
+      className={`relative rounded-2xl ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {

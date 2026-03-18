@@ -321,3 +321,24 @@ button {
 .motion-card:hover {
   transform: translateY(-1px);
 }
+
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .motion-enter,
+  .motion-overlay,
+  .motion-card,
+  .motion-press,
+  .animate-\[fadeInUp_240ms_ease-out\],
+  .animate-\[pop-in_280ms_ease-out\] {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
