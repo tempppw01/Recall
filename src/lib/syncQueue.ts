@@ -28,6 +28,14 @@ type SyncMeta = {
   lastLocalChange?: string;
 };
 
+type SyncConflictSummary = {
+  tasks: number;
+  habits: number;
+  countdowns: number;
+  settings: boolean;
+  secrets: boolean;
+};
+
 /** 同步任务的载荷 */
 type SyncJobPayload = {
   data?: any;
@@ -265,6 +273,21 @@ const pickLatestTimestamp = (a?: string, b?: string) => {
 
 // ─── 核心合并逻辑 ───────────────────────────────────────────
 
+const countConflictsById = <T extends { id: string; updatedAt?: string }>(current: T[], incoming: T[]) => {
+  const currentMap = new Map(current.map((item) => [item.id, item]));
+  let count = 0;
+  incoming.forEach((item) => {
+    const existing = currentMap.get(item.id);
+    if (!existing) return;
+    const existingUpdated = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+    const incomingUpdated = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+    if (existingUpdated !== incomingUpdated) {
+      count += 1;
+    }
+  });
+  return count;
+};
+
 /**
  * 合并两份同步数据的完整载荷
  *
@@ -331,6 +354,14 @@ const mergeSyncPayload = (
     ? (incomingPayload?.secrets ?? existingPayload?.secrets)
     : (existingPayload?.secrets ?? incomingPayload?.secrets);
 
+  const conflicts: SyncConflictSummary = {
+    tasks: countConflictsById(currentTasks, incomingTasks),
+    habits: countConflictsById(currentHabits, incomingHabits),
+    countdowns: countConflictsById(currentCountdowns, incomingCountdowns),
+    settings: Boolean(existingPayload?.settings && incomingPayload?.settings && !incomingWins),
+    secrets: Boolean(existingPayload?.secrets && incomingPayload?.secrets && !incomingWins),
+  };
+
   return {
     payload: {
       version: incomingPayload?.version ?? existingPayload?.version,
@@ -350,6 +381,7 @@ const mergeSyncPayload = (
     meta: {
       lastLocalChange: pickLatestTimestamp(existingMeta?.lastLocalChange, incomingMeta?.lastLocalChange),
     },
+    conflicts,
   };
 };
 
@@ -393,7 +425,7 @@ const executeRedisJob = async (
         updatedAt: nowIso,
       }));
     }
-    return { ok: true, updatedAt: nowIso };
+    return { ok: true, updatedAt: nowIso, conflicts: merged.conflicts };
   }
 
   // sync：合并后写入，并返回合并结果供客户端更新本地数据
@@ -406,7 +438,7 @@ const executeRedisJob = async (
       updatedAt: nowIso,
     }));
   }
-  return { ok: true, data: merged.payload, updatedAt: nowIso, meta: merged.meta };
+  return { ok: true, data: merged.payload, updatedAt: nowIso, meta: merged.meta, conflicts: merged.conflicts };
 };
 
 // ─── 公开 API ───────────────────────────────────────────────
