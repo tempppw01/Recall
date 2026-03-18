@@ -5215,7 +5215,7 @@ export default function Home() {
             </button>
           </div>
           
-          <div className="p-4 sm:p-6 flex-1 overflow-y-auto mobile-scroll pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="p-4 sm:p-6 flex-1 overflow-y-auto mobile-scroll safe-scroll-with-footer [--footer-safe-height:1rem]">
             <div className="flex items-start gap-3 mb-6">
               <button 
                 onClick={() => toggleStatus(selectedTask.id)}

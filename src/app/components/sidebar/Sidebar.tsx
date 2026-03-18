@@ -375,7 +375,7 @@ const Sidebar = ({
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto overscroll-contain mobile-scroll pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+            <div className="flex-1 overflow-y-auto overscroll-contain mobile-scroll safe-scroll-with-footer">
               <div className="px-3 py-3 flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2.5">
                   <div className="relative">

@@ -347,3 +347,8 @@ button {
 .motion-glow {
   transition: box-shadow 220ms ease, border-color 180ms ease, background-color 180ms ease;
 }
+
+
+.safe-scroll-with-footer {
+  padding-bottom: calc(var(--footer-safe-height, 4.5rem) + env(safe-area-inset-bottom));
+}
