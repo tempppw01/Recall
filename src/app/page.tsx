@@ -765,7 +765,7 @@ export default function Home() {
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('inbox'); // inbox, today, next7, completed, calendar, agent
+  const [activeFilter, setActiveFilter] = useState('agent'); // inbox, today, next7, completed, calendar, agent
   const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
   const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('dueDate');
   const [webdavUrl, setWebdavUrl] = useState(DEFAULT_WEBDAV_URL);
@@ -828,7 +828,7 @@ export default function Home() {
   const [countdownTitle, setCountdownTitle] = useState('');
   const [countdownDate, setCountdownDate] = useState('');
   const [newHabitTitle, setNewHabitTitle] = useState('');
-  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(true);
+  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -854,6 +854,7 @@ export default function Home() {
   const [isSearchingWeatherCity, setIsSearchingWeatherCity] = useState(false);
   const [weatherForecast, setWeatherForecast] = useState<WeatherForecast | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [isLocatingWeatherCity, setIsLocatingWeatherCity] = useState(false);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [weekDays, setWeekDays] = useState(() => buildWeekDays(weekStart));
   const [weekLabel, setWeekLabel] = useState(() => buildWeekLabel(weekStart));
@@ -1657,6 +1658,57 @@ export default function Home() {
     };
   }, [calendarCityInput, activeFilter, calendarCity]);
 
+
+
+  const handleLocateWeatherCity = async () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setWeatherCitySearchMessage('当前设备不支持定位功能');
+      return;
+    }
+    setIsLocatingWeatherCity(true);
+    setWeatherCitySearchMessage('正在定位当前位置…');
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 5 * 60 * 1000,
+        });
+      });
+
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      const res = await fetch(`/api/weather/reverse?lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      const city = data?.city;
+      if (!res.ok || !city) {
+        throw new Error(data?.error || '定位城市解析失败');
+      }
+
+      const selectedCity = {
+        id: city.id || `geo:${lat},${lon}`,
+        name: city.name || '当前位置',
+        admin1: city.admin1,
+        country: city.country,
+        latitude: Number(city.latitude),
+        longitude: Number(city.longitude),
+        timezone: city.timezone,
+      } as WeatherCity;
+
+      setCalendarCity(selectedCity);
+      const label = [selectedCity.name, selectedCity.admin1, selectedCity.country].filter(Boolean).join(' · ');
+      suppressWeatherCitySearchRef.current = true;
+      setCalendarCityInput(label);
+      setWeatherCities([]);
+      setWeatherCitySearchMessage('已定位到当前位置');
+    } catch (error) {
+      setWeatherCitySearchMessage(`定位失败：${String((error as any)?.message || error)}`);
+    } finally {
+      setIsLocatingWeatherCity(false);
+    }
+  };
+
   useEffect(() => {
     if (!calendarCity) {
       setWeatherForecast(null);
@@ -2078,10 +2130,6 @@ export default function Home() {
   const handleAgentSend = async () => {
     const content = agentInput.trim();
     if (!content && agentImages.length === 0) return;
-    if (!apiKey.trim()) {
-      setAgentError('未配置 AI Key，请先前往设置页完成配置');
-      return;
-    }
     pushLog('info', 'todo-agent 请求发送', content);
     setAgentLoading(true);
     if (content) {
@@ -2186,10 +2234,6 @@ export default function Home() {
   const handleManageAgentSend = async () => {
     const content = manageAgentInput.trim();
     if (!content) return;
-    if (!apiKey.trim()) {
-      setManageAgentError('未配置 AI Key，请先前往设置页完成配置');
-      return;
-    }
 
     setManageAgentLoading(true);
     setManageAgentError(null);
@@ -3825,7 +3869,7 @@ export default function Home() {
         <div className={`flex-1 px-3 sm:px-6 lg:px-7 ${
           activeFilter === 'agent'
             ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
-            : 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:pb-12'
+            : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'
         } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-5 sm:pt-6' : 'pt-4 sm:pt-5'}`}>
           {activeFilter === 'calendar' ? (
             <div className="stack-gap flex flex-col">
@@ -4923,7 +4967,7 @@ export default function Home() {
                       </button>
                       <button
                         onClick={handleAgentSend}
-                        disabled={!hasApiKey || (!agentInput.trim() && agentImages.length === 0)}
+                        disabled={!agentInput.trim() && agentImages.length === 0}
                         className="px-3 py-2 text-sm bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
                       >
                         {agentLoading ? '整理中…' : '发送'}

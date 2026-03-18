@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MapPin, Search } from 'lucide-react';
+import { Crosshair, MapPin, Search } from 'lucide-react';
 
 type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
 
@@ -32,6 +32,8 @@ type CalendarTopPanelProps = {
   onCityInputChange: (value: string) => void;
   onCityInputFocus?: () => void;
   onCityInputBlur?: () => void;
+  isLocatingCity?: boolean;
+  onLocateCity?: () => void;
   onSelectCity: (city: WeatherCity) => void;
 };
 
@@ -60,6 +62,8 @@ export default function CalendarTopPanel({
   onCityInputChange,
   onCityInputFocus,
   onCityInputBlur,
+  isLocatingCity,
+  onLocateCity,
   onSelectCity,
 }: CalendarTopPanelProps) {
   const showCityDropdown =
@@ -116,6 +120,17 @@ export default function CalendarTopPanel({
               placeholder="搜索城市：例如 北京、上海、Tokyo"
               className="w-full bg-transparent text-sm text-[#DDDDDD] placeholder:text-[#5F5F5F] outline-none"
             />
+            {onLocateCity && (
+              <button
+                type="button"
+                onClick={onLocateCity}
+                className="btn btn-sm btn-ghost shrink-0"
+                title="定位当前城市"
+              >
+                <Crosshair className="w-3.5 h-3.5" />
+                {isLocatingCity ? '定位中…' : '定位'}
+              </button>
+            )}
           </div>
           {showCityDropdown && (
             <div className="z-20 mt-2 w-full rounded-2xl border border-[#3A3F4B]/50 bg-[#171717]/92 backdrop-blur-xl max-h-[40vh] overflow-y-auto overscroll-contain shadow-[0_16px_40px_rgba(0,0,0,0.24)] sm:absolute sm:mt-0 sm:top-[calc(100%+0.5rem)] sm:left-0 sm:right-0 sm:max-h-56">

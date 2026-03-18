@@ -443,7 +443,7 @@ const Sidebar = ({
                 </div>
               </div>
 
-              <nav className="px-2.5 space-y-2.5 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+              <nav className="px-2.5 space-y-2.5 pb-4">
                 <div className="glass-card rounded-2xl p-1.5">
                   <SidebarItem
                     icon={Command}
