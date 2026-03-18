@@ -33,7 +33,9 @@ type CalendarTopPanelProps = {
   onCityInputFocus?: () => void;
   onCityInputBlur?: () => void;
   isLocatingCity?: boolean;
+  locateErrorMessage?: string;
   onLocateCity?: () => void;
+  onRetryLocate?: () => void;
   onSelectCity: (city: WeatherCity) => void;
 };
 
@@ -63,7 +65,9 @@ export default function CalendarTopPanel({
   onCityInputFocus,
   onCityInputBlur,
   isLocatingCity,
+  locateErrorMessage,
   onLocateCity,
+  onRetryLocate,
   onSelectCity,
 }: CalendarTopPanelProps) {
   const showCityDropdown =
@@ -132,6 +136,21 @@ export default function CalendarTopPanel({
               </button>
             )}
           </div>
+          {locateErrorMessage && (
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+              <span>{locateErrorMessage}</span>
+              {onRetryLocate && (
+                <button
+                  type="button"
+                  onClick={onRetryLocate}
+                  className="btn btn-sm btn-ghost shrink-0"
+                >
+                  重试定位
+                </button>
+              )}
+            </div>
+          )}
+
           {showCityDropdown && (
             <div className="z-20 mt-2 w-full rounded-2xl border border-[#3A3F4B]/50 bg-[#171717]/92 backdrop-blur-xl max-h-[40vh] overflow-y-auto overscroll-contain shadow-[0_16px_40px_rgba(0,0,0,0.24)] sm:absolute sm:mt-0 sm:top-[calc(100%+0.5rem)] sm:left-0 sm:right-0 sm:max-h-56">
               {isSearchingWeatherCity ? (

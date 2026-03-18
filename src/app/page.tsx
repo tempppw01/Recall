@@ -857,6 +857,7 @@ export default function Home() {
   const [weatherForecast, setWeatherForecast] = useState<WeatherForecast | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [isLocatingWeatherCity, setIsLocatingWeatherCity] = useState(false);
+  const [weatherLocateError, setWeatherLocateError] = useState<string>('');
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [weekDays, setWeekDays] = useState(() => buildWeekDays(weekStart));
   const [weekLabel, setWeekLabel] = useState(() => buildWeekLabel(weekStart));
@@ -1674,10 +1675,13 @@ export default function Home() {
 
   const handleLocateWeatherCity = async () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setWeatherCitySearchMessage('当前设备不支持定位功能');
+      setWeatherLocateError('当前设备不支持定位功能');
+      setWeatherCitySearchMessage('');
       return;
     }
+
     setIsLocatingWeatherCity(true);
+    setWeatherLocateError('');
     setWeatherCitySearchMessage('正在定位当前位置…');
 
     try {
@@ -1713,9 +1717,22 @@ export default function Home() {
       suppressWeatherCitySearchRef.current = true;
       setCalendarCityInput(label);
       setWeatherCities([]);
+      setWeatherLocateError('');
       setWeatherCitySearchMessage('已定位到当前位置');
-    } catch (error) {
-      setWeatherCitySearchMessage(`定位失败：${String((error as any)?.message || error)}`);
+    } catch (error: any) {
+      const code = error?.code;
+      let message = '定位失败，请稍后重试';
+      if (code === 1) {
+        message = '定位权限被拒绝，请在浏览器中允许定位后重试';
+      } else if (code === 2) {
+        message = '无法获取位置信息，请检查定位服务后重试';
+      } else if (code === 3) {
+        message = '定位超时，请检查网络/GPS 后重试';
+      } else if (String(error?.message || '').includes('解析')) {
+        message = '定位成功但城市解析失败，请重试或手动搜索';
+      }
+      setWeatherLocateError(message);
+      setWeatherCitySearchMessage('');
     } finally {
       setIsLocatingWeatherCity(false);
     }
@@ -3903,8 +3920,12 @@ export default function Home() {
                   setCalendarView(view);
                   setWeatherCities([]);
                   setWeatherCitySearchMessage('');
+                  setWeatherLocateError('');
                 }}
                 onToggleCompleted={() => setShowCompletedInCalendar((prev) => !prev)}
+                locateErrorMessage={weatherLocateError}
+                onLocateCity={handleLocateWeatherCity}
+                onRetryLocate={handleLocateWeatherCity}
                 onCityInputFocus={() => {
                   const keyword = calendarCityInput.trim();
                   // 聚焦但没有有效输入时，确保候选/提示不残留。
@@ -3968,6 +3989,7 @@ export default function Home() {
                   setWeatherForecast(null);
                   setWeatherLoading(true);
                   setWeatherForecastHint('');
+                  setWeatherLocateError('');
                   setWeatherCities([]);
                   setWeatherCitySearchMessage('');
                 }}
