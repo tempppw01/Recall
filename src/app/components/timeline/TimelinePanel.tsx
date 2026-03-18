@@ -325,7 +325,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         ))}
       </div>
 
-      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4">
+      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4 transition-[box-shadow,border-color,background-color] duration-300">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-[#DDDDDD]">完成密度</div>
@@ -450,7 +450,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
           {monthGroups.map((month) => (
             <div
               key={month.monthKey}
-              className="bg-[#1B1B1B] border border-[#2C2C2C] rounded-2xl p-4"
+              className="bg-[#1B1B1B] border border-[#2C2C2C] rounded-2xl p-4 motion-enter motion-card"
             >
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-[#DDDDDD]">{month.monthKey}</div>
@@ -463,7 +463,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                 {month.days.map((day) => (
                   <div
                     key={day.dateKey}
-                    className="mb-3 break-inside-avoid rounded-2xl border border-[#262626] bg-[#171717] p-3 scroll-mt-24"
+                    className="mb-3 break-inside-avoid rounded-2xl border border-[#262626] bg-[#171717] p-3 scroll-mt-24 motion-enter"
                   >
                     <div className="flex items-center justify-between -mx-3 px-3 py-2 rounded-2xl bg-[#171717]/90 backdrop-blur border-b border-[#232323] xl:sticky xl:top-0 xl:z-10">
                       <div className="text-xs font-semibold text-[#DDDDDD]">
@@ -499,7 +499,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             key={task.id}
                             type="button"
                             onClick={() => onSelectTask(task)}
-                            className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A] motion-enter motion-card motion-press p-3 relative"
+                            className={`w-full text-left rounded-2xl border motion-enter motion-card motion-press p-3 relative ${isExpanded ? 'border-[rgba(var(--theme-accent),0.36)] bg-[rgba(var(--theme-accent),0.09)] shadow-[0_12px_28px_rgba(0,0,0,0.22)]' : 'border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A]'}`}
                             style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -519,14 +519,16 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                   ) : null}
                                 </div>
 
-                                <div
-                                  className={`mt-2 overflow-hidden text-[13px] leading-5 break-words transition-all duration-300 ease-out ${
-                                    task.status === 'completed'
-                                      ? 'line-through text-[#666666]'
-                                      : 'text-[#EEEEEE]'
-                                  } ${!isExpanded && shouldFold ? 'line-clamp-2 max-h-10' : 'max-h-40'}`}
-                                >
-                                  {task.title}
+                                <div className={`mt-2 grid transition-[grid-template-rows,opacity] duration-300 ease-out ${isExpanded || !shouldFold ? 'grid-rows-[1fr]' : 'grid-rows-[0.34fr]'}`}>
+                                  <div
+                                    className={`overflow-hidden text-[13px] leading-5 break-words ${
+                                      task.status === 'completed'
+                                        ? 'line-through text-[#666666]'
+                                        : 'text-[#EEEEEE]'
+                                    } ${!isExpanded && shouldFold ? 'line-clamp-2' : ''}`}
+                                  >
+                                    {task.title}
+                                  </div>
                                 </div>
 
                                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#666666]">
@@ -557,7 +559,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                         event.stopPropagation();
                                         toggleExpanded(task.id);
                                       }}
-                                      className="text-[11px] text-[#888888] hover:text-[#DDDDDD]"
+                                      className="text-[11px] px-2 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#8F98B0] hover:text-[#E7ECFB] hover:border-[rgba(var(--theme-accent),0.35)] motion-card motion-press"
                                     >
                                       {isExpanded ? '收起' : '展开'}
                                     </button>
@@ -565,7 +567,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                 )}
                               </div>
 
-                              <div className="shrink-0 text-[11px] text-[#555555]">›</div>
+                              <div className={`shrink-0 text-[11px] text-[#555555] transition-transform duration-200 ${isExpanded ? 'translate-x-0.5' : ''}`}>›</div>
                             </div>
                           </button>
                         );
