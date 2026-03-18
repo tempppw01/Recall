@@ -21,3 +21,8 @@
 - 重点：时间轴 Phase 3（总结/热力/瀑布流）+ 部署安全修复（NEXTAUTH_SECRET fail-fast）
 - Release Notes：`docs/plan/releases/release_notes_v0.2.1.md`
 
+## v0.3.0
+
+- 重点：同步可靠性与可观测性（sync 文档 / conflicts 摘要 / 错误码与 requestId / deep health）
+- Release Notes：`docs/plan/releases/release_notes_v0.3.0.md`
+
