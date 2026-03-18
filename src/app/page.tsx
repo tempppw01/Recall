@@ -75,6 +75,8 @@ const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
 const SIDEBAR_COLLAPSED_KEY = 'recall_sidebar_collapsed';
 const ACTIVE_FILTER_KEY = 'recall_active_filter';
 const QUICK_ACCESS_OPEN_KEY = 'recall_quick_access_open';
+const AGENT_MESSAGES_KEY = 'recall_agent_messages';
+const MANAGE_AGENT_MESSAGES_KEY = 'recall_manage_agent_messages';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -517,6 +519,11 @@ type AgentMessage = {
   content: string;
 };
 
+type ManageAgentMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 type ImageAttachment = {
   id: string;
   file: File;
@@ -906,7 +913,7 @@ export default function Home() {
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
   const [manageAgentInput, setManageAgentInput] = useState('');
-  const [manageAgentMessages, setManageAgentMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [manageAgentMessages, setManageAgentMessages] = useState<ManageAgentMessage[]>([]);
   const [manageAgentLoading, setManageAgentLoading] = useState(false);
   const [manageAgentError, setManageAgentError] = useState<string | null>(null);
   const [manageRecommendations, setManageRecommendations] = useState<Array<{ id: string; title: string; reason?: string; suggestedPriority?: number; suggestedPinned?: boolean; suggestedDuePreset?: 'today' | 'tomorrow' | 'tonight' }>>([]);
@@ -1361,6 +1368,38 @@ export default function Home() {
       if (storedQuickAccessOpen === 'true') setIsQuickAccessOpen(true);
       if (storedQuickAccessOpen === 'false') setIsQuickAccessOpen(false);
 
+      const storedAgentMessages = localStorage.getItem(AGENT_MESSAGES_KEY);
+      if (storedAgentMessages) {
+        try {
+          const parsed = JSON.parse(storedAgentMessages) as AgentMessage[];
+          if (Array.isArray(parsed)) {
+            setAgentMessages(
+              parsed
+                .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+                .slice(-80),
+            );
+          }
+        } catch (error) {
+          console.error('Invalid agent messages cache', error);
+        }
+      }
+
+      const storedManageAgentMessages = localStorage.getItem(MANAGE_AGENT_MESSAGES_KEY);
+      if (storedManageAgentMessages) {
+        try {
+          const parsed = JSON.parse(storedManageAgentMessages) as ManageAgentMessage[];
+          if (Array.isArray(parsed)) {
+            setManageAgentMessages(
+              parsed
+                .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+                .slice(-80),
+            );
+          }
+        } catch (error) {
+          console.error('Invalid manage-agent messages cache', error);
+        }
+      }
+
       refreshTasks();
       refreshHabits();
       refreshCountdowns();
@@ -1406,6 +1445,16 @@ export default function Home() {
       setSettingsLoaded(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(AGENT_MESSAGES_KEY, JSON.stringify(agentMessages.slice(-80)));
+  }, [agentMessages]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-80)));
+  }, [manageAgentMessages]);
 
   // 注意：apiKey 的持久化已移至 persistSettings 函数中统一处理
   // 避免在用户编辑设置时意外丢失密钥
@@ -2159,7 +2208,11 @@ export default function Home() {
 
   const handleAgentSend = async () => {
     const content = agentInput.trim();
-    if (!content && agentImages.length === 0) return;
+    const imagePayload = agentImages.map((image) => image.dataUrl);
+    if (!content && imagePayload.length === 0) return;
+
+    setAgentInput('');
+    setAgentImages([]);
     pushLog('info', 'todo-agent 请求发送', content);
     setAgentLoading(true);
     if (content) {
@@ -2176,7 +2229,7 @@ export default function Home() {
         body: JSON.stringify({
           mode: 'todo-agent',
           input: content,
-          images: agentImages.map((image) => image.dataUrl),
+          images: imagePayload,
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -2218,17 +2271,12 @@ export default function Home() {
     } catch (error) {
       console.error(error);
       const message = (error as any)?.message || 'AI 助手无响应，请稍后重试';
+      if (content) setAgentInput(content);
       setAgentError(message);
       setAgentGuidance([]);
       // 不要添加 assistant 消息，而是让错误提示显示出来
       pushLog('error', 'todo-agent 请求失败', String(message));
     } finally {
-      // 保持 input 不变以便重试，或者清空？用户通常希望保留以便修改
-      // 这里我们不清空 agentInput 如果失败了
-      if (!agentError) {
-        setAgentInput('');
-        setAgentImages([]);
-      }
       setAgentLoading(false);
     }
   };
@@ -2273,6 +2321,7 @@ export default function Home() {
     const content = manageAgentInput.trim();
     if (!content) return;
 
+    setManageAgentInput('');
     setManageAgentLoading(true);
     setManageAgentError(null);
     setManageAgentMessages((prev) => [...prev, { role: 'user', content }]);
@@ -2326,9 +2375,9 @@ export default function Home() {
           };
         }),
       );
-      setManageAgentInput('');
     } catch (error) {
       const message = (error as any)?.message || 'AI 管理助手无响应，请稍后重试';
+      setManageAgentInput(content);
       setManageAgentError(message);
     } finally {
       setManageAgentLoading(false);
@@ -4691,13 +4740,17 @@ export default function Home() {
                         agentMessages.map((message, idx) => (
                           <div
                             key={`${message.role}-${idx}`}
-                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                              message.role === 'user'
-                                ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100 ml-auto'
-                                : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
-                            }`}
+                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
-                            {message.content}
+                            <div
+                              className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                                message.role === 'user'
+                                  ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100'
+                                  : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                              }`}
+                            >
+                              {message.content}
+                            </div>
                           </div>
                         ))
                       )}
@@ -4858,13 +4911,17 @@ export default function Home() {
                         manageAgentMessages.map((message, idx) => (
                           <div
                             key={`${message.role}-${idx}`}
-                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                              message.role === 'user'
-                                ? 'bg-gradient-to-r from-violet-500/25 to-blue-500/25 border border-violet-400/30 text-blue-100 ml-auto'
-                                : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
-                            }`}
+                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
-                            {message.content}
+                            <div
+                              className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                                message.role === 'user'
+                                  ? 'bg-gradient-to-r from-violet-500/25 to-blue-500/25 border border-violet-400/30 text-blue-100'
+                                  : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                              }`}
+                            >
+                              {message.content}
+                            </div>
                           </div>
                         ))
                       )}
