@@ -220,12 +220,13 @@ const SettingsModal = ({
       >
         <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>
         <div className="space-y-3 sm:space-y-4 text-sm">
-          <details open className="glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
+          <details open className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2">
               <span>AI 基础设置（点击展开/收起）</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A]" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-200 group-open:rotate-180" />
             </summary>
-            <div className="mt-3 space-y-3">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-300 ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
+              <div className="mt-3 space-y-3 overflow-hidden">
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
                 <div className="relative">
@@ -391,13 +392,15 @@ const SettingsModal = ({
                 <p className="text-[11px] sm:text-xs text-[#555555]">第一版先影响整体氛围与主要强调色，后续会继续收敛到完整主题系统。</p>
               </div>
             </div>
+            </div>
           </details>
-          <details className="pt-3 border-t border-[#333333]">
+          <details className="group pt-3 border-t border-[#333333]">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
               <span>浏览器通知（点击展开/收起）</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A]" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-200 group-open:rotate-180" />
             </summary>
-            <div className="space-y-3 mt-2">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-300 ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
+              <div className="space-y-3 overflow-hidden">
               <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
                 <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
                 <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
@@ -428,6 +431,7 @@ const SettingsModal = ({
                 </button>
               </div>
               <p className="text-[11px] sm:text-xs text-[#555555]">提示：浏览器会拦截非用户触发的通知，请确保在手动点击按钮时触发。</p>
+              </div>
             </div>
           </details>
           <div className="pt-3 border-t border-[#333333]">
@@ -437,10 +441,10 @@ const SettingsModal = ({
               className="w-full flex items-center justify-between text-[11px] sm:text-xs font-medium text-[#888888] mb-3 uppercase hover:text-[#CCCCCC]"
             >
               <span>API 专用设置组</span>
-              {isApiSettingsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {isApiSettingsOpen ? <ChevronUp className="w-3.5 h-3.5 transition-transform duration-200" /> : <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />}
             </button>
-            {isApiSettingsOpen && (
-              <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+            <div className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${isApiSettingsOpen ? 'grid-rows-[1fr] opacity-100 mt-0' : 'grid-rows-[0fr] opacity-80 mt-0'}`}>
+              <div className="space-y-4 overflow-hidden">
                 <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
                   用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
                 </div>
@@ -589,14 +593,15 @@ const SettingsModal = ({
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
-          <details className="pt-3 border-t border-[#333333]">
+          <details className="group pt-3 border-t border-[#333333]">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
               <span>数据导入导出（搬家专用，点击展开/收起）</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A]" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-200 group-open:rotate-180" />
             </summary>
-            <div className="mt-2">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-300 ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
+              <div className="overflow-hidden">
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -648,6 +653,7 @@ const SettingsModal = ({
                 onChange={handleImportData}
                 className="hidden"
               />
+              </div>
             </div>
           </details>
 
