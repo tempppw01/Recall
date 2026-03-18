@@ -14,3 +14,9 @@
 - 时间轴体验增强（sticky 日期、状态更秒懂、动效与定位提示）
 
 详见：`docs/plan/releases/release_notes_v0.2.0.md`
+
+## v0.2.1
+
+- 重点：时间轴 Phase 3（总结/热力/瀑布流）+ 部署安全修复（NEXTAUTH_SECRET fail-fast）
+- Release Notes：`docs/plan/releases/release_notes_v0.2.1.md`
+
