@@ -8,6 +8,7 @@ type ThemePreference = 'system' | 'light' | 'dark';
 type PageTopBarProps = {
   activeFilter: string;
   headerTitle: string;
+  headerSubtitle?: string;
   isListView: boolean;
   isBatchMode: boolean;
   completedTasks: number;
@@ -27,6 +28,7 @@ type PageTopBarProps = {
 export default function PageTopBar({
   activeFilter,
   headerTitle,
+  headerSubtitle,
   isListView,
   isBatchMode,
   completedTasks,
@@ -42,17 +44,22 @@ export default function PageTopBar({
   return (
     <header className="sticky top-0 z-20 sticky-glass border-b border-[#3A3F4B]/50 bg-[#151515]/72 backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
       <div className="mx-2 mt-2 rounded-2xl glass-panel-soft px-3 py-3 sm:mx-4 sm:px-4 lg:mx-6 lg:px-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-4 min-w-0">
-            <button onClick={onOpenSidebar} className={`lg:hidden -ml-1 ${iconButtonClassName}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-4 min-w-0">
+            <button onClick={onOpenSidebar} className={`lg:hidden -ml-1 mt-0.5 ${iconButtonClassName}`}>
               <Menu className="w-6 h-6" />
             </button>
-            <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
-              {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-400" />}
-              {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-400" />}
-              {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
-              <span className="truncate">{headerTitle}</span>
-            </h2>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
+                {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-400" />}
+                {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-400" />}
+                {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
+                <span className="truncate">{headerTitle}</span>
+              </h2>
+              {headerSubtitle && (
+                <p className="mt-1 text-xs text-[#7C8499] truncate">{headerSubtitle}</p>
+              )}
+            </div>
           </div>
 
           <div className="mobile-toolbar flex items-center gap-2 sm:gap-3 text-[#666666] shrink-0">

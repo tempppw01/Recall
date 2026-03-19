@@ -331,6 +331,24 @@ const TaskItem = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-2 min-w-0 flex-1">
+                {hasSubtasks && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsSubtasksOpen((prev) => !prev);
+                    }}
+                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] sm:text-xs px-2 py-1 sm:py-0.5 rounded-full border bg-[var(--ui-surface-0)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#666666] border-[#2A2A2A] hover:text-[#CCCCCC]'}`}
+                    aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
+                  >
+                    {isSubtasksOpen ? (
+                      <ChevronUp className="w-3 h-3 transition-transform duration-[var(--motion-base)]" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 transition-transform duration-[var(--motion-base)]" />
+                    )}
+                    <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
+                  </button>
+                )}
                 {task.pinned && (
                   <span className="text-[10px] text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded shrink-0">置顶</span>
                 )}
@@ -359,24 +377,6 @@ const TaskItem = ({
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {hasSubtasks && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setIsSubtasksOpen((prev) => !prev);
-                    }}
-                    className={`flex items-center gap-1 text-[10px] sm:text-xs px-2 py-1 sm:py-0.5 rounded-full border bg-[var(--ui-surface-0)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#666666] border-[#2A2A2A] hover:text-[#CCCCCC]'}`}
-                    aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
-                  >
-                    <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
-                    {isSubtasksOpen ? (
-                      <ChevronUp className="w-3 h-3 transition-transform duration-[var(--motion-base)]" />
-                    ) : (
-                      <ChevronDown className="w-3 h-3 transition-transform duration-[var(--motion-base)]" />
-                    )}
-                  </button>
-                )}
                 {canDrag && (
                   <button
                     type="button"

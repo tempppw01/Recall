@@ -283,17 +283,14 @@ export default function TimelinePanel(props: TimelinePanelProps) {
   return (
     <div className="stack-gap flex flex-col">
       <div className="glass-panel motion-enter rounded-[28px] p-4 sm:p-5">
-        <div className="flex items-center justify-between">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_auto] lg:items-start">
           <div>
-            <div className="text-sm font-semibold text-[#DDDDDD]">时间轴</div>
+            <div className="text-sm font-semibold text-[#DDDDDD]">时间轴概览</div>
             <div className="text-xs text-[#777777] mt-1">
-              按时间回顾任务：已完成 / 未完成 / 过期（原型）
+              从时间维度查看任务推进节奏，快速找到完成、未完成和逾期事项。
             </div>
           </div>
-          <span className="text-[10px] text-[#616161]">Timeline</span>
-        </div>
-        <div className="mt-4 text-xs text-[#777777]">
-          数据：复用现有 Task（不引入新模型）。点击卡片可查看详情。
+          <span className="text-[10px] text-[#616161] rounded-full border border-[var(--ui-border-soft)] px-2 py-1 bg-[var(--ui-surface-0)]">按时间查看</span>
         </div>
 
 

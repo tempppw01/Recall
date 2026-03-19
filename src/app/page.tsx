@@ -3860,8 +3860,29 @@ export default function Home() {
     : activeFilter === 'tag'
     ? (activeTag ? `#${activeTag}` : FILTER_LABELS.tag)
     : activeFilter === 'timeline'
-    ? ''
+    ? '时间轴'
     : (FILTER_LABELS[activeFilter] ?? '待办');
+  const headerSubtitle = activeFilter === 'timeline'
+    ? '按时间回顾任务进展，查看完成、未完成和逾期事项'
+    : activeFilter === 'calendar'
+    ? '按日期查看任务安排，支持周视图、月视图和日程视图'
+    : activeFilter === 'quadrant'
+    ? '按轻重缓急拆分任务，先做真正重要的事'
+    : activeFilter === 'countdown'
+    ? '把重要日子放在眼前，提醒自己持续推进'
+    : activeFilter === 'habit'
+    ? '追踪长期习惯，把重复的小事慢慢养成'
+    : activeFilter === 'pomodoro'
+    ? '专注一段时间，休息一下，再继续推进任务'
+    : activeFilter === 'agent'
+    ? '把想法交给 AI 助手，自动拆成可执行清单'
+    : activeFilter === 'completed'
+    ? '查看已经完成的事项，顺手清理历史任务'
+    : activeFilter === 'category'
+    ? '按列表查看当前任务，聚焦同一类事情'
+    : activeFilter === 'tag'
+    ? '按标签聚合同类任务，方便快速筛选和处理'
+    : '集中处理当前任务，减少拖延，往前推进';
   const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
@@ -4011,6 +4032,7 @@ export default function Home() {
         <PageTopBar
           activeFilter={activeFilter}
           headerTitle={headerTitle}
+          headerSubtitle={headerSubtitle}
           isListView={isListView}
           isBatchMode={isBatchMode}
           completedTasks={completedTasks}
@@ -4060,7 +4082,7 @@ export default function Home() {
           />
         )}
 
-        <div className={`flex-1 px-3 sm:px-6 lg:px-7 ${
+        <div className={`flex-1 px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10 max-w-[1680px] w-full mx-auto ${
           activeFilter === 'agent'
             ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
             : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'
@@ -5472,7 +5494,7 @@ export default function Home() {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[320px] bg-[#222222] border-l border-[#333333] flex flex-col motion-drawer-surface">
+        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[#222222] border-l border-[#333333] flex flex-col motion-drawer-surface">
           <div className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 shrink-0">
             <button
               onClick={() => setSelectedTask(null)}
