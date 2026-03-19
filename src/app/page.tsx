@@ -35,6 +35,9 @@ import {
   CheckSquare, LayoutGrid, Timer, Flame, Settings, Cloud, CloudSun, CloudRain, CloudFog, CloudSnow,
   ImagePlus, Monitor, Paperclip, Upload,
   Phone,
+  Info,
+  AlertTriangle,
+  XCircle,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -537,6 +540,12 @@ type AiAssistantMode = 'record' | 'manage';
 // 管理助手筛选：全部/只看未完成/只看今日/只看逾期
 type ManageAgentFilter = 'all' | 'todo' | 'today' | 'overdue';
 
+type StatusFeedback = {
+  id: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  detail?: string;
+};
 
 const isTaskOverdue = (task: Task) => {
   if (!task.dueDate) return false;
@@ -899,6 +908,7 @@ export default function Home() {
       timestamp: string;
     }[]
   >([]);
+  const [statusFeedback, setStatusFeedback] = useState<StatusFeedback | null>(null);
   // todo-agent 聊天状态
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
   const [aiAssistantMode, setAiAssistantMode] = useState<AiAssistantMode>('record');
@@ -985,21 +995,53 @@ export default function Home() {
     handleThemeToggle,
   } = useThemeSettings();
 
+  const resolveActionableDetail = (
+    level: 'info' | 'success' | 'warning' | 'error',
+    message: string,
+    detail?: string,
+  ) => {
+    if (detail && detail.trim()) return detail.trim();
+    if (level === 'error') {
+      if (message.includes('同步')) return '建议：先检查同步配置，再点击「重试同步」。';
+      if (message.includes('AI') || message.includes('agent')) return '建议：检查 AI Key 与模型配置后重试。';
+      if (message.includes('导入') || message.includes('导出')) return '建议：确认文件格式与权限后重试。';
+      return '建议：打开运行日志查看详情后再重试。';
+    }
+    if (level === 'warning') return '建议：根据提示调整设置，然后再继续操作。';
+    if (level === 'success') return '完成了，可以继续下一步。';
+    return '状态已更新。';
+  };
+
   function pushLog(
     level: 'info' | 'success' | 'warning' | 'error',
     message: string,
     detail?: string,
   ) {
+    const actionableDetail = resolveActionableDetail(level, message, detail);
     const entry = {
       id: createId(),
       level,
       message,
-      detail,
+      detail: actionableDetail,
       timestamp: new Date().toLocaleString('zh-CN', { hour12: false }),
     };
     setLogs((prev) => [entry, ...prev].slice(0, 200));
+    setStatusFeedback({
+      id: entry.id,
+      level,
+      message,
+      detail: actionableDetail,
+    });
   }
 
+  useEffect(() => {
+    if (!statusFeedback) return;
+    const timeoutMs = statusFeedback.level === 'error' || statusFeedback.level === 'warning' ? 6400 : 4200;
+    const timer = window.setTimeout(() => {
+      setStatusFeedback((prev) => (prev?.id === statusFeedback.id ? null : prev));
+    }, timeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [statusFeedback]);
 
   const persistSettings = (next: {
     apiKey: string;
@@ -3849,6 +3891,57 @@ export default function Home() {
         <div className="absolute top-[28%] left-[12%] h-48 w-48 rounded-full bg-cyan-500/8 blur-3xl" />
         <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-violet-500/12 blur-3xl" />
       </div>
+
+      {statusFeedback && (
+        <div className="fixed top-[calc(0.7rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[70] w-[min(92vw,720px)] px-2 sm:px-0">
+          <div className={`status-feedback motion-modal-surface px-3 py-2.5 sm:px-4 sm:py-3 ${
+            statusFeedback.level === 'error'
+              ? 'status-feedback-error'
+              : statusFeedback.level === 'warning'
+                ? 'status-feedback-warning'
+                : statusFeedback.level === 'success'
+                  ? 'status-feedback-success'
+                  : 'status-feedback-info'
+          }`}>
+            <div className="flex items-start gap-2.5">
+              <div className="mt-0.5 shrink-0">
+                {statusFeedback.level === 'error' ? (
+                  <XCircle className="w-4 h-4 text-red-200" />
+                ) : statusFeedback.level === 'warning' ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-200" />
+                ) : statusFeedback.level === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                ) : (
+                  <Info className="w-4 h-4 text-blue-200" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm text-[#F4F7FF]">{statusFeedback.message}</div>
+                {statusFeedback.detail && (
+                  <div className="mt-0.5 text-xs text-[#C6D0E6]">{statusFeedback.detail}</div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowLogs(true)}
+                  className="text-[11px] px-2 py-1 rounded-md border border-white/15 text-[#D7DEEF] hover:text-white ui-state-hover ui-state-press"
+                >
+                  查看日志
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFeedback(null)}
+                  className="p-1 rounded-md text-[#AAB3C8] hover:text-white ui-state-hover ui-state-press"
+                  aria-label="关闭状态提示"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 1. Sidebar */}
       <Sidebar
