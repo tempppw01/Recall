@@ -1016,6 +1016,7 @@ export default function Home() {
     level: 'info' | 'success' | 'warning' | 'error',
     message: string,
     detail?: string,
+    options?: { silentFeedback?: boolean },
   ) {
     const actionableDetail = resolveActionableDetail(level, message, detail);
     const entry = {
@@ -1026,12 +1027,14 @@ export default function Home() {
       timestamp: new Date().toLocaleString('zh-CN', { hour12: false }),
     };
     setLogs((prev) => [entry, ...prev].slice(0, 200));
-    setStatusFeedback({
-      id: entry.id,
-      level,
-      message,
-      detail: actionableDetail,
-    });
+    if (!options?.silentFeedback) {
+      setStatusFeedback({
+        id: entry.id,
+        level,
+        message,
+        detail: actionableDetail,
+      });
+    }
   }
 
   useEffect(() => {
@@ -2255,7 +2258,7 @@ export default function Home() {
 
     setAgentInput('');
     setAgentImages([]);
-    pushLog('info', 'todo-agent 请求发送', content);
+    pushLog('info', 'todo-agent 请求发送', content, { silentFeedback: true });
     setAgentLoading(true);
     if (content) {
       setAgentMessages((prev) => [...prev, { role: 'user', content }]);
@@ -2309,7 +2312,7 @@ export default function Home() {
       setAgentItems(nextItems);
       setAgentGuidance(nextGuidance);
       setAddedAgentItemIds(new Set());
-      pushLog('success', 'todo-agent 返回成功', `建议待办 ${nextItems.length} 条`);
+      pushLog('success', 'todo-agent 返回成功', `建议待办 ${nextItems.length} 条`, { silentFeedback: true });
     } catch (error) {
       console.error(error);
       const message = (error as any)?.message || 'AI 助手无响应，请稍后重试';
@@ -2317,7 +2320,7 @@ export default function Home() {
       setAgentError(message);
       setAgentGuidance([]);
       // 不要添加 assistant 消息，而是让错误提示显示出来
-      pushLog('error', 'todo-agent 请求失败', String(message));
+      pushLog('error', 'todo-agent 请求失败', String(message), { silentFeedback: true });
     } finally {
       setAgentLoading(false);
     }
@@ -2536,7 +2539,7 @@ export default function Home() {
     }
 
     setHabitAgentLoading(true);
-    pushLog('info', 'habit-agent 请求发送', content);
+    pushLog('info', 'habit-agent 请求发送', content, { silentFeedback: true });
     try {
       setHabitAgentError(null);
       const res = await fetch('/api/ai/process', {
@@ -2572,11 +2575,11 @@ export default function Home() {
       setHabitAgentItems(nextItems);
       setAddedHabitAgentItemIds(new Set());
       setHabitAgentInput('');
-      pushLog('success', 'habit-agent 返回成功', `建议习惯 ${nextItems.length} 条`);
+      pushLog('success', 'habit-agent 返回成功', `建议习惯 ${nextItems.length} 条`, { silentFeedback: true });
     } catch (error) {
       const message = (error as any)?.message || '习惯助手无响应，请稍后重试';
       setHabitAgentError(message);
-      pushLog('error', 'habit-agent 请求失败', String(message));
+      pushLog('error', 'habit-agent 请求失败', String(message), { silentFeedback: true });
     } finally {
       setHabitAgentLoading(false);
     }
@@ -2616,7 +2619,7 @@ export default function Home() {
   const handleCountdownAgentSend = async () => {
     const content = countdownAgentInput.trim();
     if (!content || countdownAgentLoading) return;
-    pushLog('info', 'countdown-agent 请求发送', content);
+    pushLog('info', 'countdown-agent 请求发送', content, { silentFeedback: true });
     setCountdownAgentLoading(true);
     setCountdownAgentMessages((prev) => [...prev, { role: 'user', content }]);
 
@@ -2658,7 +2661,7 @@ export default function Home() {
       setCountdownAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
       setCountdownAgentItems(nextItems);
       setAddedCountdownAgentItemIds(new Set());
-      pushLog('success', 'countdown-agent 返回成功', `建议倒数日 ${nextItems.length} 条`);
+      pushLog('success', 'countdown-agent 返回成功', `建议倒数日 ${nextItems.length} 条`, { silentFeedback: true });
     } catch (error) {
       console.error(error);
       const message = (error as any)?.message || '倒数日助手无响应，请稍后重试';
@@ -2667,7 +2670,7 @@ export default function Home() {
         ...prev,
         { role: 'assistant', content: '我这边没连上服务，稍后再试试？' },
       ]);
-      pushLog('error', 'countdown-agent 请求失败', String(message));
+      pushLog('error', 'countdown-agent 请求失败', String(message), { silentFeedback: true });
     } finally {
       setCountdownAgentInput('');
       setCountdownAgentLoading(false);
