@@ -3741,11 +3741,31 @@ export default function Home() {
     },
   ];
 
-  const toggleQuadrantExpanded = (key: string) => {
-    setExpandedQuadrants((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const moveTaskToQuadrant = (taskId: string, quadrantKey: string) => {
+    const target = taskStore.getAll().find((task) => task.id === taskId);
+    if (!target) return;
+
+    const nextPriority = quadrantKey === 'important-urgent' || quadrantKey === 'important-not-urgent' ? 2 : 0;
+    const timezoneOffset = target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
+    let nextDueDate = target.dueDate;
+
+    if (quadrantKey === 'important-urgent' || quadrantKey === 'not-important-urgent') {
+      if (!nextDueDate || !isUrgentTask(target)) {
+        nextDueDate = buildDueDateIso(formatDateKeyByOffset(new Date(), timezoneOffset), '18:00', timezoneOffset);
+      }
+    } else if (quadrantKey === 'important-not-urgent' || quadrantKey === 'not-important-not-urgent') {
+      if (nextDueDate && isUrgentTask(target)) {
+        nextDueDate = undefined;
+      }
+    }
+
+    updateTask({
+      ...target,
+      priority: nextPriority,
+      dueDate: nextDueDate,
+      timezoneOffset,
+      updatedAt: new Date().toISOString(),
+    });
   };
 
   const calendarSourceTasks = showCompletedInCalendar
@@ -4485,19 +4505,19 @@ export default function Home() {
                       return (
                         <div
                           key={item.id}
-                          className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3"
+                          className="bg-[#20242C] border border-[#343C4C] rounded-2xl px-4 py-4 sm:px-5 sm:py-4 flex flex-col gap-4"
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-base font-semibold text-[#EEEEEE]">{item.title}</h4>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-base font-semibold text-[#EEEEEE] leading-snug">{item.title}</h4>
                                 {item.pinned && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">置顶</span>
                                 )}
                               </div>
-                              <p className="text-xs text-[#777777] mt-1">目标日期：{item.targetDate}</p>
+                              <p className="text-xs text-[#8A93A6] mt-1.5">目标日期：{item.targetDate}</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right shrink-0 min-w-[72px]">
                               {countdownDisplayMode === 'date' ? (
                                 <>
                                   <p className={`text-sm font-semibold ${isPast ? 'text-red-300' : 'text-blue-200'}`}>
@@ -4517,7 +4537,7 @@ export default function Home() {
                               )}
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 pt-1">
                             <button
                               onClick={() => toggleCountdownPinned(item)}
                               className={`px-2.5 py-1 text-xs rounded border transition-colors ${
@@ -4683,6 +4703,7 @@ export default function Home() {
             <TimelinePanel
               tasks={tasks}
               onSelectTask={(task) => setSelectedTask(task)}
+              onToggleTaskStatus={toggleStatus}
               defaultTimezoneOffset={DEFAULT_TIMEZONE_OFFSET}
               getTimezoneOffset={(task) => getTimezoneOffset(task)}
               formatZonedDateTime={formatZonedDateTime}
@@ -4700,7 +4721,18 @@ export default function Home() {
                 const hiddenCount = group.items.length - visibleItems.length;
 
                 return (
-                  <div key={group.key} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 flex flex-col gap-3">
+                  <div
+                    key={group.key}
+                    className="bg-[#1F2430] border border-[#384152] rounded-2xl p-4 flex flex-col gap-3 transition-colors hover:border-[#51607A]"
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const taskId = event.dataTransfer.getData('text/plain');
+                      if (taskId) moveTaskToQuadrant(taskId, group.key);
+                    }}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 className="text-sm font-semibold text-[#DDDDDD]">{group.title}</h3>
@@ -4741,6 +4773,9 @@ export default function Home() {
                             onTogglePinned={toggleTaskPinned}
                             onQuickSetPriority={quickSetPriority}
                             onQuickSetDuePreset={quickSetDuePreset}
+                            onDragStart={() => setDraggingTaskId(task.id)}
+                            onDragEnd={() => setDraggingTaskId(null)}
+                            dragEnabled
                             multiSelectEnabled={isBatchMode}
                             isChecked={selectedTaskIds.has(task.id)}
                             onToggleSelect={toggleTaskSelected}

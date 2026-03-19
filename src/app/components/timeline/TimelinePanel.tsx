@@ -4,6 +4,7 @@ import type { Task } from '@/lib/store';
 type TimelinePanelProps = {
   tasks: Task[];
   onSelectTask: (task: Task) => void;
+  onToggleTaskStatus: (taskId: string) => void;
   defaultTimezoneOffset: number;
   getTimezoneOffset: (task: Task) => number;
   formatZonedDateTime: (iso: string, offsetMinutes: number) => string;
@@ -104,6 +105,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
   const {
     tasks,
     onSelectTask,
+    onToggleTaskStatus,
     defaultTimezoneOffset,
     getTimezoneOffset,
     formatZonedDateTime,
@@ -502,6 +504,21 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      onToggleTaskStatus(task.id);
+                                    }}
+                                    className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                                      task.status === 'completed'
+                                        ? 'border-green-400/70 bg-green-500/18 text-green-100'
+                                        : 'border-[#4A4A4A] text-[#8FA0C2] hover:border-blue-400/60 hover:bg-blue-500/12 hover:text-blue-100'
+                                    }`}
+                                    aria-label={task.status === 'completed' ? '取消完成任务' : '完成任务'}
+                                  >
+                                    {task.status === 'completed' ? '✓' : '○'}
+                                  </button>
                                   <span className={`inline-flex h-2 w-2 rounded-full ${badge.dotClassName}`} />
                                   <span
                                     className={`text-[10px] px-2 py-0.5 rounded-full border ${badge.className}`}
