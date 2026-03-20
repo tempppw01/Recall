@@ -121,8 +121,8 @@ const TaskItem = ({
     ? formatZonedDateTime(task.dueDate, timezoneOffset)
     : '未设时间';
   const dueTextColor = task.dueDate
-    ? (isTaskOverdue(task) ? 'text-red-400' : 'text-[#888888]')
-    : 'text-[#666666]';
+    ? (isTaskOverdue(task) ? 'text-red-300' : 'text-[#aab3c5]')
+    : 'text-[#6c7382]';
 
   useEffect(() => {
     setOffsetX(0);
@@ -240,7 +240,7 @@ const TaskItem = ({
 
   return (
     <div
-      className={`relative rounded-2xl ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
+      className={`relative rounded-[28px] ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {
@@ -276,12 +276,12 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative p-2.5 sm:p-3 rounded-2xl cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
+        className={`group relative overflow-hidden p-3 sm:p-3.5 rounded-[28px] cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
-              ? 'border-[rgba(94,94,94,0.55)] bg-[rgba(255,255,255,0.03)] shadow-[0_8px_22px_rgba(0,0,0,0.12)]'
-              : 'border-transparent bg-[var(--ui-surface-1)] hover:bg-[#23262D] hover:border-[rgba(var(--theme-accent),0.24)] hover:shadow-[0_14px_30px_rgba(0,0,0,0.20)] active:bg-[#252A33]'
+              ? 'border-[rgba(94,94,94,0.55)] bg-[rgba(255,255,255,0.028)] shadow-[0_8px_22px_rgba(0,0,0,0.12)]'
+              : 'border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(28,31,38,0.96),rgba(22,24,30,0.98))] hover:border-[rgba(var(--theme-accent),0.24)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.22)] active:bg-[#252A33]'
         } ${isSubtasksOpen ? 'shadow-[0_16px_36px_rgba(0,0,0,0.24)]' : ''}`}
         style={{
           transform: `translateX(${offsetX}px)`,
@@ -294,7 +294,7 @@ const TaskItem = ({
             style={{ width: `${subtaskProgress}%` }}
           />
         )}
-        <div className="relative z-10 flex items-start gap-3 w-full">
+        <div className="relative z-10 flex items-start gap-3.5 w-full">
           {multiSelectEnabled && (
             <button
               type="button"
@@ -317,7 +317,7 @@ const TaskItem = ({
               event.stopPropagation();
               onToggle(task.id);
             }}
-            className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors ${
+            className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
               task.status === 'completed'
                 ? 'bg-[rgba(var(--theme-accent),0.9)] border-[rgba(var(--theme-accent),0.9)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.12)]'
                 : 'border-[#555555] hover:border-[rgba(var(--theme-accent),0.55)] hover:bg-[rgba(var(--theme-accent),0.08)]'
@@ -329,8 +329,8 @@ const TaskItem = ({
           </button>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2 min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0 flex-1 flex-wrap">
                 {hasSubtasks && (
                   <button
                     type="button"
@@ -338,7 +338,7 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsSubtasksOpen((prev) => !prev);
                     }}
-                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] sm:text-xs px-2 py-1 sm:py-0.5 rounded-full border bg-[var(--ui-surface-0)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#666666] border-[#2A2A2A] hover:text-[#CCCCCC]'}`}
+                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] sm:text-xs px-2.5 py-1 rounded-full border bg-[rgba(0,0,0,0.18)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#8f97a8] border-[color:var(--ui-border-soft)] hover:text-[#f3f6ff]'}`}
                     aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
                   >
                     {isSubtasksOpen ? (
@@ -350,7 +350,7 @@ const TaskItem = ({
                   </button>
                 )}
                 {task.pinned && (
-                  <span className="text-[10px] text-yellow-300 bg-yellow-500/10 px-1.5 py-0.5 rounded shrink-0">置顶</span>
+                  <span className="text-[10px] text-yellow-200 bg-yellow-500/10 border border-yellow-500/20 px-2 py-1 rounded-full shrink-0">置顶</span>
                 )}
                 {onTitleClick ? (
                   <button
@@ -359,8 +359,8 @@ const TaskItem = ({
                       event.stopPropagation();
                       onTitleClick?.();
                     }}
-                    className={`text-left text-[13px] sm:text-sm leading-snug min-w-0 ${
-                      task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+                    className={`text-left text-[13px] sm:text-sm font-medium leading-snug min-w-0 ${
+                      task.status === 'completed' ? 'text-[#707789] line-through' : 'text-[#F3F6FF]'
                     }`}
                     title="点击编辑标题"
                   >
@@ -368,8 +368,8 @@ const TaskItem = ({
                   </button>
                 ) : (
                   <p
-                    className={`text-[13px] sm:text-sm leading-snug min-w-0 ${
-                      task.status === 'completed' ? 'text-[#666666] line-through' : 'text-[#EEEEEE]'
+                    className={`text-[13px] sm:text-sm font-medium leading-snug min-w-0 ${
+                      task.status === 'completed' ? 'text-[#707789] line-through' : 'text-[#F3F6FF]'
                     }`}
                   >
                     {task.title}
@@ -383,7 +383,7 @@ const TaskItem = ({
                     draggable
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
-                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#666666] px-2 py-1 sm:py-0.5 rounded-full border border-[#2A2A2A] bg-[var(--ui-surface-0)] cursor-grab active:cursor-grabbing touch-none hover:text-[#D6DFF7] hover:border-[#4A5572] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)]"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#7b8496] px-2.5 py-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(0,0,0,0.18)] cursor-grab active:cursor-grabbing touch-none hover:text-[#D6DFF7] hover:border-[#4A5572] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)]"
                     onMouseDown={(event) => {
                       event.stopPropagation();
                     }}
@@ -403,18 +403,18 @@ const TaskItem = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className={`text-[10px] flex items-center gap-0.5 ${getPriorityColor(task.priority)}`}>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+              <span className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 py-1 text-[10px] ${getPriorityColor(task.priority)}`}>
                 <Flag className="w-3 h-3 fill-current" />
                 {getPriorityLabel(task.priority)}
               </span>
               {task.repeat && task.repeat.type !== 'none' && (
-                <span className="text-[10px] text-purple-300 bg-purple-500/10 px-1.5 rounded">
+                <span className="text-[10px] text-purple-200 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full">
                   {formatRepeatLabel(task.repeat)}
                 </span>
               )}
               {task.category && (
-                <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-1.5 rounded">
+                <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-full">
                   {task.category}
                 </span>
               )}
@@ -426,12 +426,12 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsDueEditorOpen((prev) => !prev);
                     }}
-                    className={`text-[10px] flex items-center gap-1 ${dueTextColor} hover:text-[#DDDDDD]`}
+                    className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 py-1 text-[10px] ${dueTextColor} hover:text-[#F3F6FF]`}
                     title="点击编辑时间"
                   >
                     <Calendar className="w-3 h-3" />
                     {dueLabel}
-                    <span className="text-[#666666]">({getTimezoneLabel(timezoneOffset)})</span>
+                    <span className="text-[#6f7787]">({getTimezoneLabel(timezoneOffset)})</span>
                   </button>
                   {isDueEditorOpen && (
                     <div
@@ -477,9 +477,9 @@ const TaskItem = ({
                 </div>
               )}
               {task.tags?.map((tag: string) => (
-                <span key={tag} className="text-[10px] text-[#666666]">#{tag}</span>
+                <span key={tag} className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 py-1">#{tag}</span>
               ))}
-              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t border-[rgba(255,255,255,0.04)]">
                 {onQuickSetPriority && (
                   <>
                     {[2, 1, 0].map((level) => (
@@ -490,7 +490,7 @@ const TaskItem = ({
                           event.stopPropagation();
                           onQuickSetPriority(task.id, level);
                         }}
-                        className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                        className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${
                           task.priority === level
                             ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
                             : 'border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
@@ -510,7 +510,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'today');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-2 py-1 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
                       title="快捷设置时间：今天 09:00"
                     >
                       今天
@@ -521,7 +521,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tomorrow');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-2 py-1 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
                       title="快捷设置时间：明天 09:00"
                     >
                       明天
@@ -545,9 +545,9 @@ const TaskItem = ({
             {hasSubtasks && (
               <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-slow)] ease-out ${isSubtasksOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
                 <div className="overflow-hidden">
-                  <div className="space-y-1 border-l border-[#2A2A2A] pl-4">
+                  <div className="space-y-1.5 border-l border-[rgba(255,255,255,0.06)] pl-4">
                 {(task.subtasks ?? []).map((subtask: Subtask) => (
-                  <div key={subtask.id} className="flex items-center gap-2 text-[11px] sm:text-xs">
+                  <div key={subtask.id} className="flex items-center gap-2 rounded-xl bg-[rgba(255,255,255,0.02)] px-2.5 py-2 text-[11px] sm:text-xs">
                     <button
                       type="button"
                       onClick={(event) => {
@@ -560,10 +560,10 @@ const TaskItem = ({
                       {subtask.completed ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
                       ) : (
-                        <Circle className="w-3.5 h-3.5 text-[#555555]" />
+                        <Circle className="w-3.5 h-3.5 text-[#666f80]" />
                       )}
                     </button>
-                    <span className={subtask.completed ? 'line-through text-[#666666]' : 'text-[#BBBBBB]'}>
+                    <span className={subtask.completed ? 'line-through text-[#707789]' : 'text-[#D3DAE8]'}>
                       {subtask.title}
                     </span>
                   </div>
