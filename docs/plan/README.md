@@ -22,8 +22,10 @@
 ## 导航
 
 - 路线图：`docs/plan/roadmap.md`
+- 版本总表：`docs/plan/version-summary.md`
 - 当前版本任务：`docs/plan/versions/0.0.1.md`
 - 后续规划：`docs/plan/versions/0.0.2.md` / `docs/plan/versions/0.0.3.md` / `docs/plan/versions/0.0.4.md`
+- 0.0.2 页面级执行清单：`docs/plan/versions/0.0.2-execution.md`
 - 版本口径说明：`docs/plan/versioning-policy.md`
 - 审计报告：`docs/plan/audits/`
 - 发布记录：`docs/plan/releases/CHANGELOG.md`

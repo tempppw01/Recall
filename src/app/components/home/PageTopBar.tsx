@@ -1,7 +1,7 @@
 import { Cloud, Flame, Inbox, Loader2, Menu, Monitor, Moon, Sun, Terminal } from 'lucide-react';
 
-const iconButtonClassName = 'p-2 rounded-xl text-[#888888] hover:text-[#CCCCCC] hover:bg-[#23262E] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
-const actionButtonClassName = 'px-3 py-1.5 text-xs rounded-xl border transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60';
+const iconButtonClassName = 'btn btn-ghost h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[#9aa3b2] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed';
+const actionButtonClassName = 'btn btn-secondary btn-sm rounded-2xl border text-xs';
 
 type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -42,27 +42,27 @@ export default function PageTopBar({
   onToggleTheme,
 }: PageTopBarProps) {
   return (
-    <header className="sticky top-0 z-20 sticky-glass border-b border-[#3A3F4B]/50 bg-[#151515]/72 backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
-      <div className="mx-2 mt-2 rounded-2xl glass-panel-soft px-3 py-3 sm:mx-4 sm:px-4 lg:mx-6 lg:px-5">
-        <div className="flex items-start justify-between gap-3">
+    <header className="sticky top-0 z-20 sticky-glass border-b border-[color:var(--ui-border-soft)] bg-[rgba(15,17,22,0.76)] backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.18)]">
+      <div className="mx-2 mt-2 rounded-[28px] glass-panel px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 min-w-0">
             <button onClick={onOpenSidebar} className={`lg:hidden -ml-1 mt-0.5 ${iconButtonClassName}`}>
               <Menu className="w-6 h-6" />
             </button>
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2 min-w-0">
+              <h2 className="text-base sm:text-[1.05rem] font-semibold tracking-tight flex items-center gap-2.5 min-w-0 text-[#f3f6ff]">
                 {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-400" />}
                 {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-400" />}
                 {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
                 <span className="truncate">{headerTitle}</span>
               </h2>
               {headerSubtitle && (
-                <p className="mt-1 text-xs text-[#7C8499] truncate">{headerSubtitle}</p>
+                <p className="mt-1 text-xs text-[#8f99ad] truncate">{headerSubtitle}</p>
               )}
             </div>
           </div>
 
-          <div className="mobile-toolbar flex items-center gap-2 sm:gap-3 text-[#666666] shrink-0">
+          <div className="mobile-toolbar flex items-center gap-2 sm:gap-3 text-[#667085] shrink-0">
             {isListView && (
               <button
                 onClick={onToggleBatchMode}
