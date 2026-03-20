@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
 
@@ -310,7 +310,7 @@ const SettingsModal = ({
         <div className="space-y-3 sm:space-y-4 text-sm">
           <details open className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
-              <span>AI 基础设置（点击展开/收起）</span>
+              <span>AI 基础设置</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
@@ -338,15 +338,8 @@ const SettingsModal = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">模型列表 (逗号或换行分隔)</label>
-                <textarea
-                  value={modelListText}
-                  onChange={(e) => setModelListText(e.target.value)}
-                  placeholder={DEFAULT_MODEL_LIST.join('\n')}
-                  rows={4}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
-                />
-                <div className="mt-2 flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] uppercase">可用模型</label>
                   <button
                     type="button"
                     onClick={fetchModelList}
@@ -355,14 +348,7 @@ const SettingsModal = ({
                   >
                     {isFetchingModels ? '拉取中…' : '拉取模型列表'}
                   </button>
-                  <span className="text-[11px] sm:text-xs text-[#666666]">从当前接口同步模型列表</span>
                 </div>
-                {modelFetchError && (
-                  <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">对话模型</label>
                 <select
                   value={chatModel}
                   onChange={(e) => setChatModel(e.target.value)}
@@ -376,6 +362,10 @@ const SettingsModal = ({
                     </option>
                   ))}
                 </select>
+                <p className="mt-2 text-[11px] sm:text-xs text-[#666666]">只保留下拉选择；如需刷新，直接点右上角拉取。</p>
+                {modelFetchError && (
+                  <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
+                )}
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
@@ -482,12 +472,12 @@ const SettingsModal = ({
             </div>
             </div>
           </details>
-          <details className="group pt-3 border-t border-[#333333]">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
-              <span>浏览器通知（点击展开/收起）</span>
+          <details className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+              <span>浏览器通知</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
-            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
               <div className="space-y-3 overflow-hidden">
               <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
                 <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
@@ -522,16 +512,12 @@ const SettingsModal = ({
               </div>
             </div>
           </details>
-          <div className="pt-3 border-t border-[#333333]">
-            <button
-              type="button"
-              onClick={() => setIsApiSettingsOpen(!isApiSettingsOpen)}
-              className="w-full flex items-center justify-between text-[11px] sm:text-xs font-medium text-[#888888] mb-3 uppercase hover:text-[#CCCCCC]"
-            >
+          <details className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>API 专用设置组</span>
-              {isApiSettingsOpen ? <ChevronUp className="w-3.5 h-3.5 transition-transform duration-[var(--motion-base)]" /> : <ChevronDown className="w-3.5 h-3.5 transition-transform duration-[var(--motion-base)]" />}
-            </button>
-            <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-slow)] ease-out ${isApiSettingsOpen ? 'grid-rows-[1fr] opacity-100 mt-0' : 'grid-rows-[0fr] opacity-80 mt-0'}`}>
+              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
+            </summary>
+            <div className="grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 grid-rows-[0fr] opacity-85">
               <div className="space-y-4 overflow-hidden">
                 <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
                   用于连接远程服务，当前仍保存在浏览器本地。修改后会自动保存。
@@ -682,13 +668,13 @@ const SettingsModal = ({
                 </div>
               </div>
             </div>
-          </div>
-          <details className="group pt-3 border-t border-[#333333]">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase flex items-center justify-between gap-2">
-              <span>数据导入导出（搬家专用，点击展开/收起）</span>
+          </details>
+          <details className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+              <span>数据导入导出</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
-            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 mt-2">
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
               <div className="overflow-hidden">
               <div className="flex flex-wrap gap-2">
                 <button
