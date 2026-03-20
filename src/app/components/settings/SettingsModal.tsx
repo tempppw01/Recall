@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
@@ -209,6 +209,94 @@ const SettingsModal = ({
   webdavPath,
   aiRetentionDays,
 }: SettingsModalProps) => {
+  const firstAutoSaveRef = useRef(true);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    if (firstAutoSaveRef.current) {
+      firstAutoSaveRef.current = false;
+      return;
+    }
+
+    const normalizedTimeout = normalizeTimeoutSec(fallbackTimeoutSec);
+    if (normalizedTimeout !== fallbackTimeoutSec) {
+      setFallbackTimeoutSec(normalizedTimeout);
+    }
+
+    const timer = window.setTimeout(() => {
+      persistSettings({
+        apiKey,
+        apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
+        modelListText,
+        chatModel,
+        fallbackTimeoutSec: normalizedTimeout,
+        webdavUrl,
+        webdavPath,
+        webdavUsername,
+        webdavPassword,
+        autoSyncEnabled,
+        autoSyncInterval,
+        countdownDisplayMode,
+        aiRetentionDays,
+        pgHost,
+        pgPort,
+        pgDatabase,
+        pgUsername,
+        pgPassword,
+        redisHost,
+        redisPort,
+        redisDb,
+        redisPassword,
+        syncNamespace,
+        calendarSubscription,
+        themePreference,
+        accentTheme,
+        gradientTheme,
+      });
+    }, 220);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    showSettings,
+    apiKey,
+    apiBaseUrl,
+    modelListText,
+    chatModel,
+    fallbackTimeoutSec,
+    webdavUrl,
+    webdavPath,
+    webdavUsername,
+    webdavPassword,
+    autoSyncEnabled,
+    autoSyncInterval,
+    countdownDisplayMode,
+    aiRetentionDays,
+    pgHost,
+    pgPort,
+    pgDatabase,
+    pgUsername,
+    pgPassword,
+    redisHost,
+    redisPort,
+    redisDb,
+    redisPassword,
+    syncNamespace,
+    calendarSubscription,
+    themePreference,
+    accentTheme,
+    gradientTheme,
+    DEFAULT_BASE_URL,
+    normalizeTimeoutSec,
+    persistSettings,
+    setFallbackTimeoutSec,
+  ]);
+
+  useEffect(() => {
+    if (!showSettings) {
+      firstAutoSaveRef.current = true;
+    }
+  }, [showSettings]);
+
   if (!showSettings) return null;
 
   return (
@@ -446,7 +534,7 @@ const SettingsModal = ({
             <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-slow)] ease-out ${isApiSettingsOpen ? 'grid-rows-[1fr] opacity-100 mt-0' : 'grid-rows-[0fr] opacity-80 mt-0'}`}>
               <div className="space-y-4 overflow-hidden">
                 <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
-                  用于连接远程服务，当前仍保存在浏览器本地。请确保填写后保存。
+                  用于连接远程服务，当前仍保存在浏览器本地。修改后会自动保存。
                 </div>
                 <PgSettings
                   host={pgHost}
@@ -662,47 +750,11 @@ const SettingsModal = ({
               onClick={() => setShowSettings(false)}
               className="px-3 py-2 text-[13px] sm:text-sm text-[#AAAAAA] hover:text-white transition-colors"
             >
-              取消
+              关闭
             </button>
-            <button
-              onClick={() => {
-                const normalizedTimeout = normalizeTimeoutSec(fallbackTimeoutSec);
-                setFallbackTimeoutSec(normalizedTimeout);
-                persistSettings({
-                  apiKey,
-                  apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
-                  modelListText,
-                  chatModel,
-                  fallbackTimeoutSec: normalizedTimeout,
-                  webdavUrl,
-                  webdavPath,
-                  webdavUsername,
-                  webdavPassword,
-                  autoSyncEnabled,
-                  autoSyncInterval,
-                  countdownDisplayMode,
-                  aiRetentionDays,
-                  pgHost,
-                  pgPort,
-                  pgDatabase,
-                  pgUsername,
-                  pgPassword,
-                  redisHost,
-                  redisPort,
-                  redisDb,
-                  redisPassword,
-                  syncNamespace,
-                  calendarSubscription,
-                  themePreference,
-                  accentTheme,
-                  gradientTheme,
-                });
-                setShowSettings(false);
-              }}
-              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm font-medium hover:bg-blue-500 active:bg-blue-700 transition-colors ui-state-hover ui-state-press"
-            >
-              保存
-            </button>
+            <div className="px-3 py-2 text-[12px] sm:text-xs text-[#6F7890]">
+              已启用自动保存
+            </div>
           </div>
         </div>
       </div>

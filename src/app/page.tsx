@@ -38,6 +38,7 @@ import {
   Info,
   AlertTriangle,
   XCircle,
+  Eraser,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -1500,6 +1501,43 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-80)));
   }, [manageAgentMessages]);
+
+  const clearCurrentAiContext = () => {
+    if (typeof window !== 'undefined' && !window.confirm('确认清除当前 AI 助手上下文吗？这不会删除任务数据。')) {
+      return;
+    }
+
+    const nextSessionId = createId();
+    setSessionId(nextSessionId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DEFAULT_SESSION_ID_KEY, nextSessionId);
+    }
+
+    if (aiAssistantMode === 'record') {
+      setAgentMessages([]);
+      setAgentInput('');
+      setAgentImages([]);
+      setAgentItems([]);
+      setAgentGuidance([]);
+      setAddedAgentItemIds(new Set());
+      setAgentError(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(AGENT_MESSAGES_KEY);
+      }
+      pushLog('success', '已清除记录助手上下文');
+      return;
+    }
+
+    setManageAgentMessages([]);
+    setManageAgentInput('');
+    setManageAgentError(null);
+    setManageRecommendations([]);
+    setManageRecActions({});
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(MANAGE_AGENT_MESSAGES_KEY);
+    }
+    pushLog('success', '已清除管理助手上下文');
+  };
 
   // 注意：apiKey 的持久化已移至 persistSettings 函数中统一处理
   // 避免在用户编辑设置时意外丢失密钥
@@ -4819,7 +4857,18 @@ export default function Home() {
                     <p className="text-xs text-[#8D94A8] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
+                      <button
+                        type="button"
+                        onClick={clearCurrentAiContext}
+                        className="p-1.5 rounded-lg border border-[#333333] text-[#7C8499] hover:text-white hover:border-[#59647A]"
+                        title="清除当前 AI 上下文"
+                        aria-label="清除当前 AI 上下文"
+                      >
+                        <Eraser className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2">
                       {redisHost && (
                         <div className="flex items-center gap-1 text-[10px] text-[#666666]">
