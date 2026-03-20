@@ -20,7 +20,7 @@
 - `docs/plan/releases/CHANGELOG.md` 与 Release notes 一致
 
 风险：
-- 仓库历史上已有 `v0.2.x` / `v0.3.x` tag，和当前强制流程存在历史不一致，需要在后续发版时明确说明
+- 仓库历史上已有 `v0.2.x` / `v0.3.x` tag，和当前强制流程存在历史不一致，需要在后续发版时明确说明（见 `docs/plan/versioning-policy.md`）
 - Prisma migrations 若未纳入版本控制，会影响生产升级稳定性
 
 测试/可观测性：

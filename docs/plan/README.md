@@ -23,6 +23,7 @@
 - 路线图：`docs/plan/roadmap.md`
 - 当前版本任务：`docs/plan/versions/v0.1.md`
 - 后续规划：`docs/plan/versions/v0.2.md` / `docs/plan/versions/v0.3.md` / `docs/plan/versions/v1.0.md`
+- 版本口径说明：`docs/plan/versioning-policy.md`
 - 审计报告：`docs/plan/audits/`
 - 发布记录：`docs/plan/releases/CHANGELOG.md`
 - UI 规范提案：`docs/plan/ui-system.md`
