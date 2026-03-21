@@ -224,6 +224,26 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     ? `当前列表：${getCategoryLabel(focusTask)} · 适合顺手把同类事项一起清掉。`
     : '可以按列表一组一组扫，减少在不同上下文里频繁切换。';
 
+  const focusStepText = focusTask
+    ? `第 ${focusIndex + 1} / ${reviewList.length} 项`
+    : '当前分组已清空';
+
+  const currentGroupSummary = currentGroupMeta
+    ? `${reviewMode === 'time' ? '当前时间组' : '当前列表组'}：${currentGroupMeta.label} · ${currentGroupMeta.count} 项`
+    : '还没有可检查的分组';
+
+  const nextStepTitle = !focusTask
+    ? '切到下一组继续'
+    : reviewMode === 'time'
+      ? '先对这 1 项做判断'
+      : '先把这类任务重新摆正';
+
+  const nextStepDescription = !focusTask
+    ? '这一组已经扫完，可以切换到下一组继续保持节奏。'
+    : reviewMode === 'time'
+      ? '完成、改期，或回到原任务补上下文；做完会自动推进到下一项。'
+      : `先确认「${getCategoryLabel(focusTask)}」这组里当前最该推进的是哪一项，再决定完成、改期或回到原任务。`;
+
   useEffect(() => {
     if (selectedTask?.id) {
       setFocusedTaskId(selectedTask.id);
@@ -296,22 +316,34 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   };
 
   return (
-    <div className="stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
-      <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_auto] lg:items-start">
+    <div className="stack-gap flex flex-col gap-5 px-3 pb-4 sm:gap-6 sm:px-6 sm:pb-6 xl:gap-7">
+      <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)] lg:items-start">
           <div>
-            <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">Review / 检查</div>
-            <div className="mt-1 text-xs text-[#7d8595]">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">Review / 检查</div>
+              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(0,0,0,0.18)] px-2.5 py-1 text-[10px] text-[#7d8595]">
+                0.0.3 工作流第三轮
+              </span>
+            </div>
+            <div className="mt-2 text-xs leading-6 text-[#7d8595]">
               不只按时间扫一遍，也可以按列表重新过一轮，把任务放回正确上下文再继续推进。
             </div>
           </div>
-          <span className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 bg-[rgba(0,0,0,0.18)]">
-            0.0.3 工作流第三轮
-          </span>
+
+          <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">先看这里</div>
+            <div className="mt-2 space-y-2 text-sm text-[#DCE3F4]">
+              <div>1. {currentGroupSummary}</div>
+              <div>2. 当前焦点：{focusTask ? focusTask.title : '本组暂时没有任务'}</div>
+              <div>3. 下一步：{nextStepTitle}</div>
+            </div>
+            <div className="mt-3 text-xs leading-5 text-[#7d8595]">{nextStepDescription}</div>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {(reviewMode === 'time'
           ? [
               { key: 'overdue', label: '需立刻检查', value: reviewCounts.overdue, icon: Clock3, tone: 'text-red-200 bg-red-500/10 border-red-500/20' },
@@ -342,7 +374,12 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           })}
       </div>
 
-      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4 space-y-3">
+      <div className="glass-panel-soft motion-enter space-y-4 rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+        <div className="space-y-1">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 1 步：选择检查视角</div>
+          <div className="text-xs text-[#7d8595]">先决定按时间扫，还是按列表逐组检查；下面再选当前这一组。</div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           {([
             { key: 'time', label: '按时间检查', icon: Clock3 },
@@ -368,8 +405,10 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           })}
         </div>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-2">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 2 步：选择当前要扫的组</div>
+            <div className="flex flex-wrap items-center gap-2">
             {(reviewMode === 'time' ? timeGroupMeta : categoryGroupMeta).map((item) => {
               const active = reviewMode === 'time'
                 ? activeBucket === item.key
@@ -396,21 +435,21 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                 </button>
               );
             })}
+            </div>
           </div>
-          <div className="text-[11px] text-[#7d8595]">
-            当前展示：{reviewList.length} 项
+          <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3.5 py-3 text-[11px] leading-5 text-[#7d8595] xl:max-w-[280px]">
+            <div className="text-[#DCE3F4]">{currentGroupSummary}</div>
+            <div className="mt-1.5">当前展示：{reviewList.length} 项</div>
           </div>
         </div>
       </div>
 
       <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-center">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-center">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">
-              {reviewMode === 'time' ? '检查进度' : '列表检查进度'}
-            </div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 3 步：确认当前焦点与进度</div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
-              <span>当前：{focusTask ? `第 ${focusIndex + 1} 项` : '本组已清空'}</span>
+              <span>当前：{focusStepText}</span>
               <span>本组共 {reviewList.length} 项</span>
               <span>剩余 {remainingCount} 项</span>
             </div>
@@ -421,12 +460,16 @@ export default function ReviewPanel(props: ReviewPanelProps) {
               />
             </div>
           </div>
-          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-xs text-[#7d8595]">
-            {reviewMode === 'time'
-              ? (focusTask
-                  ? '建议先把当前时间组扫完，再切下一组，避免检查节奏中断。'
-                  : '这一组已经扫完了，可以切去下一组继续。')
-              : categorySummaryText}
+          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前组提示</div>
+            <div className="mt-2 text-sm text-[#DCE3F4]">{currentGroupSummary}</div>
+            <div className="mt-2 text-xs leading-5 text-[#7d8595]">
+              {reviewMode === 'time'
+                ? (focusTask
+                    ? '建议先把当前时间组扫完，再切下一组，避免检查节奏中断。'
+                    : '这一组已经扫完了，可以切去下一组继续。')
+                : categorySummaryText}
+            </div>
           </div>
         </div>
       </div>
@@ -510,12 +553,21 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         </div>
 
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 xl:sticky xl:top-4">
-          <div>
-            <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">检查详情</div>
-            <div className="mt-1 text-xs text-[#7d8595]">
-              {reviewMode === 'time'
-                ? '做完当前判断后，会自动推进到下一项，尽量保持 Review 的节奏不断掉。'
-                : '按列表检查时，重点不是快，而是把同一类任务重新摆正优先级和日期。'}
+          <div className="space-y-3">
+            <div>
+              <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">第 4 步：处理当前焦点</div>
+              <div className="mt-1 text-xs text-[#7d8595]">
+                {reviewMode === 'time'
+                  ? '做完当前判断后，会自动推进到下一项，尽量保持 Review 的节奏不断掉。'
+                  : '按列表检查时，重点不是快，而是把同一类任务重新摆正优先级和日期。'}
+              </div>
+            </div>
+
+            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-3.5 py-3">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">你现在在哪里</div>
+              <div className="mt-2 text-sm text-[#DCE3F4]">{currentGroupSummary}</div>
+              <div className="mt-1.5 text-sm text-[#DCE3F4]">当前焦点：{focusTask ? focusTask.title : '本组暂时没有任务'}</div>
+              <div className="mt-1.5 text-xs leading-5 text-[#7d8595]">下一步：{nextStepDescription}</div>
             </div>
           </div>
 
@@ -527,10 +579,17 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                 </div>
               ) : null}
 
-              <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
-                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前焦点</div>
-                <div className="mt-2 text-[15px] font-medium leading-6 text-[#F3F6FF]">{focusTask.title}</div>
-                <div className="mt-2 space-y-1 text-xs text-[#7d8595]">
+              <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前焦点</div>
+                    <div className="mt-2 text-[15px] font-medium leading-6 text-[#F3F6FF]">{focusTask.title}</div>
+                  </div>
+                  <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-[10px] text-blue-200">
+                    {focusStepText}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-1 text-xs text-[#7d8595]">
                   <div>状态：{focusTask.status === 'in_progress' ? '进行中' : '待处理'}</div>
                   <div>列表：{getCategoryLabel(focusTask)}</div>
                   <div>进度：当前第 {focusIndex + 1} 项 / 本组共 {reviewList.length} 项</div>
@@ -558,7 +617,10 @@ export default function ReviewPanel(props: ReviewPanelProps) {
               ) : null}
 
               <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5 space-y-3">
-                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">快速处理</div>
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">主操作</div>
+                  <div className="text-xs text-[#7d8595]">先完成这项，或回到原任务补上下文；下面的改期属于次操作。</div>
+                </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <button
                     type="button"
@@ -596,7 +658,10 @@ export default function ReviewPanel(props: ReviewPanelProps) {
               </div>
 
               <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5 space-y-3">
-                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">改期 / 稍后再看</div>
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">次操作：改期 / 稍后再看</div>
+                  <div className="text-xs text-[#7d8595]">只有当这项现在不适合推进时，再把它改到更合适的时间。</div>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
