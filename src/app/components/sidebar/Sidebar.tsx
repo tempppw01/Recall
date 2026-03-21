@@ -11,22 +11,18 @@ import {
   Command,
   Flame,
   GripVertical,
-  Hash,
   History,
   Inbox,
   LayoutGrid,
-  Plus,
   Sun,
-  Tag as TagIcon,
   Timer,
   X,
 } from 'lucide-react';
 import { Countdown, Task } from '@/lib/store';
 import SidebarItem from '@/app/components/sidebar/SidebarItem';
-import EditableSidebarItem from '@/app/components/sidebar/EditableSidebarItem';
 
 /**
- * 主侧边栏：包含入口、快捷入口、功能、列表、标签等区块。
+ * 主侧边栏：包含入口、快捷入口、功能等区块。
  * PC端支持拖拽调整宽度和折叠功能。
  */
 type SidebarProps = {
@@ -40,10 +36,6 @@ type SidebarProps = {
   setIsQuickAccessOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isToolsOpen: boolean;
   setIsToolsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isListsOpen: boolean;
-  setIsListsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isTagsOpen: boolean;
-  setIsTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   activeFilter: string;
   setActiveFilter: (value: string) => void;
   refreshTasks: () => void;
@@ -53,19 +45,6 @@ type SidebarProps = {
   agentItems: Array<{ id: string }>;
   hasCalendarTasks: boolean;
   countdowns: Countdown[];
-  activeCategory: string | null;
-  setActiveCategory: (value: string | null) => void;
-  listItems: string[];
-  renameListItem: (oldName: string, nextName: string) => void;
-  removeListItem: (name: string) => void;
-  isAddingList: boolean;
-  setIsAddingList: React.Dispatch<React.SetStateAction<boolean>>;
-  newListName: string;
-  setNewListName: React.Dispatch<React.SetStateAction<string>>;
-  addListItem: () => void;
-  tagUsageMap: Record<string, number>;
-  activeTag: string | null;
-  setActiveTag: (value: string | null) => void;
   APP_VERSION: string;
   DEFAULT_TIMEZONE_OFFSET: number;
   formatDateKeyByOffset: (date: Date, offsetMinutes: number) => string;
@@ -98,10 +77,6 @@ const Sidebar = ({
   setIsQuickAccessOpen,
   isToolsOpen,
   setIsToolsOpen,
-  isListsOpen,
-  setIsListsOpen,
-  isTagsOpen,
-  setIsTagsOpen,
   activeFilter,
   setActiveFilter,
   refreshTasks,
@@ -111,19 +86,6 @@ const Sidebar = ({
   agentItems,
   hasCalendarTasks,
   countdowns,
-  activeCategory,
-  setActiveCategory,
-  listItems,
-  renameListItem,
-  removeListItem,
-  isAddingList,
-  setIsAddingList,
-  newListName,
-  setNewListName,
-  addListItem,
-  tagUsageMap,
-  activeTag,
-  setActiveTag,
   APP_VERSION,
   DEFAULT_TIMEZONE_OFFSET,
   formatDateKeyByOffset,
@@ -565,104 +527,6 @@ const Sidebar = ({
                           />
                         );
                       })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="glass-card rounded-2xl p-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setIsListsOpen((prev) => !prev)}
-                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[#666666] uppercase tracking-[0.16em] hover:text-[#888888]"
-                  >
-                    <span>列表</span>
-                    {isListsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </button>
-                  {isListsOpen && (
-                    <div className="space-y-1">
-                      {listItems.map((item) => (
-                        <EditableSidebarItem
-                          key={item}
-                          icon={Hash}
-                          label={item}
-                          count={categoryUsageMap[item] ?? 0}
-                          active={activeFilter === 'category' && activeCategory === item}
-                          onClick={() => {
-                            setActiveFilter('category');
-                            setActiveCategory(item);
-                            refreshTasks();
-                            setIsSidebarOpen(false);
-                          }}
-                          onEdit={() => renameListItem(item, prompt('重命名列表', item) || item)}
-                          onDelete={() => removeListItem(item)}
-                        />
-                      ))}
-                      {isAddingList ? (
-                        <div className="flex items-center gap-2 px-3 py-2">
-                          <input
-                            type="text"
-                            value={newListName}
-                            onChange={(e) => setNewListName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && addListItem()}
-                            placeholder="列表名称"
-                            className="flex-1 bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2 text-sm text-[#E8ECF8] focus:outline-none focus:border-blue-500"
-                            autoFocus
-                          />
-                          <button onClick={addListItem} className="text-sm rounded-2xl border border-blue-400/25 bg-blue-500/10 px-2.5 py-1 text-blue-300 hover:border-blue-400/45 hover:text-blue-200">添加</button>
-                          <button
-                            onClick={() => {
-                              setIsAddingList(false);
-                              setNewListName('');
-                            }}
-                            className="text-sm rounded-2xl border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-[#8b93a4] hover:text-white"
-                          >
-                            取消
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setIsAddingList(true)}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-[#777777] hover:text-[#B3B3B3]"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>新建列表</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="glass-card rounded-2xl p-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setIsTagsOpen((prev) => !prev)}
-                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[#666666] uppercase tracking-[0.16em] hover:text-[#888888]"
-                  >
-                    <span>标签</span>
-                    {isTagsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </button>
-                  {isTagsOpen && (
-                    <div className="space-y-1">
-                      {Object.entries(tagUsageMap)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([tag, count]) => (
-                          <SidebarItem
-                            key={tag}
-                            icon={TagIcon}
-                            label={tag}
-                            count={count}
-                            active={activeFilter === 'tag' && activeTag === tag}
-                            onClick={() => {
-                              setActiveFilter('tag');
-                              setActiveTag(tag);
-                              refreshTasks();
-                              setIsSidebarOpen(false);
-                            }}
-                          />
-                        ))}
-                      {Object.keys(tagUsageMap).length === 0 && (
-                        <p className="px-3 py-2 text-xs text-[#5E5E5E]">暂无标签</p>
-                      )}
                     </div>
                   )}
                 </div>
