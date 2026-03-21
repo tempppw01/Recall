@@ -4760,6 +4760,9 @@ export default function Home() {
               selectedTask={selectedTask}
               onSelectTask={(task) => setSelectedTask(task)}
               onToggleTaskStatus={toggleStatus}
+              onQuickSetDuePreset={quickSetDuePreset}
+              onUpdateTaskDueDate={updateTaskDueDate}
+              onOpenTaskContext={(task) => setSelectedTask(task)}
               defaultTimezoneOffset={DEFAULT_TIMEZONE_OFFSET}
               getTimezoneOffset={(task) => getTimezoneOffset(task)}
               formatZonedDateTime={formatZonedDateTime}

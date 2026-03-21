@@ -1,12 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import type { Task } from '@/lib/store';
-import { CheckCircle2, Clock3, Eye, Layers3, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Clock3, Eye, Layers3, ArrowRight, CalendarClock, SkipForward, ExternalLink } from 'lucide-react';
 
 type ReviewPanelProps = {
   tasks: Task[];
   selectedTask: Task | null;
   onSelectTask: (task: Task) => void;
   onToggleTaskStatus: (taskId: string) => void;
+  onQuickSetDuePreset: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight') => void;
+  onUpdateTaskDueDate: (taskId: string, dueDate?: string, timezoneOffset?: number) => void;
+  onOpenTaskContext: (task: Task) => void;
   defaultTimezoneOffset: number;
   getTimezoneOffset: (task: Task) => number;
   formatZonedDateTime: (iso: string, offsetMinutes: number) => string;
@@ -25,6 +28,12 @@ const bucketMeta: Record<Exclude<ReviewBucketKey, 'all'>, { label: string; descr
 
 const startOfLocalDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 const addDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+const toDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function ReviewPanel(props: ReviewPanelProps) {
   const {
@@ -32,6 +41,9 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     selectedTask,
     onSelectTask,
     onToggleTaskStatus,
+    onQuickSetDuePreset,
+    onUpdateTaskDueDate,
+    onOpenTaskContext,
     defaultTimezoneOffset,
     getTimezoneOffset,
     formatZonedDateTime,
@@ -40,6 +52,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   } = props;
 
   const [activeBucket, setActiveBucket] = useState<ReviewBucketKey>('all');
+  const [customDate, setCustomDate] = useState('');
 
   const reviewGroups = useMemo(() => {
     const today = startOfLocalDay(new Date());
@@ -103,6 +116,13 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     ? selectedTask
     : reviewList[0] || null;
 
+  const handleCustomReschedule = () => {
+    if (!focusTask || !customDate) return;
+    const offset = focusTask.timezoneOffset ?? defaultTimezoneOffset;
+    onUpdateTaskDueDate(focusTask.id, `${customDate}T09:00:00.000Z`, offset);
+    setCustomDate('');
+  };
+
   return (
     <div className="stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
       <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
@@ -114,7 +134,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             </div>
           </div>
           <span className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 bg-[rgba(0,0,0,0.18)]">
-            0.0.3 首版骨架
+            0.0.3 工作流首轮
           </span>
         </div>
       </div>
@@ -173,7 +193,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] xl:items-start">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)] xl:items-start">
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -253,7 +273,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 xl:sticky xl:top-4">
           <div>
             <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">检查详情</div>
-            <div className="mt-1 text-xs text-[#7d8595]">这里是 Review 工作流里的右侧详情区，后续可扩展为检查记录、跳过、批量处理、回到上下文等动作。</div>
+            <div className="mt-1 text-xs text-[#7d8595]">先做这几件事：完成、改期、跳过到明天，或者回到原任务上下文继续处理。</div>
           </div>
 
           {focusTask ? (
@@ -287,21 +307,79 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                 </div>
               ) : null}
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => onToggleTaskStatus(focusTask.id)}
-                  className="btn btn-primary btn-md rounded-2xl"
-                >
-                  标记完成
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectTask(focusTask)}
-                  className="btn btn-secondary btn-md rounded-2xl"
-                >
-                  查看原任务
-                </button>
+              <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5 space-y-3">
+                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">快速处理</div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => onToggleTaskStatus(focusTask.id)}
+                    className="btn btn-primary btn-md rounded-2xl"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    标记完成
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenTaskContext(focusTask)}
+                    className="btn btn-secondary btn-md rounded-2xl"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    回到原任务
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onQuickSetDuePreset(focusTask.id, 'tomorrow')}
+                    className="btn btn-secondary btn-md rounded-2xl"
+                  >
+                    <SkipForward className="h-4 w-4" />
+                    跳过到明天
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onQuickSetDuePreset(focusTask.id, 'tonight')}
+                    className="btn btn-secondary btn-md rounded-2xl"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    今晚再看
+                  </button>
+                </div>
+              </div>
+
+              <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5 space-y-3">
+                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">改期</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onQuickSetDuePreset(focusTask.id, 'today')}
+                    className="btn btn-secondary btn-sm rounded-2xl"
+                  >
+                    改到今天
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onQuickSetDuePreset(focusTask.id, 'tomorrow')}
+                    className="btn btn-secondary btn-sm rounded-2xl"
+                  >
+                    改到明天
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={(event) => setCustomDate(event.target.value)}
+                    min={toDateInput(new Date())}
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-sm text-[#E8ECF8] focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCustomReschedule}
+                    disabled={!customDate}
+                    className="btn btn-secondary btn-md rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    应用
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
