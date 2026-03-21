@@ -580,7 +580,7 @@ const TaskItem = ({
         <>
           <div className="fixed inset-0 z-50" onClick={closeContextMenu} />
           <div
-            className="fixed z-50 min-w-[160px] rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-1)] shadow-2xl overflow-hidden"
+            className="fixed z-50 min-w-[180px] rounded-[22px] border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.32)] overflow-hidden"
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
             onClick={(event) => event.stopPropagation()}
           >
@@ -590,7 +590,7 @@ const TaskItem = ({
                 closeContextMenu();
                 onCopyTitle?.(task);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>复制标题</span>
@@ -601,7 +601,7 @@ const TaskItem = ({
                 closeContextMenu();
                 onCopyContent?.(task);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>复制完整内容</span>
@@ -612,7 +612,7 @@ const TaskItem = ({
                 closeContextMenu();
                 onTogglePinned?.(task);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
             >
               <Pin className="w-3.5 h-3.5" />
               <span>{task.pinned ? '取消置顶' : '置顶'}</span>
@@ -623,7 +623,7 @@ const TaskItem = ({
                 closeContextMenu();
                 onDelete?.(task.id);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#2A2A2A]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-red-300 hover:bg-[rgba(239,68,68,0.08)]"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>删除</span>

@@ -397,7 +397,7 @@ const Sidebar = ({
                     </button>
                     {showAppMenu && (
                       <div
-                        className="absolute left-0 top-11 w-44 rounded-2xl border border-[#3A3F4B]/50 bg-[#191919]/96 backdrop-blur-xl shadow-[0_18px_40px_rgba(0,0,0,0.3)] z-50 overflow-hidden"
+                        className="absolute left-0 top-11 w-48 rounded-[24px] border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.32)] z-50 overflow-hidden"
                         onClick={(event) => event.stopPropagation()}
                       >
                         <button
@@ -406,7 +406,7 @@ const Sidebar = ({
                             setShowAppMenu(false);
                             setShowSettings(true);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm text-[#DDDDDD] hover:bg-[#23262E]"
+                          className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
                         >
                           设置
                         </button>
@@ -416,7 +416,7 @@ const Sidebar = ({
                             setShowAppMenu(false);
                             setShowAbout(true);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm text-[#DDDDDD] hover:bg-[#23262E]"
+                          className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
                         >
                           关于
                         </button>
@@ -591,16 +591,16 @@ const Sidebar = ({
                             onChange={(e) => setNewListName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && addListItem()}
                             placeholder="列表名称"
-                            className="flex-1 bg-[#1A1A1A]/85 border border-[#3A3F4B]/50 rounded-lg px-2 py-1.5 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                            className="flex-1 bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2 text-sm text-[#E8ECF8] focus:outline-none focus:border-blue-500"
                             autoFocus
                           />
-                          <button onClick={addListItem} className="text-blue-400 text-sm">添加</button>
+                          <button onClick={addListItem} className="text-sm rounded-2xl border border-blue-400/25 bg-blue-500/10 px-2.5 py-1 text-blue-300 hover:border-blue-400/45 hover:text-blue-200">添加</button>
                           <button
                             onClick={() => {
                               setIsAddingList(false);
                               setNewListName('');
                             }}
-                            className="text-[#777777] text-sm"
+                            className="text-sm rounded-2xl border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-[#8b93a4] hover:text-white"
                           >
                             取消
                           </button>

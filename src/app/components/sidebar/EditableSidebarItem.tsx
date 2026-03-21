@@ -103,13 +103,13 @@ const EditableSidebarItem = ({
             onClick={handleCloseContextMenu}
           />
           <div
-            className="fixed z-50 min-w-[120px] rounded-lg border border-[#333333] bg-[#1F1F1F] shadow-2xl overflow-hidden"
+            className="fixed z-50 min-w-[140px] rounded-[20px] border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.32)] overflow-hidden"
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
           >
             <button
               type="button"
               onClick={handleEdit}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DDDDDD] hover:bg-[#2A2A2A]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
             >
               <Pencil className="w-3.5 h-3.5" />
               <span>重命名</span>
@@ -118,7 +118,7 @@ const EditableSidebarItem = ({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#2A2A2A]"
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-red-300 hover:bg-[rgba(239,68,68,0.08)]"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>删除</span>
