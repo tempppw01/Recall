@@ -312,7 +312,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {reviewMode === 'time'
+        {(reviewMode === 'time'
           ? [
               { key: 'overdue', label: '需立刻检查', value: reviewCounts.overdue, icon: Clock3, tone: 'text-red-200 bg-red-500/10 border-red-500/20' },
               { key: 'today', label: '今天要过', value: reviewCounts.today, icon: Eye, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
@@ -324,8 +324,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
               { key: 'groups', label: '列表数量', value: categoryCounts.categoryGroups, icon: FolderKanban, tone: 'text-sky-200 bg-sky-500/10 border-sky-500/20' },
               { key: 'uncategorized', label: '未分类任务', value: categoryCounts.uncategorized, icon: Rows, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
               { key: 'largest', label: '最大列表堆积', value: categoryCounts.largestGroup, icon: Layers3, tone: 'text-violet-200 bg-violet-500/10 border-violet-500/20' },
-            ]
-          .map((item) => {
+            ]).map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.key} className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">

@@ -3475,6 +3475,13 @@ export default function Home() {
     });
   };
 
+  const toggleQuadrantExpanded = (quadrantKey: string) => {
+    setExpandedQuadrants((prev) => ({
+      ...prev,
+      [quadrantKey]: !prev[quadrantKey],
+    }));
+  };
+
   const commitEditingTitle = (task: Task, fallbackTitle?: string) => {
     const title = editingTaskTitle.trim() || (fallbackTitle ?? '').trim();
     if (!title) {

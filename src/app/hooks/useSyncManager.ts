@@ -14,7 +14,7 @@ export type SyncManagerParams = {
   getLastLocalChange: () => string | undefined | null;
   applyImportedData: (payload: any, mode: 'merge' | 'overwrite') => void;
   applySyncedSettings: (payload: any) => void;
-  pushLog: (level: 'info' | 'success' | 'warning' | 'error', title: string, detail?: string, extra?: string) => void;
+  pushLog: (level: 'info' | 'success' | 'warning' | 'error', title: string, detail?: string, options?: { silentFeedback?: boolean }) => void;
   onNeedSettings?: () => void;
 };
 

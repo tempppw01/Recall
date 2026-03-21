@@ -4,7 +4,7 @@ import { PgSyncConfig, PgSyncEntity, PgSyncMethod, syncToPg as syncToPgImpl } fr
 export function usePgMirrorSync(params: {
   enabled: boolean;
   config: PgSyncConfig;
-  pushLog: (level: 'info' | 'success' | 'warning' | 'error', title: string, detail?: string) => void;
+  pushLog: (level: 'info' | 'success' | 'warning' | 'error', title: string, detail?: string, options?: { silentFeedback?: boolean }) => void;
 }) {
   const { enabled, config, pushLog } = params;
 
