@@ -769,6 +769,7 @@ const getNextRepeatDate = (task: Task): Date | null => {
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOverQuadrantKey, setDragOverQuadrantKey] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -3766,27 +3767,39 @@ export default function Home() {
       key: 'important-urgent',
       title: '重要且紧急',
       description: '高优先级 & 即将到期',
+      summary: '先救火，优先清掉会立刻产生影响的事项。',
+      tone: 'text-red-200 bg-red-500/10 border-red-500/20',
       items: quadrantSourceTasks.filter((task) => isImportantTask(task) && isUrgentTask(task)),
     },
     {
       key: 'important-not-urgent',
       title: '重要不紧急',
       description: '高优先级 & 可规划',
+      summary: '这里最值得排进日程，是长期价值区。',
+      tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20',
       items: quadrantSourceTasks.filter((task) => isImportantTask(task) && !isUrgentTask(task)),
     },
     {
       key: 'not-important-urgent',
       title: '紧急不重要',
       description: '低优先级 & 需处理',
+      summary: '能快处理就别堆着，避免它们持续打断主线。',
+      tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20',
       items: quadrantSourceTasks.filter((task) => !isImportantTask(task) && isUrgentTask(task)),
     },
     {
       key: 'not-important-not-urgent',
       title: '不重要不紧急',
       description: '低优先级 & 可搁置',
+      summary: '保留观察，必要时再清理、归档或延后。',
+      tone: 'text-sky-200 bg-sky-500/10 border-sky-500/20',
       items: quadrantSourceTasks.filter((task) => !isImportantTask(task) && !isUrgentTask(task)),
     },
   ];
+  const quadrantTaskCount = quadrantSourceTasks.length;
+  const quadrantImportantCount = quadrantGroups[0].items.length + quadrantGroups[1].items.length;
+  const quadrantUrgentCount = quadrantGroups[0].items.length + quadrantGroups[2].items.length;
+  const quadrantFocusGroup = [...quadrantGroups].sort((a, b) => b.items.length - a.items.length)[0];
 
   const moveTaskToQuadrant = (taskId: string, quadrantKey: string) => {
     const target = taskStore.getAll().find((task) => task.id === taskId);
@@ -4777,85 +4790,150 @@ export default function Home() {
               isTaskOverdue={isTaskOverdue}
             />
           ) : activeFilter === 'quadrant' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {quadrantGroups.map((group) => {
-                const isExpanded = expandedQuadrants[group.key] ?? false;
-                const shouldCollapse = group.items.length > QUADRANT_COLLAPSE_LIMIT;
-                const visibleItems = shouldCollapse && !isExpanded
-                  ? group.items.slice(0, QUADRANT_COLLAPSE_LIMIT)
-                  : group.items;
-                const hiddenCount = group.items.length - visibleItems.length;
-
-                return (
-                  <div
-                    key={group.key}
-                    className="bg-[#1F2430] border border-[#384152] rounded-2xl p-4 flex flex-col gap-3 transition-colors hover:border-[#51607A]"
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const taskId = event.dataTransfer.getData('text/plain');
-                      if (taskId) moveTaskToQuadrant(taskId, group.key);
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-sm font-semibold text-[#DDDDDD]">{group.title}</h3>
-                        <p className="text-xs text-[#666666] mt-1">{group.description}</p>
-                        <p className="text-[11px] text-[#555555] mt-1">{group.items.length} 项</p>
-                      </div>
-                      {shouldCollapse && (
-                        <button
-                          type="button"
-                          onClick={() => toggleQuadrantExpanded(group.key)}
-                          className="flex items-center gap-1 text-[11px] text-[#888888] px-2 py-1 rounded-full border border-[#2A2A2A] bg-[#1A1A1A] hover:text-[#DDDDDD]"
-                        >
-                          {isExpanded ? '收起' : `展开 ${hiddenCount} 项`}
-                          {isExpanded ? (
-                            <ChevronUp className="w-3 h-3" />
-                          ) : (
-                            <ChevronDown className="w-3 h-3" />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {visibleItems.length === 0 ? (
-                        <div className="text-xs text-[#444444]">暂无任务</div>
-                      ) : (
-                        visibleItems.map((task) => (
-                          <TaskItem
-                            key={task.id}
-                            task={task}
-                            selected={selectedTask?.id === task.id}
-                            onClick={() => setSelectedTask(task)}
-                            onToggle={toggleStatus}
-                            onDelete={removeTask}
-                            onToggleSubtask={toggleSubtask}
-                            onUpdateDueDate={updateTaskDueDate}
-                            onCopyTitle={copyTaskTitle}
-                            onCopyContent={copyTaskContent}
-                            onTogglePinned={toggleTaskPinned}
-                            onQuickSetPriority={quickSetPriority}
-                            onQuickSetDuePreset={quickSetDuePreset}
-                            onDragStart={() => setDraggingTaskId(task.id)}
-                            onDragEnd={() => setDraggingTaskId(null)}
-                            dragEnabled
-                            multiSelectEnabled={isBatchMode}
-                            isChecked={selectedTaskIds.has(task.id)}
-                            onToggleSelect={toggleTaskSelected}
-                            helpers={taskItemHelpers}
-                          />
-                        ))
-                      )}
-                      {shouldCollapse && !isExpanded && hiddenCount > 0 && (
-                        <div className="text-[11px] text-[#555555]">已折叠 {hiddenCount} 项</div>
-                      )}
+            <div className="stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
+              <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
+                  <div>
+                    <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">Quadrant / 四象限</div>
+                    <div className="mt-1 text-xs text-[#7d8595]">
+                      把任务拖到更合适的象限里即可微调展示：重要看优先级，紧急看是否逾期或 24 小时内到期；这里只收口界面，不改变业务规则。
                     </div>
                   </div>
-                );
-              })}
+                  <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前总览</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
+                      <span>未完成任务 {quadrantTaskCount} 项</span>
+                      <span>重要任务 {quadrantImportantCount} 项</span>
+                      <span>紧急任务 {quadrantUrgentCount} 项</span>
+                    </div>
+                    <div className="mt-3 text-xs text-[#7d8595]">
+                      {quadrantTaskCount > 0
+                        ? `当前堆积最多的是「${quadrantFocusGroup?.title ?? '四象限'}」，共 ${quadrantFocusGroup?.items.length ?? 0} 项。`
+                        : '四个象限都很干净，新的任务会按优先级和截止时间自动落位。'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {quadrantGroups.map((group) => {
+                  const isExpanded = expandedQuadrants[group.key] ?? false;
+                  const shouldCollapse = group.items.length > QUADRANT_COLLAPSE_LIMIT;
+                  const visibleItems = shouldCollapse && !isExpanded
+                    ? group.items.slice(0, QUADRANT_COLLAPSE_LIMIT)
+                    : group.items;
+                  const hiddenCount = group.items.length - visibleItems.length;
+                  const isDragTarget = dragOverQuadrantKey === group.key;
+
+                  return (
+                    <div
+                      key={group.key}
+                      className={`glass-panel motion-enter rounded-[30px] border p-4 sm:p-4 flex flex-col gap-3 transition-[border-color,box-shadow,transform,background-color] duration-[var(--motion-base)] ${
+                        isDragTarget
+                          ? 'border-[rgba(var(--theme-accent),0.6)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.24),0_22px_44px_rgba(0,0,0,0.28)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(24,24,24,0.76))]'
+                          : 'border-[color:var(--ui-border-strong)] hover:border-[rgba(var(--theme-accent),0.24)]'
+                      }`}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        setDragOverQuadrantKey(group.key);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        if (dragOverQuadrantKey !== group.key) {
+                          setDragOverQuadrantKey(group.key);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverQuadrantKey === group.key) {
+                          setDragOverQuadrantKey(null);
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        setDragOverQuadrantKey(null);
+                        const taskId = event.dataTransfer.getData('text/plain');
+                        if (taskId) moveTaskToQuadrant(taskId, group.key);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2.5">
+                            <h3 className="text-sm font-semibold text-[#F3F6FF]">{group.title}</h3>
+                            <span className={`rounded-full border px-2 py-1 text-[10px] ${group.tone}`}>{group.items.length} 项</span>
+                          </div>
+                          <p className="mt-1 text-xs text-[#9AA3B7]">{group.description}</p>
+                          <p className="mt-1 text-[11px] text-[#6F788B]">{isDragTarget ? '松手即可把任务放到这里' : group.summary}</p>
+                        </div>
+                        {shouldCollapse && (
+                          <button
+                            type="button"
+                            onClick={() => toggleQuadrantExpanded(group.key)}
+                            className="inline-flex items-center gap-1 text-[11px] text-[#AAB3C6] px-2.5 py-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] hover:text-[#F3F6FF] hover:border-[rgba(var(--theme-accent),0.28)]"
+                          >
+                            {isExpanded ? '收起长列表' : `展开剩余 ${hiddenCount} 项`}
+                            {isExpanded ? (
+                              <ChevronUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="glass-panel-soft rounded-[24px] border border-[color:var(--ui-border-soft)] p-3 space-y-2.5 min-h-[172px] transition-[border-color,background-color] duration-[var(--motion-base)]">
+                        {visibleItems.length === 0 ? (
+                          <div className={`rounded-[20px] border border-dashed px-4 py-8 text-center text-xs ${
+                            isDragTarget
+                              ? 'border-[rgba(var(--theme-accent),0.45)] bg-[rgba(var(--theme-accent),0.08)] text-[#DCE6FF]'
+                              : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7d8595]'
+                          }`}>
+                            {isDragTarget
+                              ? '把任务放到这里，它会按当前象限规则自动更新优先级 / 截止时间。'
+                              : '这里暂时没有任务，适合先把同类事项拖进来再一起处理。'}
+                          </div>
+                        ) : (
+                          visibleItems.map((task) => (
+                            <TaskItem
+                              key={task.id}
+                              task={task}
+                              selected={selectedTask?.id === task.id}
+                              onClick={() => setSelectedTask(task)}
+                              onToggle={toggleStatus}
+                              onDelete={removeTask}
+                              onToggleSubtask={toggleSubtask}
+                              onUpdateDueDate={updateTaskDueDate}
+                              onCopyTitle={copyTaskTitle}
+                              onCopyContent={copyTaskContent}
+                              onTogglePinned={toggleTaskPinned}
+                              onQuickSetPriority={quickSetPriority}
+                              onQuickSetDuePreset={quickSetDuePreset}
+                              onDragStart={() => {
+                                setDraggingTaskId(task.id);
+                                setDragOverQuadrantKey(null);
+                              }}
+                              onDragEnd={() => {
+                                setDraggingTaskId(null);
+                                setDragOverQuadrantKey(null);
+                              }}
+                              dragEnabled
+                              multiSelectEnabled={isBatchMode}
+                              isChecked={selectedTaskIds.has(task.id)}
+                              onToggleSelect={toggleTaskSelected}
+                              helpers={taskItemHelpers}
+                            />
+                          ))
+                        )}
+                        {shouldCollapse && !isExpanded && hiddenCount > 0 && (
+                          <div className="text-[11px] text-[#7d8595] px-1">已先展示前 {visibleItems.length} 项，剩余 {hiddenCount} 项可展开查看。</div>
+                        )}
+                        {shouldCollapse && isExpanded && hiddenCount > 0 && (
+                          <div className="text-[11px] text-[#7d8595] px-1">当前已展开完整列表，处理完后可以收起，保持四象限更清爽。</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
