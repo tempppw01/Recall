@@ -59,69 +59,69 @@ ${data.details || ''}`);
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] sm:text-xs text-[#999999] uppercase">PostgreSQL 连接</div>
+        <div className="text-[11px] sm:text-xs text-[#AAB3C6] uppercase tracking-[0.12em]">PostgreSQL 连接</div>
         <button
           type="button"
           onClick={handleTest}
           disabled={testing}
-          className="text-[10px] text-blue-400 hover:text-blue-300 disabled:opacity-50"
+          className="text-[10px] rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-blue-300 hover:text-blue-200 hover:border-blue-400/40 disabled:opacity-50"
         >
           {testing ? '测试中...' : '测试连接'}
         </button>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">主机</label>
+          <label className="block text-[11px] sm:text-xs text-[#7d8595] mb-2">主机</label>
           <input
             type="text"
             value={host}
             onChange={(event) => onHostChange(event.target.value)}
             placeholder="pg.example.com"
-            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+            className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
           />
         </div>
         <div>
-          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">端口</label>
+          <label className="block text-[11px] sm:text-xs text-[#7d8595] mb-2">端口</label>
           <input
             type="number"
             value={port}
             onChange={(event) => onPortChange(event.target.value)}
             placeholder="5432"
-            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+            className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
           />
         </div>
       </div>
       <div>
-        <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">数据库名</label>
+        <label className="block text-[11px] sm:text-xs text-[#7d8595] mb-2">数据库名</label>
         <input
           type="text"
           value={database}
           onChange={(event) => onDatabaseChange(event.target.value)}
           placeholder="recall"
-          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+          className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
+          <label className="block text-[11px] sm:text-xs text-[#7d8595] mb-2">用户名</label>
           <input
             type="text"
             value={username}
             onChange={(event) => onUsernameChange(event.target.value)}
             placeholder="postgres"
-            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+            className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
           />
         </div>
         <div>
-          <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
+          <label className="block text-[11px] sm:text-xs text-[#7d8595] mb-2">密码</label>
           <input
             type="password"
             value={password}
             onChange={(event) => onPasswordChange(event.target.value)}
             placeholder="Postgres 密码"
-            className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+            className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
           />
         </div>
       </div>

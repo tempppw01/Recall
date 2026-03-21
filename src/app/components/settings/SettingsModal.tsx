@@ -303,13 +303,13 @@ const SettingsModal = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 motion-modal-overlay">
       <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
       <div
-        className="mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-md rounded-2xl border border-[var(--ui-border-strong)] shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
+        className="mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-2xl rounded-[32px] border border-[var(--ui-border-strong)] shadow-[0_28px_80px_rgba(0,0,0,0.42)] p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-base sm:text-lg font-semibold mb-3">设置（别怕，我很温柔）</h2>
-        <div className="space-y-3 sm:space-y-4 text-sm">
-          <details open className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+        <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F3F6FF]">设置</h2><p className="mt-1 text-[12px] sm:text-xs text-[#7d8595]">把 AI、同步、通知、存储和外观统一放在这里，修改后会自动保存。</p></div><span className="rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[10px] text-[#8d95a6]">自动保存</span></div>
+        <div className="space-y-3.5 sm:space-y-4 text-sm">
+          <details open className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>AI 基础设置</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
@@ -323,7 +323,7 @@ const SettingsModal = ({
                     value={apiBaseUrl}
                     onChange={(e) => setApiBaseUrl(e.target.value)}
                     placeholder={DEFAULT_BASE_URL}
-                    className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
@@ -334,7 +334,7 @@ const SettingsModal = ({
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-..."
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                 />
               </div>
               <div>
@@ -354,7 +354,7 @@ const SettingsModal = ({
                   onChange={(e) => setChatModel(e.target.value)}
                   aria-label="对话模型"
                   title="对话模型"
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                 >
                   {parseModelList(modelListText).map((model) => (
                     <option key={model} value={model}>
@@ -375,7 +375,7 @@ const SettingsModal = ({
                   value={fallbackTimeoutSec}
                   onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
                   placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
-                  className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                 />
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
               </div>
@@ -387,8 +387,8 @@ const SettingsModal = ({
                     onClick={() => setCountdownDisplayMode('days')}
                     className={`btn btn-sm ${
                       countdownDisplayMode === 'days'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
                     }`}
                   >
                     剩余天数
@@ -398,8 +398,8 @@ const SettingsModal = ({
                     onClick={() => setCountdownDisplayMode('date')}
                     className={`btn btn-sm ${
                       countdownDisplayMode === 'date'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
                     }`}
                   >
                     目标日期
@@ -408,7 +408,7 @@ const SettingsModal = ({
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
               </div>
 
-              <div className="glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3 space-y-3">
+              <div className="glass-panel-soft rounded-[24px] border border-[var(--ui-border-soft)] p-3.5 space-y-3">
                 <div className="text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase">外观主题</div>
                 <div>
                   <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主题模式</label>
@@ -472,14 +472,14 @@ const SettingsModal = ({
             </div>
             </div>
           </details>
-          <details className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>浏览器通知</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
               <div className="space-y-3 overflow-hidden">
-              <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777] space-y-1">
+              <div className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs text-[#8b93a4] space-y-1">
                 <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
                 <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
                 <p>
@@ -512,14 +512,14 @@ const SettingsModal = ({
               </div>
             </div>
           </details>
-          <details className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>API 专用设置组</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 grid-rows-[0fr] opacity-85">
               <div className="space-y-4 overflow-hidden">
-                <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                <div className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs text-[#8b93a4]">
                   用于连接远程服务，当前仍保存在浏览器本地。修改后会自动保存。
                 </div>
                 <PgSettings
@@ -553,7 +553,7 @@ const SettingsModal = ({
                       value={syncNamespace}
                       onChange={(e) => setSyncNamespace(e.target.value)}
                       placeholder={DEFAULT_SYNC_NAMESPACE}
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                     />
                     <p className="text-[11px] sm:text-xs text-[#555555] mt-1">类似“房间号”，多端填写一致即可同步同一份数据。</p>
                   </div>
@@ -563,8 +563,8 @@ const SettingsModal = ({
                       onClick={() => setAutoSyncEnabled((prev) => !prev)}
                       className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
                         autoSyncEnabled
-                          ? 'bg-blue-600/20 border-blue-400 text-white'
-                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                          ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                          : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
                       }`}
                     >
                       {autoSyncEnabled ? '自动同步：已开启' : '自动同步：已关闭'}
@@ -574,7 +574,7 @@ const SettingsModal = ({
                       onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
                       aria-label="自动同步间隔"
                       title="自动同步间隔"
-                      className="bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:outline-none focus:border-blue-500"
                     >
                       {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
                         <option key={option} value={option}>
@@ -591,7 +591,7 @@ const SettingsModal = ({
                     onChange={(e) => setCalendarSubscription(e.target.value)}
                     placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
                     rows={3}
-                    className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                   />
                   <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
                 </div>
@@ -630,7 +630,7 @@ const SettingsModal = ({
                       测试连接
                     </button>
                   </div>
-                  <div className="bg-[#1F1F1F] border border-[#333333] rounded-lg px-3 py-2 text-[12px] sm:text-xs text-[#777777]">
+                  <div className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs text-[#8b93a4]">
                     配置 WebDAV 后可上传图片/文件附件。
                   </div>
                   <div>
@@ -640,7 +640,7 @@ const SettingsModal = ({
                       value={webdavUrl}
                       onChange={(e) => setWebdavUrl(e.target.value)}
                       placeholder={DEFAULT_WEBDAV_URL}
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -651,7 +651,7 @@ const SettingsModal = ({
                         value={webdavUsername}
                         onChange={(e) => setWebdavUsername(e.target.value)}
                         placeholder="用户名"
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                        className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -661,7 +661,7 @@ const SettingsModal = ({
                         value={webdavPassword}
                         onChange={(e) => setWebdavPassword(e.target.value)}
                         placeholder="密码"
-                        className="w-full bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-2 text-[13px] sm:text-sm focus:border-blue-500 focus:outline-none transition-colors"
+                        className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -669,8 +669,8 @@ const SettingsModal = ({
               </div>
             </div>
           </details>
-          <details className="group glass-panel-soft rounded-xl border border-[var(--ui-border-soft)] p-3">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>数据导入导出</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
@@ -680,14 +680,14 @@ const SettingsModal = ({
                 <button
                   type="button"
                   onClick={handleExportData}
-                  className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
+                  className="px-3 py-2.5 text-[13px] sm:text-sm bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl text-[#D5DBEA] hover:border-[#5f6880] hover:text-white"
                 >
                   导出 JSON
                 </button>
                 <button
                   type="button"
                   onClick={openImportPicker}
-                  className="px-3 py-2 text-[13px] sm:text-sm bg-[#1F1F1F] border border-[#333333] rounded-lg text-[#CCCCCC] hover:border-[#555555] hover:text-white"
+                  className="px-3 py-2.5 text-[13px] sm:text-sm bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl text-[#D5DBEA] hover:border-[#5f6880] hover:text-white"
                 >
                   导入 JSON
                 </button>
@@ -700,8 +700,8 @@ const SettingsModal = ({
                     onClick={() => setImportMode('merge')}
                     className={`btn btn-sm ${
                       importMode === 'merge'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
                     }`}
                   >
                     合并
@@ -711,8 +711,8 @@ const SettingsModal = ({
                     onClick={() => setImportMode('overwrite')}
                     className={`btn btn-sm ${
                       importMode === 'overwrite'
-                        ? 'bg-blue-500/20 border-blue-400 text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
                     }`}
                   >
                     覆盖
@@ -738,7 +738,7 @@ const SettingsModal = ({
             >
               关闭
             </button>
-            <div className="px-3 py-2 text-[12px] sm:text-xs text-[#6F7890]">
+            <div className="px-3 py-2 text-[12px] sm:text-xs text-[#7d8595]">
               已启用自动保存
             </div>
           </div>
