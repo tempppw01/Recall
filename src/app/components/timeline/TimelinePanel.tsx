@@ -16,6 +16,13 @@ type TimelineStatusFilter = 'all' | 'completed' | 'todo' | 'overdue';
 
 type TimelineStatus = 'completed' | 'overdue' | 'in_progress' | 'todo';
 
+type TimelineStatusBadge = {
+  label: string;
+  className: string;
+  dotClassName: string;
+  railClassName: string;
+};
+
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
 const formatDateKeyByOffset = (date: Date, offsetMinutes: number) => {
@@ -74,30 +81,26 @@ const getTimelineStatus = (task: Task, isOverdue: boolean): TimelineStatus => {
   return 'todo';
 };
 
-const statusBadge: Record<TimelineStatus, { label: string; icon: string; className: string; dotClassName: string }> = {
+const statusBadge: Record<TimelineStatus, { label: string; className: string; railClassName: string }> = {
   completed: {
     label: '已完成',
-    icon: '✅',
-    className: 'text-green-200 bg-green-500/12 border-green-500/25',
-    dotClassName: 'bg-green-400',
+    className: 'text-green-100 bg-green-500/14 border-green-400/28 shadow-[0_8px_20px_rgba(34,197,94,0.12)]',
+    railClassName: 'from-green-400/80 via-green-300/24 to-transparent',
   },
   overdue: {
-    label: '已过期',
-    icon: '⏰',
-    className: 'text-red-200 bg-red-500/12 border-red-500/25',
-    dotClassName: 'bg-red-400',
+    label: '已逾期',
+    className: 'text-red-100 bg-red-500/14 border-red-400/28 shadow-[0_8px_20px_rgba(248,113,113,0.12)]',
+    railClassName: 'from-red-400/85 via-red-300/24 to-transparent',
   },
   in_progress: {
     label: '进行中',
-    icon: '🟠',
-    className: 'text-amber-200 bg-amber-500/12 border-amber-500/25',
-    dotClassName: 'bg-amber-400',
+    className: 'text-amber-100 bg-amber-500/14 border-amber-400/28 shadow-[0_8px_20px_rgba(251,191,36,0.10)]',
+    railClassName: 'from-amber-400/80 via-amber-300/22 to-transparent',
   },
   todo: {
     label: '未完成',
-    icon: '⭕',
-    className: 'text-blue-200 bg-blue-500/10 border-blue-500/25',
-    dotClassName: 'bg-blue-400',
+    className: 'text-blue-100 bg-blue-500/12 border-blue-400/24 shadow-[0_8px_20px_rgba(96,165,250,0.10)]',
+    railClassName: 'from-blue-400/80 via-cyan-300/20 to-transparent',
   },
 };
 
@@ -498,90 +501,102 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             key={task.id}
                             type="button"
                             onClick={() => onSelectTask(task)}
-                            className={`w-full text-left rounded-[24px] border motion-enter motion-card motion-press p-3.5 relative ${isExpanded ? 'border-[rgba(var(--theme-accent),0.36)] bg-[rgba(var(--theme-accent),0.09)] shadow-[0_12px_28px_rgba(0,0,0,0.22)]' : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] hover:bg-[rgba(255,255,255,0.04)] hover:border-[color:var(--ui-border-strong)]'}`}
+                            className={`group w-full text-left rounded-[26px] border motion-enter motion-card motion-press p-0.5 relative overflow-hidden transition-[transform,box-shadow,border-color,background-color] duration-[var(--motion-slow)] ${isExpanded ? 'border-[rgba(var(--theme-accent),0.34)] bg-[rgba(var(--theme-accent),0.08)] shadow-[0_18px_42px_rgba(0,0,0,0.26)]' : 'border-[rgba(255,255,255,0.06)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] hover:border-[rgba(var(--theme-accent),0.28)] hover:bg-[rgba(255,255,255,0.055)] hover:shadow-[0_16px_34px_rgba(0,0,0,0.24)] hover:-translate-y-0.5'}`}
                             style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      onToggleTaskStatus(task.id);
-                                    }}
-                                    className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                                      task.status === 'completed'
-                                        ? 'border-green-400/70 bg-green-500/18 text-green-100'
-                                        : 'border-[#4A4A4A] text-[#8FA0C2] hover:border-blue-400/60 hover:bg-blue-500/12 hover:text-blue-100'
-                                    }`}
-                                    aria-label={task.status === 'completed' ? '取消完成任务' : '完成任务'}
-                                  >
-                                    {task.status === 'completed' ? '✓' : '○'}
-                                  </button>
-                                  <span className={`inline-flex h-2 w-2 rounded-full ${badge.dotClassName}`} />
-                                  <span
-                                    className={`text-[10px] px-2.5 py-1 rounded-full border ${badge.className}`}
-                                  >
-                                    <span className="mr-1">{badge.icon}</span>
-                                    {badge.label}
-                                  </span>
-                                  {task.category ? (
-                                    <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
-                                      {task.category}
-                                    </span>
-                                  ) : null}
-                                </div>
-
-                                <div className={`mt-2 grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out ${isExpanded || !shouldFold ? 'grid-rows-[1fr]' : 'grid-rows-[0.34fr]'}`}>
-                                  <div
-                                    className={`overflow-hidden text-[13px] leading-5 break-words ${
-                                      task.status === 'completed'
-                                        ? 'line-through text-[#707789]'
-                                        : 'text-[#F3F6FF]'
-                                    } ${!isExpanded && shouldFold ? 'line-clamp-2' : ''}`}
-                                  >
-                                    {task.title}
-                                  </div>
-                                </div>
-
-                                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-[#7d8595]">
-                                  {dueLabel ? <span>截止：{dueLabel}</span> : <span>创建：{createdLabel}</span>}
-                                  {(task.subtasks?.length ?? 0) > 0 ? (
-                                    <span>
-                                      子任务：{task.subtasks?.filter((s) => s.completed).length}/
-                                      {task.subtasks?.length}
-                                    </span>
-                                  ) : null}
-                                  {(task.tags?.length ?? 0) > 0 ? (
-                                    <span className="truncate">
-                                      标签：
-                                      {task.tags
-                                        .filter(Boolean)
-                                        .slice(0, 4)
-                                        .map((t) => `#${t}`)
-                                        .join(' ')}
-                                    </span>
-                                  ) : null}
-                                </div>
-
-                                {shouldFold && (
-                                  <div className="mt-2">
+                            <div className={`pointer-events-none absolute inset-y-3 left-0.5 w-[3px] rounded-full bg-gradient-to-b ${badge.railClassName}`} />
+                            <div className="relative rounded-[24px] bg-[linear-gradient(180deg,rgba(17,19,24,0.96),rgba(12,14,19,0.98))] px-4 py-3.5 sm:px-4.5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-start gap-2.5">
                                     <button
                                       type="button"
                                       onClick={(event) => {
                                         event.stopPropagation();
-                                        toggleExpanded(task.id);
+                                        onToggleTaskStatus(task.id);
                                       }}
-                                      className="text-[11px] px-2.5 py-1 rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8F98B0] hover:text-[#E7ECFB] hover:border-[rgba(var(--theme-accent),0.35)] motion-card motion-press"
+                                      className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all duration-[var(--motion-base)] ${
+                                        task.status === 'completed'
+                                          ? 'border-green-400/70 bg-green-500/18 text-green-100 shadow-[0_0_0_4px_rgba(34,197,94,0.12)]'
+                                          : 'border-[#4A4A4A] text-[#8FA0C2] hover:border-blue-400/60 hover:bg-blue-500/12 hover:text-blue-100'
+                                      }`}
+                                      aria-label={task.status === 'completed' ? '取消完成任务' : '完成任务'}
                                     >
-                                      {isExpanded ? '收起' : '展开'}
+                                      {task.status === 'completed' ? '✓' : '○'}
                                     </button>
-                                  </div>
-                                )}
-                              </div>
 
-                              <div className={`shrink-0 text-[11px] text-[#555555] transition-transform duration-[var(--motion-base)] ${isExpanded ? 'translate-x-0.5' : ''}`}>›</div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`text-[10px] px-2.5 py-1 rounded-full border ${badge.className}`}>
+                                          {badge.label}
+                                        </span>
+                                        {task.category ? (
+                                          <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
+                                            {task.category}
+                                          </span>
+                                        ) : null}
+                                      </div>
+
+                                      <div className={`mt-2 grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out ${isExpanded || !shouldFold ? 'grid-rows-[1fr]' : 'grid-rows-[0.34fr]'}`}>
+                                        <div
+                                          className={`overflow-hidden text-[13px] sm:text-[13.5px] font-medium leading-5 break-words ${
+                                            task.status === 'completed'
+                                              ? 'line-through text-[#707789]'
+                                              : 'text-[#F3F6FF]'
+                                          } ${!isExpanded && shouldFold ? 'line-clamp-2' : ''}`}
+                                        >
+                                          {task.title}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 flex flex-wrap items-center gap-2.5 text-[11px] text-[#96A0B5]">
+                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 border ${overdue ? 'border-red-400/25 bg-red-500/10 text-red-200' : 'border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] text-[#C0C9DB]'}`}>
+                                      <span className={`h-1.5 w-1.5 rounded-full ${overdue ? 'bg-red-300' : 'bg-blue-300/80'}`} />
+                                      {dueLabel ? `截止 ${dueLabel}` : `创建 ${createdLabel}`}
+                                    </span>
+                                    {(task.subtasks?.length ?? 0) > 0 ? (
+                                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
+                                        子任务 {task.subtasks?.filter((s) => s.completed).length}/{task.subtasks?.length}
+                                      </span>
+                                    ) : null}
+                                  </div>
+
+                                  {(task.tags?.length ?? 0) > 0 ? (
+                                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                                      {task.tags
+                                        .filter(Boolean)
+                                        .slice(0, 4)
+                                        .map((t) => (
+                                          <span
+                                            key={String(t)}
+                                            className="text-[10px] rounded-full border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.025)] px-2 py-1 text-[#7D89A3]"
+                                          >
+                                            #{t}
+                                          </span>
+                                        ))}
+                                    </div>
+                                  ) : null}
+
+                                  {shouldFold && (
+                                    <div className="mt-3">
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          toggleExpanded(task.id);
+                                        }}
+                                        className="text-[11px] px-2.5 py-1 rounded-full border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] text-[#8F98B0] hover:text-[#E7ECFB] hover:border-[rgba(var(--theme-accent),0.35)] motion-card motion-press"
+                                      >
+                                        {isExpanded ? '收起详情' : '展开详情'}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className={`shrink-0 text-[11px] text-[#616B7F] transition-all duration-[var(--motion-base)] ${isExpanded ? 'translate-x-0.5 text-[#A9B6D1]' : 'group-hover:translate-x-0.5 group-hover:text-[#9FB1D4]'}`}>›</div>
+                              </div>
                             </div>
                           </button>
                         );
