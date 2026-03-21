@@ -1,6 +1,20 @@
+"use client";
+
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Task } from '@/lib/store';
-import { CheckCircle2, Clock3, Eye, Layers3, ArrowRight, CalendarClock, SkipForward, ExternalLink, Hourglass } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock3,
+  Eye,
+  Layers3,
+  ArrowRight,
+  CalendarClock,
+  SkipForward,
+  ExternalLink,
+  Hourglass,
+  FolderKanban,
+  Rows,
+} from 'lucide-react';
 
 type ReviewPanelProps = {
   tasks: Task[];
@@ -18,6 +32,15 @@ type ReviewPanelProps = {
 };
 
 type ReviewBucketKey = 'all' | 'overdue' | 'today' | 'upcoming' | 'someday';
+type ReviewMode = 'time' | 'category';
+type CategoryBucketKey = 'all' | 'uncategorized' | string;
+
+type ReviewGroupMeta = {
+  key: string;
+  label: string;
+  description: string;
+  count: number;
+};
 
 const bucketMeta: Record<Exclude<ReviewBucketKey, 'all'>, { label: string; description: string }> = {
   overdue: { label: '需要立刻检查', description: '已经逾期，优先确认是否继续、改期或完成。' },
@@ -35,6 +58,9 @@ const toDateInput = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getTaskSortTime = (task: Task) => new Date(task.dueDate || task.updatedAt || task.createdAt).getTime();
+const getCategoryLabel = (task: Task) => task.category?.trim() || '未分类';
+
 export default function ReviewPanel(props: ReviewPanelProps) {
   const {
     tasks,
@@ -51,16 +77,18 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     isTaskOverdue,
   } = props;
 
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('time');
   const [activeBucket, setActiveBucket] = useState<ReviewBucketKey>('all');
+  const [activeCategoryBucket, setActiveCategoryBucket] = useState<CategoryBucketKey>('all');
   const [customDate, setCustomDate] = useState('');
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(selectedTask?.id ?? null);
   const [lastActionText, setLastActionText] = useState('');
 
+  const activeTasks = useMemo(() => tasks.filter((task) => task.status !== 'completed'), [tasks]);
+
   const reviewGroups = useMemo(() => {
     const today = startOfLocalDay(new Date());
     const nextWeek = addDays(today, 7);
-
-    const activeTasks = tasks.filter((task) => task.status !== 'completed');
 
     const groups: Record<Exclude<ReviewBucketKey, 'all'>, Task[]> = {
       overdue: [],
@@ -92,15 +120,37 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     });
 
     Object.values(groups).forEach((list) => {
-      list.sort((a, b) => {
-        const aTime = new Date(a.dueDate || a.updatedAt || a.createdAt).getTime();
-        const bTime = new Date(b.dueDate || b.updatedAt || b.createdAt).getTime();
-        return aTime - bTime;
-      });
+      list.sort((a, b) => getTaskSortTime(a) - getTaskSortTime(b));
     });
 
     return groups;
-  }, [tasks, isTaskOverdue]);
+  }, [activeTasks, isTaskOverdue]);
+
+  const categoryGroups = useMemo(() => {
+    const grouped = new Map<string, Task[]>();
+
+    activeTasks.forEach((task) => {
+      const label = getCategoryLabel(task);
+      const list = grouped.get(label) ?? [];
+      list.push(task);
+      grouped.set(label, list);
+    });
+
+    const entries = Array.from(grouped.entries())
+      .map(([label, list]) => ({
+        key: label === '未分类' ? 'uncategorized' : label,
+        label,
+        description: label === '未分类' ? '没有进入任何列表的任务，适合先归位。' : `按「${label}」列表逐项过一遍。`,
+        tasks: list.sort((a, b) => getTaskSortTime(a) - getTaskSortTime(b)),
+      }))
+      .sort((a, b) => {
+        if (a.label === '未分类') return -1;
+        if (b.label === '未分类') return 1;
+        return b.tasks.length - a.tasks.length || a.label.localeCompare(b.label, 'zh-CN');
+      });
+
+    return entries;
+  }, [activeTasks]);
 
   const reviewCounts = {
     all: Object.values(reviewGroups).reduce((sum, list) => sum + list.length, 0),
@@ -110,26 +160,84 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     someday: reviewGroups.someday.length,
   };
 
-  const reviewList = activeBucket === 'all'
-    ? ([...reviewGroups.overdue, ...reviewGroups.today, ...reviewGroups.upcoming, ...reviewGroups.someday])
-    : reviewGroups[activeBucket];
+  const categoryCounts = {
+    all: activeTasks.length,
+    categoryGroups: categoryGroups.length,
+    uncategorized: categoryGroups.find((group) => group.key === 'uncategorized')?.tasks.length ?? 0,
+    largestGroup: categoryGroups[0]?.tasks.length ?? 0,
+  };
 
-  const fallbackFocusTask = selectedTask && selectedTask.status !== 'completed'
+  const timeGroupMeta: ReviewGroupMeta[] = [
+    { key: 'all', label: '全部待检查', description: '按逾期、今天、未来 7 天、无明确日期的顺序检查。', count: reviewCounts.all },
+    { key: 'overdue', label: '逾期', description: bucketMeta.overdue.description, count: reviewCounts.overdue },
+    { key: 'today', label: '今天', description: bucketMeta.today.description, count: reviewCounts.today },
+    { key: 'upcoming', label: '未来 7 天', description: bucketMeta.upcoming.description, count: reviewCounts.upcoming },
+    { key: 'someday', label: '无明确日期', description: bucketMeta.someday.description, count: reviewCounts.someday },
+  ];
+
+  const categoryGroupMeta: ReviewGroupMeta[] = [
+    {
+      key: 'all',
+      label: '全部列表',
+      description: '按列表把活重新扫一遍，适合周回顾和重新聚焦。',
+      count: activeTasks.length,
+    },
+    ...categoryGroups.map((group) => ({
+      key: group.key,
+      label: group.label,
+      description: group.description,
+      count: group.tasks.length,
+    })),
+  ];
+
+  const reviewList = useMemo(() => {
+    if (reviewMode === 'time') {
+      return activeBucket === 'all'
+        ? [...reviewGroups.overdue, ...reviewGroups.today, ...reviewGroups.upcoming, ...reviewGroups.someday]
+        : reviewGroups[activeBucket];
+    }
+
+    if (activeCategoryBucket === 'all') {
+      return categoryGroups.flatMap((group) => group.tasks);
+    }
+
+    return categoryGroups.find((group) => group.key === activeCategoryBucket)?.tasks ?? [];
+  }, [reviewMode, activeBucket, reviewGroups, activeCategoryBucket, categoryGroups]);
+
+  const currentGroupMeta = reviewMode === 'time'
+    ? timeGroupMeta.find((item) => item.key === activeBucket)
+    : categoryGroupMeta.find((item) => item.key === activeCategoryBucket);
+
+  const fallbackFocusTask = selectedTask && selectedTask.status !== 'completed' && reviewList.some((task) => task.id === selectedTask.id)
     ? selectedTask
     : reviewList[0] || null;
 
   const focusTask = reviewList.find((task) => task.id === focusedTaskId) || fallbackFocusTask;
-
   const focusIndex = focusTask ? reviewList.findIndex((task) => task.id === focusTask.id) : -1;
   const reviewedCount = focusIndex >= 0 ? focusIndex : 0;
   const remainingCount = focusIndex >= 0 ? Math.max(reviewList.length - focusIndex - 1, 0) : reviewList.length;
-  const progressPercent = reviewList.length > 0 ? Math.max(6, Math.round(((reviewedCount + (focusTask ? 1 : 0)) / reviewList.length) * 100)) : 0;
+  const progressPercent = reviewList.length > 0
+    ? Math.max(6, Math.round(((reviewedCount + (focusTask ? 1 : 0)) / reviewList.length) * 100))
+    : 0;
+
+  const categorySummaryText = focusTask
+    ? `当前列表：${getCategoryLabel(focusTask)} · 适合顺手把同类事项一起清掉。`
+    : '可以按列表一组一组扫，减少在不同上下文里频繁切换。';
 
   useEffect(() => {
     if (selectedTask?.id) {
       setFocusedTaskId(selectedTask.id);
     }
   }, [selectedTask?.id]);
+
+  useEffect(() => {
+    if (reviewMode === 'category' && activeCategoryBucket !== 'all') {
+      const exists = categoryGroups.some((group) => group.key === activeCategoryBucket);
+      if (!exists) {
+        setActiveCategoryBucket('all');
+      }
+    }
+  }, [reviewMode, activeCategoryBucket, categoryGroups]);
 
   useEffect(() => {
     if (!reviewList.length) {
@@ -194,62 +302,101 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           <div>
             <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">Review / 检查</div>
             <div className="mt-1 text-xs text-[#7d8595]">
-              把任务从“堆着没动”变成“逐项过一遍”。先看逾期，再看今天和接下来 7 天。
+              不只按时间扫一遍，也可以按列表重新过一轮，把任务放回正确上下文再继续推进。
             </div>
           </div>
           <span className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 bg-[rgba(0,0,0,0.18)]">
-            0.0.3 工作流第二轮
+            0.0.3 工作流第三轮
           </span>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { key: 'overdue', label: '需立刻检查', value: reviewCounts.overdue, icon: Clock3, tone: 'text-red-200 bg-red-500/10 border-red-500/20' },
-          { key: 'today', label: '今天要过', value: reviewCounts.today, icon: Eye, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
-          { key: 'upcoming', label: '未来 7 天', value: reviewCounts.upcoming, icon: Layers3, tone: 'text-blue-200 bg-blue-500/10 border-blue-500/20' },
-          { key: 'all', label: '待检查总数', value: reviewCounts.all, icon: CheckCircle2, tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20' },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.key} className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">{item.label}</div>
-                  <div className="mt-2 text-2xl font-semibold tracking-tight text-[#F3F6FF]">{item.value}</div>
-                </div>
-                <div className={`rounded-2xl border px-2.5 py-2 ${item.tone}`}>
-                  <Icon className="h-4 w-4" />
+        {reviewMode === 'time'
+          ? [
+              { key: 'overdue', label: '需立刻检查', value: reviewCounts.overdue, icon: Clock3, tone: 'text-red-200 bg-red-500/10 border-red-500/20' },
+              { key: 'today', label: '今天要过', value: reviewCounts.today, icon: Eye, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
+              { key: 'upcoming', label: '未来 7 天', value: reviewCounts.upcoming, icon: Layers3, tone: 'text-blue-200 bg-blue-500/10 border-blue-500/20' },
+              { key: 'all', label: '待检查总数', value: reviewCounts.all, icon: CheckCircle2, tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20' },
+            ]
+          : [
+              { key: 'all', label: '待检查总数', value: categoryCounts.all, icon: CheckCircle2, tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20' },
+              { key: 'groups', label: '列表数量', value: categoryCounts.categoryGroups, icon: FolderKanban, tone: 'text-sky-200 bg-sky-500/10 border-sky-500/20' },
+              { key: 'uncategorized', label: '未分类任务', value: categoryCounts.uncategorized, icon: Rows, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
+              { key: 'largest', label: '最大列表堆积', value: categoryCounts.largestGroup, icon: Layers3, tone: 'text-violet-200 bg-violet-500/10 border-violet-500/20' },
+            ]
+          .map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.key} className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">{item.label}</div>
+                    <div className="mt-2 text-2xl font-semibold tracking-tight text-[#F3F6FF]">{item.value}</div>
+                  </div>
+                  <div className={`rounded-2xl border px-2.5 py-2 ${item.tone}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
-      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            {([
-              { key: 'all', label: '全部待检查' },
-              { key: 'overdue', label: '逾期' },
-              { key: 'today', label: '今天' },
-              { key: 'upcoming', label: '未来 7 天' },
-              { key: 'someday', label: '无明确日期' },
-            ] as const).map((item) => (
+      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            { key: 'time', label: '按时间检查', icon: Clock3 },
+            { key: 'category', label: '按列表检查', icon: FolderKanban },
+          ] as const).map((item) => {
+            const Icon = item.icon;
+            const active = reviewMode === item.key;
+            return (
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setActiveBucket(item.key)}
-                className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
-                  activeBucket === item.key
+                onClick={() => setReviewMode(item.key)}
+                className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
+                  active
                     ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
                     : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690]'
                 }`}
               >
+                <Icon className="h-3.5 w-3.5" />
                 {item.label}
               </button>
-            ))}
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {(reviewMode === 'time' ? timeGroupMeta : categoryGroupMeta).map((item) => {
+              const active = reviewMode === 'time'
+                ? activeBucket === item.key
+                : activeCategoryBucket === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    if (reviewMode === 'time') {
+                      setActiveBucket(item.key as ReviewBucketKey);
+                    } else {
+                      setActiveCategoryBucket(item.key);
+                    }
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
+                    active
+                      ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                      : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690]'
+                  }`}
+                >
+                  {item.label}
+                  <span className="ml-1.5 text-[10px] opacity-80">{item.count}</span>
+                </button>
+              );
+            })}
           </div>
           <div className="text-[11px] text-[#7d8595]">
             当前展示：{reviewList.length} 项
@@ -260,7 +407,9 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-center">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">检查进度</div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">
+              {reviewMode === 'time' ? '检查进度' : '列表检查进度'}
+            </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
               <span>当前：{focusTask ? `第 ${focusIndex + 1} 项` : '本组已清空'}</span>
               <span>本组共 {reviewList.length} 项</span>
@@ -274,9 +423,11 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             </div>
           </div>
           <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-xs text-[#7d8595]">
-            {focusTask
-              ? `建议保持连续处理，不要频繁切组。先把当前这组扫完，再切下一组。`
-              : '这一组已经扫完了，可以切去下一组继续。'}
+            {reviewMode === 'time'
+              ? (focusTask
+                  ? '建议先把当前时间组扫完，再切下一组，避免检查节奏中断。'
+                  : '这一组已经扫完了，可以切去下一组继续。')
+              : categorySummaryText}
           </div>
         </div>
       </div>
@@ -286,10 +437,10 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">
-                {activeBucket === 'all' ? '待检查列表' : bucketMeta[activeBucket].label}
+                {currentGroupMeta?.label ?? '待检查列表'}
               </div>
               <div className="mt-1 text-xs text-[#7d8595]">
-                {activeBucket === 'all' ? '按逾期、今天、未来 7 天、无明确日期的顺序检查。' : bucketMeta[activeBucket].description}
+                {currentGroupMeta?.description ?? '逐项过一遍任务，确保每件事都回到该在的位置。'}
               </div>
             </div>
           </div>
@@ -331,16 +482,14 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                             overdue
                               ? 'text-red-200 bg-red-500/12 border-red-500/25'
                               : task.dueDate
-                              ? 'text-blue-200 bg-blue-500/12 border-blue-500/25'
-                              : 'text-[#C7CFDF] bg-[rgba(255,255,255,0.04)] border-[color:var(--ui-border-soft)]'
+                                ? 'text-blue-200 bg-blue-500/12 border-blue-500/25'
+                                : 'text-[#C7CFDF] bg-[rgba(255,255,255,0.04)] border-[color:var(--ui-border-soft)]'
                           }`}>
                             {overdue ? '逾期待处理' : task.dueDate ? '有日期' : '待整理'}
                           </span>
-                          {task.category ? (
-                            <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
-                              {task.category}
-                            </span>
-                          ) : null}
+                          <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
+                            {getCategoryLabel(task)}
+                          </span>
                         </div>
                         <div className="mt-2 text-[14px] font-medium leading-6 text-[#F3F6FF] break-words">
                           {task.title}
@@ -364,7 +513,11 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 xl:sticky xl:top-4">
           <div>
             <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">检查详情</div>
-            <div className="mt-1 text-xs text-[#7d8595]">做完当前判断后，会自动推进到下一项，尽量保持 Review 的节奏不断掉。</div>
+            <div className="mt-1 text-xs text-[#7d8595]">
+              {reviewMode === 'time'
+                ? '做完当前判断后，会自动推进到下一项，尽量保持 Review 的节奏不断掉。'
+                : '按列表检查时，重点不是快，而是把同一类任务重新摆正优先级和日期。'}
+            </div>
           </div>
 
           {focusTask ? (
@@ -380,7 +533,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                 <div className="mt-2 text-[15px] font-medium leading-6 text-[#F3F6FF]">{focusTask.title}</div>
                 <div className="mt-2 space-y-1 text-xs text-[#7d8595]">
                   <div>状态：{focusTask.status === 'in_progress' ? '进行中' : '待处理'}</div>
-                  <div>列表：{focusTask.category || '未分类'}</div>
+                  <div>列表：{getCategoryLabel(focusTask)}</div>
                   <div>进度：当前第 {focusIndex + 1} 项 / 本组共 {reviewList.length} 项</div>
                   <div>
                     时间：
