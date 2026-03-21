@@ -479,7 +479,13 @@ const TaskItem = ({
               {task.tags?.map((tag: string) => (
                 <span key={tag} className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 py-1">#{tag}</span>
               ))}
-              <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t border-[rgba(255,255,255,0.04)]">
+              <div
+                className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t border-[rgba(255,255,255,0.04)]"
+                onClick={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+              >
                 {onQuickSetPriority && (
                   <>
                     {[2, 1, 0].map((level) => (
