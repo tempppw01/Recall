@@ -24,6 +24,7 @@ import ListComposerPanel from '@/app/components/home/ListComposerPanel';
 import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
+import ReviewPanel from '@/app/components/review/ReviewPanel';
 import LogsModal from '@/app/components/logs/LogsModal';
 import AboutModal from '@/app/components/about/AboutModal';
 import CountdownFormModal from '@/app/components/countdown/CountdownFormModal';
@@ -122,6 +123,7 @@ const FILTER_LABELS: Record<string, string> = {
   today: '今日（别摸鱼）',
   next7: '未来7天（未雨绸缪）',
   completed: '已完成（功德+1）',
+  review: '检查（过一遍）',
 };
 const WEEKDAY_MAP: Record<string, number> = {
   一: 1,
@@ -3919,11 +3921,15 @@ export default function Home() {
     ? (activeTag ? `#${activeTag}` : FILTER_LABELS.tag)
     : activeFilter === 'timeline'
     ? '时间轴'
+    : activeFilter === 'review'
+    ? '检查'
     : (FILTER_LABELS[activeFilter] ?? '待办');
   const headerSubtitle = activeFilter === 'timeline'
     ? '按时间回顾任务进展，查看完成、未完成和逾期事项'
     : activeFilter === 'calendar'
     ? '按日期查看任务安排，支持周视图、月视图和日程视图'
+    : activeFilter === 'review'
+    ? '按检查视角逐项回看任务，先处理该决定、该改期、该完成的事'
     : activeFilter === 'quadrant'
     ? '按轻重缓急拆分任务，先做真正重要的事'
     : activeFilter === 'countdown'
@@ -3941,7 +3947,7 @@ export default function Home() {
     : activeFilter === 'tag'
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
-  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent'].includes(activeFilter);
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'review'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
@@ -4740,6 +4746,18 @@ export default function Home() {
           ) : activeFilter === 'timeline' ? (
             <TimelinePanel
               tasks={tasks}
+              onSelectTask={(task) => setSelectedTask(task)}
+              onToggleTaskStatus={toggleStatus}
+              defaultTimezoneOffset={DEFAULT_TIMEZONE_OFFSET}
+              getTimezoneOffset={(task) => getTimezoneOffset(task)}
+              formatZonedDateTime={formatZonedDateTime}
+              formatZonedDate={formatZonedDate}
+              isTaskOverdue={isTaskOverdue}
+            />
+          ) : activeFilter === 'review' ? (
+            <ReviewPanel
+              tasks={tasks}
+              selectedTask={selectedTask}
               onSelectTask={(task) => setSelectedTask(task)}
               onToggleTaskStatus={toggleStatus}
               defaultTimezoneOffset={DEFAULT_TIMEZONE_OFFSET}

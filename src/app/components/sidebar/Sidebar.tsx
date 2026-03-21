@@ -3,6 +3,7 @@ import {
   Calendar,
   CheckCircle2,
   CheckSquare,
+  ClipboardCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -81,10 +82,10 @@ const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 480;
 const COLLAPSED_WIDTH = 56;
 
-type ToolItemKey = 'todo' | 'calendar' | 'timeline' | 'quadrant' | 'countdown' | 'habit' | 'pomodoro' | 'completed';
+type ToolItemKey = 'todo' | 'calendar' | 'timeline' | 'review' | 'quadrant' | 'countdown' | 'habit' | 'pomodoro' | 'completed';
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
-const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'quadrant', 'countdown', 'habit', 'pomodoro', 'completed'];
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'pomodoro', 'completed'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -258,6 +259,18 @@ const Sidebar = ({
       },
       iconColor: 'text-violet-400',
     },
+    review: {
+      icon: ClipboardCheck,
+      label: '检查',
+      count: tasks.filter((t) => t.status !== 'completed').length,
+      active: activeFilter === 'review',
+      onClick: () => {
+        setActiveFilter('review');
+        refreshTasks();
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-sky-400',
+    },
     quadrant: {
       icon: LayoutGrid,
       label: '四象限',
@@ -353,6 +366,7 @@ const Sidebar = ({
                 { key: 'inbox', icon: Inbox, color: activeFilter === 'inbox' ? 'text-blue-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }, title: '收件箱' },
                 { key: 'today', icon: Sun, color: activeFilter === 'today' ? 'text-yellow-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }, title: '今日' },
                 { key: 'calendar', icon: Calendar, color: activeFilter === 'calendar' ? 'text-cyan-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }, title: '日历' },
+                { key: 'review', icon: ClipboardCheck, color: activeFilter === 'review' ? 'text-sky-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('review'); refreshTasks(); setIsSidebarOpen(false); }, title: '检查' },
                 { key: 'quadrant', icon: LayoutGrid, color: activeFilter === 'quadrant' ? 'text-indigo-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }, title: '四象限' },
                 { key: 'countdown', icon: Timer, color: activeFilter === 'countdown' ? 'text-pink-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }, title: '倒数日' },
                 { key: 'habit', icon: Flame, color: activeFilter === 'habit' ? 'text-orange-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }, title: '习惯打卡' },
