@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Task } from '@/lib/store';
-import { CheckCircle2, Clock3, Eye, Layers3, ArrowRight, CalendarClock, SkipForward, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Clock3, Eye, Layers3, ArrowRight, CalendarClock, SkipForward, ExternalLink, Hourglass } from 'lucide-react';
 
 type ReviewPanelProps = {
   tasks: Task[];
@@ -53,6 +53,8 @@ export default function ReviewPanel(props: ReviewPanelProps) {
 
   const [activeBucket, setActiveBucket] = useState<ReviewBucketKey>('all');
   const [customDate, setCustomDate] = useState('');
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(selectedTask?.id ?? null);
+  const [lastActionText, setLastActionText] = useState('');
 
   const reviewGroups = useMemo(() => {
     const today = startOfLocalDay(new Date());
@@ -112,15 +114,72 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     ? ([...reviewGroups.overdue, ...reviewGroups.today, ...reviewGroups.upcoming, ...reviewGroups.someday])
     : reviewGroups[activeBucket];
 
-  const focusTask = selectedTask && selectedTask.status !== 'completed'
+  const fallbackFocusTask = selectedTask && selectedTask.status !== 'completed'
     ? selectedTask
     : reviewList[0] || null;
+
+  const focusTask = reviewList.find((task) => task.id === focusedTaskId) || fallbackFocusTask;
+
+  useEffect(() => {
+    if (selectedTask?.id) {
+      setFocusedTaskId(selectedTask.id);
+    }
+  }, [selectedTask?.id]);
+
+  useEffect(() => {
+    if (!reviewList.length) {
+      setFocusedTaskId(null);
+      return;
+    }
+    if (!focusTask) {
+      setFocusedTaskId(reviewList[0].id);
+      return;
+    }
+    if (!reviewList.some((task) => task.id === focusTask.id)) {
+      setFocusedTaskId(reviewList[0].id);
+    }
+  }, [reviewList, focusTask]);
+
+  const moveFocusToNext = (taskId: string) => {
+    const currentIndex = reviewList.findIndex((task) => task.id === taskId);
+    if (currentIndex === -1) {
+      setFocusedTaskId(reviewList[0]?.id ?? null);
+      return;
+    }
+    const nextTask = reviewList[currentIndex + 1] || reviewList[currentIndex - 1] || null;
+    setFocusedTaskId(nextTask?.id ?? null);
+    if (nextTask) onSelectTask(nextTask);
+  };
 
   const handleCustomReschedule = () => {
     if (!focusTask || !customDate) return;
     const offset = focusTask.timezoneOffset ?? defaultTimezoneOffset;
     onUpdateTaskDueDate(focusTask.id, `${customDate}T09:00:00.000Z`, offset);
+    setLastActionText(`已把「${focusTask.title}」改到 ${customDate}`);
     setCustomDate('');
+    moveFocusToNext(focusTask.id);
+  };
+
+  const handleComplete = () => {
+    if (!focusTask) return;
+    const title = focusTask.title;
+    onToggleTaskStatus(focusTask.id);
+    setLastActionText(`已完成「${title}」，继续下一项`);
+    moveFocusToNext(focusTask.id);
+  };
+
+  const handlePreset = (preset: 'today' | 'tomorrow' | 'tonight', text: string) => {
+    if (!focusTask) return;
+    const title = focusTask.title;
+    onQuickSetDuePreset(focusTask.id, preset);
+    setLastActionText(`已将「${title}」${text}`);
+    moveFocusToNext(focusTask.id);
+  };
+
+  const handleOpenContext = () => {
+    if (!focusTask) return;
+    onOpenTaskContext(focusTask);
+    setLastActionText(`已回到「${focusTask.title}」的原任务上下文`);
   };
 
   return (
@@ -134,7 +193,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             </div>
           </div>
           <span className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 bg-[rgba(0,0,0,0.18)]">
-            0.0.3 工作流首轮
+            0.0.3 工作流第二轮
           </span>
         </div>
       </div>
@@ -226,7 +285,10 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                   <button
                     key={task.id}
                     type="button"
-                    onClick={() => onSelectTask(task)}
+                    onClick={() => {
+                      setFocusedTaskId(task.id);
+                      onSelectTask(task);
+                    }}
                     className={`w-full text-left rounded-[24px] border p-3.5 transition-all ${
                       isFocus
                         ? 'border-[rgba(var(--theme-accent),0.36)] bg-[rgba(var(--theme-accent),0.09)] shadow-[0_12px_28px_rgba(0,0,0,0.22)]'
@@ -273,11 +335,17 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 xl:sticky xl:top-4">
           <div>
             <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">检查详情</div>
-            <div className="mt-1 text-xs text-[#7d8595]">先做这几件事：完成、改期、跳过到明天，或者回到原任务上下文继续处理。</div>
+            <div className="mt-1 text-xs text-[#7d8595]">做完当前判断后，会自动推进到下一项，尽量保持 Review 的节奏不断掉。</div>
           </div>
 
           {focusTask ? (
             <div className="mt-4 space-y-3">
+              {lastActionText ? (
+                <div className="rounded-[20px] border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-3 text-xs text-emerald-100">
+                  {lastActionText}
+                </div>
+              ) : null}
+
               <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
                 <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前焦点</div>
                 <div className="mt-2 text-[15px] font-medium leading-6 text-[#F3F6FF]">{focusTask.title}</div>
@@ -312,7 +380,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                 <div className="grid gap-2 sm:grid-cols-2">
                   <button
                     type="button"
-                    onClick={() => onToggleTaskStatus(focusTask.id)}
+                    onClick={handleComplete}
                     className="btn btn-primary btn-md rounded-2xl"
                   >
                     <CheckCircle2 className="h-4 w-4" />
@@ -320,7 +388,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => onOpenTaskContext(focusTask)}
+                    onClick={handleOpenContext}
                     className="btn btn-secondary btn-md rounded-2xl"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -328,7 +396,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => onQuickSetDuePreset(focusTask.id, 'tomorrow')}
+                    onClick={() => handlePreset('tomorrow', '跳到明天再看')}
                     className="btn btn-secondary btn-md rounded-2xl"
                   >
                     <SkipForward className="h-4 w-4" />
@@ -336,7 +404,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => onQuickSetDuePreset(focusTask.id, 'tonight')}
+                    onClick={() => handlePreset('tonight', '安排到今晚再看')}
                     className="btn btn-secondary btn-md rounded-2xl"
                   >
                     <CalendarClock className="h-4 w-4" />
@@ -346,21 +414,21 @@ export default function ReviewPanel(props: ReviewPanelProps) {
               </div>
 
               <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5 space-y-3">
-                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">改期</div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">改期 / 稍后再看</div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => onQuickSetDuePreset(focusTask.id, 'today')}
+                    onClick={() => handlePreset('today', '重新拉回到今天')}
                     className="btn btn-secondary btn-sm rounded-2xl"
                   >
                     改到今天
                   </button>
                   <button
                     type="button"
-                    onClick={() => onQuickSetDuePreset(focusTask.id, 'tomorrow')}
+                    onClick={() => handlePreset('tomorrow', '稍后到明天处理')}
                     className="btn btn-secondary btn-sm rounded-2xl"
                   >
-                    改到明天
+                    稍后再看
                   </button>
                 </div>
                 <div className="flex gap-2">
@@ -377,6 +445,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                     disabled={!customDate}
                     className="btn btn-secondary btn-md rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    <Hourglass className="h-4 w-4" />
                     应用
                   </button>
                 </div>
@@ -384,7 +453,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             </div>
           ) : (
             <div className="mt-4 rounded-[24px] border border-dashed border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-8 text-sm text-[#7d8595]">
-              选中一项后，这里会显示它的检查详情。
+              当前分组已经检查完了，可以切到下一组继续扫。
             </div>
           )}
         </div>
