@@ -283,16 +283,16 @@ export default function TimelinePanel(props: TimelinePanelProps) {
   };
 
   return (
-    <div className="stack-gap flex flex-col">
-      <div className="glass-panel motion-enter rounded-[28px] p-4 sm:p-5">
+    <div className="stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
+      <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_auto] lg:items-start">
           <div>
-            <div className="text-sm font-semibold text-[#DDDDDD]">时间轴概览</div>
+            <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">时间轴概览</div>
             <div className="text-xs text-[#777777] mt-1">
               从时间维度查看任务推进节奏，快速找到完成、未完成和逾期事项。
             </div>
           </div>
-          <span className="text-[10px] text-[#616161] rounded-full border border-[var(--ui-border-soft)] px-2 py-1 bg-[var(--ui-surface-0)]">按时间查看</span>
+          <span className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 bg-[rgba(0,0,0,0.18)]">按时间查看</span>
         </div>
 
 
@@ -301,16 +301,16 @@ export default function TimelinePanel(props: TimelinePanelProps) {
           { key: 'week', label: '本周总结', data: summary.week },
           { key: 'month', label: '本月总结', data: summary.month },
         ].map((item) => (
-          <div key={item.key} className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4">
+          <div key={item.key} className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-[#DDDDDD]">{item.label}</div>
+                <div className="text-sm font-semibold text-[#F3F6FF]">{item.label}</div>
                 <div className="text-[11px] text-[#6F7890] mt-1">
                   完成 {item.data.completed} / {item.data.total} · 完成率 {item.data.completionRate}%
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-lg font-semibold text-[#F3F6FF]">{item.data.completionRate}%</div>
+                <div className="text-lg font-semibold tracking-tight text-[#F3F6FF]">{item.data.completionRate}%</div>
                 <div className="text-[10px] text-[#666666]">Top：{item.data.topCategory}</div>
               </div>
             </div>
@@ -324,10 +324,10 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         ))}
       </div>
 
-      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4 transition-[box-shadow,border-color,background-color] duration-[var(--motion-slow)]">
+      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4 transition-[box-shadow,border-color,background-color] duration-[var(--motion-slow)]">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-[#DDDDDD]">完成密度</div>
+            <div className="text-sm font-semibold text-[#F3F6FF]">完成密度</div>
             <div className="text-[11px] text-[#6F7890] mt-1">近 28 天（按 completed 任务的 updatedAt 统计）</div>
           </div>
           <div className="text-[11px] text-[#666666]">峰值：{heatmap.max}/天</div>
@@ -363,7 +363,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         </div>
       </div>
 
-      <div className="glass-panel-soft motion-enter rounded-2xl p-3 sm:p-4">
+      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             {(
@@ -381,7 +381,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                 className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
                   statusFilter === item.key
                     ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                    : 'border-[#333333] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690] hover:shadow-[0_10px_20px_rgba(0,0,0,0.18)] active:bg-[#252A33]'
+                    : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690] hover:shadow-[0_10px_20px_rgba(0,0,0,0.18)] active:bg-[#252A33]'
                 }`}
               >
                 {item.label}
@@ -393,7 +393,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
+              className="bg-[rgba(0,0,0,0.18)] border border-[color:var(--ui-border-soft)] rounded-2xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
               aria-label="按列表筛选"
             >
               <option value="">全部列表</option>
@@ -407,7 +407,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             <select
               value={tagFilter}
               onChange={(e) => setTagFilter(e.target.value)}
-              className="bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
+              className="bg-[rgba(0,0,0,0.18)] border border-[color:var(--ui-border-soft)] rounded-2xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
               aria-label="按标签筛选"
             >
               <option value="">全部标签</option>
@@ -426,7 +426,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                   setCategoryFilter('');
                   setTagFilter('');
                 }}
-                className="text-xs px-3 py-1.5 rounded-xl border border-[#333333] text-[#888888] hover:text-[#F0F4FF] hover:border-[#5A6690] motion-card motion-press ui-state-hover ui-state-press"
+                className="text-xs px-3 py-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#888888] hover:text-[#F0F4FF] hover:border-[#5A6690] motion-card motion-press ui-state-hover ui-state-press"
               >
                 清除筛选
               </button>
@@ -441,7 +441,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
       </div>
 
       {monthGroups.length === 0 ? (
-        <div className="bg-[#1F1F1F] border border-dashed border-[#2C2C2C] rounded-2xl p-4 text-xs text-[#666666]">
+        <div className="glass-panel-soft border border-dashed border-[color:var(--ui-border-soft)] rounded-[28px] p-4 text-xs text-[#7b8496]">
           暂无可展示的任务。
         </div>
       ) : (
@@ -449,10 +449,10 @@ export default function TimelinePanel(props: TimelinePanelProps) {
           {monthGroups.map((month) => (
             <div
               key={month.monthKey}
-              className="bg-[#1B1B1B] border border-[#2C2C2C] rounded-2xl p-4 motion-enter motion-card"
+              className="glass-panel motion-enter motion-card rounded-[30px] border-[color:var(--ui-border-strong)] p-4"
             >
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-[#DDDDDD]">{month.monthKey}</div>
+                <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">{month.monthKey}</div>
                 <div className="text-[11px] text-[#666666]">
                   {month.days.reduce((acc, d) => acc + d.list.length, 0)} 项
                 </div>
@@ -462,18 +462,18 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                 {month.days.map((day) => (
                   <div
                     key={day.dateKey}
-                    className="mb-3 break-inside-avoid rounded-2xl border border-[#262626] bg-[#171717] p-3 scroll-mt-24 motion-enter"
+                    className="mb-3 break-inside-avoid rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(23,25,31,0.98),rgba(18,20,26,0.98))] p-3.5 scroll-mt-24 motion-enter shadow-[0_12px_28px_rgba(0,0,0,0.14)]"
                   >
-                    <div className="flex items-center justify-between -mx-3 px-3 py-2 rounded-2xl bg-[#171717]/90 backdrop-blur border-b border-[#232323] xl:sticky xl:top-0 xl:z-10">
+                    <div className="flex items-center justify-between -mx-1 px-3 py-2 rounded-2xl bg-[rgba(17,19,24,0.86)] backdrop-blur border border-[rgba(255,255,255,0.04)] xl:sticky xl:top-0 xl:z-10">
                       <div className="text-xs font-semibold text-[#DDDDDD]">
                         {day.dateKey}
                       </div>
                       <div className="text-[11px] text-[#666666]">{day.list.length} 项</div>
                     </div>
 
-                    <div className="mt-2 grid gap-2 relative before:absolute before:left-2 before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[rgba(var(--theme-grad-start),0.55)] before:via-[#262626] before:to-transparent before:content-['']">
+                    <div className="mt-3 grid gap-2.5 relative before:absolute before:left-2.5 before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[rgba(var(--theme-grad-start),0.55)] before:via-[rgba(255,255,255,0.08)] before:to-transparent before:content-['']">
                       {day.dateKey === todayKey ? (
-                        <div className="text-[11px] text-[#7C8499] px-2 py-1 rounded-xl border border-[#2C2C2C] bg-[#1B1B1B]">
+                        <div className="text-[11px] text-[#A4B1C8] px-2.5 py-1 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)]">
                           今天
                         </div>
                       ) : null}
@@ -498,7 +498,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                             key={task.id}
                             type="button"
                             onClick={() => onSelectTask(task)}
-                            className={`w-full text-left rounded-2xl border motion-enter motion-card motion-press p-3 relative ${isExpanded ? 'border-[rgba(var(--theme-accent),0.36)] bg-[rgba(var(--theme-accent),0.09)] shadow-[0_12px_28px_rgba(0,0,0,0.22)]' : 'border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] hover:border-[#3A3A3A]'}`}
+                            className={`w-full text-left rounded-[24px] border motion-enter motion-card motion-press p-3.5 relative ${isExpanded ? 'border-[rgba(var(--theme-accent),0.36)] bg-[rgba(var(--theme-accent),0.09)] shadow-[0_12px_28px_rgba(0,0,0,0.22)]' : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] hover:bg-[rgba(255,255,255,0.04)] hover:border-[color:var(--ui-border-strong)]'}`}
                             style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -521,13 +521,13 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                   </button>
                                   <span className={`inline-flex h-2 w-2 rounded-full ${badge.dotClassName}`} />
                                   <span
-                                    className={`text-[10px] px-2 py-0.5 rounded-full border ${badge.className}`}
+                                    className={`text-[10px] px-2.5 py-1 rounded-full border ${badge.className}`}
                                   >
                                     <span className="mr-1">{badge.icon}</span>
                                     {badge.label}
                                   </span>
                                   {task.category ? (
-                                    <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                                    <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
                                       {task.category}
                                     </span>
                                   ) : null}
@@ -537,15 +537,15 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                   <div
                                     className={`overflow-hidden text-[13px] leading-5 break-words ${
                                       task.status === 'completed'
-                                        ? 'line-through text-[#666666]'
-                                        : 'text-[#EEEEEE]'
+                                        ? 'line-through text-[#707789]'
+                                        : 'text-[#F3F6FF]'
                                     } ${!isExpanded && shouldFold ? 'line-clamp-2' : ''}`}
                                   >
                                     {task.title}
                                   </div>
                                 </div>
 
-                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#666666]">
+                                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-[#7d8595]">
                                   {dueLabel ? <span>截止：{dueLabel}</span> : <span>创建：{createdLabel}</span>}
                                   {(task.subtasks?.length ?? 0) > 0 ? (
                                     <span>
@@ -573,7 +573,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                                         event.stopPropagation();
                                         toggleExpanded(task.id);
                                       }}
-                                      className="text-[11px] px-2 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#8F98B0] hover:text-[#E7ECFB] hover:border-[rgba(var(--theme-accent),0.35)] motion-card motion-press"
+                                      className="text-[11px] px-2.5 py-1 rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8F98B0] hover:text-[#E7ECFB] hover:border-[rgba(var(--theme-accent),0.35)] motion-card motion-press"
                                     >
                                       {isExpanded ? '收起' : '展开'}
                                     </button>
