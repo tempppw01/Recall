@@ -2,6 +2,15 @@
 
 > 发布历史（与 GitHub Releases 对应）。
 
+## Next / Planned: v0.3.2
+
+- 候选范围：`docs/plan/releases/v0.3.2_candidate_scope.md`
+- 当前目标：将 Review / Quadrant 近几轮用户可感知增强收敛为下一次正式发布
+- 当前判断：
+  - Quadrant 收口已完成，可纳入候选范围
+  - Review 还差状态反馈层最后一轮收口
+  - 因此 `v0.3.2` 方向已明确，但尚未最终 ready
+
 ## v0.2.0
 
 - GitHub Release: https://github.com/tempppw01/Recall/releases/tag/v0.2.0
