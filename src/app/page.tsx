@@ -846,6 +846,7 @@ export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [countdowns, setCountdowns] = useState<Countdown[]>([]);
   const [showCountdownForm, setShowCountdownForm] = useState(false);
+  const [showClearCompletedConfirm, setShowClearCompletedConfirm] = useState(false);
   const [editingCountdown, setEditingCountdown] = useState<Countdown | null>(null);
   const [countdownTitle, setCountdownTitle] = useState('');
   const [countdownDate, setCountdownDate] = useState('');
@@ -4114,12 +4115,7 @@ export default function Home() {
             }
           }}
           onSync={() => handleWebdavSync('sync')}
-          onClearCompleted={() => {
-            if (typeof window !== 'undefined' && !window.confirm('确认清除所有已完成任务？')) {
-              return;
-            }
-            clearCompletedTasks();
-          }}
+          onClearCompleted={() => setShowClearCompletedConfirm(true)}
           onOpenLogs={() => setShowLogs(true)}
           onToggleTheme={handleThemeToggle}
         />
@@ -6251,6 +6247,55 @@ export default function Home() {
         apiBaseUrl={apiBaseUrl}
         defaultBaseUrl={DEFAULT_BASE_URL}
       />
+
+      {showClearCompletedConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] motion-modal-overlay"
+          onClick={() => setShowClearCompletedConfirm(false)}
+        >
+          <div
+            className="mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-md rounded-[32px] border border-[var(--ui-border-strong)] shadow-[0_28px_80px_rgba(0,0,0,0.42)] p-5 sm:p-6 relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F3F6FF]">清除已完成</h2>
+                <p className="mt-1 text-xs text-[#7d8595]">已完成任务会从当前列表移除，这一步无法撤销。</p>
+              </div>
+              <button
+                onClick={() => setShowClearCompletedConfirm(false)}
+                className="text-xs text-[#9aa3b5] hover:text-white ui-state-hover ui-state-press rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1"
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-[24px] border border-amber-500/20 bg-amber-500/8 px-3.5 py-3 text-sm text-[#D8DEEF]">
+              确认清除所有已完成任务？
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowClearCompletedConfirm(false)}
+                className="text-sm text-[#9aa3b5] hover:text-white ui-state-hover ui-state-press rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-2"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearCompletedTasks();
+                  setShowClearCompletedConfirm(false);
+                }}
+                className="text-sm text-white rounded-full border border-red-400/35 bg-red-500/18 px-4 py-2 hover:bg-red-500/24 ui-state-hover ui-state-press"
+              >
+                确认清除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AboutModal
         show={showAbout}
