@@ -120,6 +120,11 @@ export default function ReviewPanel(props: ReviewPanelProps) {
 
   const focusTask = reviewList.find((task) => task.id === focusedTaskId) || fallbackFocusTask;
 
+  const focusIndex = focusTask ? reviewList.findIndex((task) => task.id === focusTask.id) : -1;
+  const reviewedCount = focusIndex >= 0 ? focusIndex : 0;
+  const remainingCount = focusIndex >= 0 ? Math.max(reviewList.length - focusIndex - 1, 0) : reviewList.length;
+  const progressPercent = reviewList.length > 0 ? Math.max(6, Math.round(((reviewedCount + (focusTask ? 1 : 0)) / reviewList.length) * 100)) : 0;
+
   useEffect(() => {
     if (selectedTask?.id) {
       setFocusedTaskId(selectedTask.id);
@@ -252,6 +257,30 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         </div>
       </div>
 
+      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-center">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">检查进度</div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
+              <span>当前：{focusTask ? `第 ${focusIndex + 1} 项` : '本组已清空'}</span>
+              <span>本组共 {reviewList.length} 项</span>
+              <span>剩余 {remainingCount} 项</span>
+            </div>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
+              <div
+                className="h-full rounded-full bg-[linear-gradient(90deg,rgba(92,123,250,0.9),rgba(110,231,255,0.85))] transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-xs text-[#7d8595]">
+            {focusTask
+              ? `建议保持连续处理，不要频繁切组。先把当前这组扫完，再切下一组。`
+              : '这一组已经扫完了，可以切去下一组继续。'}
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)] xl:items-start">
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4">
           <div className="flex items-center justify-between gap-3">
@@ -352,6 +381,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                 <div className="mt-2 space-y-1 text-xs text-[#7d8595]">
                   <div>状态：{focusTask.status === 'in_progress' ? '进行中' : '待处理'}</div>
                   <div>列表：{focusTask.category || '未分类'}</div>
+                  <div>进度：当前第 {focusIndex + 1} 项 / 本组共 {reviewList.length} 项</div>
                   <div>
                     时间：
                     {focusTask.dueDate
