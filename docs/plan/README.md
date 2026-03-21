@@ -32,4 +32,5 @@
 - UI 正式规范：`docs/plan/ui-spec.md`
 - UI 改版清单：`docs/plan/ui-refactor-checklist.md`
 - 多 agent 协作流程：`docs/plan/collaboration-workflow.md`
+- Agent 产品迭代工作流：`docs/plan/product-iteration-workflow.md`
 - 历史计划归档：`docs/plan/archive/`（含旧版 `v0.x / v1.x` 版本文件）
