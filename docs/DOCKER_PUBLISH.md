@@ -9,7 +9,7 @@
     - `latest`
     - `package.json` 中对应的版本号（例如 `0.1.1`）
   - **平台策略（重要）**：
-    - 默认仅构建 `linux/amd64`（避免 QEMU 导致 CI 超时）
+    - 默认构建 `linux/amd64, linux/arm64`
 - push Git tag（如 `v0.1.1`）
   - 推送 semver 标签（例如 `0.1.1`、`0.1`）
   - 平台：`linux/amd64, linux/arm64`
@@ -61,7 +61,7 @@ docker run --rm -p 3000:3789 34v0wphix/recall:latest
 
 ## 多架构构建
 
-- tag / 手动触发：
+- 默认策略（main / tag / 手动触发）：
   - `linux/amd64`
   - `linux/arm64`
 
