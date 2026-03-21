@@ -42,8 +42,8 @@ export default function PageTopBar({
   onToggleTheme,
 }: PageTopBarProps) {
   return (
-    <header className="sticky top-0 z-20 sticky-glass border-b border-[color:var(--ui-border-soft)] bg-[rgba(15,17,22,0.76)] backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.18)]">
-      <div className="mx-2 mt-2 rounded-[28px] glass-panel px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
+    <header className="sticky top-0 z-20 sticky-glass bg-[rgba(15,17,22,0.68)] backdrop-blur-2xl shadow-[0_14px_36px_rgba(0,0,0,0.14)]">
+      <div className="mx-2 mt-3 rounded-[28px] glass-panel px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 min-w-0">
             <button onClick={onOpenSidebar} className={`lg:hidden -ml-1 mt-0.5 ${iconButtonClassName}`}>
