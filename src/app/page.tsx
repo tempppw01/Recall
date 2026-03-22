@@ -4798,26 +4798,22 @@ export default function Home() {
             />
           ) : activeFilter === 'quadrant' ? (
             <div className="stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
-              <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
-                  <div>
-                    <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">Quadrant / 四象限</div>
-                    <div className="mt-1 text-xs text-[#7d8595]">
-                      把任务拖到更合适的象限里即可微调展示：重要看优先级，紧急看是否逾期或 24 小时内到期；这里只收口界面，不改变业务规则。
-                    </div>
-                  </div>
-                  <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前总览</div>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
+              <div className="glass-panel motion-enter rounded-[28px] border-[color:var(--ui-border-strong)] p-4 sm:p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
                       <span>未完成任务 {quadrantTaskCount} 项</span>
                       <span>重要任务 {quadrantImportantCount} 项</span>
                       <span>紧急任务 {quadrantUrgentCount} 项</span>
                     </div>
-                    <div className="mt-3 text-xs text-[#7d8595]">
+                    <div className="mt-2 text-xs text-[#7d8595]">
                       {quadrantTaskCount > 0
-                        ? `当前堆积最多的是「${quadrantFocusGroup?.title ?? '四象限'}」，共 ${quadrantFocusGroup?.items.length ?? 0} 项。`
+                        ? `当前最拥挤的是「${quadrantFocusGroup?.title ?? '四象限'}」，共 ${quadrantFocusGroup?.items.length ?? 0} 项，适合优先清一波。`
                         : '四个象限都很干净，新的任务会按优先级和截止时间自动落位。'}
                     </div>
+                  </div>
+                  <div className="glass-panel-soft rounded-[22px] border-[color:var(--ui-border-soft)] px-3 py-2 text-[11px] leading-5 text-[#9AA3B7] lg:max-w-[420px]">
+                    拖动任务即可微调象限；重要看优先级，紧急看是否逾期或 24 小时内到期，不改变原有业务规则。
                   </div>
                 </div>
               </div>
