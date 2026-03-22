@@ -5456,12 +5456,9 @@ export default function Home() {
           ) : activeFilter === 'habit' ? (
             <div className="space-y-5 sm:space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#DDDDDD]">创建新习惯（今天开新坑）</h3>
-                    <p className="text-xs text-[#666666] mt-1">
-                      {hasApiKey ? '输入目标，AI 会拆解习惯；也可直接按创建' : 'AI 不可用时自动降级为直接创建习惯'}
-                    </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[11px] text-[#666666]">
+                    {hasApiKey ? '有 AI 时自动拆解，无 AI 时直接创建习惯' : '当前按直接创建模式工作'}
                   </div>
                   <div className="text-[11px] text-[#555555]">今天 {getTodayKey().slice(5)}</div>
                 </div>
