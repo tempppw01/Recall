@@ -5464,10 +5464,9 @@ export default function Home() {
                 </div>
 
                 <div className="mt-3 rounded-xl border border-[#2E3750] bg-[#1A2236] p-3 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-sm font-semibold text-[#D7DEEF]">习惯输入（智能/降级一体）</h4>
-                      <p className="text-xs text-[#8FA1C8] mt-1">同一个输入框：有 AI 就拆解，无 AI 自动创建</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs text-[#8FA1C8]">
+                      同一个输入框：有 AI 就拆解，无 AI 自动创建
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-200">
                       {hasApiKey ? 'habit-agent' : 'fallback'}
