@@ -164,6 +164,32 @@ const LUNAR_FESTIVALS = [
   '中秋节', '重阳节', '腊八节', '小年', '除夕', '元旦',
 ];
 
+const AgentThinkingBubble = ({ label, accent = 'cyan' }: { label: string; accent?: 'cyan' | 'violet' }) => {
+  const accentClass = accent === 'violet'
+    ? 'border-violet-400/20 bg-gradient-to-r from-[#241B33] to-[#1D2130] text-violet-100'
+    : 'border-cyan-400/20 bg-gradient-to-r from-[#1F232C] to-[#232839] text-[#E8ECF7]';
+
+  const dotClass = accent === 'violet' ? 'bg-violet-300/85' : 'bg-cyan-300/85';
+
+  return (
+    <div className="flex justify-start">
+      <div className={`max-w-[86%] rounded-2xl border px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] ${accentClass}`}>
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5" aria-hidden="true">
+            <span className={`h-2 w-2 rounded-full ${dotClass} animate-pulse`} />
+            <span className={`h-2 w-2 rounded-full ${dotClass} animate-pulse [animation-delay:160ms]`} />
+            <span className={`h-2 w-2 rounded-full ${dotClass} animate-pulse [animation-delay:320ms]`} />
+          </div>
+          <div>
+            <div className="text-sm font-medium">{label}</div>
+            <div className="mt-0.5 text-[11px] text-[#8FA1C8]">正在组织回复，你可以稍等一下。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const normalizeLunarDate = (raw?: string) => {
   if (!raw) return '';
   const text = String(raw);
@@ -2294,9 +2320,10 @@ export default function Home() {
   };
 
   const handleAgentSend = async () => {
+    if (agentLoading) return;
     const content = agentInput.trim();
     const imagePayload = agentImages.map((image) => image.dataUrl);
-    if (!content && imagePayload.length === 0) return;
+    if (agentLoading || (!content && imagePayload.length === 0)) return;
 
     setAgentInput('');
     setAgentImages([]);
@@ -2405,8 +2432,9 @@ export default function Home() {
   };
 
   const handleManageAgentSend = async () => {
+    if (manageAgentLoading) return;
     const content = manageAgentInput.trim();
-    if (!content) return;
+    if (manageAgentLoading || !content) return;
 
     setManageAgentInput('');
     setManageAgentLoading(true);
@@ -5024,22 +5052,27 @@ export default function Home() {
                       ) : agentMessages.length === 0 ? (
                         <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：想完成什么事情？</div>
                       ) : (
-                        agentMessages.map((message, idx) => (
-                          <div
-                            key={`${message.role}-${idx}`}
-                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
+                        <>
+                          {agentMessages.map((message, idx) => (
                             <div
-                              className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
-                                message.role === 'user'
-                                  ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100'
-                                  : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
-                              }`}
+                              key={`${message.role}-${idx}`}
+                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                              {message.content}
+                              <div
+                                className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                                  message.role === 'user'
+                                    ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100'
+                                    : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                                }`}
+                              >
+                                {message.content}
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          ))}
+                          {hasApiKey && agentLoading && (
+                            <AgentThinkingBubble label="正在整理你的想法…" accent="cyan" />
+                          )}
+                        </>
                       )}
 
                       {hasApiKey && agentError && (
@@ -5195,22 +5228,27 @@ export default function Home() {
                       ) : manageAgentMessages.length === 0 ? (
                         <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
                       ) : (
-                        manageAgentMessages.map((message, idx) => (
-                          <div
-                            key={`${message.role}-${idx}`}
-                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
+                        <>
+                          {manageAgentMessages.map((message, idx) => (
                             <div
-                              className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
-                                message.role === 'user'
-                                  ? 'bg-gradient-to-r from-violet-500/25 to-blue-500/25 border border-violet-400/30 text-blue-100'
-                                  : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
-                              }`}
+                              key={`${message.role}-${idx}`}
+                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                              {message.content}
+                              <div
+                                className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                                  message.role === 'user'
+                                    ? 'bg-gradient-to-r from-violet-500/25 to-blue-500/25 border border-violet-400/30 text-blue-100'
+                                    : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                                }`}
+                              >
+                                {message.content}
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          ))}
+                          {manageAgentLoading && (
+                            <AgentThinkingBubble label="正在分析你的任务列表…" accent="violet" />
+                          )}
+                        </>
                       )}
 
                       {manageAgentError && (
@@ -5360,7 +5398,7 @@ export default function Home() {
                         multiple
                         onChange={handleAgentImageChange}
                         className="hidden"
-                        disabled={!hasApiKey}
+                        disabled={!hasApiKey || agentLoading}
                       />
                       <input
                         type="text"
@@ -5375,20 +5413,20 @@ export default function Home() {
                         }}
                         placeholder={hasApiKey ? '例如：帮我规划本周的工作安排' : '请先在设置中填写 AI Key'}
                         className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
-                        disabled={!hasApiKey}
+                        disabled={!hasApiKey || agentLoading}
                       />
                       <button
                         type="button"
                         onClick={() => agentImageInputRef.current?.click()}
                         className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
                         title="上传图片"
-                        disabled={!hasApiKey}
+                        disabled={!hasApiKey || agentLoading}
                       >
                         <ImagePlus className="w-4 h-4" />
                       </button>
                       <button
                         onClick={handleAgentSend}
-                        disabled={!agentInput.trim() && agentImages.length === 0}
+                        disabled={agentLoading || (!agentInput.trim() && agentImages.length === 0)}
                         className="px-3 py-2 text-sm bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
                       >
                         {agentLoading ? '整理中…' : '发送'}
@@ -5408,11 +5446,11 @@ export default function Home() {
                         }}
                         placeholder={hasApiKey ? '例如：从我的任务里推荐今天最该做的 5 个' : '请先在设置中填写 AI Key'}
                         className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
-                        disabled={!hasApiKey}
+                        disabled={!hasApiKey || manageAgentLoading}
                       />
                       <button
                         onClick={handleManageAgentSend}
-                        disabled={!hasApiKey || !manageAgentInput.trim()}
+                        disabled={!hasApiKey || manageAgentLoading || !manageAgentInput.trim()}
                         className="px-3 py-2 text-sm bg-gradient-to-r from-violet-600 to-blue-600 text-white rounded-lg hover:from-violet-500 hover:to-blue-500 disabled:opacity-50"
                       >
                         {manageAgentLoading ? '分析中…' : '发送'}
