@@ -4549,11 +4549,7 @@ export default function Home() {
           ) : activeFilter === 'countdown' ? (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                  <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日（离快乐又近一天）</h3>
-                    <p className="text-xs text-[#666666] mt-1">置顶优先，按到期日期排序</p>
-                  </div>
+                <div className="flex items-center justify-end">
                   <button
                     onClick={() => openCountdownForm()}
                     className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-500"
