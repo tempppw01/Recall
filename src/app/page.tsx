@@ -4949,8 +4949,12 @@ export default function Home() {
               <div className="h-full rounded-2xl p-[1px] bg-gradient-to-br from-blue-500/40 via-violet-500/20 to-cyan-500/40">
                 <div className="h-full bg-gradient-to-b from-[#1C1F2A] via-[#202020] to-[#1B1B1B] rounded-2xl p-4 flex flex-col shadow-[0_0_0_1px_rgba(59,130,246,0.08)]">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手</h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手</h3>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
+                    </div>
+                    <p className="text-xs text-[#8D94A8] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
                     <div className="mt-2 inline-flex rounded-full border border-[#2A3348] bg-[#141826] p-1">
                       <button
                         type="button"
@@ -4967,21 +4971,17 @@ export default function Home() {
                         管理助手
                       </button>
                     </div>
-                    <p className="text-xs text-[#8D94A8] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
-                      <button
-                        type="button"
-                        onClick={clearCurrentAiContext}
-                        className="p-1.5 rounded-lg border border-[#333333] text-[#7C8499] hover:text-white hover:border-[#59647A]"
-                        title="清除当前 AI 上下文"
-                        aria-label="清除当前 AI 上下文"
-                      >
-                        <Eraser className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={clearCurrentAiContext}
+                      className="p-1.5 rounded-lg border border-[#333333] text-[#7C8499] hover:text-white hover:border-[#59647A]"
+                      title="清除当前 AI 上下文"
+                      aria-label="清除当前 AI 上下文"
+                    >
+                      <Eraser className="w-3.5 h-3.5" />
+                    </button>
                     <div className="flex items-center gap-2">
                       {redisHost && (
                         <div className="flex items-center gap-1 text-[10px] text-[#666666]">
