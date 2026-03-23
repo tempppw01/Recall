@@ -1,4 +1,4 @@
-import { Calendar, Flag, Pin, PinOff, Sunrise, Sunset } from 'lucide-react';
+import { Calendar, Flag, Pin, PinOff, Plus, Sunrise, Sunset } from 'lucide-react';
 import { Task } from '@/lib/store';
 
 type TaskQuickActionsProps = {
@@ -7,6 +7,7 @@ type TaskQuickActionsProps = {
   onClearDueDate: (taskId: string) => void;
   onSetPriority: (taskId: string, priority: number) => void;
   onTogglePinned: (task: Task) => void;
+  onStartAddSubtask?: () => void;
 };
 
 /**
@@ -18,6 +19,7 @@ export default function TaskQuickActions({
   onClearDueDate,
   onSetPriority,
   onTogglePinned,
+  onStartAddSubtask,
 }: TaskQuickActionsProps) {
   return (
     <div className="mb-5 rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(28,31,38,0.96),rgba(22,24,30,0.98))] p-4 space-y-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)]">
@@ -35,6 +37,12 @@ export default function TaskQuickActions({
         </button>
         <button onClick={() => onClearDueDate(task.id)} className="btn btn-ghost btn-sm rounded-2xl">
           清除日期
+        </button>
+        <button
+          onClick={() => onStartAddSubtask?.()}
+          className="btn btn-secondary btn-sm rounded-2xl inline-flex items-center gap-1"
+        >
+          <Plus className="w-3 h-3" /> 新增子任务
         </button>
       </div>
 

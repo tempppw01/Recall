@@ -910,6 +910,7 @@ export default function Home() {
   const [weekLabel, setWeekLabel] = useState(() => buildWeekLabel(weekStart));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const subtaskQuickInputRef = useRef<HTMLInputElement | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -3692,6 +3693,16 @@ export default function Home() {
     const nextStatus = selectedTask.status === 'completed' ? 'todo' : selectedTask.status;
     updateTask({ ...selectedTask, subtasks: nextSubtasks, status: nextStatus, updatedAt: new Date().toISOString() });
     setNewSubtaskTitle('');
+    requestAnimationFrame(() => {
+      subtaskQuickInputRef.current?.focus();
+    });
+  };
+
+  const focusSubtaskQuickInput = () => {
+    requestAnimationFrame(() => {
+      subtaskQuickInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      subtaskQuickInputRef.current?.focus();
+    });
   };
 
   const addTagToTask = () => {
@@ -5749,6 +5760,7 @@ export default function Home() {
               onClearDueDate={(taskId) => updateTaskDueDate(taskId, undefined)}
               onSetPriority={quickSetPriority}
               onTogglePinned={toggleTaskPinned}
+              onStartAddSubtask={focusSubtaskQuickInput}
             />
 
             <div className="space-y-6">
@@ -5761,42 +5773,51 @@ export default function Home() {
                     /{(selectedTask.subtasks || []).length} 已完成
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 rounded-2xl border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] p-2.5 sm:p-3">
                   {(selectedTask.subtasks || []).length === 0 ? (
-                    <p className="text-sm text-[#666666]">暂无子任务</p>
+                    <div className="rounded-xl border border-dashed border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] px-3 py-3 text-sm text-[#666666]">
+                      还没有子任务，下面可以直接快速补一条
+                    </div>
                   ) : (
-                    (selectedTask.subtasks || []).map((subtask) => (
-                      <div key={subtask.id} className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
-                          className={`w-4 h-4 rounded border flex items-center justify-center ${
-                            subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[#555555]'
-                          }`}
-                        >
-                          {subtask.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
-                        </button>
-                        <span className={`text-sm ${subtask.completed ? 'line-through text-[#666666]' : 'text-[#CCCCCC]'}`}>
-                          {subtask.title}
-                        </span>
-                      </div>
-                    ))
+                    <div className="space-y-2">
+                      {(selectedTask.subtasks || []).map((subtask) => (
+                        <div key={subtask.id} className="flex items-center gap-2 rounded-xl bg-[rgba(255,255,255,0.02)] px-2.5 py-2 transition-colors hover:bg-[rgba(255,255,255,0.04)]">
+                          <button
+                            onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
+                            className={`w-4 h-4 rounded border flex items-center justify-center ${
+                              subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[#555555]'
+                            }`}
+                          >
+                            {subtask.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
+                          </button>
+                          <span className={`text-sm ${subtask.completed ? 'line-through text-[#666666]' : 'text-[#CCCCCC]'}`}>
+                            {subtask.title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newSubtaskTitle}
-                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
-                    placeholder="新增子任务"
-                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    onClick={addSubtask}
-                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-500"
-                  >
-                    添加
-                  </button>
+
+                  <div className="rounded-xl border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.06)] px-2.5 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-sm text-[#8EA3FF]">＋</span>
+                      <input
+                        ref={subtaskQuickInputRef}
+                        type="text"
+                        value={newSubtaskTitle}
+                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
+                        placeholder="快速添加子任务，回车连续录入"
+                        className="flex-1 bg-transparent text-sm text-[#CCCCCC] placeholder:text-[#6B7280] focus:outline-none"
+                      />
+                      <button
+                        onClick={addSubtask}
+                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
+                      >
+                        添加
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
