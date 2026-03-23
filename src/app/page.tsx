@@ -884,6 +884,7 @@ export default function Home() {
   const [isListsOpen, setIsListsOpen] = useState(true);
   const [expandedQuadrants, setExpandedQuadrants] = useState<Record<string, boolean>>({});
   const [showAppMenu, setShowAppMenu] = useState(false);
+  const [lastRemovedTask, setLastRemovedTask] = useState<Task | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
   const [showCompletedInCalendar, setShowCompletedInCalendar] = useState(false);
@@ -926,6 +927,8 @@ export default function Home() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [isSecureContext, setIsSecureContext] = useState(true);
   const [showLogs, setShowLogs] = useState(false);
+  const [taskUndoSnapshot, setTaskUndoSnapshot] = useState<Task[] | null>(null);
+  const [taskUndoLabel, setTaskUndoLabel] = useState('');
   const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge');
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
@@ -1994,6 +1997,74 @@ export default function Home() {
     return () => window.removeEventListener('click', handleClose);
   }, [showAppMenu]);
 
+  useEffect(() => {
+    const handleGlobalKeydown = async (event: KeyboardEvent) => {
+      const modifier = event.metaKey || event.ctrlKey;
+      const editable = isEditableShortcutTarget(event.target);
+
+      if (event.key === 'Escape') {
+        if (editingTaskId) {
+          setEditingTaskId(null);
+          setEditingTaskTitle('');
+          return;
+        }
+        if (showSettings) {
+          setShowSettings(false);
+          return;
+        }
+        if (showLogs) {
+          setShowLogs(false);
+          return;
+        }
+        if (selectedTask) {
+          setSelectedTask(null);
+          return;
+        }
+      }
+
+      if (!modifier) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === 'c' && selectedTask && !editable) {
+        event.preventDefault();
+        await copyTaskContent(selectedTask);
+        return;
+      }
+
+      if (key === 'v' && !editable) {
+        event.preventDefault();
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text.trim()) {
+            await createLocalTaskFromInput(text.trim(), activeFilter === 'category' ? activeCategory : null);
+          }
+        } catch (error) {
+          console.error('Failed to paste task from clipboard', error);
+        }
+        return;
+      }
+
+      if (key === 'z' && !editable) {
+        event.preventDefault();
+        if (lastRemovedTask) {
+          restoreLastRemovedTask();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeydown);
+    return () => window.removeEventListener('keydown', handleGlobalKeydown);
+  }, [
+    activeCategory,
+    activeFilter,
+    editingTaskId,
+    lastRemovedTask,
+    selectedTask,
+    showLogs,
+    showSettings,
+  ]);
+
   const refreshTasks = () => {
     const all = taskStore.getAll();
     const deletedMap = readDeletedMap(DELETED_TASKS_KEY);
@@ -2002,6 +2073,29 @@ export default function Home() {
       persistDeletedMap(DELETED_TASKS_KEY, nextDeleted);
     }
     setTasks(filtered);
+  };
+
+  const snapshotTasksForUndo = (label: string) => {
+    setTaskUndoSnapshot(taskStore.getAll().map((task) => ({
+      ...task,
+      tags: task.tags ? [...task.tags] : [],
+      subtasks: task.subtasks ? task.subtasks.map((subtask) => ({ ...subtask })) : [],
+      attachments: task.attachments ? task.attachments.map((attachment) => ({ ...attachment })) : [],
+      repeat: task.repeat ? { ...task.repeat, weekdays: task.repeat.weekdays ? [...task.repeat.weekdays] : undefined } : undefined,
+    })));
+    setTaskUndoLabel(label);
+  };
+
+  const restoreTaskSnapshot = () => {
+    if (!taskUndoSnapshot) return;
+    taskStore.replaceAll(taskUndoSnapshot);
+    refreshTasks();
+    if (selectedTask) {
+      const restoredSelected = taskUndoSnapshot.find((task) => task.id === selectedTask.id) ?? null;
+      setSelectedTask(restoredSelected);
+    }
+    setTaskUndoSnapshot(null);
+    setTaskUndoLabel('');
   };
 
   const refreshHabits = () => {
@@ -3426,6 +3520,12 @@ export default function Home() {
     }
   };
 
+  const isEditableShortcutTarget = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    const tagName = target.tagName;
+    return target.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+  };
+
   const toggleTaskSelected = (taskId: string) => {
     setSelectedTaskIds((prev) => {
       const next = new Set(prev as Set<string>);
@@ -3529,9 +3629,11 @@ export default function Home() {
   };
 
   const removeTask = (taskId: string) => {
+    const removedTask = taskStore.getAll().find((task) => task.id === taskId);
     taskStore.remove(taskId);
     markDeleted(DELETED_TASKS_KEY, taskId);
     refreshTasks();
+    setLastRemovedTask(removedTask ?? null);
     
     // 异步同步到 PG
     syncToPg('tasks', 'DELETE', { id: taskId });
@@ -3541,7 +3643,24 @@ export default function Home() {
     }
   };
 
+  const restoreLastRemovedTask = () => {
+    if (!lastRemovedTask) return;
+    const restoredTask = { ...lastRemovedTask, updatedAt: new Date().toISOString() };
+    const deletedMap = readDeletedMap(DELETED_TASKS_KEY);
+    if (deletedMap[restoredTask.id]) {
+      const nextDeletedMap = { ...deletedMap };
+      delete nextDeletedMap[restoredTask.id];
+      persistDeletedMap(DELETED_TASKS_KEY, nextDeletedMap);
+    }
+    taskStore.add(restoredTask);
+    refreshTasks();
+    syncToPg('tasks', 'POST', restoredTask);
+    setSelectedTask(restoredTask);
+    setLastRemovedTask(null);
+  };
+
   const clearCompletedTasks = () => {
+    snapshotTasksForUndo('恢复已清除的已完成任务');
     const completedIds = taskStore.getAll().filter((task) => task.status === 'completed').map((task) => task.id);
     completedIds.forEach((taskId) => markDeleted(DELETED_TASKS_KEY, taskId));
     const remaining = taskStore.getAll().filter((task) => task.status !== 'completed');
@@ -3704,6 +3823,14 @@ export default function Home() {
       subtaskQuickInputRef.current?.focus();
     });
   };
+
+  const isTypingTarget = (target: EventTarget | null) => {
+    const element = target as HTMLElement | null;
+    if (!element) return false;
+    const tagName = element.tagName;
+    return element.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+  };
+
 
   const addTagToTask = () => {
     if (!selectedTask) return;
