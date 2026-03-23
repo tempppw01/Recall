@@ -133,6 +133,49 @@ button {
   overscroll-behavior: contain;
 }
 
+/* Global scrollbar refinement for dark UI */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(122, 138, 171, 0.42) rgba(255, 255, 255, 0.03);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(132, 148, 182, 0.58), rgba(97, 110, 142, 0.72));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(160, 178, 216, 0.78), rgba(118, 134, 173, 0.88));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, rgba(var(--theme-accent), 0.78), rgba(var(--theme-accent-soft), 0.82));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+
 /* Sticky header performance tweaks (especially iOS Safari with backdrop-filter) */
 .sticky-glass {
   will-change: transform;
