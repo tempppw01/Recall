@@ -123,6 +123,8 @@ const TaskItem = ({
   const dueTextColor = task.dueDate
     ? (isTaskOverdue(task) ? 'text-red-300' : 'text-[#aab3c5]')
     : 'text-[#6c7382]';
+  const visibleTags = (task.tags ?? []).slice(0, 2);
+  const hiddenTagCount = Math.max(0, (task.tags ?? []).length - visibleTags.length);
 
   useEffect(() => {
     setOffsetX(0);
@@ -240,7 +242,7 @@ const TaskItem = ({
 
   return (
     <div
-      className={`relative rounded-[28px] ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
+      className={`relative rounded-[24px] ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {
@@ -276,7 +278,7 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative overflow-hidden p-3 sm:p-3.5 rounded-[28px] cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
+        className={`group relative overflow-hidden p-2.5 sm:p-3 rounded-[24px] cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
@@ -294,7 +296,7 @@ const TaskItem = ({
             style={{ width: `${subtaskProgress}%` }}
           />
         )}
-        <div className="relative z-10 flex items-start gap-3.5 w-full">
+        <div className="relative z-10 flex items-start gap-2.5 w-full">
           {multiSelectEnabled && (
             <button
               type="button"
@@ -329,8 +331,8 @@ const TaskItem = ({
           </button>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5 min-w-0 flex-1 flex-wrap">
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="flex items-start gap-2 min-w-0 flex-1 flex-wrap">
                 {hasSubtasks && (
                   <button
                     type="button"
@@ -338,7 +340,7 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsSubtasksOpen((prev) => !prev);
                     }}
-                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] sm:text-xs px-2.5 py-1 rounded-full border bg-[rgba(0,0,0,0.18)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#8f97a8] border-[color:var(--ui-border-soft)] hover:text-[#f3f6ff]'}`}
+                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-[rgba(0,0,0,0.18)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#8f97a8] border-[color:var(--ui-border-soft)] hover:text-[#f3f6ff]'}`}
                     aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
                   >
                     {isSubtasksOpen ? (
@@ -350,7 +352,7 @@ const TaskItem = ({
                   </button>
                 )}
                 {task.pinned && (
-                  <span className="text-[10px] text-yellow-200 bg-yellow-500/10 border border-yellow-500/20 px-2 py-1 rounded-full shrink-0">置顶</span>
+                  <span className="text-[10px] text-yellow-200 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full shrink-0">置顶</span>
                 )}
                 {onTitleClick ? (
                   <button
@@ -359,7 +361,7 @@ const TaskItem = ({
                       event.stopPropagation();
                       onTitleClick?.();
                     }}
-                    className={`text-left text-[13px] sm:text-sm font-medium leading-snug min-w-0 ${
+                    className={`text-left text-[13px] font-medium leading-snug min-w-0 ${
                       task.status === 'completed' ? 'text-[#707789] line-through' : 'text-[#F3F6FF]'
                     }`}
                     title="点击编辑标题"
@@ -368,7 +370,7 @@ const TaskItem = ({
                   </button>
                 ) : (
                   <p
-                    className={`text-[13px] sm:text-sm font-medium leading-snug min-w-0 ${
+                    className={`text-[13px] font-medium leading-snug min-w-0 ${
                       task.status === 'completed' ? 'text-[#707789] line-through' : 'text-[#F3F6FF]'
                     }`}
                   >
@@ -383,7 +385,7 @@ const TaskItem = ({
                     draggable
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
-                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] sm:text-xs text-[#7b8496] px-2.5 py-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(0,0,0,0.18)] cursor-grab active:cursor-grabbing touch-none hover:text-[#D6DFF7] hover:border-[#4A5572] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)]"
+                    className={`transition-opacity text-[10px] text-[#7b8496] px-1.5 py-0.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(0,0,0,0.18)] cursor-grab active:cursor-grabbing touch-none hover:text-[#D6DFF7] hover:border-[#4A5572] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)] ${selected ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
                     onMouseDown={(event) => {
                       event.stopPropagation();
                     }}
@@ -396,25 +398,25 @@ const TaskItem = ({
                   </button>
                 )}
                 {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
-                  <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 rounded whitespace-nowrap">
+                  <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                     {Math.round((task as any).similarity * 100)}%
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
-              <span className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 py-1 text-[10px] ${getPriorityColor(task.priority)}`}>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5 text-[10px] ${getPriorityColor(task.priority)}`}>
                 <Flag className="w-3 h-3 fill-current" />
                 {getPriorityLabel(task.priority)}
               </span>
               {task.repeat && task.repeat.type !== 'none' && (
-                <span className="text-[10px] text-purple-200 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full">
+                <span className="text-[10px] text-purple-200 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-full">
                   {formatRepeatLabel(task.repeat)}
                 </span>
               )}
               {task.category && (
-                <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-full">
+                <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
                   {task.category}
                 </span>
               )}
@@ -426,7 +428,7 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsDueEditorOpen((prev) => !prev);
                     }}
-                    className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 py-1 text-[10px] ${dueTextColor} hover:text-[#F3F6FF]`}
+                    className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5 text-[10px] ${dueTextColor} hover:text-[#F3F6FF]`}
                     title="点击编辑时间"
                   >
                     <Calendar className="w-3 h-3" />
@@ -464,7 +466,7 @@ const TaskItem = ({
                         <button
                           type="button"
                           onClick={() => setIsDueEditorOpen(false)}
-                          className="px-2 py-1 text-[10px] rounded border border-[var(--ui-border-soft)] text-[#CCCCCC] hover:border-[#555555]"
+                          className="px-1.5 py-0.5 text-[10px] rounded border border-[var(--ui-border-soft)] text-[#CCCCCC] hover:border-[#555555]"
                         >
                           完成
                         </button>
@@ -476,11 +478,14 @@ const TaskItem = ({
                   )}
                 </div>
               )}
-              {task.tags?.map((tag: string) => (
-                <span key={tag} className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 py-1">#{tag}</span>
+              {visibleTags.map((tag: string) => (
+                <span key={tag} className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5">#{tag}</span>
               ))}
+              {hiddenTagCount > 0 && (
+                <span className="text-[10px] text-[#8a92a4] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5">+{hiddenTagCount}</span>
+              )}
               <div
-                className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t border-[rgba(255,255,255,0.04)]"
+                className={`flex flex-wrap items-center gap-1.5 border-t transition-[max-height,opacity,margin,padding,border-color] duration-[var(--motion-base)] overflow-hidden ${selected ? 'mt-2 pt-1.5 max-h-24 opacity-100 border-[rgba(255,255,255,0.04)]' : 'mt-1 pt-1 max-h-0 opacity-0 border-transparent sm:group-hover:mt-2 sm:group-hover:pt-1.5 sm:group-hover:max-h-24 sm:group-hover:opacity-100 sm:group-hover:border-[rgba(255,255,255,0.04)]'}`}
                 onClick={(event) => event.stopPropagation()}
                 onMouseDown={(event) => event.stopPropagation()}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -496,7 +501,7 @@ const TaskItem = ({
                           event.stopPropagation();
                           onQuickSetPriority(task.id, level);
                         }}
-                        className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
                           task.priority === level
                             ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
                             : 'border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
@@ -516,7 +521,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'today');
                       }}
-                      className="text-[10px] px-2 py-1 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
                       title="快捷设置时间：今天 09:00"
                     >
                       今天
@@ -527,7 +532,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tomorrow');
                       }}
-                      className="text-[10px] px-2 py-1 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
                       title="快捷设置时间：明天 09:00"
                     >
                       明天
@@ -538,7 +543,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tonight');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] flex items-center gap-1"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] flex items-center gap-1"
                       title="快捷设置时间：今晚 20:00"
                     >
                       <Bell className="w-3 h-3" />
@@ -549,11 +554,11 @@ const TaskItem = ({
               </div>
             </div>
             {hasSubtasks && (
-              <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-slow)] ease-out ${isSubtasksOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+              <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-slow)] ease-out ${isSubtasksOpen ? 'grid-rows-[1fr] opacity-100 mt-1.5' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
                 <div className="overflow-hidden">
-                  <div className="space-y-1.5 border-l border-[rgba(255,255,255,0.06)] pl-4">
+                  <div className="space-y-1 border-l border-[rgba(255,255,255,0.06)] pl-3">
                 {(task.subtasks ?? []).map((subtask: Subtask) => (
-                  <div key={subtask.id} className="flex items-center gap-2 rounded-xl bg-[rgba(255,255,255,0.02)] px-2.5 py-2 text-[11px] sm:text-xs">
+                  <div key={subtask.id} className="flex items-center gap-2 rounded-xl bg-[rgba(255,255,255,0.02)] px-2 py-1.5 text-[10px] sm:text-[11px]">
                     <button
                       type="button"
                       onClick={(event) => {
