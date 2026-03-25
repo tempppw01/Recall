@@ -658,13 +658,29 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           </div>
 
           <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">先看这里</div>
-            <div className="mt-2 space-y-2 text-sm text-[#DCE3F4]">
-              <div>1. {currentGroupSummary}</div>
-              <div>2. 当前焦点：{focusTask ? focusTask.title : '本组暂时没有任务'}</div>
-              <div>3. 下一步：{nextStepTitle}</div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">先看这里</div>
+                <div className="mt-2 space-y-2 text-sm text-[#DCE3F4]">
+                  <div>1. {currentGroupSummary}</div>
+                  <div>2. 当前焦点：{focusTask ? focusTask.title : '本组暂时没有任务'}</div>
+                  <div>3. 下一步：{nextStepTitle}</div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-right">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-emerald-200">今天已检查</div>
+                <div className="mt-1 text-lg font-semibold tracking-tight text-[#F3F6FF]">{dismissedTodayCount}</div>
+              </div>
             </div>
             <div className="mt-3 text-xs leading-5 text-[#7d8595]">{nextStepDescription}</div>
+            {dismissedTodayCount > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[20px] border border-emerald-500/20 bg-emerald-500/6 px-3 py-2.5">
+                <ListChecks className="h-4 w-4 text-emerald-200" />
+                <div className="min-w-0 flex-1 text-xs text-emerald-100">
+                  今日已移出检查流 {dismissedTodayCount} 项，可在右侧“今天已检查”区直接恢复。
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
