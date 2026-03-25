@@ -1,9 +1,9 @@
-import { Calendar, Flag, Pin, PinOff, Plus, Sunrise, Sunset } from 'lucide-react';
+import { Calendar, CalendarDays, Flag, Pin, PinOff, Plus, Sunrise, Sunset } from 'lucide-react';
 import { Task } from '@/lib/store';
 
 type TaskQuickActionsProps = {
   task: Task;
-  onSetDuePreset: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight') => void;
+  onSetDuePreset: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => void;
   onClearDueDate: (taskId: string) => void;
   onSetPriority: (taskId: string, priority: number) => void;
   onTogglePinned: (task: Task) => void;
@@ -34,6 +34,9 @@ export default function TaskQuickActions({
         </button>
         <button onClick={() => onSetDuePreset(task.id, 'tonight')} className="btn btn-secondary btn-sm rounded-2xl inline-flex items-center gap-1">
           <Calendar className="w-3 h-3" /> 今晚
+        </button>
+        <button onClick={() => onSetDuePreset(task.id, 'nextWeek')} className="btn btn-secondary btn-sm rounded-2xl inline-flex items-center gap-1">
+          <CalendarDays className="w-3 h-3" /> 下周
         </button>
         <button onClick={() => onClearDueDate(task.id)} className="btn btn-ghost btn-sm rounded-2xl">
           清除日期

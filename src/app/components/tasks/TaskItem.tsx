@@ -52,7 +52,7 @@ export type TaskItemProps = {
   isChecked?: boolean;
   onToggleSelect?: (taskId: string) => void;
   onQuickSetPriority?: (taskId: string, priority: number) => void;
-  onQuickSetDuePreset?: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight') => void;
+  onQuickSetDuePreset?: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => void;
   helpers: TaskItemHelpers;
 };
 
@@ -536,6 +536,17 @@ const TaskItem = ({
                       title="快捷设置时间：明天 09:00"
                     >
                       明天
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onQuickSetDuePreset(task.id, 'nextWeek');
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      title="快捷设置时间：下周 09:00"
+                    >
+                      下周
                     </button>
                     <button
                       type="button"

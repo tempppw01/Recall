@@ -3583,15 +3583,18 @@ export default function Home() {
     updateTask({ ...target, priority, updatedAt: new Date().toISOString() });
   };
 
-  const quickSetDuePreset = (taskId: string, preset: 'today' | 'tomorrow' | 'tonight') => {
+  const quickSetDuePreset = (taskId: string, preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => {
     const target = taskStore.getAll().find((task) => task.id === taskId);
     if (!target) return;
     const timezoneOffset = target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
     const baseNow = new Date();
+    const nextWeekBase = new Date(baseNow.getTime() + 7 * 24 * 60 * 60 * 1000);
     const dateText =
       preset === 'tomorrow'
         ? formatDateKeyByOffset(new Date(baseNow.getTime() + 24 * 60 * 60 * 1000), timezoneOffset)
-        : formatDateKeyByOffset(baseNow, timezoneOffset);
+        : preset === 'nextWeek'
+          ? formatDateKeyByOffset(nextWeekBase, timezoneOffset)
+          : formatDateKeyByOffset(baseNow, timezoneOffset);
     const timeText = preset === 'tonight' ? '20:00' : '09:00';
     const dueDate = buildDueDateIso(dateText, timeText, timezoneOffset);
     const reminderPreset: 'none' | '9am' | 'custom' = preset === 'tonight' ? 'custom' : '9am';

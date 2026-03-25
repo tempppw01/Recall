@@ -21,7 +21,7 @@ type ReviewPanelProps = {
   selectedTask: Task | null;
   onSelectTask: (task: Task) => void;
   onToggleTaskStatus: (taskId: string) => void;
-  onQuickSetDuePreset: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight') => void;
+  onQuickSetDuePreset: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => void;
   onUpdateTaskDueDate: (taskId: string, dueDate?: string, timezoneOffset?: number) => void;
   onOpenTaskContext: (task: Task) => void;
   defaultTimezoneOffset: number;
