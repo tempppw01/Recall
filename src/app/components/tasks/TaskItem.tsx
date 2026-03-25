@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, TouchEvent as ReactTouchEvent } from 'react';
 import {
   Calendar,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -10,6 +11,8 @@ import {
   Pin,
   Trash2,
   Bell,
+  Sunrise,
+  Sunset,
 } from 'lucide-react';
 import type { Subtask, Task, TaskRepeatRule } from '@/lib/store';
 
@@ -96,6 +99,7 @@ const TaskItem = ({
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
   const isHorizontalRef = useRef<boolean | null>(null);
+  const dueEditorRef = useRef<HTMLDivElement | null>(null);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPointerDragging, setIsPointerDragging] = useState(false);
@@ -146,10 +150,36 @@ const TaskItem = ({
     setEditorTime(task.dueDate ? formatZonedTime(task.dueDate, timezoneOffset) : '09:00');
   }, [isDueEditorOpen, task.dueDate, timezoneOffset, formatZonedDate, formatZonedTime]);
 
+  useEffect(() => {
+    if (!isDueEditorOpen) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (dueEditorRef.current && target && !dueEditorRef.current.contains(target)) {
+        setIsDueEditorOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [isDueEditorOpen]);
+
   const applyDueDate = (nextDate: string, nextTime: string) => {
     if (!onUpdateDueDate) return;
     const nextIso = buildDueDateIso(nextDate, nextTime, timezoneOffset);
     onUpdateDueDate(task.id, nextIso, timezoneOffset);
+  };
+
+  const applyPreset = (preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => {
+    onQuickSetDuePreset?.(task.id, preset);
+    setIsDueEditorOpen(false);
+  };
+
+  const clearDueDate = () => {
+    onUpdateDueDate?.(task.id, undefined, timezoneOffset);
+    setIsDueEditorOpen(false);
   };
 
   const handleContextMenu = (event: React.MouseEvent) => {
@@ -420,64 +450,104 @@ const TaskItem = ({
                   {task.category}
                 </span>
               )}
-              {task.dueDate && (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setIsDueEditorOpen((prev) => !prev);
-                    }}
-                    className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5 text-[10px] ${dueTextColor} hover:text-[#F3F6FF]`}
-                    title="点击编辑时间"
+              <div className="relative" ref={dueEditorRef}>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsDueEditorOpen((prev) => !prev);
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5 text-[10px] ${dueTextColor} hover:text-[#F3F6FF]`}
+                  title="点击编辑时间"
+                >
+                  <Calendar className="w-3 h-3" />
+                  {dueLabel}
+                  <span className="text-[#6f7787]">({getTimezoneLabel(timezoneOffset)})</span>
+                </button>
+                {isDueEditorOpen && (
+                  <div
+                    className="absolute left-0 top-full z-20 mt-2 w-[260px] rounded-2xl border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] p-3 shadow-[0_18px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    <Calendar className="w-3 h-3" />
-                    {dueLabel}
-                    <span className="text-[#6f7787]">({getTimezoneLabel(timezoneOffset)})</span>
-                  </button>
-                  {isDueEditorOpen && (
-                    <div
-                      className="absolute z-20 mt-2 rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-0)] p-2 shadow-lg"
-                      onClick={(event) => event.stopPropagation()}
-                    >
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#8A8A8A]">快捷设置时间</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('today')}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                      >
+                        <Sunrise className="w-3 h-3" /> 今天
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('tomorrow')}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                      >
+                        <Sunset className="w-3 h-3" /> 明天
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('nextWeek')}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                      >
+                        <CalendarDays className="w-3 h-3" /> 下周一
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('tonight')}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                      >
+                        <Bell className="w-3 h-3" /> 今晚
+                      </button>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                      <input
+                        type="date"
+                        value={editorDate}
+                        onChange={(event) => {
+                          const nextDate = event.target.value;
+                          setEditorDate(nextDate);
+                          applyDueDate(nextDate, editorTime);
+                        }}
+                        title="选择日期"
+                        className="w-full rounded-xl border border-[var(--ui-border-soft)] bg-[#111111] px-3 py-2 text-[12px] text-[#CCCCCC]"
+                      />
+                      <input
+                        type="time"
+                        value={editorTime}
+                        onChange={(event) => {
+                          const nextTime = event.target.value;
+                          setEditorTime(nextTime);
+                          applyDueDate(editorDate, nextTime);
+                        }}
+                        title="选择时间"
+                        className="w-full rounded-xl border border-[var(--ui-border-soft)] bg-[#111111] px-3 py-2 text-[12px] text-[#CCCCCC]"
+                      />
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-[#666666]">时区：{getTimezoneLabel(timezoneOffset)}</span>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="date"
-                          value={editorDate}
-                          onChange={(event) => {
-                            const nextDate = event.target.value;
-                            setEditorDate(nextDate);
-                            applyDueDate(nextDate, editorTime);
-                          }}
-                          title="选择日期"
-                          className="bg-[#111111] border border-[var(--ui-border-soft)] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
-                        />
-                        <input
-                          type="time"
-                          value={editorTime}
-                          onChange={(event) => {
-                            const nextTime = event.target.value;
-                            setEditorTime(nextTime);
-                            applyDueDate(editorDate, nextTime);
-                          }}
-                          title="选择时间"
-                          className="bg-[#111111] border border-[var(--ui-border-soft)] rounded px-2 py-1 text-[11px] text-[#CCCCCC]"
-                        />
+                        <button
+                          type="button"
+                          onClick={clearDueDate}
+                          className="px-2 py-1 text-[10px] rounded-full border border-[var(--ui-border-soft)] text-[#9AA3B5] hover:text-white hover:border-[#555555]"
+                        >
+                          清除
+                        </button>
                         <button
                           type="button"
                           onClick={() => setIsDueEditorOpen(false)}
-                          className="px-1.5 py-0.5 text-[10px] rounded border border-[var(--ui-border-soft)] text-[#CCCCCC] hover:border-[#555555]"
+                          className="px-2 py-1 text-[10px] rounded-full border border-[var(--ui-border-soft)] text-[#D6DFF7] hover:border-[#555555]"
                         >
                           完成
                         </button>
                       </div>
-                      <div className="mt-1 text-[10px] text-[#666666]">
-                        时区：{getTimezoneLabel(timezoneOffset)}
-                      </div>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
               {visibleTags.map((tag: string) => (
                 <span key={tag} className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5">#{tag}</span>
               ))}
