@@ -13,31 +13,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw, Timer as TimerIcon } from 'lucide-react';
 import { pomodoroStore, PomodoroRecord } from '@/lib/store';
+import {
+  PHASE_DURATIONS,
+  PHASE_LABELS,
+  STORAGE_KEY,
+  cycleOrder,
+  formatTime,
+  getResolvedPomodoroState,
+  writePomodoroState,
+} from '@/lib/pomodoro';
 
-/** 番茄钟阶段 */
-type PomodoroPhase = 'focus' | 'shortBreak' | 'longBreak';
-
-const PHASE_LABELS: Record<PomodoroPhase, string> = {
-  focus: '专注',
-  shortBreak: '短休息',
-  longBreak: '长休息',
-};
-
-const PHASE_DURATIONS: Record<PomodoroPhase, number> = {
-  focus: 25 * 60,
-  shortBreak: 5 * 60,
-  longBreak: 15 * 60,
-};
-
-const cycleOrder: PomodoroPhase[] = ['focus', 'shortBreak', 'focus', 'shortBreak', 'focus', 'longBreak'];
-const STORAGE_KEY = 'recall_pomodoro_state';
-
-/** 将秒数格式化为 mm:ss */
-const formatTime = (seconds: number) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-};
 
 /** 生成本地记录 ID */
 const createId = () => Math.random().toString(36).substring(2, 9);
@@ -94,9 +79,17 @@ export default function PomodoroTimer() {
         return;
       }
 
-      let nextPhaseIndex = parsed.phaseIndex;
-      let nextRemaining = parsed.remaining;
-      let nextIsRunning = parsed.isRunning;
+      const resolved = getResolvedPomodoroState({
+        phaseIndex: parsed.phaseIndex,
+        remaining: parsed.remaining,
+        isRunning: parsed.isRunning,
+        lastUpdated: parsed.lastUpdated,
+        sessionStartTime: parsed.sessionStartTime,
+      });
+
+      let nextPhaseIndex = resolved.phaseIndex;
+      let nextRemaining = resolved.remaining;
+      let nextIsRunning = resolved.isRunning;
 
       if (parsed.sessionStartTime) {
         sessionStartTimeRef.current = parsed.sessionStartTime;
@@ -104,24 +97,17 @@ export default function PomodoroTimer() {
 
       if (parsed.isRunning && typeof parsed.lastUpdated === 'number') {
         const elapsed = Math.floor((Date.now() - parsed.lastUpdated) / 1000);
-        if (elapsed >= nextRemaining) {
-          // 自动完成
-          const currentPhase = cycleOrder[nextPhaseIndex];
+        if (elapsed >= parsed.remaining) {
+          const currentPhase = cycleOrder[parsed.phaseIndex];
           if (currentPhase === 'focus') {
-            const computedEnd = new Date(parsed.lastUpdated + nextRemaining * 1000);
+            const computedEnd = new Date(parsed.lastUpdated + parsed.remaining * 1000);
             const startMs = parsed.sessionStartTime;
             const duration = typeof startMs === 'number'
               ? Math.max(1, Math.round((computedEnd.getTime() - startMs) / 60000))
               : Math.round(PHASE_DURATIONS.focus / 60);
             saveRecord(duration, computedEnd, startMs);
           }
-          const advancedIndex = (nextPhaseIndex + 1) % cycleOrder.length;
-          nextPhaseIndex = advancedIndex;
-          nextRemaining = PHASE_DURATIONS[cycleOrder[advancedIndex]];
-          nextIsRunning = false;
           sessionStartTimeRef.current = null;
-        } else if (elapsed > 0) {
-          nextRemaining = Math.max(nextRemaining - elapsed, 0);
         }
       }
 
@@ -142,7 +128,7 @@ export default function PomodoroTimer() {
       lastUpdated: Date.now(),
       sessionStartTime: sessionStartTimeRef.current,
     };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    writePomodoroState(payload);
   }, [phaseIndex, remaining, isRunning]);
 
   useEffect(() => {

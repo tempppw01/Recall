@@ -15,6 +15,7 @@ import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
+import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
 import Sidebar from '@/app/components/sidebar/Sidebar';
 import SettingsModal from '@/app/components/settings/SettingsModal';
 import TaskItem from '@/app/components/tasks/TaskItem';
@@ -6484,6 +6485,8 @@ export default function Home() {
         onClose={() => setShowAbout(false)}
         appVersion={APP_VERSION}
       />
+
+      <PomodoroFloatingWidget onOpenPomodoro={() => setActiveFilter('pomodoro')} />
 
     </div>
   );
