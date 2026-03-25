@@ -73,7 +73,13 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
     if (typeof window === 'undefined') return;
     const storedCollapsed = window.localStorage.getItem(COLLAPSED_KEY);
     setCollapsed(storedCollapsed === '1');
-    setPosition(readStoredPosition());
+    const storedPosition = readStoredPosition();
+    setPosition(
+      storedPosition ?? {
+        x: window.innerWidth - 320 - DEFAULT_OFFSET,
+        y: window.innerHeight - 120 - DEFAULT_OFFSET,
+      },
+    );
   }, []);
 
   useEffect(() => {
