@@ -25,6 +25,7 @@ type WidgetPosition = {
 const POSITION_KEY = 'recall_pomodoro_widget_position';
 const COLLAPSED_KEY = 'recall_pomodoro_widget_collapsed';
 const DEFAULT_OFFSET = 16;
+const EDGE_PEEK = 18;
 
 const readStoredPosition = (): WidgetPosition | null => {
   if (typeof window === 'undefined') return null;
@@ -49,14 +50,24 @@ const clampPosition = (position: WidgetPosition, width: number, height: number) 
   };
 };
 
+const getDockedX = (x: number, width: number) => {
+  if (typeof window === 'undefined') return x;
+  const leftDistance = x;
+  const rightDistance = window.innerWidth - (x + width);
+  return leftDistance <= rightDistance ? DEFAULT_OFFSET : Math.max(DEFAULT_OFFSET, window.innerWidth - width - DEFAULT_OFFSET);
+};
+
 export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloatingWidgetProps) {
   const [tick, setTick] = useState(Date.now());
   const [dismissed, setDismissed] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [position, setPosition] = useState<WidgetPosition | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEdgeDocked, setIsEdgeDocked] = useState(false);
+  const [flashActive, setFlashActive] = useState(false);
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef({ startX: 0, startY: 0, originX: 0, originY: 0 });
+  const previousRemainingRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -125,13 +136,16 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
           x: window.innerWidth - currentRect.width - DEFAULT_OFFSET,
           y: window.innerHeight - currentRect.height - DEFAULT_OFFSET,
         };
-        return clampPosition(fallback, currentRect.width, currentRect.height);
+        const clamped = clampPosition(fallback, currentRect.width, currentRect.height);
+        return isEdgeDocked
+          ? { ...clamped, x: getDockedX(clamped.x, currentRect.width) }
+          : clamped;
       });
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [position, collapsed, tick]);
+  }, [position, collapsed, tick, isEdgeDocked]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !position) return;
@@ -149,6 +163,16 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
   }, [tick]);
 
   useEffect(() => {
+    const previousRemaining = previousRemainingRef.current;
+    if (previousRemaining !== null && previousRemaining > 0 && state.remaining === 0) {
+      setFlashActive(true);
+      const timer = window.setTimeout(() => setFlashActive(false), 2200);
+      return () => window.clearTimeout(timer);
+    }
+    previousRemainingRef.current = state.remaining;
+  }, [state.remaining]);
+
+  useEffect(() => {
     if (!isDragging) return;
 
     const handleMove = (clientX: number, clientY: number) => {
@@ -163,13 +187,23 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
         rect.height,
       );
       setPosition(next);
+      setIsEdgeDocked(false);
+    };
+
+    const stopDragging = () => {
+      if (widgetRef.current && position) {
+        const rect = widgetRef.current.getBoundingClientRect();
+        const dockedX = getDockedX(position.x, rect.width);
+        setPosition((prev) => (prev ? { ...prev, x: dockedX } : prev));
+        setIsEdgeDocked(true);
+      }
+      setIsDragging(false);
     };
 
     const onMouseMove = (event: MouseEvent) => handleMove(event.clientX, event.clientY);
     const onTouchMove = (event: TouchEvent) => {
       if (event.touches[0]) handleMove(event.touches[0].clientX, event.touches[0].clientY);
     };
-    const stopDragging = () => setIsDragging(false);
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', stopDragging);
@@ -181,7 +215,7 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', stopDragging);
     };
-  }, [isDragging]);
+  }, [isDragging, position]);
 
   if (!state.hasActiveSession || dismissed || !position) return null;
 
@@ -224,11 +258,29 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
     setIsDragging(true);
   };
 
+  const collapsedEdgeStyle = collapsed && isEdgeDocked && widgetRef.current
+    ? position.x <= window.innerWidth / 2
+      ? { transform: `translateX(-${Math.max(0, widgetRef.current.getBoundingClientRect().width - EDGE_PEEK)}px)` }
+      : { transform: `translateX(${Math.max(0, widgetRef.current.getBoundingClientRect().width - EDGE_PEEK)}px)` }
+    : undefined;
+
   return (
     <div
       ref={widgetRef}
-      className={`fixed z-[65] select-none rounded-2xl border border-[rgba(var(--theme-accent),0.26)] bg-[rgba(19,22,28,0.94)] shadow-[0_18px_40px_rgba(0,0,0,0.32)] backdrop-blur-xl ${collapsed ? 'w-auto p-2.5' : 'w-[min(88vw,320px)] p-3'}`}
-      style={{ left: position.x, top: position.y }}
+      className={`fixed z-[65] select-none rounded-2xl border backdrop-blur-xl transition-[transform,opacity,box-shadow,border-color,background-color] duration-300 ${
+        flashActive
+          ? 'border-amber-300/80 bg-[rgba(120,80,10,0.92)] shadow-[0_0_0_1px_rgba(251,191,36,0.35),0_0_32px_rgba(251,191,36,0.35)]'
+          : collapsed && isEdgeDocked
+            ? 'border-[rgba(var(--theme-accent),0.18)] bg-[rgba(19,22,28,0.52)] shadow-[0_12px_28px_rgba(0,0,0,0.22)] hover:bg-[rgba(19,22,28,0.82)] hover:border-[rgba(var(--theme-accent),0.28)] hover:translate-x-0'
+            : 'border-[rgba(var(--theme-accent),0.26)] bg-[rgba(19,22,28,0.94)] shadow-[0_18px_40px_rgba(0,0,0,0.32)]'
+      } ${collapsed ? 'w-auto p-2.5' : 'w-[min(88vw,320px)] p-3'}`}
+      style={{ left: position.x, top: position.y, ...(collapsedEdgeStyle ?? {}) }}
+      onMouseEnter={() => {
+        if (collapsed && isEdgeDocked) setIsEdgeDocked(false);
+      }}
+      onMouseLeave={() => {
+        if (collapsed) setIsEdgeDocked(true);
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <button
