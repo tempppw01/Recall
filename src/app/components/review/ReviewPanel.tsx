@@ -192,6 +192,17 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     return entries;
   }, [reviewEligibleTasks]);
 
+  const dismissedTodayCount = useMemo(() => {
+    const now = new Date();
+    return activeTasks.filter((task) => {
+      const dismissedUntil = dismissedTaskMap[task.id];
+      if (!dismissedUntil) return false;
+      const dismissedDate = new Date(dismissedUntil);
+      if (Number.isNaN(dismissedDate.getTime())) return false;
+      return isSameLocalDay(dismissedDate, now);
+    }).length;
+  }, [activeTasks, dismissedTaskMap]);
+
   const reviewCounts = {
     all: Object.values(reviewGroups).reduce((sum, list) => sum + list.length, 0),
     overdue: reviewGroups.overdue.length,
@@ -647,6 +658,11 @@ export default function ReviewPanel(props: ReviewPanelProps) {
               <div className="mt-2 text-sm text-[#DCE3F4]">{currentGroupSummary}</div>
               <div className="mt-1.5 text-sm text-[#DCE3F4]">当前焦点：{focusTask ? focusTask.title : '本组暂时没有任务'}</div>
               <div className="mt-1.5 text-xs leading-5 text-[#7d8595]">下一步：{nextStepDescription}</div>
+              {dismissedTodayCount > 0 ? (
+                <div className="mt-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-100">
+                  今天已暂时移出检查流：{dismissedTodayCount} 项
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -730,7 +746,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
 
                   <div className="space-y-2.5 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                     <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">今天先不再检查</div>
-                    <div className="text-xs text-[#7d8595]">这项今天已经看过的话，可以先移出今天的检查流，默认明天再回来。</div>
+                    <div className="text-xs text-[#7d8595]">这项今天已经看过的话，可以先移出今天的检查流，默认明天再回来。当前已移出 {dismissedTodayCount} 项。</div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
