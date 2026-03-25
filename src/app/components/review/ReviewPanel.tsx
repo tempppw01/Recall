@@ -14,6 +14,11 @@ import {
   Hourglass,
   FolderKanban,
   Rows,
+  RotateCcw,
+  ListChecks,
+  Sparkles,
+  ChevronRight,
+  Undo2,
 } from 'lucide-react';
 
 type ReviewPanelProps = {
@@ -34,6 +39,7 @@ type ReviewPanelProps = {
 type ReviewBucketKey = 'all' | 'overdue' | 'today' | 'upcoming' | 'someday';
 type ReviewMode = 'time' | 'category';
 type CategoryBucketKey = 'all' | 'uncategorized' | string;
+type ReviewResultType = 'completed' | 'rescheduled' | 'reviewed_today' | 'back_to_context';
 
 type ReviewGroupMeta = {
   key: string;
@@ -42,11 +48,35 @@ type ReviewGroupMeta = {
   count: number;
 };
 
+type ReviewActionRecord = {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  type: ReviewResultType;
+  createdAt: string;
+  detail: string;
+  groupKey: string;
+  groupLabel: string;
+};
+
+type ReviewFeedback = {
+  tone: 'success' | 'info';
+  title: string;
+  description: string;
+};
+
 const bucketMeta: Record<Exclude<ReviewBucketKey, 'all'>, { label: string; description: string }> = {
   overdue: { label: '需要立刻检查', description: '已经逾期，优先确认是否继续、改期或完成。' },
   today: { label: '今天要过一遍', description: '今天要看的任务，避免今天结束前遗忘。' },
   upcoming: { label: '接下来 7 天', description: '提前看一遍，把快到期的事情先理顺。' },
   someday: { label: '最近无明确日期', description: '没有明确截止，但应该定期回头扫一眼。' },
+};
+
+const resultTypeMeta: Record<ReviewResultType, { label: string; shortLabel: string; tone: string; icon: typeof CheckCircle2 }> = {
+  completed: { label: '已完成', shortLabel: '完成', tone: 'text-emerald-100 bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle2 },
+  rescheduled: { label: '已改期', shortLabel: '改期', tone: 'text-amber-100 bg-amber-500/10 border-amber-500/20', icon: CalendarClock },
+  reviewed_today: { label: '今天已检查', shortLabel: '已检查', tone: 'text-sky-100 bg-sky-500/10 border-sky-500/20', icon: Eye },
+  back_to_context: { label: '回到原任务', shortLabel: '回上下文', tone: 'text-violet-100 bg-violet-500/10 border-violet-500/20', icon: ExternalLink },
 };
 
 const startOfLocalDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -90,6 +120,25 @@ const isSameLocalDay = (left: Date, right: Date) => (
   && left.getDate() === right.getDate()
 );
 
+const getTaskTimeBucket = (task: Task, isTaskOverdue: (task: Task) => boolean): Exclude<ReviewBucketKey, 'all'> => {
+  const today = startOfLocalDay(new Date());
+  const nextWeek = addDays(today, 7);
+
+  if (task.dueDate && isTaskOverdue(task)) {
+    return 'overdue';
+  }
+
+  if (task.dueDate) {
+    const dueDay = startOfLocalDay(new Date(task.dueDate));
+    if (dueDay.getTime() === today.getTime()) return 'today';
+    if (dueDay > today && dueDay <= nextWeek) return 'upcoming';
+  }
+
+  return 'someday';
+};
+
+const getActionId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
 export default function ReviewPanel(props: ReviewPanelProps) {
   const {
     tasks,
@@ -111,25 +160,32 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   const [activeCategoryBucket, setActiveCategoryBucket] = useState<CategoryBucketKey>('all');
   const [customDate, setCustomDate] = useState('');
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(selectedTask?.id ?? null);
-  const [lastActionText, setLastActionText] = useState('');
   const [dismissedTaskMap, setDismissedTaskMap] = useState<Record<string, string>>({});
+  const [actionLog, setActionLog] = useState<ReviewActionRecord[]>([]);
+  const [feedback, setFeedback] = useState<ReviewFeedback | null>(null);
+  const [showReviewedTodayList, setShowReviewedTodayList] = useState(false);
 
   const activeTasks = useMemo(() => tasks.filter((task) => task.status !== 'completed'), [tasks]);
-  const reviewEligibleTasks = useMemo(() => {
+
+  const reviewedTodayTasks = useMemo(() => {
     const now = new Date();
-    return activeTasks.filter((task) => {
-      const dismissedUntil = dismissedTaskMap[task.id];
-      if (!dismissedUntil) return true;
-      const dismissedDate = new Date(dismissedUntil);
-      if (Number.isNaN(dismissedDate.getTime())) return true;
-      return !isSameLocalDay(dismissedDate, now);
-    });
+    return activeTasks
+      .filter((task) => {
+        const dismissedUntil = dismissedTaskMap[task.id];
+        if (!dismissedUntil) return false;
+        const dismissedDate = new Date(dismissedUntil);
+        if (Number.isNaN(dismissedDate.getTime())) return false;
+        return isSameLocalDay(dismissedDate, now);
+      })
+      .sort((a, b) => getTaskSortTime(a) - getTaskSortTime(b));
   }, [activeTasks, dismissedTaskMap]);
 
-  const reviewGroups = useMemo(() => {
-    const today = startOfLocalDay(new Date());
-    const nextWeek = addDays(today, 7);
+  const reviewEligibleTasks = useMemo(() => {
+    const reviewedTodayIds = new Set(reviewedTodayTasks.map((task) => task.id));
+    return activeTasks.filter((task) => !reviewedTodayIds.has(task.id));
+  }, [activeTasks, reviewedTodayTasks]);
 
+  const reviewGroups = useMemo(() => {
     const groups: Record<Exclude<ReviewBucketKey, 'all'>, Task[]> = {
       overdue: [],
       today: [],
@@ -138,25 +194,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     };
 
     reviewEligibleTasks.forEach((task) => {
-      if (task.dueDate && isTaskOverdue(task)) {
-        groups.overdue.push(task);
-        return;
-      }
-
-      if (task.dueDate) {
-        const due = new Date(task.dueDate);
-        const dueDay = startOfLocalDay(due);
-        if (dueDay.getTime() === today.getTime()) {
-          groups.today.push(task);
-          return;
-        }
-        if (dueDay > today && dueDay <= nextWeek) {
-          groups.upcoming.push(task);
-          return;
-        }
-      }
-
-      groups.someday.push(task);
+      groups[getTaskTimeBucket(task, isTaskOverdue)].push(task);
     });
 
     Object.values(groups).forEach((list) => {
@@ -192,16 +230,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     return entries;
   }, [reviewEligibleTasks]);
 
-  const dismissedTodayCount = useMemo(() => {
-    const now = new Date();
-    return activeTasks.filter((task) => {
-      const dismissedUntil = dismissedTaskMap[task.id];
-      if (!dismissedUntil) return false;
-      const dismissedDate = new Date(dismissedUntil);
-      if (Number.isNaN(dismissedDate.getTime())) return false;
-      return isSameLocalDay(dismissedDate, now);
-    }).length;
-  }, [activeTasks, dismissedTaskMap]);
+  const dismissedTodayCount = reviewedTodayTasks.length;
 
   const reviewCounts = {
     all: Object.values(reviewGroups).reduce((sum, list) => sum + list.length, 0),
@@ -275,6 +304,72 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     ? `当前列表：${getCategoryLabel(focusTask)} · 适合顺手把同类事项一起清掉。`
     : '可以按列表一组一组扫，减少在不同上下文里频繁切换。';
 
+  const getTaskGroupKey = (task: Task) => {
+    if (reviewMode === 'time') {
+      const timeBucket = getTaskTimeBucket(task, isTaskOverdue);
+      return activeBucket === 'all' ? timeBucket : activeBucket;
+    }
+    const categoryKey = getCategoryLabel(task) === '未分类' ? 'uncategorized' : getCategoryLabel(task);
+    return activeCategoryBucket === 'all' ? categoryKey : activeCategoryBucket;
+  };
+
+  const getTaskGroupLabel = (task: Task) => {
+    if (reviewMode === 'time') {
+      const timeBucket = getTaskTimeBucket(task, isTaskOverdue);
+      return activeBucket === 'all' ? bucketMeta[timeBucket].label : (timeGroupMeta.find((item) => item.key === activeBucket)?.label ?? '当前时间组');
+    }
+    const categoryLabel = getCategoryLabel(task);
+    return activeCategoryBucket === 'all' ? categoryLabel : (categoryGroupMeta.find((item) => item.key === activeCategoryBucket)?.label ?? categoryLabel);
+  };
+
+  const currentNaturalGroupTasks = useMemo(() => {
+    if (!focusTask) return [] as Task[];
+
+    if (reviewMode === 'time') {
+      const bucket = getTaskTimeBucket(focusTask, isTaskOverdue);
+      return reviewGroups[bucket];
+    }
+
+    const categoryLabel = getCategoryLabel(focusTask);
+    return categoryGroups.find((group) => group.label === categoryLabel)?.tasks ?? [];
+  }, [focusTask, reviewMode, reviewGroups, categoryGroups, isTaskOverdue]);
+
+  const currentNaturalGroupKey = focusTask ? getTaskGroupKey(focusTask) : null;
+  const currentNaturalGroupLabel = focusTask ? getTaskGroupLabel(focusTask) : null;
+  const currentNaturalGroupRemaining = useMemo(() => {
+    if (!focusTask) return [] as Task[];
+    return currentNaturalGroupTasks.filter((task) => task.id !== focusTask.id);
+  }, [focusTask, currentNaturalGroupTasks]);
+
+  const actionCounts = useMemo(() => {
+    return actionLog.reduce<Record<ReviewResultType, number>>((acc, item) => {
+      acc[item.type] += 1;
+      return acc;
+    }, {
+      completed: 0,
+      rescheduled: 0,
+      reviewed_today: 0,
+      back_to_context: 0,
+    });
+  }, [actionLog]);
+
+  const recentActions = actionLog.slice(0, 6);
+
+  const nextAvailableGroupMeta = useMemo(() => {
+    if (reviewMode === 'time') {
+      const currentIndex = timeGroupMeta.findIndex((item) => item.key === (currentNaturalGroupKey ?? activeBucket));
+      if (currentIndex === -1) return null;
+      return timeGroupMeta.slice(currentIndex + 1).find((item) => item.key !== 'all' && item.count > 0) ?? null;
+    }
+
+    const metas = activeCategoryBucket === 'all'
+      ? categoryGroupMeta.filter((item) => item.key !== 'all')
+      : categoryGroupMeta;
+    const currentIndex = metas.findIndex((item) => item.key === (currentNaturalGroupKey ?? activeCategoryBucket));
+    if (currentIndex === -1) return null;
+    return metas.slice(currentIndex + 1).find((item) => item.count > 0) ?? null;
+  }, [reviewMode, timeGroupMeta, categoryGroupMeta, currentNaturalGroupKey, activeBucket, activeCategoryBucket]);
+
   const focusStepText = focusTask
     ? `第 ${focusIndex + 1} / ${reviewList.length} 项`
     : '当前分组已清空';
@@ -292,7 +387,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   const nextStepDescription = !focusTask
     ? '这一组已经扫完，可以切换到下一组继续保持节奏。'
     : reviewMode === 'time'
-      ? '完成、改期，或回到原任务补上下文；做完会自动推进到下一项。'
+      ? '完成、改期，或回到原任务补上下文；做完会优先留在当前更紧急的同组任务里。'
       : `先确认「${getCategoryLabel(focusTask)}」这组里当前最该推进的是哪一项，再决定完成、改期或回到原任务。`;
 
   useEffect(() => {
@@ -328,15 +423,69 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     }
   }, [reviewList, focusTask]);
 
-  const moveFocusToNext = (taskId: string) => {
-    const currentIndex = reviewList.findIndex((task) => task.id === taskId);
-    if (currentIndex === -1) {
-      setFocusedTaskId(reviewList[0]?.id ?? null);
+  const getPriorityScore = (task: Task) => {
+    const bucket = getTaskTimeBucket(task, isTaskOverdue);
+    const bucketScore = bucket === 'overdue' ? 4000000000000 : bucket === 'today' ? 3000000000000 : bucket === 'upcoming' ? 2000000000000 : 1000000000000;
+    const dueScore = 1000000000000 - Math.min(getTaskSortTime(task), 1000000000000);
+    const priorityScore = task.priority * 1000000;
+    const statusScore = task.status === 'in_progress' ? 500000 : 0;
+    return bucketScore + dueScore + priorityScore + statusScore;
+  };
+
+  const registerAction = (task: Task, type: ReviewResultType, detail: string, overrideTitle?: string) => {
+    const groupLabel = getTaskGroupLabel(task);
+    const groupKey = getTaskGroupKey(task);
+    setActionLog((prev) => [{
+      id: getActionId(),
+      taskId: task.id,
+      taskTitle: task.title,
+      type,
+      createdAt: new Date().toISOString(),
+      detail,
+      groupKey,
+      groupLabel,
+    }, ...prev].slice(0, 40));
+    setFeedback({
+      tone: type === 'back_to_context' ? 'info' : 'success',
+      title: overrideTitle ?? resultTypeMeta[type].label,
+      description: detail,
+    });
+  };
+
+  const moveFocusSmartly = (taskId: string) => {
+    const remaining = reviewList.filter((task) => task.id !== taskId);
+    if (!remaining.length) {
+      setFocusedTaskId(null);
       return;
     }
-    const nextTask = reviewList[currentIndex + 1] || reviewList[currentIndex - 1] || null;
+
+    const currentTask = reviewList.find((task) => task.id === taskId) ?? null;
+    const sameNaturalGroup = currentTask
+      ? remaining.filter((task) => {
+          if (reviewMode === 'time') {
+            return getTaskTimeBucket(task, isTaskOverdue) === getTaskTimeBucket(currentTask, isTaskOverdue);
+          }
+          return getCategoryLabel(task) === getCategoryLabel(currentTask);
+        })
+      : [];
+
+    const candidatePool = sameNaturalGroup.length > 0 ? sameNaturalGroup : remaining;
+    const nextTask = [...candidatePool].sort((a, b) => getPriorityScore(b) - getPriorityScore(a))[0] ?? remaining[0] ?? null;
+
     setFocusedTaskId(nextTask?.id ?? null);
-    if (nextTask) onSelectTask(nextTask);
+    if (nextTask) {
+      onSelectTask(nextTask);
+      if (currentTask && sameNaturalGroup.length === 0) {
+        const nextLabel = reviewMode === 'time'
+          ? bucketMeta[getTaskTimeBucket(nextTask, isTaskOverdue)].label
+          : getCategoryLabel(nextTask);
+        setFeedback({
+          tone: 'info',
+          title: '当前组已清空',
+          description: `这一组已经处理完，已切到下一组：${nextLabel}。`,
+        });
+      }
+    }
   };
 
   const markTaskReviewedForToday = (taskId: string) => {
@@ -358,51 +507,138 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     });
   };
 
+  const restoreTaskToToday = (task: Task) => {
+    clearTaskReviewedForToday(task.id);
+    setFocusedTaskId(task.id);
+    onSelectTask(task);
+    setFeedback({
+      tone: 'info',
+      title: '已恢复到今天',
+      description: `已把「${task.title}」恢复到今天的检查流。`,
+    });
+  };
+
+  const restoreAllReviewedToday = () => {
+    if (!reviewedTodayTasks.length) return;
+    setDismissedTaskMap((prev) => {
+      const next = { ...prev };
+      reviewedTodayTasks.forEach((task) => {
+        delete next[task.id];
+      });
+      writeDismissedMap(next);
+      return next;
+    });
+    const firstTask = reviewedTodayTasks[0];
+    if (firstTask) {
+      setFocusedTaskId(firstTask.id);
+      onSelectTask(firstTask);
+    }
+    setFeedback({
+      tone: 'info',
+      title: '已全部恢复',
+      description: `已把今天已检查的 ${reviewedTodayTasks.length} 项恢复到今天的检查流。`,
+    });
+  };
+
   const handleCustomReschedule = () => {
     if (!focusTask || !customDate) return;
     const offset = focusTask.timezoneOffset ?? defaultTimezoneOffset;
     onUpdateTaskDueDate(focusTask.id, `${customDate}T09:00:00.000Z`, offset);
-    setLastActionText(`已把「${focusTask.title}」改到 ${customDate}`);
+    registerAction(focusTask, 'rescheduled', `已把「${focusTask.title}」改到 ${customDate}`);
     setCustomDate('');
-    moveFocusToNext(focusTask.id);
+    moveFocusSmartly(focusTask.id);
   };
 
   const handleComplete = () => {
     if (!focusTask) return;
-    const title = focusTask.title;
     clearTaskReviewedForToday(focusTask.id);
     onToggleTaskStatus(focusTask.id);
-    setLastActionText(`已完成「${title}」，继续下一项`);
-    moveFocusToNext(focusTask.id);
+    registerAction(focusTask, 'completed', `已完成「${focusTask.title}」，继续下一项`);
+    moveFocusSmartly(focusTask.id);
   };
 
   const handlePreset = (preset: 'today' | 'tomorrow' | 'tonight', text: string) => {
     if (!focusTask) return;
-    const title = focusTask.title;
     clearTaskReviewedForToday(focusTask.id);
     onQuickSetDuePreset(focusTask.id, preset);
-    setLastActionText(`已将「${title}」${text}`);
-    moveFocusToNext(focusTask.id);
+    registerAction(focusTask, 'rescheduled', `已将「${focusTask.title}」${text}`);
+    moveFocusSmartly(focusTask.id);
   };
 
   const handleOpenContext = () => {
     if (!focusTask) return;
     onOpenTaskContext(focusTask);
-    setLastActionText(`已回到「${focusTask.title}」的原任务上下文`);
+    registerAction(focusTask, 'back_to_context', `已回到「${focusTask.title}」的原任务上下文`);
   };
 
   const handleDoneForToday = () => {
     if (!focusTask) return;
-    const title = focusTask.title;
     markTaskReviewedForToday(focusTask.id);
-    setLastActionText(`已把「${title}」标记为今天已检查，明天再回来`);
-    moveFocusToNext(focusTask.id);
+    registerAction(focusTask, 'reviewed_today', `已把「${focusTask.title}」标记为今天已检查，明天再回来`);
+    moveFocusSmartly(focusTask.id);
   };
 
   const handleBringBackToday = () => {
     if (!focusTask) return;
     clearTaskReviewedForToday(focusTask.id);
-    setLastActionText(`已恢复「${focusTask.title}」到今天的检查流`);
+    setFeedback({
+      tone: 'info',
+      title: '已恢复到今天',
+      description: `已恢复「${focusTask.title}」到今天的检查流。`,
+    });
+  };
+
+  const handleBatchReviewToday = () => {
+    if (!currentNaturalGroupRemaining.length || !currentNaturalGroupLabel) return;
+    currentNaturalGroupRemaining.forEach((task) => {
+      markTaskReviewedForToday(task.id);
+    });
+    setActionLog((prev) => {
+      const nextRecords = currentNaturalGroupRemaining.map((task) => ({
+        id: getActionId(),
+        taskId: task.id,
+        taskTitle: task.title,
+        type: 'reviewed_today' as const,
+        createdAt: new Date().toISOString(),
+        detail: `批量将「${task.title}」标记为今天已检查`,
+        groupKey: getTaskGroupKey(task),
+        groupLabel: getTaskGroupLabel(task),
+      }));
+      return [...nextRecords, ...prev].slice(0, 40);
+    });
+    setFeedback({
+      tone: 'success',
+      title: '本组已批量标记',
+      description: `已将「${currentNaturalGroupLabel}」剩余 ${currentNaturalGroupRemaining.length} 项标记为今天已检查。`,
+    });
+    if (focusTask) moveFocusSmartly(focusTask.id);
+  };
+
+  const handleBatchRescheduleTomorrow = () => {
+    if (!currentNaturalGroupTasks.length || !currentNaturalGroupLabel) return;
+    currentNaturalGroupTasks.forEach((task) => {
+      clearTaskReviewedForToday(task.id);
+      onQuickSetDuePreset(task.id, 'tomorrow');
+    });
+    setActionLog((prev) => {
+      const nextRecords = currentNaturalGroupTasks.map((task) => ({
+        id: getActionId(),
+        taskId: task.id,
+        taskTitle: task.title,
+        type: 'rescheduled' as const,
+        createdAt: new Date().toISOString(),
+        detail: `批量将「${task.title}」改到明天`,
+        groupKey: getTaskGroupKey(task),
+        groupLabel: getTaskGroupLabel(task),
+      }));
+      return [...nextRecords, ...prev].slice(0, 40);
+    });
+    setFeedback({
+      tone: 'success',
+      title: '本组已统一改期',
+      description: `已将「${currentNaturalGroupLabel}」这组 ${currentNaturalGroupTasks.length} 项统一改到明天。`,
+    });
+    if (focusTask) moveFocusSmartly(focusTask.id);
   };
 
   return (
@@ -413,11 +649,11 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             <div className="flex flex-wrap items-center gap-2">
               <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">Review / 检查</div>
               <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(0,0,0,0.18)] px-2.5 py-1 text-[10px] text-[#7d8595]">
-                0.0.3 工作流第三轮
+                0.0.4 工作流增强轮
               </span>
             </div>
             <div className="mt-2 text-xs leading-6 text-[#7d8595]">
-              不只按时间扫一遍，也可以按列表重新过一轮，把任务放回正确上下文再继续推进。
+              不只按时间扫一遍，也可以按列表重新过一轮；本轮会记录处理类型、支持批量动作，并在组切换时给出明确反馈。
             </div>
           </div>
 
@@ -464,73 +700,136 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           })}
       </div>
 
-      <div className="glass-panel-soft motion-enter space-y-4 rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-        <div className="space-y-1">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 1 步：选择检查视角</div>
-          <div className="text-xs text-[#7d8595]">先决定按时间扫，还是按列表逐组检查；下面再选当前这一组。</div>
-        </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)]">
+        <div className="glass-panel-soft motion-enter space-y-4 rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+          <div className="space-y-1">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 1 步：选择检查视角</div>
+            <div className="text-xs text-[#7d8595]">先决定按时间扫，还是按列表逐组检查；下面再选当前这一组。</div>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {([
-            { key: 'time', label: '按时间检查', icon: Clock3 },
-            { key: 'category', label: '按列表检查', icon: FolderKanban },
-          ] as const).map((item) => {
-            const Icon = item.icon;
-            const active = reviewMode === item.key;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setReviewMode(item.key)}
-                className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
-                  active
-                    ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                    : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690]'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-2">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 2 步：选择当前要扫的组</div>
-            <div className="flex flex-wrap items-center gap-2">
-            {(reviewMode === 'time' ? timeGroupMeta : categoryGroupMeta).map((item) => {
-              const active = reviewMode === 'time'
-                ? activeBucket === item.key
-                : activeCategoryBucket === item.key;
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              { key: 'time', label: '按时间检查', icon: Clock3 },
+              { key: 'category', label: '按列表检查', icon: FolderKanban },
+            ] as const).map((item) => {
+              const Icon = item.icon;
+              const active = reviewMode === item.key;
               return (
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => {
-                    if (reviewMode === 'time') {
-                      setActiveBucket(item.key as ReviewBucketKey);
-                    } else {
-                      setActiveCategoryBucket(item.key);
-                    }
-                  }}
-                  className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
+                  onClick={() => setReviewMode(item.key)}
+                  className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
                     active
                       ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
                       : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690]'
                   }`}
                 >
+                  <Icon className="h-3.5 w-3.5" />
                   {item.label}
-                  <span className="ml-1.5 text-[10px] opacity-80">{item.count}</span>
                 </button>
               );
             })}
+          </div>
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+            <div className="space-y-2">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 2 步：选择当前要扫的组</div>
+              <div className="flex flex-wrap items-center gap-2">
+                {(reviewMode === 'time' ? timeGroupMeta : categoryGroupMeta).map((item) => {
+                  const active = reviewMode === 'time'
+                    ? activeBucket === item.key
+                    : activeCategoryBucket === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        if (reviewMode === 'time') {
+                          setActiveBucket(item.key as ReviewBucketKey);
+                        } else {
+                          setActiveCategoryBucket(item.key);
+                        }
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
+                        active
+                          ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                          : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690]'
+                      }`}
+                    >
+                      {item.label}
+                      <span className="ml-1.5 text-[10px] opacity-80">{item.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3.5 py-3 text-[11px] leading-5 text-[#7d8595] xl:max-w-[280px]">
+              <div className="text-[#DCE3F4]">{currentGroupSummary}</div>
+              <div className="mt-1.5">当前展示：{reviewList.length} 项</div>
             </div>
           </div>
-          <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3.5 py-3 text-[11px] leading-5 text-[#7d8595] xl:max-w-[280px]">
-            <div className="text-[#DCE3F4]">{currentGroupSummary}</div>
-            <div className="mt-1.5">当前展示：{reviewList.length} 项</div>
+        </div>
+
+        <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">今天已检查</div>
+              <div className="mt-2 text-sm text-[#DCE3F4]">已暂时移出检查流 {dismissedTodayCount} 项</div>
+              <div className="mt-1 text-xs leading-5 text-[#7d8595]">这里可以看具体任务、逐项恢复，也可以一键全部恢复到今天。</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowReviewedTodayList((prev) => !prev)}
+              className="btn btn-ghost btn-sm rounded-2xl"
+            >
+              <ListChecks className="h-4 w-4" />
+              {showReviewedTodayList ? '收起列表' : '查看列表'}
+            </button>
           </div>
+
+          {dismissedTodayCount > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={restoreAllReviewedToday}
+                className="btn btn-secondary btn-sm rounded-2xl"
+              >
+                <RotateCcw className="h-4 w-4" />
+                全部恢复到今天
+              </button>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1 text-[11px] text-emerald-100">
+                明天会自动重新出现在检查流里
+              </span>
+            </div>
+          ) : null}
+
+          {showReviewedTodayList ? (
+            <div className="mt-3 space-y-2">
+              {reviewedTodayTasks.length === 0 ? (
+                <div className="rounded-[20px] border border-dashed border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-5 text-xs text-[#7d8595]">
+                  目前还没有被标记为“今天已检查”的任务。
+                </div>
+              ) : reviewedTodayTasks.map((task) => (
+                <div key={task.id} className="glass-panel-soft rounded-[20px] border-[color:var(--ui-border-soft)] px-3 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-[#F3F6FF] break-words">{task.title}</div>
+                      <div className="mt-1 text-[11px] text-[#7d8595]">{getCategoryLabel(task)}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => restoreTaskToToday(task)}
+                      className="btn btn-secondary btn-sm rounded-2xl shrink-0"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      恢复
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -556,9 +855,90 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             <div className="mt-2 text-xs leading-5 text-[#7d8595]">
               {reviewMode === 'time'
                 ? (focusTask
-                    ? '建议先把当前时间组扫完，再切下一组，避免检查节奏中断。'
+                    ? '优先继续当前更紧急的同组任务；如果本组清空，会明确提示切换到下一组。'
                     : '这一组已经扫完了，可以切去下一组继续。')
                 : categorySummaryText}
+            </div>
+            {nextAvailableGroupMeta ? (
+              <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-[11px] text-[#DCE3F4]">
+                <ChevronRight className="h-3.5 w-3.5 text-[#7d8595]" />
+                下一组候选：{nextAvailableGroupMeta.label}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 3.5 步：检查总结</div>
+            <div className="mt-2 text-sm text-[#DCE3F4]">当前这一轮已经做了哪些类型的处理，一眼能看清。</div>
+            <div className="mt-1 text-xs text-[#7d8595]">完成、改期、今天已检查、回到原任务，都会记到这里。</div>
+          </div>
+          <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-xs text-[#7d8595]">
+            本轮累计 {actionLog.length} 次处理
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {(Object.keys(resultTypeMeta) as ReviewResultType[]).map((type) => {
+            const meta = resultTypeMeta[type];
+            const Icon = meta.icon;
+            return (
+              <div key={type} className="glass-panel-soft rounded-[22px] border-[color:var(--ui-border-soft)] p-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">{meta.label}</div>
+                    <div className="mt-2 text-2xl font-semibold tracking-tight text-[#F3F6FF]">{actionCounts[type]}</div>
+                  </div>
+                  <div className={`rounded-2xl border px-2.5 py-2 ${meta.tone}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
+          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">处理类型</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(Object.keys(resultTypeMeta) as ReviewResultType[]).map((type) => {
+                const meta = resultTypeMeta[type];
+                const Icon = meta.icon;
+                return (
+                  <div key={type} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${meta.tone}`}>
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{meta.shortLabel}</span>
+                    <span className="opacity-80">{actionCounts[type]}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">最近处理</div>
+            <div className="mt-3 space-y-2">
+              {recentActions.length === 0 ? (
+                <div className="text-xs text-[#7d8595]">还没开始处理时，这里会显示本轮最新几次动作。</div>
+              ) : recentActions.map((item) => {
+                const meta = resultTypeMeta[item.type];
+                const Icon = meta.icon;
+                return (
+                  <div key={item.id} className="flex items-start gap-3 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
+                    <div className={`mt-0.5 rounded-xl border px-2 py-1 ${meta.tone}`}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-[#F3F6FF] break-words">{item.taskTitle}</div>
+                      <div className="mt-1 text-[11px] text-[#7d8595]">{meta.label} · {item.groupLabel}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -622,6 +1002,11 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                           <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
                             {getCategoryLabel(task)}
                           </span>
+                          {focusTask && currentNaturalGroupRemaining.some((item) => item.id === task.id) ? (
+                            <span className="text-[10px] text-sky-100 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-full">
+                              同组待推进
+                            </span>
+                          ) : null}
                         </div>
                         <div className="mt-2 text-[14px] font-medium leading-6 text-[#F3F6FF] break-words">
                           {task.title}
@@ -663,16 +1048,58 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                   今天已暂时移出检查流：{dismissedTodayCount} 项
                 </div>
               ) : null}
+              {currentNaturalGroupLabel ? (
+                <div className="mt-2 rounded-2xl border border-sky-500/20 bg-sky-500/8 px-3 py-2 text-xs text-sky-100">
+                  当前自然分组：{currentNaturalGroupLabel} · 剩余同组 {currentNaturalGroupRemaining.length} 项
+                </div>
+              ) : null}
             </div>
           </div>
 
           {focusTask ? (
             <div className="mt-4 space-y-3">
-              {lastActionText ? (
-                <div className="rounded-[20px] border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-3 text-xs text-emerald-100">
-                  {lastActionText}
+              {feedback ? (
+                <div className={`rounded-[20px] border px-3.5 py-3 text-xs ${
+                  feedback.tone === 'success'
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
+                    : 'border-sky-500/20 bg-sky-500/10 text-sky-100'
+                }`}>
+                  <div className="font-medium">{feedback.title}</div>
+                  <div className="mt-1 opacity-90">{feedback.description}</div>
                 </div>
               ) : null}
+
+              <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3.5 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">批量处理当前组</div>
+                    <div className="mt-1 text-xs leading-5 text-[#7d8595]">
+                      适合当前焦点所在的自然分组：{currentNaturalGroupLabel ?? '暂无'}。
+                    </div>
+                  </div>
+                  <Sparkles className="h-4 w-4 text-[#AAB3C6]" />
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={handleBatchReviewToday}
+                    disabled={currentNaturalGroupRemaining.length === 0}
+                    className="btn btn-secondary btn-md rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Eye className="h-4 w-4" />
+                    本组剩余项全标今天已检查
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBatchRescheduleTomorrow}
+                    disabled={currentNaturalGroupTasks.length === 0}
+                    className="btn btn-secondary btn-md rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    本组全部改到明天
+                  </button>
+                </div>
+              </div>
 
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
                 <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-4 space-y-3">
@@ -745,8 +1172,13 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                   </div>
 
                   <div className="space-y-2.5 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">今天先不再检查</div>
-                    <div className="text-xs text-[#7d8595]">这项今天已经看过的话，可以先移出今天的检查流，默认明天再回来。当前已移出 {dismissedTodayCount} 项。</div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">今天先不再检查</div>
+                        <div className="text-xs text-[#7d8595]">这项今天已经看过的话，可以先移出今天的检查流，默认明天再回来。当前已移出 {dismissedTodayCount} 项。</div>
+                      </div>
+                      <span className="rounded-full border border-sky-500/20 bg-sky-500/8 px-2.5 py-1 text-[10px] text-sky-100">结果类型：今天已检查</span>
+                    </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
@@ -831,7 +1263,10 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             </div>
           ) : (
             <div className="mt-4 rounded-[24px] border border-dashed border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-8 text-sm text-[#7d8595]">
-              当前分组已经检查完了，可以切到下一组继续扫。
+              <div>当前分组已经检查完了，可以切到下一组继续扫。</div>
+              {nextAvailableGroupMeta ? (
+                <div className="mt-2 text-xs text-[#DCE3F4]">建议下一组：{nextAvailableGroupMeta.label}</div>
+              ) : null}
             </div>
           )}
         </div>
