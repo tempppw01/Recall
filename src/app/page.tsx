@@ -3588,12 +3588,17 @@ export default function Home() {
     if (!target) return;
     const timezoneOffset = target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
     const baseNow = new Date();
-    const nextWeekBase = new Date(baseNow.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nextWeekMonday = (() => {
+      const zonedNow = new Date(baseNow.getTime() + timezoneOffset * 60 * 1000);
+      const day = zonedNow.getUTCDay();
+      const daysUntilNextMonday = day === 0 ? 8 : 8 - day;
+      return new Date(baseNow.getTime() + daysUntilNextMonday * 24 * 60 * 60 * 1000);
+    })();
     const dateText =
       preset === 'tomorrow'
         ? formatDateKeyByOffset(new Date(baseNow.getTime() + 24 * 60 * 60 * 1000), timezoneOffset)
         : preset === 'nextWeek'
-          ? formatDateKeyByOffset(nextWeekBase, timezoneOffset)
+          ? formatDateKeyByOffset(nextWeekMonday, timezoneOffset)
           : formatDateKeyByOffset(baseNow, timezoneOffset);
     const timeText = preset === 'tonight' ? '20:00' : '09:00';
     const dueDate = buildDueDateIso(dateText, timeText, timezoneOffset);

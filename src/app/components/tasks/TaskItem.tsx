@@ -544,7 +544,7 @@ const TaskItem = ({
                         onQuickSetDuePreset(task.id, 'nextWeek');
                       }}
                       className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
-                      title="快捷设置时间：下周 09:00"
+                      title="快捷设置时间：下周一 09:00"
                     >
                       下周
                     </button>
