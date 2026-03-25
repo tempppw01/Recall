@@ -1,105 +1,142 @@
 # Recall
 
-> 轻量 AI 待办｜专注把事做完
+> AI-first todo app for capturing, planning, and actually finishing work.
 
-Recall 是一个以「**低门槛上手 + 高频真实可用**」为目标的待办清单项目。
-它希望帮助你快速把想法变成行动，而不是把时间花在复杂配置和表单录入上。
+Recall is a lightweight task manager focused on one thing: **reducing friction between “I need to do this” and “I’ve started doing it.”**
 
----
-
-## 🎯 项目初衷
-
-很多待办产品“功能很全”，但也容易“越用越重”。
-Recall 的初衷是：
-
-- **轻量**：打开就能记，尽可能减少操作路径
-- **不轻浮**：在核心流程上足够可靠（任务、筛选、同步、导入导出）
-- **AI 不是噱头**：用于真实的自然语言录入、任务整理和回忆检索
-
-一句话：**让你把注意力放在完成事情，而不是管理工具本身。**
+It combines fast task capture, practical AI assistance, and a clean day-to-day workflow, so you spend less time maintaining a system and more time moving things forward.
 
 ---
 
-<img width="1168" height="730" alt="截屏2026-02-13 12 40 36" src="https://github.com/user-attachments/assets/47cd9f50-391a-4243-99b7-ad8440fa2627" />
-<img width="1164" height="733" alt="截屏2026-02-13 12 40 55" src="https://github.com/user-attachments/assets/7ae8d841-db94-417a-a688-96398784d4fd" />
-<img width="1169" height="741" alt="截屏2026-02-13 12 41 38" src="https://github.com/user-attachments/assets/5b309f57-9365-471f-b837-6c71dba34e3c" />
+## ✨ What Recall is for
 
+Most todo apps become powerful by becoming heavy.
+Recall goes in the opposite direction:
 
-## 🆕 近期更新（v0.1.1）
+- **Fast to capture** — write tasks the way you naturally think
+- **Practical to manage** — prioritize, schedule, filter, and review without getting buried in settings
+- **AI that helps with real work** — not just chat for the sake of chat
+- **Local-first by default** — usable with minimal setup, with optional server-side capabilities when needed
 
-本次版本聚焦 UI 可见问题修复，重点包含：
-
-- 项目版本更新为 **0.1.1**
-- 修复日历视图中的城市/定位输入重复问题
-- 整理一批明显 UI 错误，为后续渐进式重构铺路
-
-> 当前版本为 `v0.1.1`，用于优先修复界面问题并继续推进重构。
+In short: **Recall helps you focus on execution, not tool maintenance.**
 
 ---
 
-## ✨ 核心能力
+## 🖼️ Screenshots
 
-- **自然语言录入**：如“明天下午三点提醒我开会”
-- **任务管理完整闭环**：创建、完成、筛选、排序、标签、清单、子任务
-- **习惯打卡 + 倒数日**：覆盖高频个人效率场景
-- **AI 助手（Todo Agent）**：辅助拆解任务与整理行动清单
-- **AI 管理助手（Manage Agent）**：不仅会推荐任务，还支持直接在推荐卡片里一键执行建议动作（置顶 / 改优先级 / 改到今天、明天、今晚）
-- **本地优先存储**：默认 LocalStorage，可离线/低依赖使用
-- **可选远程能力**：Redis / PostgreSQL / WebDAV 按需接入
-- **PWA 支持**：可安装、可缓存、可通知
+<img width="1168" height="730" alt="Recall screenshot 1" src="https://github.com/user-attachments/assets/47cd9f50-391a-4243-99b7-ad8440fa2627" />
+<img width="1164" height="733" alt="Recall screenshot 2" src="https://github.com/user-attachments/assets/7ae8d841-db94-417a-a688-96398784d4fd" />
+<img width="1169" height="741" alt="Recall screenshot 3" src="https://github.com/user-attachments/assets/5b309f57-9365-471f-b837-6c71dba34e3c" />
 
 ---
 
-## 🧠 AI 助手说明
+## 🚀 Core features
 
-Recall 目前有两类 AI 助手：
+- **Natural language capture**  
+  Type things like “Remind me tomorrow at 3pm to call the client” and turn them into structured tasks quickly.
 
-- **AI 记录助手（Todo Agent）**：适合把自然语言输入整理成待办、拆分行动项。
-- **AI 管理助手（Manage Agent）**：适合基于当前任务列表给出优先级建议、今日推荐、逾期处理建议。
+- **Full task workflow**  
+  Create, complete, pin, prioritize, filter, sort, tag, group into lists, and break work into subtasks.
 
-### 管理助手的直接操作
+- **Unified due-date shortcuts**  
+  Quickly set tasks to today, tomorrow, tonight, or next Monday 9:00 with minimal clicks.
 
-管理助手返回 recommendation 时，前端会根据字段自动显示可执行按钮：
+- **Compact task editing**  
+  Edit dates and times directly from task cards with a lightweight inline picker.
 
-- `suggestedPriority` → 一键改优先级
-- `suggestedPinned` → 一键置顶 / 取消置顶
-- `suggestedDuePreset` → 一键改到今天 / 明天 / 今晚
+- **Pomodoro mode with floating widget**  
+  Stay focused with a timer that keeps running across views, supports floating display, dragging, docking, collapsing, and completion highlights.
 
-这些动作不会走旁路，仍然复用现有任务更新链路：
-- 本地状态更新：`updateTask / quickSetPriority / quickSetDuePreset`
-- 若已配置 PG 同步：会继续复用 `syncToPg('tasks', 'PUT', ...)`
+- **Habits and countdowns**  
+  Covers common personal productivity scenarios beyond simple task lists.
 
-也就是说，管理助手的“一键执行”只是现有任务编辑能力的快捷入口，不会引入单独的数据写入分支。
+- **AI assistants built into the workflow**
+  - **Todo Agent** for turning rough input into actionable tasks
+  - **Manage Agent** for surfacing priorities and suggesting one-click actions
 
----
+- **Local-first storage**  
+  Works out of the box with LocalStorage, with optional Redis / PostgreSQL / WebDAV support depending on your setup.
 
-## 🧱 技术栈
-
-- Next.js (App Router)
-- React + TypeScript
-- Tailwind CSS + Lucide Icons
-- Prisma（可选数据库）
-- Redis（可选同步队列）
-- WebDAV（可选附件存储）
+- **PWA support**  
+  Installable, cacheable, and notification-friendly.
 
 ---
 
-## 🚀 本地开发
+## 🧠 AI workflow
+
+Recall currently includes two practical AI roles:
+
+### 1) Todo Agent
+Best for:
+- converting natural language into tasks
+- splitting vague ideas into actionable items
+- helping you capture faster with less manual editing
+
+### 2) Manage Agent
+Best for:
+- identifying what deserves attention now
+- recommending priority changes
+- surfacing overdue or important tasks
+- offering direct actions from recommendation cards
+
+Supported quick actions include:
+- `suggestedPriority` → one-click priority update
+- `suggestedPinned` → one-click pin / unpin
+- `suggestedDuePreset` → one-click set to today / tomorrow / tonight / next week
+
+These actions reuse the existing task update flow rather than creating a separate write path, which keeps behavior consistent and predictable.
+
+---
+
+## 🧱 Tech stack
+
+- **Next.js** (App Router)
+- **React 18** + **TypeScript**
+- **Tailwind CSS** + **Lucide Icons**
+- **Prisma** (optional database layer)
+- **Redis** (optional sync / queue capability)
+- **WebDAV** (optional attachment storage)
+
+---
+
+## 🛠️ Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-默认访问：`http://localhost:3000`
+Default local address:
+
+```bash
+http://localhost:3000
+```
+
+Type check:
+
+```bash
+npm run typecheck
+```
+
+Lint:
+
+```bash
+npm run lint
+```
 
 ---
 
-## 🐳 Docker 部署（推荐）
+## 🐳 Docker deployment
 
-### 1) 使用 Docker Hub 镜像
+### Docker Hub image
 
-镜像仓库：`34v0wphix/recall`
+Image:
+
+```bash
+34v0wphix/recall
+```
+
+Run directly:
 
 ```bash
 docker pull 34v0wphix/recall:latest
@@ -111,19 +148,24 @@ docker run -d \
   34v0wphix/recall:latest
 ```
 
-访问：`http://<你的服务器IP>:3789`
+Open:
 
-> 若未设置 `NEXTAUTH_SECRET`，容器会临时生成 secret 以保证可启动（重启后会失效，建议生产显式配置）。
+```bash
+http://<your-server-ip>:3789
+```
 
-健康检查：
+Health checks:
+
 ```bash
 curl -fsS http://localhost:3789/api/health
 curl -fsS http://localhost:3789/api/health?deep=1
 ```
 
-### 2) Docker Compose 示例
+> If `NEXTAUTH_SECRET` is not provided, the container can generate a temporary secret so the app still starts. For production, set it explicitly.
 
-#### 方案 A：使用内置 PostgreSQL（推荐本地自部署）
+### Docker Compose example
+
+#### Option A: with local PostgreSQL
 
 ```yaml
 version: '3.8'
@@ -152,7 +194,7 @@ services:
 docker compose --profile local-db up -d
 ```
 
-#### 方案 B：连接远程 PostgreSQL
+#### Option B: with remote PostgreSQL
 
 ```yaml
 version: '3.8'
@@ -173,7 +215,7 @@ services:
 docker compose up -d
 ```
 
-也可以不直接写完整 `DATABASE_URL`，而是用下面这些变量组合：
+You can also compose your database config with:
 
 - `DB_HOST`
 - `DB_PORT`
@@ -181,34 +223,33 @@ docker compose up -d
 - `DB_USER`
 - `DB_PASSWORD`
 
-
 ---
 
-## ⚙️ 环境变量（可选）
+## ⚙️ Environment variables
 
-| 变量名 | 说明 | 默认值 |
+| Variable | Description | Default |
 |---|---|---|
-| `OPENAI_API_KEY` | AI 接口密钥 | - |
-| `OPENAI_BASE_URL` | AI 接口地址 | `https://ai.shuaihong.fun/v1` |
-| `EMBEDDING_PROVIDER` | 向量提供商（`openai` / `local`） | `openai` |
-| `NEXTAUTH_URL` | NextAuth 对外访问地址 | `http://localhost:3789` |
-| `NEXTAUTH_SECRET` | NextAuth 密钥（建议显式设置；未设置时容器会临时生成） | - |
-| `DATABASE_URL` | 服务端数据库连接串（默认 PostgreSQL） | `postgresql://postgres:postgres@postgres:5432/recall` |
-| `REDIS_HOST` | Redis 主机 | - |
-| `REDIS_PORT` | Redis 端口 | `6379` |
-| `REDIS_DB` | Redis 数据库编号 | `0` |
-| `REDIS_PASSWORD` | Redis 密码 | - |
+| `OPENAI_API_KEY` | API key for AI features | - |
+| `OPENAI_BASE_URL` | AI endpoint base URL | `https://ai.shuaihong.fun/v1` |
+| `EMBEDDING_PROVIDER` | Embedding provider (`openai` / `local`) | `openai` |
+| `NEXTAUTH_URL` | Public app URL for auth | `http://localhost:3789` |
+| `NEXTAUTH_SECRET` | NextAuth secret | - |
+| `DATABASE_URL` | Server-side database URL | `postgresql://postgres:postgres@postgres:5432/recall` |
+| `REDIS_HOST` | Redis host | - |
+| `REDIS_PORT` | Redis port | `6379` |
+| `REDIS_DB` | Redis database index | `0` |
+| `REDIS_PASSWORD` | Redis password | - |
 
-> 当前默认服务端模式为 **PostgreSQL**。浏览器端仍保留 LocalStorage 体验，但 Docker / Prisma / 鉴权链路统一按 PostgreSQL 描述。
+> The current default server-side persistence path is **PostgreSQL**. Browser-side LocalStorage behavior is still preserved for lightweight usage.
 
 ---
 
-## 🐘 数据库初始化与动态 PG 说明
+## 🐘 Database notes
 
-服务端持久化默认依赖 Prisma + PostgreSQL。
-更详细文档见：`docs/plan/database.md`
+Recall’s server-side persistence uses Prisma + PostgreSQL by default.
+More details: `docs/plan/database.md`
 
-### 快速初始化
+### Quick init
 
 ```bash
 export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/recall'
@@ -216,55 +257,50 @@ npx prisma generate
 npx prisma db push
 ```
 
-### 快速验证
+### Quick check
 
 ```bash
 DATABASE_URL='postgresql://postgres:postgres@localhost:5432/recall' ./scripts/db-check.sh
 ```
 
-### 动态 PG（高级模式）
+### Dynamic PG mode
 
-Recall 仍保留基于 `x-pg-*` 请求头的动态 PG 模式，但已经收紧为：
-- 默认关闭（需显式设置 `ENABLE_DYNAMIC_PG_HEADERS=true`）
-- 仅在**未登录**请求时生效
-- 已登录 session 始终优先走服务端数据库
+Recall still supports a dynamic PostgreSQL mode via `x-pg-*` headers, but this is intentionally restricted:
 
-建议同时配置：
+- disabled by default
+- requires `ENABLE_DYNAMIC_PG_HEADERS=true`
+- only works for **unauthenticated** requests
+- authenticated sessions always prefer the server database
+
+Recommended when enabling:
 - `PG_HEADERS_TOKEN`
 - `PG_HEADERS_HOST_ALLOWLIST`
 
-仅建议在自部署 / 内网 / 受信环境下使用。
+Use this only in trusted self-hosted environments.
 
 ---
 
-## 🤝 贡献指南（欢迎 PR）
+## 🗺️ Roadmap
 
-非常欢迎你参与贡献代码、文档和想法。
-
-你可以通过以下方式参与：
-
-1. 提交 Issue（Bug / 需求 / 体验建议）
-2. Fork 后新建分支开发
-3. 提交 PR，并附上变更说明与截图（如涉及 UI）
-
-建议提交格式：
-
-- `feat:` 新功能
-- `fix:` 修复
-- `docs:` 文档
-- `refactor:` 重构
-- `chore:` 构建/工程调整
-
-如果你愿意一起把 Recall 打磨成更好用的轻量待办工具，欢迎加入。✨
+- stronger search / embedding resilience
+- better multi-device sync and account support
+- smoother mobile interactions and performance
+- more reliable and more explainable AI assistance
 
 ---
 
-## 🗺️ 后续规划
+## 🤝 Contributing
 
-- 搜索/Embedding 容错与提示继续增强
-- 多端同步与账号能力完善
-- 移动端交互与性能优化
-- AI 稳定性与可解释性提升
+Issues, suggestions, and PRs are welcome.
+
+Recommended commit prefixes:
+- `feat:` new feature
+- `fix:` bug fix
+- `docs:` documentation
+- `refactor:` code restructuring
+- `chore:` tooling / maintenance
+
+If you want to help shape a faster, cleaner, more practical AI todo experience, feel free to join in.
 
 ---
 
