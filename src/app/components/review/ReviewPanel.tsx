@@ -60,6 +60,35 @@ const toDateInput = (date: Date) => {
 
 const getTaskSortTime = (task: Task) => new Date(task.dueDate || task.updatedAt || task.createdAt).getTime();
 const getCategoryLabel = (task: Task) => task.category?.trim() || '未分类';
+const REVIEW_DISMISSED_STORAGE_KEY = 'recall_review_dismissed_until';
+
+const readDismissedMap = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(REVIEW_DISMISSED_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as Record<string, string>;
+  } catch {
+    return {};
+  }
+};
+
+const writeDismissedMap = (map: Record<string, string>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(REVIEW_DISMISSED_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore storage write errors
+  }
+};
+
+const isSameLocalDay = (left: Date, right: Date) => (
+  left.getFullYear() === right.getFullYear()
+  && left.getMonth() === right.getMonth()
+  && left.getDate() === right.getDate()
+);
 
 export default function ReviewPanel(props: ReviewPanelProps) {
   const {
@@ -83,8 +112,19 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   const [customDate, setCustomDate] = useState('');
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(selectedTask?.id ?? null);
   const [lastActionText, setLastActionText] = useState('');
+  const [dismissedTaskMap, setDismissedTaskMap] = useState<Record<string, string>>({});
 
   const activeTasks = useMemo(() => tasks.filter((task) => task.status !== 'completed'), [tasks]);
+  const reviewEligibleTasks = useMemo(() => {
+    const now = new Date();
+    return activeTasks.filter((task) => {
+      const dismissedUntil = dismissedTaskMap[task.id];
+      if (!dismissedUntil) return true;
+      const dismissedDate = new Date(dismissedUntil);
+      if (Number.isNaN(dismissedDate.getTime())) return true;
+      return !isSameLocalDay(dismissedDate, now);
+    });
+  }, [activeTasks, dismissedTaskMap]);
 
   const reviewGroups = useMemo(() => {
     const today = startOfLocalDay(new Date());
@@ -97,7 +137,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       someday: [],
     };
 
-    activeTasks.forEach((task) => {
+    reviewEligibleTasks.forEach((task) => {
       if (task.dueDate && isTaskOverdue(task)) {
         groups.overdue.push(task);
         return;
@@ -124,12 +164,12 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     });
 
     return groups;
-  }, [activeTasks, isTaskOverdue]);
+  }, [reviewEligibleTasks, isTaskOverdue]);
 
   const categoryGroups = useMemo(() => {
     const grouped = new Map<string, Task[]>();
 
-    activeTasks.forEach((task) => {
+    reviewEligibleTasks.forEach((task) => {
       const label = getCategoryLabel(task);
       const list = grouped.get(label) ?? [];
       list.push(task);
@@ -150,7 +190,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       });
 
     return entries;
-  }, [activeTasks]);
+  }, [reviewEligibleTasks]);
 
   const reviewCounts = {
     all: Object.values(reviewGroups).reduce((sum, list) => sum + list.length, 0),
@@ -161,7 +201,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   };
 
   const categoryCounts = {
-    all: activeTasks.length,
+    all: reviewEligibleTasks.length,
     categoryGroups: categoryGroups.length,
     uncategorized: categoryGroups.find((group) => group.key === 'uncategorized')?.tasks.length ?? 0,
     largestGroup: categoryGroups[0]?.tasks.length ?? 0,
@@ -180,7 +220,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       key: 'all',
       label: '全部列表',
       description: '按列表把活重新扫一遍，适合周回顾和重新聚焦。',
-      count: activeTasks.length,
+      count: reviewEligibleTasks.length,
     },
     ...categoryGroups.map((group) => ({
       key: group.key,
@@ -251,6 +291,10 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   }, [selectedTask?.id]);
 
   useEffect(() => {
+    setDismissedTaskMap(readDismissedMap());
+  }, []);
+
+  useEffect(() => {
     if (reviewMode === 'category' && activeCategoryBucket !== 'all') {
       const exists = categoryGroups.some((group) => group.key === activeCategoryBucket);
       if (!exists) {
@@ -284,6 +328,25 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     if (nextTask) onSelectTask(nextTask);
   };
 
+  const markTaskReviewedForToday = (taskId: string) => {
+    const until = new Date().toISOString();
+    setDismissedTaskMap((prev) => {
+      const next = { ...prev, [taskId]: until };
+      writeDismissedMap(next);
+      return next;
+    });
+  };
+
+  const clearTaskReviewedForToday = (taskId: string) => {
+    setDismissedTaskMap((prev) => {
+      if (!(taskId in prev)) return prev;
+      const next = { ...prev };
+      delete next[taskId];
+      writeDismissedMap(next);
+      return next;
+    });
+  };
+
   const handleCustomReschedule = () => {
     if (!focusTask || !customDate) return;
     const offset = focusTask.timezoneOffset ?? defaultTimezoneOffset;
@@ -296,6 +359,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   const handleComplete = () => {
     if (!focusTask) return;
     const title = focusTask.title;
+    clearTaskReviewedForToday(focusTask.id);
     onToggleTaskStatus(focusTask.id);
     setLastActionText(`已完成「${title}」，继续下一项`);
     moveFocusToNext(focusTask.id);
@@ -304,6 +368,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   const handlePreset = (preset: 'today' | 'tomorrow' | 'tonight', text: string) => {
     if (!focusTask) return;
     const title = focusTask.title;
+    clearTaskReviewedForToday(focusTask.id);
     onQuickSetDuePreset(focusTask.id, preset);
     setLastActionText(`已将「${title}」${text}`);
     moveFocusToNext(focusTask.id);
@@ -313,6 +378,20 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     if (!focusTask) return;
     onOpenTaskContext(focusTask);
     setLastActionText(`已回到「${focusTask.title}」的原任务上下文`);
+  };
+
+  const handleDoneForToday = () => {
+    if (!focusTask) return;
+    const title = focusTask.title;
+    markTaskReviewedForToday(focusTask.id);
+    setLastActionText(`已把「${title}」标记为今天已检查，明天再回来`);
+    moveFocusToNext(focusTask.id);
+  };
+
+  const handleBringBackToday = () => {
+    if (!focusTask) return;
+    clearTaskReviewedForToday(focusTask.id);
+    setLastActionText(`已恢复「${focusTask.title}」到今天的检查流`);
   };
 
   return (
@@ -474,7 +553,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)] xl:items-start">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)] xl:items-start">
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -555,11 +634,11 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 xl:sticky xl:top-4">
           <div className="space-y-3">
             <div>
-              <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">第 4 步：处理当前焦点</div>
+              <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">第 4 步：左右对照处理当前焦点</div>
               <div className="mt-1 text-xs text-[#7d8595]">
                 {reviewMode === 'time'
-                  ? '做完当前判断后，会自动推进到下一项，尽量保持 Review 的节奏不断掉。'
-                  : '按列表检查时，重点不是快，而是把同一类任务重新摆正优先级和日期。'}
+                  ? '左边看任务原始信息，右边直接做决定；这样连续检查时不容易对丢。'
+                  : '按列表检查时，左边先确认任务本身，右边再决定完成、回到上下文，还是改期。'}
               </div>
             </div>
 
@@ -579,122 +658,135 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                 </div>
               ) : null}
 
-              <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前焦点</div>
-                    <div className="mt-2 text-[15px] font-medium leading-6 text-[#F3F6FF]">{focusTask.title}</div>
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
+                <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">左侧：当前任务</div>
+                      <div className="mt-2 text-[15px] font-medium leading-6 text-[#F3F6FF]">{focusTask.title}</div>
+                    </div>
+                    <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-[10px] text-blue-200">
+                      {focusStepText}
+                    </span>
                   </div>
-                  <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-[10px] text-blue-200">
-                    {focusStepText}
-                  </span>
-                </div>
-                <div className="mt-3 space-y-1 text-xs text-[#7d8595]">
-                  <div>状态：{focusTask.status === 'in_progress' ? '进行中' : '待处理'}</div>
-                  <div>列表：{getCategoryLabel(focusTask)}</div>
-                  <div>进度：当前第 {focusIndex + 1} 项 / 本组共 {reviewList.length} 项</div>
-                  <div>
-                    时间：
-                    {focusTask.dueDate
-                      ? formatZonedDateTime(focusTask.dueDate, getTimezoneOffset(focusTask))
-                      : formatZonedDate(focusTask.updatedAt || focusTask.createdAt, focusTask.timezoneOffset ?? defaultTimezoneOffset)}
-                  </div>
-                </div>
-              </div>
 
-              {(focusTask.subtasks?.length ?? 0) > 0 ? (
-                <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">子任务进度</div>
-                  <div className="mt-2 space-y-2 text-sm text-[#D8DEEF]">
-                    {focusTask.subtasks?.map((subtask) => (
-                      <div key={subtask.id} className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${subtask.completed ? 'bg-emerald-400' : 'bg-[#63708A]'}`} />
-                        <span className={subtask.completed ? 'line-through text-[#707789]' : 'text-[#D8DEEF]'}>{subtask.title}</span>
+                  <div className="space-y-1 text-xs text-[#7d8595]">
+                    <div>状态：{focusTask.status === 'in_progress' ? '进行中' : '待处理'}</div>
+                    <div>列表：{getCategoryLabel(focusTask)}</div>
+                    <div>进度：当前第 {focusIndex + 1} 项 / 本组共 {reviewList.length} 项</div>
+                    <div>
+                      时间：
+                      {focusTask.dueDate
+                        ? formatZonedDateTime(focusTask.dueDate, getTimezoneOffset(focusTask))
+                        : formatZonedDate(focusTask.updatedAt || focusTask.createdAt, focusTask.timezoneOffset ?? defaultTimezoneOffset)}
+                    </div>
+                    {(focusTask.tags?.length ?? 0) > 0 ? (
+                      <div>标签：{focusTask.tags?.filter(Boolean).slice(0, 6).map((tag) => `#${tag}`).join(' ')}</div>
+                    ) : null}
+                  </div>
+
+                  {(focusTask.subtasks?.length ?? 0) > 0 ? (
+                    <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                      <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">子任务进度</div>
+                      <div className="mt-2 space-y-2 text-sm text-[#D8DEEF]">
+                        {focusTask.subtasks?.map((subtask) => (
+                          <div key={subtask.id} className="flex items-center gap-2">
+                            <span className={`h-2 w-2 rounded-full ${subtask.completed ? 'bg-emerald-400' : 'bg-[#63708A]'}`} />
+                            <span className={subtask.completed ? 'line-through text-[#707789]' : 'text-[#D8DEEF]'}>{subtask.title}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-4 space-y-3">
+                  <div className="space-y-1">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">右侧：处理动作</div>
+                    <div className="text-xs text-[#7d8595]">对着左边这项直接处理，主操作放上面，改期放下面，避免来回找。</div>
                   </div>
-                </div>
-              ) : null}
 
-              <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5 space-y-3">
-                <div className="space-y-1">
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">主操作</div>
-                  <div className="text-xs text-[#7d8595]">先完成这项，或回到原任务补上下文；下面的改期属于次操作。</div>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={handleComplete}
-                    className="btn btn-primary btn-md rounded-2xl"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    标记完成
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenContext}
-                    className="btn btn-secondary btn-md rounded-2xl"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    回到原任务
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePreset('tomorrow', '跳到明天再看')}
-                    className="btn btn-secondary btn-md rounded-2xl"
-                  >
-                    <SkipForward className="h-4 w-4" />
-                    跳过到明天
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePreset('tonight', '安排到今晚再看')}
-                    className="btn btn-secondary btn-md rounded-2xl"
-                  >
-                    <CalendarClock className="h-4 w-4" />
-                    今晚再看
-                  </button>
-                </div>
-              </div>
+                  <div className="space-y-2.5">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">主操作</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={handleComplete}
+                        className="btn btn-primary btn-md rounded-2xl"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        标记完成
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenContext}
+                        className="btn btn-secondary btn-md rounded-2xl"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        回到原任务
+                      </button>
+                    </div>
+                  </div>
 
-              <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5 space-y-3">
-                <div className="space-y-1">
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">次操作：改期 / 稍后再看</div>
-                  <div className="text-xs text-[#7d8595]">只有当这项现在不适合推进时，再把它改到更合适的时间。</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePreset('today', '重新拉回到今天')}
-                    className="btn btn-secondary btn-sm rounded-2xl"
-                  >
-                    改到今天
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePreset('tomorrow', '稍后到明天处理')}
-                    className="btn btn-secondary btn-sm rounded-2xl"
-                  >
-                    稍后再看
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={customDate}
-                    onChange={(event) => setCustomDate(event.target.value)}
-                    min={toDateInput(new Date())}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-sm text-[#E8ECF8] focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCustomReschedule}
-                    disabled={!customDate}
-                    className="btn btn-secondary btn-md rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Hourglass className="h-4 w-4" />
-                    应用
-                  </button>
+                  <div className="space-y-2.5 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">稍后处理</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePreset('tomorrow', '跳到明天再看')}
+                        className="btn btn-secondary btn-md rounded-2xl"
+                      >
+                        <SkipForward className="h-4 w-4" />
+                        跳过到明天
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePreset('tonight', '安排到今晚再看')}
+                        className="btn btn-secondary btn-md rounded-2xl"
+                      >
+                        <CalendarClock className="h-4 w-4" />
+                        今晚再看
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">改期</div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePreset('today', '重新拉回到今天')}
+                        className="btn btn-secondary btn-sm rounded-2xl"
+                      >
+                        改到今天
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePreset('tomorrow', '稍后到明天处理')}
+                        className="btn btn-secondary btn-sm rounded-2xl"
+                      >
+                        稍后再看
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={customDate}
+                        onChange={(event) => setCustomDate(event.target.value)}
+                        min={toDateInput(new Date())}
+                        className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-sm text-[#E8ECF8] focus:outline-none focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCustomReschedule}
+                        disabled={!customDate}
+                        className="btn btn-secondary btn-md rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Hourglass className="h-4 w-4" />
+                        应用
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
