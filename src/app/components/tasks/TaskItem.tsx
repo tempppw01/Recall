@@ -308,7 +308,7 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative overflow-hidden p-2.5 sm:p-3 rounded-[24px] cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
+        className={`group relative overflow-visible p-2.5 sm:p-3 rounded-[24px] cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
