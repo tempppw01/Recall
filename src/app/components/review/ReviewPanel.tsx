@@ -120,18 +120,30 @@ const isSameLocalDay = (left: Date, right: Date) => (
   && left.getDate() === right.getDate()
 );
 
-const getTaskTimeBucket = (task: Task, isTaskOverdue: (task: Task) => boolean): Exclude<ReviewBucketKey, 'all'> => {
-  const today = startOfLocalDay(new Date());
-  const nextWeek = addDays(today, 7);
+const formatDateKeyByOffset = (date: Date, offsetMinutes: number) => {
+  const zoned = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  return `${zoned.getUTCFullYear()}-${String(zoned.getUTCMonth() + 1).padStart(2, '0')}-${String(zoned.getUTCDate()).padStart(2, '0')}`;
+};
+
+const getTaskTimeBucket = (
+  task: Task,
+  isTaskOverdue: (task: Task) => boolean,
+  defaultTimezoneOffset: number,
+): Exclude<ReviewBucketKey, 'all'> => {
+  const offset = task.timezoneOffset ?? defaultTimezoneOffset;
+  const todayKey = formatDateKeyByOffset(new Date(), offset);
+  const nextWeekDate = new Date();
+  nextWeekDate.setDate(nextWeekDate.getDate() + 7);
+  const nextWeekKey = formatDateKeyByOffset(nextWeekDate, offset);
 
   if (task.dueDate && isTaskOverdue(task)) {
     return 'overdue';
   }
 
   if (task.dueDate) {
-    const dueDay = startOfLocalDay(new Date(task.dueDate));
-    if (dueDay.getTime() === today.getTime()) return 'today';
-    if (dueDay > today && dueDay <= nextWeek) return 'upcoming';
+    const dueKey = formatDateKeyByOffset(new Date(task.dueDate), offset);
+    if (dueKey === todayKey) return 'today';
+    if (dueKey > todayKey && dueKey <= nextWeekKey) return 'upcoming';
   }
 
   return 'someday';
@@ -194,7 +206,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     };
 
     reviewEligibleTasks.forEach((task) => {
-      groups[getTaskTimeBucket(task, isTaskOverdue)].push(task);
+      groups[getTaskTimeBucket(task, isTaskOverdue, defaultTimezoneOffset)].push(task);
     });
 
     Object.values(groups).forEach((list) => {
@@ -202,7 +214,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     });
 
     return groups;
-  }, [reviewEligibleTasks, isTaskOverdue]);
+  }, [reviewEligibleTasks, isTaskOverdue, defaultTimezoneOffset]);
 
   const categoryGroups = useMemo(() => {
     const grouped = new Map<string, Task[]>();
@@ -306,7 +318,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
 
   const getTaskGroupKey = (task: Task) => {
     if (reviewMode === 'time') {
-      const timeBucket = getTaskTimeBucket(task, isTaskOverdue);
+      const timeBucket = getTaskTimeBucket(task, isTaskOverdue, defaultTimezoneOffset);
       return activeBucket === 'all' ? timeBucket : activeBucket;
     }
     const categoryKey = getCategoryLabel(task) === '未分类' ? 'uncategorized' : getCategoryLabel(task);
@@ -315,7 +327,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
 
   const getTaskGroupLabel = (task: Task) => {
     if (reviewMode === 'time') {
-      const timeBucket = getTaskTimeBucket(task, isTaskOverdue);
+      const timeBucket = getTaskTimeBucket(task, isTaskOverdue, defaultTimezoneOffset);
       return activeBucket === 'all' ? bucketMeta[timeBucket].label : (timeGroupMeta.find((item) => item.key === activeBucket)?.label ?? '当前时间组');
     }
     const categoryLabel = getCategoryLabel(task);
@@ -326,7 +338,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     if (!focusTask) return [] as Task[];
 
     if (reviewMode === 'time') {
-      const bucket = getTaskTimeBucket(focusTask, isTaskOverdue);
+      const bucket = getTaskTimeBucket(focusTask, isTaskOverdue, defaultTimezoneOffset);
       return reviewGroups[bucket];
     }
 
@@ -424,7 +436,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   }, [reviewList, focusTask]);
 
   const getPriorityScore = (task: Task) => {
-    const bucket = getTaskTimeBucket(task, isTaskOverdue);
+    const bucket = getTaskTimeBucket(task, isTaskOverdue, defaultTimezoneOffset);
     const bucketScore = bucket === 'overdue' ? 4000000000000 : bucket === 'today' ? 3000000000000 : bucket === 'upcoming' ? 2000000000000 : 1000000000000;
     const dueScore = 1000000000000 - Math.min(getTaskSortTime(task), 1000000000000);
     const priorityScore = task.priority * 1000000;
@@ -463,7 +475,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     const sameNaturalGroup = currentTask
       ? remaining.filter((task) => {
           if (reviewMode === 'time') {
-            return getTaskTimeBucket(task, isTaskOverdue) === getTaskTimeBucket(currentTask, isTaskOverdue);
+            return getTaskTimeBucket(task, isTaskOverdue, defaultTimezoneOffset) === getTaskTimeBucket(currentTask, isTaskOverdue, defaultTimezoneOffset);
           }
           return getCategoryLabel(task) === getCategoryLabel(currentTask);
         })
@@ -477,7 +489,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       onSelectTask(nextTask);
       if (currentTask && sameNaturalGroup.length === 0) {
         const nextLabel = reviewMode === 'time'
-          ? bucketMeta[getTaskTimeBucket(nextTask, isTaskOverdue)].label
+          ? bucketMeta[getTaskTimeBucket(nextTask, isTaskOverdue, defaultTimezoneOffset)].label
           : getCategoryLabel(nextTask);
         setFeedback({
           tone: 'info',
@@ -543,7 +555,14 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   const handleCustomReschedule = () => {
     if (!focusTask || !customDate) return;
     const offset = focusTask.timezoneOffset ?? defaultTimezoneOffset;
-    onUpdateTaskDueDate(focusTask.id, `${customDate}T09:00:00.000Z`, offset);
+    const utcMs = Date.UTC(
+      Number(customDate.slice(0, 4)),
+      Number(customDate.slice(5, 7)) - 1,
+      Number(customDate.slice(8, 10)),
+      9,
+      0,
+    ) - offset * 60 * 1000;
+    onUpdateTaskDueDate(focusTask.id, new Date(utcMs).toISOString(), offset);
     registerAction(focusTask, 'rescheduled', `已把「${focusTask.title}」改到 ${customDate}`);
     setCustomDate('');
     moveFocusSmartly(focusTask.id);
