@@ -637,7 +637,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
               <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">第 4 步：左右对照处理当前焦点</div>
               <div className="mt-1 text-xs text-[#7d8595]">
                 {reviewMode === 'time'
-                  ? '左边看任务原始信息，右边直接做决定；这样连续检查时不容易对丢。'
+                  ? '左边看任务原始信息，右边直接做决定；今天看过一次的任务，可以直接标成“今天已检查”，当天不再重复出现。'
                   : '按列表检查时，左边先确认任务本身，右边再决定完成、回到上下文，还是改期。'}
               </div>
             </div>
@@ -724,6 +724,29 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                       >
                         <ExternalLink className="h-4 w-4" />
                         回到原任务
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">今天先不再检查</div>
+                    <div className="text-xs text-[#7d8595]">这项今天已经看过的话，可以先移出今天的检查流，默认明天再回来。</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={handleDoneForToday}
+                        className="btn btn-secondary btn-md rounded-2xl"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        今天已检查
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleBringBackToday}
+                        className="btn btn-secondary btn-md rounded-2xl"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                        恢复到今天
                       </button>
                     </div>
                   </div>
