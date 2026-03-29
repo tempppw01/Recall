@@ -1,4 +1,4 @@
-import { AlertTriangle, MapPin, Package2, Search, Tag, XCircle } from 'lucide-react';
+import { AlertTriangle, Edit3, MapPin, Package2, Search, Tag, XCircle } from 'lucide-react';
 import { Item } from '@/lib/store';
 
 type ItemStatus = Item['status'];
@@ -28,7 +28,9 @@ type ItemsPanelProps = {
   setItemSearch: (value: string) => void;
   itemStatusFilter: string;
   setItemStatusFilter: (value: string) => void;
+  editingItemId: string | null;
   onCreateItem: () => void;
+  onEditItem: (item: Item) => void;
   onUpdateItemStatus: (id: string, status: ItemStatus) => void;
   onDeleteItem: (id: string) => void;
   onCreateItemTask: (item: Item, action: 'restock' | 'buy' | 'put_back') => void;
@@ -52,7 +54,9 @@ export default function ItemsPanel({
   setItemSearch,
   itemStatusFilter,
   setItemStatusFilter,
+  editingItemId,
   onCreateItem,
+  onEditItem,
   onUpdateItemStatus,
   onDeleteItem,
   onCreateItemTask,
@@ -72,7 +76,7 @@ export default function ItemsPanel({
 
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="glass-panel-soft rounded-[28px] border-[color:var(--ui-border-strong)] px-4 py-4 space-y-3">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-[#6d7483]">新增物品</div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-[#6d7483]">{editingItemId ? '编辑物品' : '新增物品'}</div>
             <input value={itemNameInput} onChange={(e) => setItemNameInput(e.target.value)} placeholder="物品名称，例如：5号电池" className="w-full bg-[#1F1F1F]/80 border border-[#3A3F4B]/50 rounded-xl px-3 py-2 text-sm text-[#ECECEC] placeholder-[#666666] focus:outline-none focus:border-blue-500" />
             <div className="grid gap-3 sm:grid-cols-2">
               <input value={itemCategoryInput} onChange={(e) => setItemCategoryInput(e.target.value)} placeholder="分类，例如：耗材" className="w-full bg-[#1F1F1F]/80 border border-[#3A3F4B]/50 rounded-xl px-3 py-2 text-sm text-[#ECECEC] placeholder-[#666666] focus:outline-none focus:border-blue-500" />
@@ -84,7 +88,7 @@ export default function ItemsPanel({
             </div>
             <textarea value={itemNoteInput} onChange={(e) => setItemNoteInput(e.target.value)} placeholder="备注，例如：只剩半盒" className="min-h-[88px] w-full resize-y bg-[#1F1F1F]/80 border border-[#3A3F4B]/50 rounded-xl px-3 py-2 text-sm text-[#ECECEC] placeholder-[#666666] focus:outline-none focus:border-blue-500" />
             <div className="flex justify-end">
-              <button type="button" onClick={onCreateItem} className="btn btn-primary btn-md rounded-2xl">添加物品</button>
+              <button type="button" onClick={onCreateItem} className="btn btn-primary btn-md rounded-2xl">{editingItemId ? '保存修改' : '添加物品'}</button>
             </div>
           </div>
 
@@ -144,6 +148,7 @@ export default function ItemsPanel({
                   <button type="button" onClick={() => onUpdateItemStatus(item.id, 'low_stock')} className="btn btn-ghost btn-sm rounded-2xl">库存低</button>
                   <button type="button" onClick={() => onUpdateItemStatus(item.id, 'need_restock')} className="btn btn-ghost btn-sm rounded-2xl">待补货</button>
                   <button type="button" onClick={() => onUpdateItemStatus(item.id, 'missing')} className="btn btn-ghost btn-sm rounded-2xl">缺失</button>
+                  <button type="button" onClick={() => onEditItem(item)} className="btn btn-secondary btn-sm rounded-2xl"><Edit3 className="w-3.5 h-3.5" /></button>
                   <button type="button" onClick={() => onCreateItemTask(item, 'restock')} className="btn btn-secondary btn-sm rounded-2xl">补货任务</button>
                   <button type="button" onClick={() => onCreateItemTask(item, 'buy')} className="btn btn-secondary btn-sm rounded-2xl">购买任务</button>
                   <button type="button" onClick={() => onCreateItemTask(item, 'put_back')} className="btn btn-secondary btn-sm rounded-2xl">归位任务</button>

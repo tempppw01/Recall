@@ -1261,6 +1261,7 @@ export default function Home() {
   const [itemNoteInput, setItemNoteInput] = useState('');
   const [itemSearch, setItemSearch] = useState('');
   const [itemStatusFilter, setItemStatusFilter] = useState('all');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
@@ -5763,6 +5764,7 @@ export default function Home() {
               setItemSearch={setItemSearch}
               itemStatusFilter={itemStatusFilter}
               setItemStatusFilter={setItemStatusFilter}
+              editingItemId={editingItemId}
               onCreateItem={() => {
                 const name = itemNameInput.trim();
                 if (!name) {
@@ -5771,26 +5773,45 @@ export default function Home() {
                 }
                 const quantity = Math.max(0, Number(itemQuantityInput) || 0);
                 const nowIso = new Date().toISOString();
-                itemStore.add({
-                  id: createId(),
+                const nextPayload = {
                   name,
                   category: itemCategoryInput.trim() || undefined,
                   location: itemLocationInput.trim() || undefined,
                   quantity,
-                  status: quantity <= 0 ? 'missing' : quantity <= 2 ? 'low_stock' : 'normal',
+                  status: quantity <= 0 ? 'missing' : quantity <= 2 ? 'low_stock' : 'normal' as Item['status'],
                   tags: itemTagsInput.split(/[，,]/).map((tag) => tag.trim()).filter(Boolean),
                   note: itemNoteInput.trim() || undefined,
-                  createdAt: nowIso,
                   updatedAt: nowIso,
-                });
+                };
+                if (editingItemId) {
+                  const current = itemStore.getAll().find((entry) => entry.id === editingItemId);
+                  if (!current) return;
+                  itemStore.update({ ...current, ...nextPayload });
+                } else {
+                  itemStore.add({
+                    id: createId(),
+                    ...nextPayload,
+                    createdAt: nowIso,
+                  });
+                }
                 refreshItems();
+                setEditingItemId(null);
                 setItemNameInput('');
                 setItemCategoryInput('');
                 setItemLocationInput('');
                 setItemQuantityInput('1');
                 setItemTagsInput('');
                 setItemNoteInput('');
-                pushLog('success', '已添加物品', `物品：${name}`);
+                pushLog('success', editingItemId ? '已更新物品' : '已添加物品', `物品：${name}`);
+              }}
+              onEditItem={(item) => {
+                setEditingItemId(item.id);
+                setItemNameInput(item.name);
+                setItemCategoryInput(item.category || '');
+                setItemLocationInput(item.location || '');
+                setItemQuantityInput(String(item.quantity));
+                setItemTagsInput((item.tags || []).join(', '));
+                setItemNoteInput(item.note || '');
               }}
               onUpdateItemStatus={(id, status) => {
                 const current = itemStore.getAll().find((entry) => entry.id === id);
