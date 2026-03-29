@@ -31,6 +31,7 @@ type ItemsPanelProps = {
   onCreateItem: () => void;
   onUpdateItemStatus: (id: string, status: ItemStatus) => void;
   onDeleteItem: (id: string) => void;
+  onCreateItemTask: (item: Item, action: 'restock' | 'buy' | 'put_back') => void;
 };
 
 export default function ItemsPanel({
@@ -54,6 +55,7 @@ export default function ItemsPanel({
   onCreateItem,
   onUpdateItemStatus,
   onDeleteItem,
+  onCreateItemTask,
 }: ItemsPanelProps) {
   const lowStockCount = items.filter((item) => item.status === 'low_stock' || item.status === 'need_restock').length;
   const missingCount = items.filter((item) => item.status === 'missing').length;
@@ -142,6 +144,9 @@ export default function ItemsPanel({
                   <button type="button" onClick={() => onUpdateItemStatus(item.id, 'low_stock')} className="btn btn-ghost btn-sm rounded-2xl">库存低</button>
                   <button type="button" onClick={() => onUpdateItemStatus(item.id, 'need_restock')} className="btn btn-ghost btn-sm rounded-2xl">待补货</button>
                   <button type="button" onClick={() => onUpdateItemStatus(item.id, 'missing')} className="btn btn-ghost btn-sm rounded-2xl">缺失</button>
+                  <button type="button" onClick={() => onCreateItemTask(item, 'restock')} className="btn btn-secondary btn-sm rounded-2xl">补货任务</button>
+                  <button type="button" onClick={() => onCreateItemTask(item, 'buy')} className="btn btn-secondary btn-sm rounded-2xl">购买任务</button>
+                  <button type="button" onClick={() => onCreateItemTask(item, 'put_back')} className="btn btn-secondary btn-sm rounded-2xl">归位任务</button>
                   <button type="button" onClick={() => onDeleteItem(item.id)} className="btn btn-danger btn-sm rounded-2xl ml-auto">
                     <XCircle className="w-3.5 h-3.5" />
                   </button>

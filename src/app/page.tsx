@@ -5789,6 +5789,35 @@ export default function Home() {
                 refreshItems();
                 pushLog('success', '已删除物品', current.name);
               }}
+              onCreateItemTask={(item, action) => {
+                const actionLabel = action === 'restock' ? '补货' : action === 'buy' ? '购买' : '归位';
+                const prefix = action === 'restock' ? '补货' : action === 'buy' ? '购买' : '把';
+                const title = action === 'put_back'
+                  ? `${prefix}${item.name}放回${item.location || '指定位置'}`
+                  : `${prefix}${item.name}`;
+                const detailParts = [
+                  item.category ? `分类：${item.category}` : '',
+                  item.location ? `位置：${item.location}` : '',
+                  typeof item.quantity === 'number' ? `当前数量：${item.quantity}` : '',
+                  item.note ? `备注：${item.note}` : '',
+                ].filter(Boolean);
+                const task: Task = {
+                  id: createId(),
+                  title,
+                  timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
+                  priority: action === 'buy' ? 2 : action === 'restock' ? 1 : 0,
+                  category: item.category || '物品管理',
+                  status: 'todo',
+                  tags: Array.from(new Set(['物品管理', actionLabel, ...(item.tags || [])])),
+                  pinned: false,
+                  subtasks: detailParts.length > 0 ? detailParts.map((part) => ({ id: createId(), title: part, completed: false })) : [],
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                };
+                taskStore.add(task);
+                refreshTasks();
+                pushLog('success', `已创建${actionLabel}任务`, title);
+              }}
             />
           ) : activeFilter === 'habit' ? (
             <div className="space-y-5 sm:space-y-6">
