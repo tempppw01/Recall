@@ -2,35 +2,36 @@
 
 ## 当前版本
 
-- 当前执行主线：**0.0.2 / 0.0.3 并行衔接期**
-  - `0.0.2`：执行中（接近收口）
-  - `0.0.3`：执行中（已启动）
-- 最新已发布历史 tag：**v0.3.1**
+- 当前工作版本：**v0.1**
+- 当前规则：只有在 `docs/plan/versions/v0.1.md` 全部 ✅、最近一轮审计无未处理高危问题、`CHANGELOG` 与 Release notes 一致之后，才允许推进到 `v0.2`
+- 最新历史 tag：**v0.3.1**
 
-> 说明：仓库历史上已存在 `v0.2.x`、`v0.3.x` tag / Release。
-> 当前计划版本号按 `0.0.1 -> 0.0.2 -> 0.0.3 -> 0.0.4` 递增：
-> - 历史 tag 不做自动重写
-> - 对外口径说明见 `docs/plan/versioning-policy.md`
-> - 每轮变更后必须补充 `docs/plan/audits/` 审计报告，并同步更新版本状态
+> 说明：仓库历史上已经存在 `v0.2.x / v0.3.x` 标签与 Release，这是既有发布事实，不做删除或重写。
+> 当前 `v0.1 / v0.2 / v0.3 / v1.0` 是新的计划治理主线，用于后续执行顺序与文档管理。
 
 ## 进度统计
 
-- 0.0.1：**已完成**
-- 0.0.2：**执行中（接近收口）**
-- 0.0.3：**执行中（已启动）**
-- 0.0.4：**仅规划**
+- v0.1：**4/4 已完成**
+- v0.2：**0/8 未开始（仅规划）**
+- v0.3：**0/6 未开始（仅规划）**
+- v1.0：**0/5 未开始（仅规划）**
 
 ## 导航
 
 - 路线图：`docs/plan/roadmap.md`
-- 版本总表：`docs/plan/version-summary.md`
-- 当前执行版本：`docs/plan/versions/0.0.2.md` / `docs/plan/versions/0.0.3.md`
-- 0.0.2 页面级执行清单：`docs/plan/versions/0.0.2-execution.md`
-- 版本口径说明：`docs/plan/versioning-policy.md`
+- 当前执行版本（唯一事实来源）：`docs/plan/versions/v0.1.md`
+- 后续版本规划：`docs/plan/versions/v0.2.md` / `docs/plan/versions/v0.3.md` / `docs/plan/versions/v1.0.md`
 - 审计报告：`docs/plan/audits/`
 - 发布记录：`docs/plan/releases/CHANGELOG.md`
 - UI 正式规范：`docs/plan/ui-spec.md`
 - UI 改版清单：`docs/plan/ui-refactor-checklist.md`
 - 多 agent 协作流程：`docs/plan/collaboration-workflow.md`
 - Agent 产品迭代工作流：`docs/plan/product-iteration-workflow.md`
-- 历史计划归档：`docs/plan/archive/`（含旧版 `v0.x / v1.x` 版本文件）
+- 历史计划归档：`docs/plan/archive/`
+
+## 约束
+
+- 所有任务 / 计划 / 审计 / 发布记录只允许放在 `docs/plan/` 下
+- 仓库根目录与 `docs/` 根目录不再散落新增 TODO / PLAN 文件
+- 每次计划结构调整后，必须同步更新本文件导航
+- 每轮 git 修改完成后，必须新增一份审计报告

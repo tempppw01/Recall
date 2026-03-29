@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
@@ -347,6 +347,7 @@ const formatRepeatLabel = (rule?: TaskRepeatRule) => {
 type TaskSortMode = 'priority' | 'dueDate' | 'createdAt' | 'title' | 'manual';
 type TaskGroupMode = 'none' | 'category' | 'priority' | 'dueDate';
 type TaskGroup = { key: string; label: string; items: Task[] };
+type FutureTaskBucketKey = 'overdue' | 'today' | 'upcoming' | 'future' | 'someday' | 'completed';
 
 const QUADRANT_COLLAPSE_LIMIT = 6;
 
@@ -466,6 +467,98 @@ const groupTasks = (items: Task[], mode: TaskGroupMode): TaskGroup[] => {
     label: getTaskGroupLabel(mode, key),
     items: map.get(key) ?? [],
   }));
+};
+
+const FUTURE_TASK_BUCKET_META: Record<FutureTaskBucketKey, { label: string; summary: string; tone: string; chipTone: string }> = {
+  overdue: {
+    label: '需要立刻处理',
+    summary: '已逾期，优先清掉。',
+    tone: 'border-rose-500/25 bg-rose-500/8',
+    chipTone: 'text-rose-200 border-rose-500/30 bg-rose-500/10',
+  },
+  today: {
+    label: '今天要动',
+    summary: '今天内该推进的任务。',
+    tone: 'border-amber-500/25 bg-amber-500/8',
+    chipTone: 'text-amber-100 border-amber-500/30 bg-amber-500/10',
+  },
+  upcoming: {
+    label: '即将到来',
+    summary: '未来 7 天内，值得提前准备。',
+    tone: 'border-sky-500/25 bg-sky-500/8',
+    chipTone: 'text-sky-100 border-sky-500/30 bg-sky-500/10',
+  },
+  future: {
+    label: '更远计划',
+    summary: '已经排上，但不是眼前要做。',
+    tone: 'border-violet-500/22 bg-violet-500/8',
+    chipTone: 'text-violet-100 border-violet-500/28 bg-violet-500/10',
+  },
+  someday: {
+    label: '未设日期',
+    summary: '暂时先收着，等你安排。',
+    tone: 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)]',
+    chipTone: 'text-[#B7C0D8] border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)]',
+  },
+  completed: {
+    label: '已完成',
+    summary: '已经收尾的任务。',
+    tone: 'border-emerald-500/20 bg-emerald-500/8',
+    chipTone: 'text-emerald-100 border-emerald-500/25 bg-emerald-500/10',
+  },
+};
+
+const getFutureTaskBucket = (
+  task: Task,
+  now: Date,
+): FutureTaskBucketKey => {
+  if (task.status === 'completed') return 'completed';
+  if (!task.dueDate) return 'someday';
+  if (isTaskOverdue(task)) return 'overdue';
+  if (isTaskDueToday(task, now)) return 'today';
+  if (isTaskDueWithinDays(task, now, 7)) return 'upcoming';
+  return 'future';
+};
+
+const groupTasksByFutureSignal = (
+  items: Task[],
+  now: Date,
+): TaskGroup[] => {
+  const bucketOrder: FutureTaskBucketKey[] = ['overdue', 'today', 'upcoming', 'future', 'someday', 'completed'];
+  const map = new Map<FutureTaskBucketKey, Task[]>();
+
+  items.forEach((task) => {
+    const bucket = getFutureTaskBucket(task, now);
+    if (!map.has(bucket)) {
+      map.set(bucket, []);
+    }
+    map.get(bucket)?.push(task);
+  });
+
+  return bucketOrder
+    .filter((bucket) => (map.get(bucket)?.length ?? 0) > 0)
+    .map((bucket) => ({
+      key: bucket,
+      label: FUTURE_TASK_BUCKET_META[bucket].label,
+      items: map.get(bucket) ?? [],
+    }));
+};
+
+const summarizeFutureTaskGroups = (groups: TaskGroup[]) => {
+  const summary = {
+    overdue: 0,
+    today: 0,
+    upcoming: 0,
+    future: 0,
+  };
+
+  groups.forEach((group) => {
+    if (group.key === 'overdue' || group.key === 'today' || group.key === 'upcoming' || group.key === 'future') {
+      summary[group.key] = group.items.length;
+    }
+  });
+
+  return summary;
 };
 
 type AgentItem = {
@@ -793,6 +886,229 @@ const getNextRepeatDate = (task: Task): Date | null => {
 // Main Layout
 // ---------------------------
 
+
+const parseChineseWeekdayInput = (raw: string, baseNow = new Date()) => {
+  const match = raw.match(
+    /(下周|本周)?(周|星期)([一二三四五六日天])\s*(上午|下午|晚上|中午)?\s*(\d{1,2})?(?:[:：点](\d{1,2}))?(?:分)?/,
+  );
+  if (!match) {
+    return { text: raw };
+  }
+
+  const [, weekPrefix, , weekdayCn, period, hourText, minuteText] = match;
+  const targetWeekday = WEEKDAY_MAP[weekdayCn];
+  const now = new Date(baseNow);
+  const currentWeekday = now.getDay();
+  let diff = (targetWeekday - currentWeekday + 7) % 7;
+
+  if (weekPrefix === '下周') {
+    diff += 7;
+  } else if (!weekPrefix && diff === 0) {
+    diff = 7;
+  }
+
+  let hours = 0;
+  let minutes = 0;
+  if (hourText) {
+    hours = Number(hourText);
+    minutes = minuteText ? Number(minuteText) : 0;
+    if ((period === '下午' || period === '晚上') && hours < 12) {
+      hours += 12;
+    } else if (period === '中午' && hours < 11) {
+      hours += 12;
+    }
+  } else if (period) {
+    hours = PERIOD_DEFAULT_HOUR[period] ?? 9;
+  }
+
+  const date = new Date(now);
+  date.setDate(now.getDate() + diff);
+  date.setHours(hours, minutes, 0, 0);
+  const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+
+  return { dueDate: date.toISOString(), text: cleaned };
+};
+
+const parseRelativeDayInput = (raw: string, baseNow = new Date()) => {
+  const match = raw.match(/(下个月(?:初|底)?|下月(?:初|底)?|大后天|后天|今天|明天|今晚|明早|明天早上|明天上午|明天中午|明天下午|明天晚上|下下周([一二三四五六日天])?|月底|月末)/);
+  if (!match) return { text: raw };
+
+  const now = new Date(baseNow);
+  let base = new Date(now);
+  const keyword = match[1];
+
+  if (keyword === '月底' || keyword === '月末') {
+    const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+    end.setHours(9, 0, 0, 0);
+    base = end;
+  } else if (keyword.startsWith('下个月') || keyword.startsWith('下月')) {
+    const targetMonth = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+    if (keyword.includes('底')) {
+      const end = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+      end.setHours(9, 0, 0, 0);
+      base = end;
+    } else {
+      const day = keyword.includes('初') ? 1 : 1;
+      base = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), day, 9, 0, 0, 0);
+    }
+  } else if (keyword.includes('今天') || keyword.includes('今晚')) {
+    base = new Date(now);
+  } else if (keyword.includes('明天')) {
+    base.setDate(base.getDate() + 1);
+  } else if (keyword.includes('后天')) {
+    base.setDate(base.getDate() + 2);
+  } else if (keyword.includes('大后天')) {
+    base.setDate(base.getDate() + 3);
+  } else if (keyword.startsWith('下下周')) {
+    const weekdayMatch = raw.match(/下下周([一二三四五六日天])/);
+    if (weekdayMatch) {
+      const weekday = WEEKDAY_MAP[weekdayMatch[1]];
+      const current = base.getDay();
+      let diff = (weekday - current + 7) % 7;
+      diff += 14;
+      base.setDate(base.getDate() + diff);
+    } else {
+      base.setDate(base.getDate() + 14);
+    }
+  }
+
+  if (keyword !== '月底' && keyword !== '月末') {
+    const periodMatch = raw.match(/(凌晨|早上|上午|中午|下午|晚上|今晚|明早)/);
+    const defaultHour = periodMatch ? PERIOD_DEFAULT_HOUR[periodMatch[1]] : 9;
+    base.setHours(defaultHour, 0, 0, 0);
+  }
+
+  const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+  return { dueDate: base.toISOString(), text: cleaned };
+};
+
+const parseTimeRangeInput = (raw: string) => {
+  const match = raw.match(/(\d{1,2})(?:[:：点](\d{1,2}))?\s*(?:到|\-|~)\s*(\d{1,2})(?:[:：点](\d{1,2}))?/);
+  if (!match) return { text: raw };
+  const [, startHour, startMin, endHour, endMin] = match;
+  const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+  return {
+    timeRange: {
+      startHour: Number(startHour),
+      startMinute: startMin ? Number(startMin) : 0,
+      endHour: Number(endHour),
+      endMinute: endMin ? Number(endMin) : 0,
+    },
+    text: cleaned,
+  };
+};
+
+const parseFuzzyPeriodOnly = (raw: string, baseNow = new Date()) => {
+  const periodMatch = raw.match(/(凌晨|早上|上午|中午|下午|晚上|今晚|明早)/);
+  if (!periodMatch) return { text: raw };
+  const cleaned = raw.replace(periodMatch[0], ' ').replace(/\s+/g, ' ').trim();
+  const defaultHour = PERIOD_DEFAULT_HOUR[periodMatch[1]] ?? 9;
+  const base = new Date(baseNow);
+  base.setHours(defaultHour, 0, 0, 0);
+  return { dueDate: base.toISOString(), text: cleaned };
+};
+
+const parseHolidayInput = (raw: string, baseNow = new Date()) => {
+  const match = raw.match(/(元旦|春节|清明|劳动节|端午|中秋|国庆)/);
+  if (!match) return { text: raw };
+  const now = new Date(baseNow);
+  const year = now.getFullYear();
+  const holiday = HOLIDAY_MAP[match[1]];
+  const date = holiday ? holiday(year) : null;
+  if (!date) return { text: raw };
+  if (date.getTime() < now.getTime()) {
+    date.setFullYear(year + 1);
+  }
+  const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
+  date.setHours(9, 0, 0, 0);
+  return { dueDate: date.toISOString(), text: cleaned };
+};
+
+const parseLocalTaskInput = (raw: string, baseNow = new Date()) => {
+  const tagMatches = Array.from(raw.matchAll(/#([^\s#]+)/g));
+  const tags = tagMatches.map((match) => match[1]);
+  let title = raw.replace(/#([^\s#]+)/g, '').trim();
+  let dueDate: string | undefined;
+
+  // 匹配日期格式 YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+  // 允许日期出现在字符串的任何位置，但要求日期前后是边界（空格或字符串首尾）
+  const dateMatch = title.match(/(?:^|\s)(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?:\s|$)/);
+  if (dateMatch) {
+    const [, year, month, day] = dateMatch;
+    const normalizedMonth = String(month).padStart(2, '0');
+    const normalizedDay = String(day).padStart(2, '0');
+    dueDate = `${year}-${normalizedMonth}-${normalizedDay}T00:00:00.000Z`;
+    // 移除匹配到的日期字符串，注意要处理可能捕获的前后空格，这里直接用匹配到的原文替换
+    title = title.replace(dateMatch[0], ' ').trim();
+  }
+
+  if (!dueDate) {
+    const weekdayParsed = parseChineseWeekdayInput(title, baseNow);
+    if (weekdayParsed.dueDate) {
+      dueDate = weekdayParsed.dueDate;
+      title = weekdayParsed.text || title;
+    }
+  }
+
+  if (!dueDate) {
+    const relativeParsed = parseRelativeDayInput(title, baseNow);
+    if (relativeParsed.dueDate) {
+      dueDate = relativeParsed.dueDate;
+      title = relativeParsed.text || title;
+    }
+  }
+
+  const timeRangeParsed = parseTimeRangeInput(title);
+  if (timeRangeParsed.timeRange) {
+    title = timeRangeParsed.text || title;
+    if (!dueDate) {
+      const base = new Date(baseNow);
+      base.setHours(timeRangeParsed.timeRange.startHour, timeRangeParsed.timeRange.startMinute, 0, 0);
+      dueDate = base.toISOString();
+    } else {
+      const base = new Date(dueDate);
+      base.setHours(timeRangeParsed.timeRange.startHour, timeRangeParsed.timeRange.startMinute, 0, 0);
+      dueDate = base.toISOString();
+    }
+  }
+
+  if (!dueDate) {
+    const holidayParsed = parseHolidayInput(title, baseNow);
+    if (holidayParsed.dueDate) {
+      dueDate = holidayParsed.dueDate;
+      title = holidayParsed.text || title;
+    }
+  }
+
+  if (!dueDate) {
+    const fuzzyParsed = parseFuzzyPeriodOnly(title, baseNow);
+    if (fuzzyParsed.dueDate) {
+      dueDate = fuzzyParsed.dueDate;
+      title = fuzzyParsed.text || title;
+    }
+  }
+
+  if (!dueDate) {
+    // 匹配 "today" 或 "tomorrow"，要求前后是边界
+    // 中文 "今天"、"明天" 不需要边界
+    if (title.includes('今天') || /(?:^|\s)today(?:\s|$)/i.test(title)) {
+      dueDate = new Date(baseNow).toISOString().split('T')[0] + 'T00:00:00.000Z';
+      title = title.replace(/今天/g, ' ').replace(/(?:^|\s)today(?:\s|$)/ig, ' ').trim();
+    } else if (title.includes('明天') || /(?:^|\s)tomorrow(?:\s|$)/i.test(title)) {
+      const date = new Date(baseNow);
+      date.setDate(date.getDate() + 1);
+      dueDate = date.toISOString().split('T')[0] + 'T00:00:00.000Z';
+      title = title.replace(/明天/g, ' ').replace(/(?:^|\s)tomorrow(?:\s|$)/ig, ' ').trim();
+    }
+  }
+
+  title = title.replace(/提醒我|帮我提醒|请提醒/g, ' ').replace(/\s+/g, ' ').trim();
+
+  if (!title) title = 'Untitled';
+
+  return { title, tags, dueDate };
+};
+
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -826,6 +1142,58 @@ export default function Home() {
   const [pgDatabase, setPgDatabase] = useState('');
   const [pgUsername, setPgUsername] = useState('');
   const [pgPassword, setPgPassword] = useState('');
+
+  const resolveActionableDetail = (
+    level: 'info' | 'success' | 'warning' | 'error',
+    message: string,
+    detail?: string,
+  ) => {
+    if (detail && detail.trim()) return detail.trim();
+    if (level === 'error') {
+      if (message.includes('同步')) return '建议：先检查同步配置，再点击「重试同步」。';
+      if (message.includes('AI') || message.includes('agent')) return '建议：检查 AI Key 与模型配置后重试。';
+      if (message.includes('导入') || message.includes('导出')) return '建议：确认文件格式与权限后重试。';
+      return '建议：打开运行日志查看详情后再重试。';
+    }
+    if (level === 'warning') return '建议：根据提示调整设置，然后再继续操作。';
+    if (level === 'success') return '完成了，可以继续下一步。';
+    return '状态已更新。';
+  };
+
+  const pushLog = useCallback((
+    level: 'info' | 'success' | 'warning' | 'error',
+    message: string,
+    detail?: string,
+    options?: { silentFeedback?: boolean },
+  ) => {
+    const actionableDetail = resolveActionableDetail(level, message, detail);
+    const entry = {
+      id: createId(),
+      level,
+      message,
+      detail: actionableDetail,
+      timestamp: new Date().toLocaleString('zh-CN', { hour12: false }),
+    };
+    setLogs((prev) => [entry, ...prev].slice(0, 200));
+    if (!options?.silentFeedback) {
+      setStatusFeedback({
+        id: entry.id,
+        level,
+        message,
+        detail: actionableDetail,
+      });
+    }
+  }, []);
+
+  const refreshTasks = useCallback(() => {
+    const all = taskStore.getAll();
+    const deletedMap = readDeletedMap(DELETED_TASKS_KEY);
+    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
+    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
+      persistDeletedMap(DELETED_TASKS_KEY, nextDeleted);
+    }
+    setTasks(filtered);
+  }, []);
 
   const { syncToPg } = usePgMirrorSync({
     enabled: Boolean(pgHost),
@@ -945,6 +1313,14 @@ export default function Home() {
     }[]
   >([]);
   const [statusFeedback, setStatusFeedback] = useState<StatusFeedback | null>(null);
+  useEffect(() => {
+    if (!statusFeedback) return;
+    const timeoutMs = statusFeedback.level === 'error' || statusFeedback.level === 'warning' ? 6400 : 4200;
+    const timer = window.setTimeout(() => {
+      setStatusFeedback((prev) => (prev?.id === statusFeedback.id ? null : prev));
+    }, timeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [statusFeedback]);
   // todo-agent 聊天状态
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
   const [aiAssistantMode, setAiAssistantMode] = useState<AiAssistantMode>('record');
@@ -1030,57 +1406,6 @@ export default function Home() {
     setGradientTheme,
     handleThemeToggle,
   } = useThemeSettings();
-
-  const resolveActionableDetail = (
-    level: 'info' | 'success' | 'warning' | 'error',
-    message: string,
-    detail?: string,
-  ) => {
-    if (detail && detail.trim()) return detail.trim();
-    if (level === 'error') {
-      if (message.includes('同步')) return '建议：先检查同步配置，再点击「重试同步」。';
-      if (message.includes('AI') || message.includes('agent')) return '建议：检查 AI Key 与模型配置后重试。';
-      if (message.includes('导入') || message.includes('导出')) return '建议：确认文件格式与权限后重试。';
-      return '建议：打开运行日志查看详情后再重试。';
-    }
-    if (level === 'warning') return '建议：根据提示调整设置，然后再继续操作。';
-    if (level === 'success') return '完成了，可以继续下一步。';
-    return '状态已更新。';
-  };
-
-  function pushLog(
-    level: 'info' | 'success' | 'warning' | 'error',
-    message: string,
-    detail?: string,
-    options?: { silentFeedback?: boolean },
-  ) {
-    const actionableDetail = resolveActionableDetail(level, message, detail);
-    const entry = {
-      id: createId(),
-      level,
-      message,
-      detail: actionableDetail,
-      timestamp: new Date().toLocaleString('zh-CN', { hour12: false }),
-    };
-    setLogs((prev) => [entry, ...prev].slice(0, 200));
-    if (!options?.silentFeedback) {
-      setStatusFeedback({
-        id: entry.id,
-        level,
-        message,
-        detail: actionableDetail,
-      });
-    }
-  }
-
-  useEffect(() => {
-    if (!statusFeedback) return;
-    const timeoutMs = statusFeedback.level === 'error' || statusFeedback.level === 'warning' ? 6400 : 4200;
-    const timer = window.setTimeout(() => {
-      setStatusFeedback((prev) => (prev?.id === statusFeedback.id ? null : prev));
-    }, timeoutMs);
-    return () => window.clearTimeout(timer);
-  }, [statusFeedback]);
 
   const persistSettings = (next: {
     apiKey: string;
@@ -1525,7 +1850,7 @@ export default function Home() {
 
       setSettingsLoaded(true);
     }
-  }, []);
+  }, [refreshTasks]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1597,7 +1922,7 @@ export default function Home() {
 
   useEffect(() => {
     pushLog('info', '应用已启动', pgHost ? `数据存储：PG (${pgHost})` : '数据存储：浏览器 localStorage');
-  }, [pgHost]);
+  }, [pgHost, pushLog]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1658,7 +1983,7 @@ export default function Home() {
     return () => {
       timerIds.forEach((id) => window.clearTimeout(id));
     };
-  }, [tasks, notificationSupported]);
+  }, [tasks, notificationSupported, pushLog]);
 
   useEffect(() => {
     if (calendarView === 'week') {
@@ -1998,84 +2323,6 @@ export default function Home() {
     return () => window.removeEventListener('click', handleClose);
   }, [showAppMenu]);
 
-  useEffect(() => {
-    const handleGlobalKeydown = async (event: KeyboardEvent) => {
-      const modifier = event.metaKey || event.ctrlKey;
-      const editable = isEditableShortcutTarget(event.target);
-
-      if (event.key === 'Escape') {
-        if (editingTaskId) {
-          setEditingTaskId(null);
-          setEditingTaskTitle('');
-          return;
-        }
-        if (showSettings) {
-          setShowSettings(false);
-          return;
-        }
-        if (showLogs) {
-          setShowLogs(false);
-          return;
-        }
-        if (selectedTask) {
-          setSelectedTask(null);
-          return;
-        }
-      }
-
-      if (!modifier) return;
-
-      const key = event.key.toLowerCase();
-
-      if (key === 'c' && selectedTask && !editable) {
-        event.preventDefault();
-        await copyTaskContent(selectedTask);
-        return;
-      }
-
-      if (key === 'v' && !editable) {
-        event.preventDefault();
-        try {
-          const text = await navigator.clipboard.readText();
-          if (text.trim()) {
-            await createLocalTaskFromInput(text.trim(), activeFilter === 'category' ? activeCategory : null);
-          }
-        } catch (error) {
-          console.error('Failed to paste task from clipboard', error);
-        }
-        return;
-      }
-
-      if (key === 'z' && !editable) {
-        event.preventDefault();
-        if (lastRemovedTask) {
-          restoreLastRemovedTask();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeydown);
-    return () => window.removeEventListener('keydown', handleGlobalKeydown);
-  }, [
-    activeCategory,
-    activeFilter,
-    editingTaskId,
-    lastRemovedTask,
-    selectedTask,
-    showLogs,
-    showSettings,
-  ]);
-
-  const refreshTasks = () => {
-    const all = taskStore.getAll();
-    const deletedMap = readDeletedMap(DELETED_TASKS_KEY);
-    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
-    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
-      persistDeletedMap(DELETED_TASKS_KEY, nextDeleted);
-    }
-    setTasks(filtered);
-  };
-
   const snapshotTasksForUndo = (label: string) => {
     setTaskUndoSnapshot(taskStore.getAll().map((task) => ({
       ...task,
@@ -2335,6 +2582,8 @@ export default function Home() {
 
   const sortedTasks = sortTasks(filteredTasks, taskSortMode);
   const groupedTasks = groupTasks(sortedTasks, taskGroupMode);
+  const futureAwareGroupedTasks = groupTasksByFutureSignal(sortedTasks, filterNow);
+  const futureTaskSummary = summarizeFutureTaskGroups(futureAwareGroupedTasks);
 
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const totalTasks = tasks.length;
@@ -3144,229 +3393,7 @@ export default function Home() {
     importInputRef.current?.click();
   };
 
-  const parseChineseWeekdayInput = (raw: string, baseNow = new Date()) => {
-    const match = raw.match(
-      /(下周|本周)?(周|星期)([一二三四五六日天])\s*(上午|下午|晚上|中午)?\s*(\d{1,2})?(?:[:：点](\d{1,2}))?(?:分)?/,
-    );
-    if (!match) {
-      return { text: raw };
-    }
-
-    const [, weekPrefix, , weekdayCn, period, hourText, minuteText] = match;
-    const targetWeekday = WEEKDAY_MAP[weekdayCn];
-    const now = new Date(baseNow);
-    const currentWeekday = now.getDay();
-    let diff = (targetWeekday - currentWeekday + 7) % 7;
-
-    if (weekPrefix === '下周') {
-      diff += 7;
-    } else if (!weekPrefix && diff === 0) {
-      diff = 7;
-    }
-
-    let hours = 0;
-    let minutes = 0;
-    if (hourText) {
-      hours = Number(hourText);
-      minutes = minuteText ? Number(minuteText) : 0;
-      if ((period === '下午' || period === '晚上') && hours < 12) {
-        hours += 12;
-      } else if (period === '中午' && hours < 11) {
-        hours += 12;
-      }
-    } else if (period) {
-      hours = PERIOD_DEFAULT_HOUR[period] ?? 9;
-    }
-
-    const date = new Date(now);
-    date.setDate(now.getDate() + diff);
-    date.setHours(hours, minutes, 0, 0);
-    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
-
-    return { dueDate: date.toISOString(), text: cleaned };
-  };
-
-  const parseRelativeDayInput = (raw: string, baseNow = new Date()) => {
-    const match = raw.match(/(下个月(?:初|底)?|下月(?:初|底)?|大后天|后天|今天|明天|今晚|明早|明天早上|明天上午|明天中午|明天下午|明天晚上|下下周([一二三四五六日天])?|月底|月末)/);
-    if (!match) return { text: raw };
-
-    const now = new Date(baseNow);
-    let base = new Date(now);
-    const keyword = match[1];
-
-    if (keyword === '月底' || keyword === '月末') {
-      const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-      end.setHours(9, 0, 0, 0);
-      base = end;
-    } else if (keyword.startsWith('下个月') || keyword.startsWith('下月')) {
-      const targetMonth = new Date(base.getFullYear(), base.getMonth() + 1, 1);
-      if (keyword.includes('底')) {
-        const end = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
-        end.setHours(9, 0, 0, 0);
-        base = end;
-      } else {
-        const day = keyword.includes('初') ? 1 : 1;
-        base = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), day, 9, 0, 0, 0);
-      }
-    } else if (keyword.includes('今天') || keyword.includes('今晚')) {
-      base = new Date(now);
-    } else if (keyword.includes('明天')) {
-      base.setDate(base.getDate() + 1);
-    } else if (keyword.includes('后天')) {
-      base.setDate(base.getDate() + 2);
-    } else if (keyword.includes('大后天')) {
-      base.setDate(base.getDate() + 3);
-    } else if (keyword.startsWith('下下周')) {
-      const weekdayMatch = raw.match(/下下周([一二三四五六日天])/);
-      if (weekdayMatch) {
-        const weekday = WEEKDAY_MAP[weekdayMatch[1]];
-        const current = base.getDay();
-        let diff = (weekday - current + 7) % 7;
-        diff += 14;
-        base.setDate(base.getDate() + diff);
-      } else {
-        base.setDate(base.getDate() + 14);
-      }
-    }
-
-    if (keyword !== '月底' && keyword !== '月末') {
-      const periodMatch = raw.match(/(凌晨|早上|上午|中午|下午|晚上|今晚|明早)/);
-      const defaultHour = periodMatch ? PERIOD_DEFAULT_HOUR[periodMatch[1]] : 9;
-      base.setHours(defaultHour, 0, 0, 0);
-    }
-
-    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
-    return { dueDate: base.toISOString(), text: cleaned };
-  };
-
-  const parseTimeRangeInput = (raw: string) => {
-    const match = raw.match(/(\d{1,2})(?:[:：点](\d{1,2}))?\s*(?:到|\-|~)\s*(\d{1,2})(?:[:：点](\d{1,2}))?/);
-    if (!match) return { text: raw };
-    const [, startHour, startMin, endHour, endMin] = match;
-    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
-    return {
-      timeRange: {
-        startHour: Number(startHour),
-        startMinute: startMin ? Number(startMin) : 0,
-        endHour: Number(endHour),
-        endMinute: endMin ? Number(endMin) : 0,
-      },
-      text: cleaned,
-    };
-  };
-
-  const parseFuzzyPeriodOnly = (raw: string, baseNow = new Date()) => {
-    const periodMatch = raw.match(/(凌晨|早上|上午|中午|下午|晚上|今晚|明早)/);
-    if (!periodMatch) return { text: raw };
-    const cleaned = raw.replace(periodMatch[0], ' ').replace(/\s+/g, ' ').trim();
-    const defaultHour = PERIOD_DEFAULT_HOUR[periodMatch[1]] ?? 9;
-    const base = new Date(baseNow);
-    base.setHours(defaultHour, 0, 0, 0);
-    return { dueDate: base.toISOString(), text: cleaned };
-  };
-
-  const parseHolidayInput = (raw: string, baseNow = new Date()) => {
-    const match = raw.match(/(元旦|春节|清明|劳动节|端午|中秋|国庆)/);
-    if (!match) return { text: raw };
-    const now = new Date(baseNow);
-    const year = now.getFullYear();
-    const holiday = HOLIDAY_MAP[match[1]];
-    const date = holiday ? holiday(year) : null;
-    if (!date) return { text: raw };
-    if (date.getTime() < now.getTime()) {
-      date.setFullYear(year + 1);
-    }
-    const cleaned = raw.replace(match[0], ' ').replace(/\s+/g, ' ').trim();
-    date.setHours(9, 0, 0, 0);
-    return { dueDate: date.toISOString(), text: cleaned };
-  };
-
-  const parseLocalTaskInput = (raw: string, baseNow = new Date()) => {
-    const tagMatches = Array.from(raw.matchAll(/#([^\s#]+)/g));
-    const tags = tagMatches.map((match) => match[1]);
-    let title = raw.replace(/#([^\s#]+)/g, '').trim();
-    let dueDate: string | undefined;
-
-    // 匹配日期格式 YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
-    // 允许日期出现在字符串的任何位置，但要求日期前后是边界（空格或字符串首尾）
-    const dateMatch = title.match(/(?:^|\s)(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?:\s|$)/);
-    if (dateMatch) {
-      const [, year, month, day] = dateMatch;
-      const normalizedMonth = String(month).padStart(2, '0');
-      const normalizedDay = String(day).padStart(2, '0');
-      dueDate = `${year}-${normalizedMonth}-${normalizedDay}T00:00:00.000Z`;
-      // 移除匹配到的日期字符串，注意要处理可能捕获的前后空格，这里直接用匹配到的原文替换
-      title = title.replace(dateMatch[0], ' ').trim();
-    }
-
-    if (!dueDate) {
-      const weekdayParsed = parseChineseWeekdayInput(title, baseNow);
-      if (weekdayParsed.dueDate) {
-        dueDate = weekdayParsed.dueDate;
-        title = weekdayParsed.text || title;
-      }
-    }
-
-    if (!dueDate) {
-      const relativeParsed = parseRelativeDayInput(title, baseNow);
-      if (relativeParsed.dueDate) {
-        dueDate = relativeParsed.dueDate;
-        title = relativeParsed.text || title;
-      }
-    }
-
-    const timeRangeParsed = parseTimeRangeInput(title);
-    if (timeRangeParsed.timeRange) {
-      title = timeRangeParsed.text || title;
-      if (!dueDate) {
-        const base = new Date(baseNow);
-        base.setHours(timeRangeParsed.timeRange.startHour, timeRangeParsed.timeRange.startMinute, 0, 0);
-        dueDate = base.toISOString();
-      } else {
-        const base = new Date(dueDate);
-        base.setHours(timeRangeParsed.timeRange.startHour, timeRangeParsed.timeRange.startMinute, 0, 0);
-        dueDate = base.toISOString();
-      }
-    }
-
-    if (!dueDate) {
-      const holidayParsed = parseHolidayInput(title, baseNow);
-      if (holidayParsed.dueDate) {
-        dueDate = holidayParsed.dueDate;
-        title = holidayParsed.text || title;
-      }
-    }
-
-    if (!dueDate) {
-      const fuzzyParsed = parseFuzzyPeriodOnly(title, baseNow);
-      if (fuzzyParsed.dueDate) {
-        dueDate = fuzzyParsed.dueDate;
-        title = fuzzyParsed.text || title;
-      }
-    }
-
-    if (!dueDate) {
-      // 匹配 "today" 或 "tomorrow"，要求前后是边界
-      // 中文 "今天"、"明天" 不需要边界
-      if (title.includes('今天') || /(?:^|\s)today(?:\s|$)/i.test(title)) {
-        dueDate = new Date(baseNow).toISOString().split('T')[0] + 'T00:00:00.000Z';
-        title = title.replace(/今天/g, ' ').replace(/(?:^|\s)today(?:\s|$)/ig, ' ').trim();
-      } else if (title.includes('明天') || /(?:^|\s)tomorrow(?:\s|$)/i.test(title)) {
-        const date = new Date(baseNow);
-        date.setDate(date.getDate() + 1);
-        dueDate = date.toISOString().split('T')[0] + 'T00:00:00.000Z';
-        title = title.replace(/明天/g, ' ').replace(/(?:^|\s)tomorrow(?:\s|$)/ig, ' ').trim();
-      }
-    }
-
-    title = title.replace(/提醒我|帮我提醒|请提醒/g, ' ').replace(/\s+/g, ' ').trim();
-
-    if (!title) title = 'Untitled';
-
-    return { title, tags, dueDate };
-  };
-
-  const createLocalTaskFromInput = async (raw: string, overrideCategory?: string | null) => {
+  const createLocalTaskFromInput = useCallback(async (raw: string, overrideCategory?: string | null) => {
     // 优化：直接使用本地时间，提高响应速度
     const now = new Date();
     const parsed = parseLocalTaskInput(raw, now);
@@ -3393,7 +3420,7 @@ export default function Home() {
     syncToPg('tasks', 'POST', task);
 
     setInput('');
-  };
+  }, [refreshTasks, syncToPg]);
 
   const handleMagicInput = async () => {
     if (!input.trim()) return;
@@ -3513,13 +3540,13 @@ export default function Home() {
     }
   };
 
-  const copyTaskContent = async (task: Task) => {
+  const copyTaskContent = useCallback(async (task: Task) => {
     try {
       await navigator.clipboard.writeText(formatTaskContent(task));
     } catch (error) {
       console.error('Failed to copy content', error);
     }
-  };
+  }, []);
 
   const isEditableShortcutTarget = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return false;
@@ -3652,7 +3679,7 @@ export default function Home() {
     }
   };
 
-  const restoreLastRemovedTask = () => {
+  const restoreLastRemovedTask = useCallback(() => {
     if (!lastRemovedTask) return;
     const restoredTask = { ...lastRemovedTask, updatedAt: new Date().toISOString() };
     const deletedMap = readDeletedMap(DELETED_TASKS_KEY);
@@ -3666,7 +3693,78 @@ export default function Home() {
     syncToPg('tasks', 'POST', restoredTask);
     setSelectedTask(restoredTask);
     setLastRemovedTask(null);
-  };
+  }, [lastRemovedTask, refreshTasks, syncToPg]);
+
+  useEffect(() => {
+    const handleGlobalKeydown = async (event: KeyboardEvent) => {
+      const modifier = event.metaKey || event.ctrlKey;
+      const editable = isEditableShortcutTarget(event.target);
+
+      if (event.key === 'Escape') {
+        if (editingTaskId) {
+          setEditingTaskId(null);
+          setEditingTaskTitle('');
+          return;
+        }
+        if (showSettings) {
+          setShowSettings(false);
+          return;
+        }
+        if (showLogs) {
+          setShowLogs(false);
+          return;
+        }
+        if (selectedTask) {
+          setSelectedTask(null);
+          return;
+        }
+      }
+
+      if (!modifier) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === 'c' && selectedTask && !editable) {
+        event.preventDefault();
+        await copyTaskContent(selectedTask);
+        return;
+      }
+
+      if (key === 'v' && !editable) {
+        event.preventDefault();
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text.trim()) {
+            await createLocalTaskFromInput(text.trim(), activeFilter === 'category' ? activeCategory : null);
+          }
+        } catch (error) {
+          console.error('Failed to paste task from clipboard', error);
+        }
+        return;
+      }
+
+      if (key === 'z' && !editable) {
+        event.preventDefault();
+        if (lastRemovedTask) {
+          restoreLastRemovedTask();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeydown);
+    return () => window.removeEventListener('keydown', handleGlobalKeydown);
+  }, [
+    activeCategory,
+    activeFilter,
+    copyTaskContent,
+    createLocalTaskFromInput,
+    editingTaskId,
+    lastRemovedTask,
+    restoreLastRemovedTask,
+    selectedTask,
+    showLogs,
+    showSettings,
+  ]);
 
   const clearCompletedTasks = () => {
     snapshotTasksForUndo('恢复已清除的已完成任务');
@@ -5763,71 +5861,165 @@ export default function Home() {
                   <p className="text-xs text-[#555555] mt-2">要不要来点新任务，让我也有点存在感？</p>
                 </div>
               ) : (
-                groupedTasks.map((group) => (
-                  <div key={group.key} className="space-y-1">
-                    {taskGroupMode !== 'none' && (
-                      <div className="flex items-center justify-between px-1 pt-3 pb-1 text-[11px] text-[#666666]">
-                        <span className="font-semibold text-[#AAAAAA]">{group.label}</span>
-                        <span>{group.items.length} 项</span>
+                <>
+                  {activeFilter !== 'completed' && (
+                    <div className="glass-panel-soft rounded-2xl border border-[color:var(--ui-border-soft)] px-3 py-3 sm:px-4 sm:py-3.5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-[11px] uppercase tracking-[0.14em] text-[#8EA3FF]">时间感知</div>
+                          <div className="text-sm font-semibold text-[#EEF2FF]">未来任务不再埋在列表里</div>
+                          <div className="text-xs text-[#8F9BB3]">先看今天和即将到来，再决定要不要提前处理更远的计划。</div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-[11px]">
+                          {futureTaskSummary.overdue > 0 && <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-rose-100">逾期 {futureTaskSummary.overdue}</span>}
+                          {futureTaskSummary.today > 0 && <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-100">今天 {futureTaskSummary.today}</span>}
+                          {futureTaskSummary.upcoming > 0 && <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-sky-100">即将到来 {futureTaskSummary.upcoming}</span>}
+                          {futureTaskSummary.future > 0 && <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-violet-100">更远计划 {futureTaskSummary.future}</span>}
+                        </div>
                       </div>
-                    )}
-                    {group.items.map(task => (
-                      <div key={task.id} className="space-y-1">
-                        {editingTaskId === task.id ? (
-                          <div className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333333] rounded-2xl px-3 py-2.5">
-                            <input
-                              value={editingTaskTitle}
-                              onChange={(e) => setEditingTaskTitle(e.target.value)}
-                              onBlur={() => commitEditingTitle(task, task.title)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  commitEditingTitle(task, task.title);
-                                }
-                                if (e.key === 'Escape') {
-                                  setEditingTaskId(null);
-                                  setEditingTaskTitle('');
-                                }
-                              }}
-                              autoFocus
-                              className="flex-1 bg-transparent outline-none text-sm text-[#EEEEEE]"
-                              placeholder="编辑任务标题"
-                            />
+                    </div>
+                  )}
+
+                  {(taskGroupMode === 'dueDate' || activeFilter === 'inbox' || activeFilter === 'all' || activeFilter === 'today' || activeFilter === 'next7')
+                    ? futureAwareGroupedTasks.map((group) => {
+                        const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];
+                        return (
+                          <div key={group.key} className="space-y-2">
+                            <div className={`rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 ${meta.tone}`}>
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-[#EEF2FF]">{group.label}</div>
+                                  <div className="text-xs text-[#8F9BB3]">{meta.summary}</div>
+                                </div>
+                                <span className={`rounded-full border px-2.5 py-1 text-[11px] ${meta.chipTone}`}>{group.items.length} 项</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              {group.items.map(task => (
+                                <div key={task.id} className="space-y-1">
+                                  {editingTaskId === task.id ? (
+                                    <div className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333333] rounded-2xl px-3 py-2.5">
+                                      <input
+                                        value={editingTaskTitle}
+                                        onChange={(e) => setEditingTaskTitle(e.target.value)}
+                                        onBlur={() => commitEditingTitle(task, task.title)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            commitEditingTitle(task, task.title);
+                                          }
+                                          if (e.key === 'Escape') {
+                                            setEditingTaskId(null);
+                                            setEditingTaskTitle('');
+                                          }
+                                        }}
+                                        autoFocus
+                                        className="flex-1 bg-transparent outline-none text-sm text-[#EEEEEE]"
+                                        placeholder="编辑任务标题"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <TaskItem
+                                      task={task}
+                                      selected={selectedTask?.id === task.id}
+                                      onClick={() => setSelectedTask(task)}
+                                      onToggle={toggleStatus}
+                                      onDelete={removeTask}
+                                      onUpdateDueDate={updateTaskDueDate}
+                                      onCopyTitle={copyTaskTitle}
+                                      onCopyContent={copyTaskContent}
+                                      onTogglePinned={toggleTaskPinned}
+                                      onQuickSetPriority={quickSetPriority}
+                                      onQuickSetDuePreset={quickSetDuePreset}
+                                      onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
+                                      onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
+                                      onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
+                                      isDragging={isManualSortEnabled && draggingTaskId === task.id}
+                                      onDragEnd={isManualSortEnabled ? () => setDraggingTaskId(null) : undefined}
+                                      dragEnabled={isManualSortEnabled}
+                                      onTitleClick={() => {
+                                        setEditingTaskId(task.id);
+                                        setEditingTaskTitle(task.title);
+                                      }}
+                                      onToggleSubtask={toggleSubtask}
+                                      multiSelectEnabled={isBatchMode}
+                                      isChecked={selectedTaskIds.has(task.id)}
+                                      onToggleSelect={toggleTaskSelected}
+                                      helpers={taskItemHelpers}
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        ) : (
-                          <TaskItem
-                            task={task}
-                            selected={selectedTask?.id === task.id}
-                            onClick={() => setSelectedTask(task)}
-                            onToggle={toggleStatus}
-                            onDelete={removeTask}
-                            onUpdateDueDate={updateTaskDueDate}
-                            onCopyTitle={copyTaskTitle}
-                            onCopyContent={copyTaskContent}
-                            onTogglePinned={toggleTaskPinned}
-                            onQuickSetPriority={quickSetPriority}
-                            onQuickSetDuePreset={quickSetDuePreset}
-                            onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
-                            onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
-                            onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
-                            isDragging={isManualSortEnabled && draggingTaskId === task.id}
-                            onDragEnd={isManualSortEnabled ? () => setDraggingTaskId(null) : undefined}
-                            dragEnabled={isManualSortEnabled}
-                            onTitleClick={() => {
-                              setEditingTaskId(task.id);
-                              setEditingTaskTitle(task.title);
-                            }}
-                            onToggleSubtask={toggleSubtask}
-                            multiSelectEnabled={isBatchMode}
-                            isChecked={selectedTaskIds.has(task.id)}
-                            onToggleSelect={toggleTaskSelected}
-                            helpers={taskItemHelpers}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ))
+                        );
+                      })
+                    : groupedTasks.map((group) => (
+                        <div key={group.key} className="space-y-1">
+                          {taskGroupMode !== 'none' && (
+                            <div className="flex items-center justify-between px-1 pt-3 pb-1 text-[11px] text-[#666666]">
+                              <span className="font-semibold text-[#AAAAAA]">{group.label}</span>
+                              <span>{group.items.length} 项</span>
+                            </div>
+                          )}
+                          {group.items.map(task => (
+                            <div key={task.id} className="space-y-1">
+                              {editingTaskId === task.id ? (
+                                <div className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333333] rounded-2xl px-3 py-2.5">
+                                  <input
+                                    value={editingTaskTitle}
+                                    onChange={(e) => setEditingTaskTitle(e.target.value)}
+                                    onBlur={() => commitEditingTitle(task, task.title)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        commitEditingTitle(task, task.title);
+                                      }
+                                      if (e.key === 'Escape') {
+                                        setEditingTaskId(null);
+                                        setEditingTaskTitle('');
+                                      }
+                                    }}
+                                    autoFocus
+                                    className="flex-1 bg-transparent outline-none text-sm text-[#EEEEEE]"
+                                    placeholder="编辑任务标题"
+                                  />
+                                </div>
+                              ) : (
+                                <TaskItem
+                                  task={task}
+                                  selected={selectedTask?.id === task.id}
+                                  onClick={() => setSelectedTask(task)}
+                                  onToggle={toggleStatus}
+                                  onDelete={removeTask}
+                                  onUpdateDueDate={updateTaskDueDate}
+                                  onCopyTitle={copyTaskTitle}
+                                  onCopyContent={copyTaskContent}
+                                  onTogglePinned={toggleTaskPinned}
+                                  onQuickSetPriority={quickSetPriority}
+                                  onQuickSetDuePreset={quickSetDuePreset}
+                                  onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
+                                  onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
+                                  onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
+                                  isDragging={isManualSortEnabled && draggingTaskId === task.id}
+                                  onDragEnd={isManualSortEnabled ? () => setDraggingTaskId(null) : undefined}
+                                  dragEnabled={isManualSortEnabled}
+                                  onTitleClick={() => {
+                                    setEditingTaskId(task.id);
+                                    setEditingTaskTitle(task.title);
+                                  }}
+                                  onToggleSubtask={toggleSubtask}
+                                  multiSelectEnabled={isBatchMode}
+                                  isChecked={selectedTaskIds.has(task.id)}
+                                  onToggleSelect={toggleTaskSelected}
+                                  helpers={taskItemHelpers}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                </>
               )}
             </div>
           )}
@@ -6491,4 +6683,3 @@ export default function Home() {
     </div>
   );
 }
-
