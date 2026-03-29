@@ -104,6 +104,20 @@ export interface Countdown {
   updatedAt?: string;
 }
 
+/** 物品 */
+export interface Item {
+  id: string;
+  name: string;
+  category?: string;
+  tags: string[];
+  location?: string;
+  quantity: number;
+  status: 'normal' | 'low_stock' | 'need_restock' | 'missing';
+  note?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 /** 番茄钟记录 */
 export interface PomodoroRecord {
   id: string;
@@ -116,7 +130,7 @@ export interface PomodoroRecord {
 // ─── localStorage Key 定义 ──────────────────────────────────
 
 /** 各数据类型在 localStorage 中的存储键 */
-type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns' | 'recall_pomodoro_records';
+type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns' | 'recall_items' | 'recall_pomodoro_records';
 
 /** 记录最后一次本地数据变更的时间戳，用于同步冲突判断 */
 const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
@@ -263,6 +277,9 @@ export const habitStore = createStore<Habit>('recall_habits', '/api/habits');
 
 /** 倒计时 Store，同步到 /api/countdowns */
 export const countdownStore = createStore<Countdown>('recall_countdowns', '/api/countdowns');
+
+/** 物品 Store，当前仅本地存储 */
+export const itemStore = createStore<Item>('recall_items');
 
 /** 番茄钟 Store，仅本地存储（无远端同步） */
 export const pomodoroStore = createStore<PomodoroRecord>('recall_pomodoro_records');

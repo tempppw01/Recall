@@ -13,7 +13,7 @@ import { resolveSyncedSettings } from '@/app/services/syncedSettings';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
-import { taskStore, habitStore, countdownStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
+import { taskStore, habitStore, countdownStore, itemStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
 import Sidebar from '@/app/components/sidebar/Sidebar';
@@ -26,6 +26,7 @@ import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
 import ReviewPanel from '@/app/components/review/ReviewPanel';
+import ItemsPanel from '@/app/components/items/ItemsPanel';
 import LogsModal from '@/app/components/logs/LogsModal';
 import AboutModal from '@/app/components/about/AboutModal';
 import CountdownFormModal from '@/app/components/countdown/CountdownFormModal';
@@ -125,6 +126,7 @@ const FILTER_LABELS: Record<string, string> = {
   next7: '未来7天（未雨绸缪）',
   completed: '已完成（功德+1）',
   review: '检查（过一遍）',
+  items: '物品（放哪了）',
 };
 const WEEKDAY_MAP: Record<string, number> = {
   一: 1,
@@ -1195,6 +1197,10 @@ export default function Home() {
     setTasks(filtered);
   }, []);
 
+  const refreshItems = useCallback(() => {
+    setItems(itemStore.getAll());
+  }, []);
+
   const { syncToPg } = usePgMirrorSync({
     enabled: Boolean(pgHost),
     config: {
@@ -1240,12 +1246,21 @@ export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // PC端侧边栏是否折叠
   const [habits, setHabits] = useState<Habit[]>([]);
   const [countdowns, setCountdowns] = useState<Countdown[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [showCountdownForm, setShowCountdownForm] = useState(false);
   const [showClearCompletedConfirm, setShowClearCompletedConfirm] = useState(false);
   const [editingCountdown, setEditingCountdown] = useState<Countdown | null>(null);
   const [countdownTitle, setCountdownTitle] = useState('');
   const [countdownDate, setCountdownDate] = useState('');
   const [newHabitTitle, setNewHabitTitle] = useState('');
+  const [itemNameInput, setItemNameInput] = useState('');
+  const [itemCategoryInput, setItemCategoryInput] = useState('');
+  const [itemLocationInput, setItemLocationInput] = useState('');
+  const [itemQuantityInput, setItemQuantityInput] = useState('1');
+  const [itemTagsInput, setItemTagsInput] = useState('');
+  const [itemNoteInput, setItemNoteInput] = useState('');
+  const [itemSearch, setItemSearch] = useState('');
+  const [itemStatusFilter, setItemStatusFilter] = useState('all');
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
@@ -1809,6 +1824,7 @@ export default function Home() {
       refreshTasks();
       refreshHabits();
       refreshCountdowns();
+      refreshItems();
 
       const seedDefaultTasks = () => {
         if (typeof window === 'undefined') return;
@@ -1850,7 +1866,7 @@ export default function Home() {
 
       setSettingsLoaded(true);
     }
-  }, [refreshTasks]);
+  }, [refreshItems, refreshTasks]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -4217,6 +4233,8 @@ export default function Home() {
     ? '时间轴'
     : activeFilter === 'review'
     ? '检查'
+    : activeFilter === 'items'
+    ? '物品管理'
     : (FILTER_LABELS[activeFilter] ?? '待办');
   const headerSubtitle = activeFilter === 'timeline'
     ? '按时间回顾任务进展，查看完成、未完成和逾期事项'
@@ -4230,6 +4248,8 @@ export default function Home() {
     ? '把重要日子放在眼前，提醒自己持续推进'
     : activeFilter === 'habit'
     ? '追踪长期习惯，把重复的小事慢慢养成'
+    : activeFilter === 'items'
+    ? '记录东西放哪了、剩多少、是不是该补货了'
     : activeFilter === 'pomodoro'
     ? '专注一段时间，休息一下，再继续推进任务'
     : activeFilter === 'agent'
@@ -4241,7 +4261,7 @@ export default function Home() {
     : activeFilter === 'tag'
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
-  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'review'].includes(activeFilter);
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'review', 'items'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
@@ -4422,7 +4442,7 @@ export default function Home() {
           activeFilter === 'agent'
             ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
             : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'
-        } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro'].includes(activeFilter) ? 'pt-5 sm:pt-6' : 'pt-4 sm:pt-5'}`}>
+        } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro', 'items'].includes(activeFilter) ? 'pt-5 sm:pt-6' : 'pt-4 sm:pt-5'}`}>
           {activeFilter === 'calendar' ? (
             <div className="stack-gap flex flex-col">
               <CalendarTopPanel
@@ -5698,6 +5718,78 @@ export default function Home() {
               </div>
             </div>
           </div>
+          ) : activeFilter === 'items' ? (
+            <ItemsPanel
+              items={items
+                .filter((item) => {
+                  const keyword = itemSearch.trim().toLowerCase();
+                  const matchesKeyword = !keyword || [item.name, item.category, item.location, item.note, ...(item.tags || [])]
+                    .filter(Boolean)
+                    .some((value) => String(value).toLowerCase().includes(keyword));
+                  const matchesStatus = itemStatusFilter === 'all' || item.status === itemStatusFilter;
+                  return matchesKeyword && matchesStatus;
+                })
+                .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())}
+              itemNameInput={itemNameInput}
+              setItemNameInput={setItemNameInput}
+              itemCategoryInput={itemCategoryInput}
+              setItemCategoryInput={setItemCategoryInput}
+              itemLocationInput={itemLocationInput}
+              setItemLocationInput={setItemLocationInput}
+              itemQuantityInput={itemQuantityInput}
+              setItemQuantityInput={setItemQuantityInput}
+              itemTagsInput={itemTagsInput}
+              setItemTagsInput={setItemTagsInput}
+              itemNoteInput={itemNoteInput}
+              setItemNoteInput={setItemNoteInput}
+              itemSearch={itemSearch}
+              setItemSearch={setItemSearch}
+              itemStatusFilter={itemStatusFilter}
+              setItemStatusFilter={setItemStatusFilter}
+              onCreateItem={() => {
+                const name = itemNameInput.trim();
+                if (!name) {
+                  pushLog('warning', '请先填写物品名称');
+                  return;
+                }
+                const quantity = Math.max(0, Number(itemQuantityInput) || 0);
+                const nowIso = new Date().toISOString();
+                itemStore.add({
+                  id: createId(),
+                  name,
+                  category: itemCategoryInput.trim() || undefined,
+                  location: itemLocationInput.trim() || undefined,
+                  quantity,
+                  status: quantity <= 0 ? 'missing' : quantity <= 2 ? 'low_stock' : 'normal',
+                  tags: itemTagsInput.split(/[，,]/).map((tag) => tag.trim()).filter(Boolean),
+                  note: itemNoteInput.trim() || undefined,
+                  createdAt: nowIso,
+                  updatedAt: nowIso,
+                });
+                refreshItems();
+                setItemNameInput('');
+                setItemCategoryInput('');
+                setItemLocationInput('');
+                setItemQuantityInput('1');
+                setItemTagsInput('');
+                setItemNoteInput('');
+                pushLog('success', '已添加物品', `物品：${name}`);
+              }}
+              onUpdateItemStatus={(id, status) => {
+                const current = itemStore.getAll().find((entry) => entry.id === id);
+                if (!current) return;
+                itemStore.update({ ...current, status, updatedAt: new Date().toISOString() });
+                refreshItems();
+                pushLog('success', '物品状态已更新');
+              }}
+              onDeleteItem={(id) => {
+                const current = itemStore.getAll().find((entry) => entry.id === id);
+                if (!current) return;
+                itemStore.remove(id);
+                refreshItems();
+                pushLog('success', '已删除物品', current.name);
+              }}
+            />
           ) : activeFilter === 'habit' ? (
             <div className="space-y-5 sm:space-y-6">
               <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 sm:p-5">

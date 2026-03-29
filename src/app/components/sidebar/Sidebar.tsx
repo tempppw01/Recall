@@ -14,6 +14,7 @@ import {
   History,
   Inbox,
   LayoutGrid,
+  Package2,
   Sun,
   Timer,
   X,
@@ -61,10 +62,10 @@ const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 480;
 const COLLAPSED_WIDTH = 56;
 
-type ToolItemKey = 'todo' | 'calendar' | 'timeline' | 'review' | 'quadrant' | 'countdown' | 'habit' | 'pomodoro' | 'completed';
+type ToolItemKey = 'todo' | 'calendar' | 'timeline' | 'review' | 'quadrant' | 'countdown' | 'habit' | 'items' | 'pomodoro' | 'completed';
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
-const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'pomodoro', 'completed'];
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -269,6 +270,17 @@ const Sidebar = ({
       },
       iconColor: 'text-orange-400',
     },
+    items: {
+      icon: Package2,
+      label: '物品管理',
+      count: 0,
+      active: activeFilter === 'items',
+      onClick: () => {
+        setActiveFilter('items');
+        setIsSidebarOpen(false);
+      },
+      iconColor: 'text-teal-400',
+    },
     pomodoro: {
       icon: Timer,
       label: '番茄时钟',
@@ -332,6 +344,7 @@ const Sidebar = ({
                 { key: 'quadrant', icon: LayoutGrid, color: activeFilter === 'quadrant' ? 'text-indigo-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }, title: '四象限' },
                 { key: 'countdown', icon: Timer, color: activeFilter === 'countdown' ? 'text-pink-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }, title: '倒数日' },
                 { key: 'habit', icon: Flame, color: activeFilter === 'habit' ? 'text-orange-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }, title: '习惯打卡' },
+                { key: 'items', icon: Package2, color: activeFilter === 'items' ? 'text-teal-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('items'); setIsSidebarOpen(false); }, title: '物品管理' },
                 { key: 'completed', icon: CheckCircle2, color: activeFilter === 'completed' ? 'text-emerald-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('completed'); setIsSidebarOpen(false); }, title: '已完成' },
               ].map((item) => (
                 <button
