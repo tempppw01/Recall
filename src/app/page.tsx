@@ -3826,14 +3826,26 @@ export default function Home() {
           const itemAction = itemActionTag.slice('item-action:'.length);
           const linkedItem = itemStore.getAll().find((entry) => entry.id === itemId);
           if (linkedItem) {
-            const nextItemStatus = itemAction === 'put_back' ? 'normal' : itemAction === 'buy' ? 'normal' : itemAction === 'restock' ? 'normal' : linkedItem.status;
+            const statusLabelMap: Record<Item['status'], string> = {
+              normal: '正常',
+              low_stock: '库存低',
+              need_restock: '待补货',
+              missing: '缺失',
+            };
+            const nextItemStatus: Item['status'] = itemAction === 'restock'
+              ? 'normal'
+              : itemAction === 'buy'
+                ? (linkedItem.status === 'missing' || linkedItem.status === 'need_restock' ? 'low_stock' : 'normal')
+                : itemAction === 'put_back'
+                  ? (linkedItem.status === 'missing' ? 'low_stock' : linkedItem.status)
+                  : linkedItem.status;
             itemStore.update({
               ...linkedItem,
               status: nextItemStatus,
               updatedAt: new Date().toISOString(),
             });
             refreshItems();
-            pushLog('success', '已同步物品状态', `${linkedItem.name} → ${nextItemStatus === 'normal' ? '正常' : nextItemStatus}`);
+            pushLog('success', '已同步物品状态', `${linkedItem.name}：${statusLabelMap[linkedItem.status]} → ${statusLabelMap[nextItemStatus]}`);
           }
         }
         const nextDate = getNextRepeatDate(target);
