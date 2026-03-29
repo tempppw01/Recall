@@ -3807,6 +3807,23 @@ export default function Home() {
       const updated: Task = { ...target, status: isCompleting ? 'completed' : 'todo' };
       let nextTask: Task | null = null;
       if (isCompleting) {
+        const itemIdTag = (target.tags || []).find((tag) => tag.startsWith('item:'));
+        const itemActionTag = (target.tags || []).find((tag) => tag.startsWith('item-action:'));
+        if (itemIdTag && itemActionTag) {
+          const itemId = itemIdTag.slice('item:'.length);
+          const itemAction = itemActionTag.slice('item-action:'.length);
+          const linkedItem = itemStore.getAll().find((entry) => entry.id === itemId);
+          if (linkedItem) {
+            const nextItemStatus = itemAction === 'put_back' ? 'normal' : itemAction === 'buy' ? 'normal' : itemAction === 'restock' ? 'normal' : linkedItem.status;
+            itemStore.update({
+              ...linkedItem,
+              status: nextItemStatus,
+              updatedAt: new Date().toISOString(),
+            });
+            refreshItems();
+            pushLog('success', '已同步物品状态', `${linkedItem.name} → ${nextItemStatus === 'normal' ? '正常' : nextItemStatus}`);
+          }
+        }
         const nextDate = getNextRepeatDate(target);
         if (nextDate) {
           nextTask = {
@@ -5808,7 +5825,7 @@ export default function Home() {
                   priority: action === 'buy' ? 2 : action === 'restock' ? 1 : 0,
                   category: item.category || '物品管理',
                   status: 'todo',
-                  tags: Array.from(new Set(['物品管理', actionLabel, ...(item.tags || [])])),
+                  tags: Array.from(new Set(['物品管理', actionLabel, `item:${item.id}`, `item-action:${action}`, ...(item.tags || [])])),
                   pinned: false,
                   subtasks: detailParts.length > 0 ? detailParts.map((part) => ({ id: createId(), title: part, completed: false })) : [],
                   createdAt: new Date().toISOString(),
