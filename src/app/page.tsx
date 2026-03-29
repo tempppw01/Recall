@@ -76,6 +76,7 @@ const CALENDAR_CITY_KEY = 'recall_calendar_city';
 const DELETED_TASKS_KEY = 'recall_deleted_tasks';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const DELETED_HABITS_KEY = 'recall_deleted_habits';
+const DELETED_ITEMS_KEY = 'recall_deleted_items';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
 const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
@@ -1198,7 +1199,13 @@ export default function Home() {
   }, []);
 
   const refreshItems = useCallback(() => {
-    setItems(itemStore.getAll());
+    const all = itemStore.getAll();
+    const deletedMap = readDeletedMap(DELETED_ITEMS_KEY);
+    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
+    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
+      persistDeletedMap(DELETED_ITEMS_KEY, nextDeleted);
+    }
+    setItems(filtered);
   }, []);
 
   const { syncToPg } = usePgMirrorSync({
@@ -3200,6 +3207,7 @@ const normalizeTimeoutSec = (value: number) => {
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
+    deletedItems: readDeletedMap(DELETED_ITEMS_KEY),
   });
 
   const buildSyncPayload = () => buildSyncPayloadData({
@@ -3211,6 +3219,7 @@ const normalizeTimeoutSec = (value: number) => {
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
+    deletedItems: readDeletedMap(DELETED_ITEMS_KEY),
     settings: {
       apiBaseUrl,
       modelListText,
@@ -3416,19 +3425,29 @@ const normalizeTimeoutSec = (value: number) => {
     const { filtered: filteredHabits, nextDeleted: nextDeletedHabits } =
       filterByDeletions(nextHabits, mergedDeletedHabits);
 
+    // Deletions: Items
+    const localDeletedItems = readDeletedMap(DELETED_ITEMS_KEY);
+    const incomingDeletedItems = normalizeDeletedMap(
+      payload?.deletions?.items ?? payload?.deletedItems,
+    );
+    const mergedDeletedItems = mergeDeletedMap(localDeletedItems, incomingDeletedItems);
+    const { filtered: filteredItems, nextDeleted: nextDeletedItems } =
+      filterByDeletions(nextItems, mergedDeletedItems);
+
     taskStore.replaceAll(filteredTasks);
     habitStore.replaceAll(filteredHabits);
     countdownStore.replaceAll(filteredCountdowns);
-    itemStore.replaceAll(nextItems);
+    itemStore.replaceAll(filteredItems);
     
     persistDeletedMap(DELETED_TASKS_KEY, nextDeletedTasks);
     persistDeletedMap(DELETED_COUNTDOWNS_KEY, nextDeletedCountdowns);
     persistDeletedMap(DELETED_HABITS_KEY, nextDeletedHabits);
+    persistDeletedMap(DELETED_ITEMS_KEY, nextDeletedItems);
 
     setTasks(filteredTasks);
     setHabits(filteredHabits);
     setCountdowns(filteredCountdowns);
-    setItems(nextItems);
+    setItems(filteredItems);
 
     const nextCategories = Array.from(new Set(filteredTasks.map((task) => task.category).filter(Boolean))) as string[];
     const nextTags = Array.from(new Set(filteredTasks.flatMap((task) => task.tags || [])));
@@ -5883,6 +5902,7 @@ const normalizeTimeoutSec = (value: number) => {
               onDeleteItem={(id) => {
                 const current = itemStore.getAll().find((entry) => entry.id === id);
                 if (!current) return;
+                markDeleted(DELETED_ITEMS_KEY, id);
                 itemStore.remove(id);
                 refreshItems();
                 pushLog('success', '已删除物品', current.name);

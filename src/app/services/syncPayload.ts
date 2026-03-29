@@ -7,6 +7,7 @@ export function buildExportPayload(params: {
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
+  deletedItems: Record<string, string>;
 }) {
   const {
     appVersion,
@@ -17,6 +18,7 @@ export function buildExportPayload(params: {
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
+    deletedItems,
   } = params;
 
   return {
@@ -32,6 +34,7 @@ export function buildExportPayload(params: {
       tasks: deletedTasks,
       countdowns: deletedCountdowns,
       habits: deletedHabits,
+      items: deletedItems,
     },
   };
 }
@@ -45,6 +48,7 @@ export function buildSyncPayload(params: {
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
+  deletedItems: Record<string, string>;
   settings: Record<string, any>;
   secrets: Record<string, any>;
 }) {
@@ -57,6 +61,7 @@ export function buildSyncPayload(params: {
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
+    deletedItems,
     settings,
     secrets,
   } = params;
@@ -74,6 +79,7 @@ export function buildSyncPayload(params: {
       tasks: deletedTasks,
       countdowns: deletedCountdowns,
       habits: deletedHabits,
+      items: deletedItems,
     },
     settings,
     secrets,
