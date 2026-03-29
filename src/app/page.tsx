@@ -1931,9 +1931,11 @@ export default function Home() {
     taskStore,
     habitStore,
     countdownStore,
+    itemStore,
     setTasks,
     setHabits,
     setCountdowns,
+    setItems,
   });
 
 
@@ -3156,6 +3158,7 @@ export default function Home() {
     tasks: taskStore.getAll(),
     habits: habitStore.getAll(),
     countdowns: countdownStore.getAll(),
+    items: itemStore.getAll(),
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
@@ -3166,6 +3169,7 @@ export default function Home() {
     tasks: taskStore.getAll(),
     habits: habitStore.getAll(),
     countdowns: countdownStore.getAll(),
+    items: itemStore.getAll(),
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
@@ -3328,9 +3332,11 @@ export default function Home() {
     const tasksImport = ensureUpdatedAt(normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks));
     const habitsImport = ensureUpdatedAt(normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits));
     const countdownsImport = ensureUpdatedAt(normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns));
+    const itemsImport = ensureUpdatedAt(normalizeImportList<Item>(payload?.data?.items ?? payload?.items));
     const currentTasks = ensureUpdatedAt(taskStore.getAll());
     const currentHabits = ensureUpdatedAt(habitStore.getAll());
     const currentCountdowns = ensureUpdatedAt(countdownStore.getAll());
+    const currentItems = ensureUpdatedAt(itemStore.getAll());
 
     const nextTasks = mode === 'overwrite'
       ? tasksImport
@@ -3341,6 +3347,9 @@ export default function Home() {
     const nextCountdowns = mode === 'overwrite'
       ? countdownsImport
       : mergeById(currentCountdowns, countdownsImport);
+    const nextItems = mode === 'overwrite'
+      ? itemsImport
+      : mergeById(currentItems, itemsImport);
 
     // Deletions: Tasks
     const localDeletedTasks = readDeletedMap(DELETED_TASKS_KEY);
@@ -3372,6 +3381,7 @@ export default function Home() {
     taskStore.replaceAll(filteredTasks);
     habitStore.replaceAll(filteredHabits);
     countdownStore.replaceAll(filteredCountdowns);
+    itemStore.replaceAll(nextItems);
     
     persistDeletedMap(DELETED_TASKS_KEY, nextDeletedTasks);
     persistDeletedMap(DELETED_COUNTDOWNS_KEY, nextDeletedCountdowns);
@@ -3380,6 +3390,7 @@ export default function Home() {
     setTasks(filteredTasks);
     setHabits(filteredHabits);
     setCountdowns(filteredCountdowns);
+    setItems(nextItems);
 
     const nextCategories = Array.from(new Set(filteredTasks.map((task) => task.category).filter(Boolean))) as string[];
     const nextTags = Array.from(new Set(filteredTasks.flatMap((task) => task.tags || [])));

@@ -278,8 +278,8 @@ export const habitStore = createStore<Habit>('recall_habits', '/api/habits');
 /** 倒计时 Store，同步到 /api/countdowns */
 export const countdownStore = createStore<Countdown>('recall_countdowns', '/api/countdowns');
 
-/** 物品 Store，当前仅本地存储 */
-export const itemStore = createStore<Item>('recall_items');
+/** 物品 Store，同步到 /api/items */
+export const itemStore = createStore<Item>('recall_items', '/api/items');
 
 /** 番茄钟 Store，仅本地存储（无远端同步） */
 export const pomodoroStore = createStore<PomodoroRecord>('recall_pomodoro_records');

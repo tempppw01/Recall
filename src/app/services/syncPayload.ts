@@ -3,6 +3,7 @@ export function buildExportPayload(params: {
   tasks: any[];
   habits: any[];
   countdowns: any[];
+  items: any[];
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
@@ -12,6 +13,7 @@ export function buildExportPayload(params: {
     tasks,
     habits,
     countdowns,
+    items,
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
@@ -24,6 +26,7 @@ export function buildExportPayload(params: {
       tasks,
       habits,
       countdowns,
+      items,
     },
     deletions: {
       tasks: deletedTasks,
@@ -38,6 +41,7 @@ export function buildSyncPayload(params: {
   tasks: any[];
   habits: any[];
   countdowns: any[];
+  items: any[];
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
@@ -49,6 +53,7 @@ export function buildSyncPayload(params: {
     tasks,
     habits,
     countdowns,
+    items,
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
@@ -63,6 +68,7 @@ export function buildSyncPayload(params: {
       tasks,
       habits,
       countdowns,
+      items,
     },
     deletions: {
       tasks: deletedTasks,
