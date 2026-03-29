@@ -2608,7 +2608,45 @@ export default function Home() {
   const totalTasks = tasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  const normalizeTimeoutSec = (value: number) => {
+  const deriveItemStatusFromQuantity = (quantity: number): Item['status'] => {
+  if (quantity <= 0) return 'missing';
+  if (quantity <= 2) return 'low_stock';
+  return 'normal';
+};
+
+const applyCompletedItemAction = (item: Item, action: string) => {
+  const safeQuantity = Math.max(0, Number(item.quantity) || 0);
+
+  if (action === 'restock') {
+    const nextQuantity = Math.max(safeQuantity, 3);
+    return {
+      quantity: nextQuantity,
+      status: deriveItemStatusFromQuantity(nextQuantity),
+    };
+  }
+
+  if (action === 'buy') {
+    const nextQuantity = safeQuantity + 1;
+    return {
+      quantity: nextQuantity,
+      status: deriveItemStatusFromQuantity(nextQuantity),
+    };
+  }
+
+  if (action === 'put_back') {
+    return {
+      quantity: safeQuantity,
+      status: item.status === 'missing' ? deriveItemStatusFromQuantity(Math.max(safeQuantity, 1)) : item.status,
+    };
+  }
+
+  return {
+    quantity: safeQuantity,
+    status: item.status,
+  };
+};
+
+const normalizeTimeoutSec = (value: number) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_FALLBACK_TIMEOUT_SEC;
     return Math.round(numeric);
@@ -3832,20 +3870,19 @@ export default function Home() {
               need_restock: '待补货',
               missing: '缺失',
             };
-            const nextItemStatus: Item['status'] = itemAction === 'restock'
-              ? 'normal'
-              : itemAction === 'buy'
-                ? (linkedItem.status === 'missing' || linkedItem.status === 'need_restock' ? 'low_stock' : 'normal')
-                : itemAction === 'put_back'
-                  ? (linkedItem.status === 'missing' ? 'low_stock' : linkedItem.status)
-                  : linkedItem.status;
+            const nextItem = applyCompletedItemAction(linkedItem, itemAction);
             itemStore.update({
               ...linkedItem,
-              status: nextItemStatus,
+              quantity: nextItem.quantity,
+              status: nextItem.status,
               updatedAt: new Date().toISOString(),
             });
             refreshItems();
-            pushLog('success', '已同步物品状态', `${linkedItem.name}：${statusLabelMap[linkedItem.status]} → ${statusLabelMap[nextItemStatus]}`);
+            pushLog(
+              'success',
+              '已同步物品状态',
+              `${linkedItem.name}：${statusLabelMap[linkedItem.status]} → ${statusLabelMap[nextItem.status]}，数量 ${linkedItem.quantity} → ${nextItem.quantity}`,
+            );
           }
         }
         const nextDate = getNextRepeatDate(target);
@@ -5801,7 +5838,7 @@ export default function Home() {
                   category: itemCategoryInput.trim() || undefined,
                   location: itemLocationInput.trim() || undefined,
                   quantity,
-                  status: quantity <= 0 ? 'missing' : quantity <= 2 ? 'low_stock' : 'normal' as Item['status'],
+                  status: deriveItemStatusFromQuantity(quantity),
                   tags: itemTagsInput.split(/[，,]/).map((tag) => tag.trim()).filter(Boolean),
                   note: itemNoteInput.trim() || undefined,
                   updatedAt: nowIso,
