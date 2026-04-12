@@ -15,6 +15,7 @@ import {
   Inbox,
   LayoutGrid,
   Package2,
+  Sparkles,
   Sun,
   Timer,
   X,
@@ -306,6 +307,24 @@ const Sidebar = ({
     },
   };
 
+  const toolGroups: Array<{ title: string; description: string; keys: ToolItemKey[] }> = [
+    {
+      title: '执行',
+      description: '任务与时间视图',
+      keys: ['todo', 'calendar', 'timeline', 'review', 'quadrant'],
+    },
+    {
+      title: '节律',
+      description: '习惯与专注管理',
+      keys: ['countdown', 'habit', 'pomodoro'],
+    },
+    {
+      title: '归档',
+      description: '物品与完成记录',
+      keys: ['items', 'completed'],
+    },
+  ];
+
   return (
     <>
       <aside
@@ -365,70 +384,78 @@ const Sidebar = ({
         ) : (
           <>
             <div className="flex-1 overflow-y-auto overscroll-contain mobile-scroll safe-scroll-with-footer [--footer-safe-height:0.75rem]">
-              <div className="px-3 py-3 flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="relative">
+              <div className="px-3 py-3 mb-1.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex items-center gap-3">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setShowAppMenu((prev) => !prev);
+                        }}
+                        className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(109,180,255,0.22),rgba(186,124,255,0.16)_52%,rgba(255,255,255,0.06))] shadow-[0_14px_30px_rgba(0,0,0,0.24)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_18px_34px_rgba(0,0,0,0.28)]"
+                        aria-label="打开应用菜单"
+                      >
+                        <div className="absolute inset-[1px] rounded-[15px] bg-[rgba(14,18,24,0.92)]" />
+                        <div className="relative flex items-center justify-center">
+                          <span className="bg-[linear-gradient(135deg,#F5F7FF_0%,#C9D7FF_45%,#B98CFF_100%)] bg-clip-text text-base font-semibold tracking-[0.18em] text-transparent">
+                            RC
+                          </span>
+                          <Sparkles className="absolute -right-3 -top-2 h-3.5 w-3.5 text-[#C7B6FF] opacity-80" />
+                        </div>
+                      </button>
+                      {showAppMenu && (
+                        <div
+                          className="absolute left-0 top-14 w-48 rounded-[24px] border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.32)] z-50 overflow-hidden"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAppMenu(false);
+                              setShowSettings(true);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
+                          >
+                            设置
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAppMenu(false);
+                              setShowAbout(true);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
+                          >
+                            关于
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h1 className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#F5F7FF]">Recall</h1>
+                        <span className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-[#9BA7C2]">
+                          Flow OS
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] leading-tight text-[#80889A]">聚合待办、节奏与回顾的个人工作台</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setShowAppMenu((prev) => !prev);
-                      }}
-                      className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow"
-                      aria-label="打开应用菜单"
+                      onClick={() => setIsSidebarCollapsed(true)}
+                      className="hidden lg:flex w-8 h-8 rounded-xl hover:bg-[#23262E] items-center justify-center text-[#707070] hover:text-[#D6D6D6] transition-colors"
+                      title="折叠侧边栏"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="https://disk.shuaihong.fun/f/VPCq/home.png"
-                        alt="Recall"
-                        className="w-6 h-6 rounded-full"
-                      />
+                      <ChevronLeft className="w-4 h-4" />
                     </button>
-                    {showAppMenu && (
-                      <div
-                        className="absolute left-0 top-11 w-48 rounded-[24px] border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.32)] z-50 overflow-hidden"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAppMenu(false);
-                            setShowSettings(true);
-                          }}
-                          className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
-                        >
-                          设置
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAppMenu(false);
-                            setShowAbout(true);
-                          }}
-                          className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
-                        >
-                          关于
-                        </button>
-                      </div>
-                    )}
+                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#707070]" title="关闭侧边栏" aria-label="关闭侧边栏">
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
-                  <div>
-                    <h1 className="text-sm font-semibold leading-tight text-[#F0F0F0]">Recall</h1>
-                    <p className="text-[11px] text-[#747474] leading-tight">待办与回顾</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsSidebarCollapsed(true)}
-                    className="hidden lg:flex w-8 h-8 rounded-xl hover:bg-[#23262E] items-center justify-center text-[#707070] hover:text-[#D6D6D6] transition-colors"
-                    title="折叠侧边栏"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-[#707070]" title="关闭侧边栏" aria-label="关闭侧边栏">
-                    <X className="w-5 h-5" />
-                  </button>
                 </div>
               </div>
 
@@ -518,26 +545,41 @@ const Sidebar = ({
                     {isToolsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
                   {isToolsOpen && (
-                    <div className="space-y-1">
-                      {toolOrder.map((key) => {
-                        const item = toolConfig[key];
+                    <div className="space-y-2 px-1 pb-1">
+                      {toolGroups.map((group) => {
+                        const groupKeys = toolOrder.filter((key) => group.keys.includes(key));
+                        if (groupKeys.length === 0) return null;
+
                         return (
-                          <SidebarItem
-                            key={key}
-                            icon={item.icon}
-                            label={item.label}
-                            count={item.count}
-                            active={item.active}
-                            onClick={item.onClick}
-                            iconColor={item.iconColor}
-                            draggable
-                            onDragStart={() => setDraggingToolKey(key)}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDrop={() => handleToolDrop(key)}
-                            onDragEnd={() => setDraggingToolKey(null)}
-                            className={draggingToolKey === key ? 'opacity-60 border border-white/12 rounded-xl' : ''}
-                            rightSlot={<GripVertical className="w-3.5 h-3.5 text-[#5C5C5C]" />}
-                          />
+                          <div key={group.title} className="rounded-[20px] border border-white/6 bg-black/10 px-2 py-2">
+                            <div className="mb-2 px-2">
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8D95A8]">{group.title}</div>
+                              <div className="mt-0.5 text-[10px] text-[#5F6778]">{group.description}</div>
+                            </div>
+                            <div className="space-y-1">
+                              {groupKeys.map((key) => {
+                                const item = toolConfig[key];
+                                return (
+                                  <SidebarItem
+                                    key={key}
+                                    icon={item.icon}
+                                    label={item.label}
+                                    count={item.count}
+                                    active={item.active}
+                                    onClick={item.onClick}
+                                    iconColor={item.iconColor}
+                                    draggable
+                                    onDragStart={() => setDraggingToolKey(key)}
+                                    onDragOver={(event) => event.preventDefault()}
+                                    onDrop={() => handleToolDrop(key)}
+                                    onDragEnd={() => setDraggingToolKey(null)}
+                                    className={draggingToolKey === key ? 'opacity-60 border border-white/12 rounded-xl' : ''}
+                                    rightSlot={<GripVertical className="w-3.5 h-3.5 text-[#5C5C5C]" />}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
