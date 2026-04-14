@@ -319,7 +319,7 @@ const SettingsModal = ({
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type="text"
                     value={apiBaseUrl}
                     onChange={(e) => setApiBaseUrl(e.target.value)}
                     placeholder={DEFAULT_BASE_URL}
