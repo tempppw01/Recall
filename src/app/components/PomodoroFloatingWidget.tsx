@@ -58,10 +58,11 @@ const getDockedX = (x: number, width: number) => {
 };
 
 export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloatingWidgetProps) {
-  const [tick, setTick] = useState(Date.now());
+  const [tick, setTick] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [position, setPosition] = useState<WidgetPosition | null>(null);
+  const [widgetWidth, setWidgetWidth] = useState(320);
   const [isDragging, setIsDragging] = useState(false);
   const [isEdgeDocked, setIsEdgeDocked] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
@@ -122,6 +123,7 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
   useEffect(() => {
     if (typeof window === 'undefined' || !widgetRef.current) return;
     const rect = widgetRef.current.getBoundingClientRect();
+    setWidgetWidth(rect.width);
     const next = clampPosition(
       position ?? {
         x: window.innerWidth - rect.width - DEFAULT_OFFSET,
@@ -137,6 +139,7 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
     const handleResize = () => {
       if (!widgetRef.current) return;
       const currentRect = widgetRef.current.getBoundingClientRect();
+      setWidgetWidth(currentRect.width);
       setPosition((prev) => {
         const fallback = prev ?? {
           x: window.innerWidth - currentRect.width - DEFAULT_OFFSET,
@@ -264,10 +267,10 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
     setIsDragging(true);
   };
 
-  const collapsedEdgeStyle = collapsed && isEdgeDocked && widgetRef.current
+  const collapsedEdgeStyle = collapsed && isEdgeDocked
     ? position.x <= window.innerWidth / 2
-      ? { transform: `translateX(-${Math.max(0, widgetRef.current.getBoundingClientRect().width - EDGE_PEEK)}px)` }
-      : { transform: `translateX(${Math.max(0, widgetRef.current.getBoundingClientRect().width - EDGE_PEEK)}px)` }
+      ? { transform: `translateX(-${Math.max(0, widgetWidth - EDGE_PEEK)}px)` }
+      : { transform: `translateX(${Math.max(0, widgetWidth - EDGE_PEEK)}px)` }
     : undefined;
 
   return (

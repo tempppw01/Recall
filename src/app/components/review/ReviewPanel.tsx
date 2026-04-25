@@ -244,13 +244,13 @@ export default function ReviewPanel(props: ReviewPanelProps) {
 
   const dismissedTodayCount = reviewedTodayTasks.length;
 
-  const reviewCounts = {
+  const reviewCounts = useMemo(() => ({
     all: Object.values(reviewGroups).reduce((sum, list) => sum + list.length, 0),
     overdue: reviewGroups.overdue.length,
     today: reviewGroups.today.length,
     upcoming: reviewGroups.upcoming.length,
     someday: reviewGroups.someday.length,
-  };
+  }), [reviewGroups]);
 
   const categoryCounts = {
     all: reviewEligibleTasks.length,
@@ -259,15 +259,15 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     largestGroup: categoryGroups[0]?.tasks.length ?? 0,
   };
 
-  const timeGroupMeta: ReviewGroupMeta[] = [
+  const timeGroupMeta: ReviewGroupMeta[] = useMemo(() => [
     { key: 'all', label: '全部待检查', description: '按逾期、今天、未来 7 天、无明确日期的顺序检查。', count: reviewCounts.all },
     { key: 'overdue', label: '逾期', description: bucketMeta.overdue.description, count: reviewCounts.overdue },
     { key: 'today', label: '今天', description: bucketMeta.today.description, count: reviewCounts.today },
     { key: 'upcoming', label: '未来 7 天', description: bucketMeta.upcoming.description, count: reviewCounts.upcoming },
     { key: 'someday', label: '无明确日期', description: bucketMeta.someday.description, count: reviewCounts.someday },
-  ];
+  ], [reviewCounts]);
 
-  const categoryGroupMeta: ReviewGroupMeta[] = [
+  const categoryGroupMeta: ReviewGroupMeta[] = useMemo(() => [
     {
       key: 'all',
       label: '全部列表',
@@ -280,7 +280,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       description: group.description,
       count: group.tasks.length,
     })),
-  ];
+  ], [reviewEligibleTasks.length, categoryGroups]);
 
   const reviewList = useMemo(() => {
     if (reviewMode === 'time') {
@@ -344,7 +344,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
 
     const categoryLabel = getCategoryLabel(focusTask);
     return categoryGroups.find((group) => group.label === categoryLabel)?.tasks ?? [];
-  }, [focusTask, reviewMode, reviewGroups, categoryGroups, isTaskOverdue]);
+  }, [focusTask, reviewMode, reviewGroups, categoryGroups, isTaskOverdue, defaultTimezoneOffset]);
 
   const currentNaturalGroupKey = focusTask ? getTaskGroupKey(focusTask) : null;
   const currentNaturalGroupLabel = focusTask ? getTaskGroupLabel(focusTask) : null;

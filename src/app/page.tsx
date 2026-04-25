@@ -21,6 +21,7 @@ import SettingsModal from '@/app/components/settings/SettingsModal';
 import TaskItem from '@/app/components/tasks/TaskItem';
 import TaskQuickActions from '@/app/components/tasks/TaskQuickActions';
 import PageTopBar from '@/app/components/home/PageTopBar';
+import AmbientBackdrop from '@/app/components/home/AmbientBackdrop';
 import ListComposerPanel from '@/app/components/home/ListComposerPanel';
 import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
@@ -4384,12 +4385,8 @@ const normalizeTimeoutSec = (value: number) => {
   const hasApiKey = apiKey.trim().length > 0;
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] bg-[#1A1A1A] text-[#EEEEEE] overflow-hidden font-sans relative safe-area-top">
-      <div className="pointer-events-none absolute inset-0 opacity-70">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-blue-500/12 blur-3xl" />
-        <div className="absolute top-[28%] left-[12%] h-48 w-48 rounded-full bg-cyan-500/8 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-violet-500/12 blur-3xl" />
-      </div>
+    <div className="flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#1A1A1A] font-sans text-[#EEEEEE] relative safe-area-top">
+      <AmbientBackdrop />
 
       {statusFeedback && (
         <div className="fixed top-[calc(0.7rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[70] w-[min(92vw,720px)] px-2 sm:px-0">
@@ -4482,7 +4479,7 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 2. Main Task List */}
       <section
-        className={`flex-1 flex-col min-w-0 bg-gradient-to-b from-[#17181C] via-[#17181C] to-[#14161B] overflow-y-auto mobile-scroll ${
+        className={`relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-gradient-to-b from-[#17181C]/92 via-[#17181C]/88 to-[#14161B]/94 ${
           selectedTask ? 'hidden lg:flex' : 'flex'
         }`}
       >
@@ -4535,7 +4532,7 @@ const normalizeTimeoutSec = (value: number) => {
           />
         )}
 
-        <div className={`flex-1 px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10 max-w-[1680px] w-full mx-auto ${
+        <div className={`relative flex-1 w-full max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10 ${
           activeFilter === 'agent'
             ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
             : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'

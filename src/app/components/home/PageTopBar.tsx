@@ -1,7 +1,7 @@
 import { Cloud, Flame, Inbox, Loader2, Menu, Monitor, Moon, Sun, Terminal } from 'lucide-react';
 
-const iconButtonClassName = 'btn btn-ghost h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[#9aa3b2] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed';
-const actionButtonClassName = 'btn btn-secondary btn-sm rounded-2xl border text-xs';
+const iconButtonClassName = 'btn btn-ghost motion-card surface-sheen h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[#9aa3b2] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed';
+const actionButtonClassName = 'btn btn-secondary btn-sm motion-card surface-sheen rounded-2xl border text-xs';
 
 type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -42,14 +42,20 @@ export default function PageTopBar({
   onToggleTheme,
 }: PageTopBarProps) {
   return (
-    <header className="sticky top-0 z-20 sticky-glass bg-[rgba(15,17,22,0.68)] backdrop-blur-2xl shadow-[0_14px_36px_rgba(0,0,0,0.14)]">
-      <div className="mx-2 mt-3 rounded-[28px] glass-panel px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
+    <header className="sticky top-0 z-20 sticky-glass bg-[rgba(15,17,22,0.52)] backdrop-blur-2xl">
+      <div className="mx-2 mt-3 rounded-[28px] glass-panel surface-sheen surface-pulse px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 min-w-0">
             <button onClick={onOpenSidebar} className={`lg:hidden -ml-1 mt-0.5 ${iconButtonClassName}`}>
               <Menu className="w-6 h-6" />
             </button>
             <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="toolbar-chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#C7D8FF]">
+                  <span className="float-bob inline-flex h-1.5 w-1.5 rounded-full bg-[rgb(var(--theme-accent-soft))]" />
+                  Focus Flow
+                </span>
+              </div>
               <h2 className="text-base sm:text-[1.05rem] font-semibold tracking-tight flex items-center gap-2.5 min-w-0 text-[#f3f6ff]">
                 {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-400" />}
                 {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-400" />}
@@ -92,7 +98,7 @@ export default function PageTopBar({
 
             {isSyncingNow && (
               <div className="skeleton skeleton-shimmer hidden sm:flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] text-blue-100">
-                <span className="w-2 h-2 rounded-full bg-blue-300" />
+                <span className="icon-halo float-bob w-2 h-2 rounded-full bg-blue-300" />
                 同步队列处理中
               </div>
             )}

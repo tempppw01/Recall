@@ -1,7 +1,8 @@
 /**
- * App versioning (single source of truth)
+ * Official release version (single source of truth)
  *
- * Version value is injected at build time via next.config.js -> env.NEXT_PUBLIC_APP_VERSION.
+ * The displayed app version always comes from package.json via
+ * next.config.js -> env.NEXT_PUBLIC_APP_VERSION.
  * This module centralizes the runtime access + localStorage key.
  */
 

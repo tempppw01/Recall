@@ -1,132 +1,50 @@
-# Roadmap（v0.1 → v0.2 → v0.3 → v1.0）
+# Roadmap
 
-> 全局路线图：每个版本都必须包含目标、范围、退出条件、风险与测试/可观测性要求。
-> 当前工作版本固定为 `v0.1`；在 `docs/plan/versions/v0.1.md` 全部 ✅ 且满足退出条件前，后续版本仅做规划，不开工。
+> This roadmap tracks planning stages, not formal release versions.
+> Formal releases are governed by `package.json.version`, Git tags, the changelog, and release notes.
 
-## v0.1（计划治理基线 + 稳定性收口）
+## Stage v0.1
 
-目标：
-- 把当前仓库切到统一、可执行的计划治理结构。
-- 先收掉影响开发推进的基础稳定性问题。
+Focus:
+- Establish a single planning area under `docs/plan/`
+- Stabilize the project baseline
+- Close governance gaps that block repeatable releases
 
-范围：
-- `docs/plan/` 统一为唯一事实来源
-- 版本文件切换到 `v0.1 / v0.2 / v0.3 / v1.0`
-- 修复阻塞型 TypeScript 错误
-- 建立“改动 → 审计 → 计划更新 → 提交”的闭环
+Exit criteria:
+- `docs/plan/stages/v0.1.md` is complete
+- Latest audit has no unresolved high-severity issue
+- Release records are internally consistent
 
-退出条件：
-- `docs/plan/versions/v0.1.md` 全部 ✅
-- 最近一轮审计无未处理高危问题
-- `docs/plan/releases/CHANGELOG.md` 与 Release notes 一致
+## Stage v0.2
 
-风险：
-- 历史 tag 已到 `v0.3.x`，与当前计划主线不一致，容易让后续发版判断混乱
-- 若旧计划文件未清干净，后续 agent / 人员会重复引用旧版本口径
+Focus:
+- Improve day-to-day usability
+- Expand item management workflows
+- Strengthen page structure and interaction consistency
 
-测试 / 可观测性：
-- `npm run typecheck` 通过
-- 审计报告落盘
-- `docs/plan/README.md` 导航无失效引用
+Exit criteria:
+- `docs/plan/stages/v0.2.md` is complete
+- Core item-management scenarios are covered by regression checks
 
-改进建议：
-- 高：补一份发布前检查模板
-- 中：补一份历史 tag 与新计划主线关系说明
-- 低：补审计报告字段规范
+## Stage v0.3
 
-## v0.2（体验增强 + 物品管理）
+Focus:
+- Add richer work-context views
+- Improve review and nearby-task workflows
+- Tighten sync diagnostics and observability
 
-目标：
-- 在稳定基线上继续增强 Recall 的日常使用价值。
-- 让任务管理扩展到“物品管理 + 任务联动”的真实场景。
+Exit criteria:
+- `docs/plan/stages/v0.3.md` is complete
+- Key sync and scenario-driven views have regression coverage
 
-范围：
-- 页面结构与视觉层级收敛
-- 左侧导航 / Header / 主内容区优化
-- 深色主题统一
-- 物品管理功能：
-  - 物品列表
-  - 分类 / 标签
-  - 存放位置
-  - 数量 / 状态
-  - 搜索与筛选
-  - 与任务联动（补货 / 购买 / 归位）
+## Stage v1.0
 
-退出条件：
-- `docs/plan/versions/v0.2.md` 全部 ✅
-- 最近一轮审计无未处理高危问题
-- 关键新增功能具备最小回归清单
+Focus:
+- Product-level polish and consistency
+- Stable release operations
+- Unified UI, data flow, and operational guidance
 
-风险：
-- 物品管理如果只做字段堆叠，会变成另一个难用列表
-- 若 UI 收敛不足，新增模块会进一步拉高产品碎片感
-
-测试 / 可观测性：
-- 任务与物品联动链路至少覆盖创建 / 编辑 / 完成 / 补货四类场景
-- 搜索、筛选、位置字段覆盖基本回归
-
-改进建议：
-- 高：先定义物品实体模型与任务联动边界
-- 中：为物品状态设计统一视觉语言
-- 低：增加低库存提醒候选方案
-
-## v0.3（场景视图增强）
-
-目标：
-- 增强任务视图的上下文与场景能力，让 Recall 更接近完整工作流系统。
-
-范围：
-- Review / 检查视图增强
-- Nearby / 附近可做任务视图
-- 更强的上下文任务视图
-- 同步模型与冲突策略收敛
-- 结构化日志 / requestId / 错误码增强
-
-退出条件：
-- `docs/plan/versions/v0.3.md` 全部 ✅
-- 最近一轮审计无未处理高危问题
-- 关键同步场景具备最小回归验证
-
-风险：
-- 场景页如果只是列表换皮，会没有独立价值
-- 同步链路边界复杂，容易出现隐性状态错乱
-
-测试 / 可观测性：
-- 至少覆盖成功 / 冲突 / 超时 / 凭证异常四类同步场景
-- Review / Nearby 补核心交互回归
-
-改进建议：
-- 高：明确场景页的真实工作流价值
-- 中：统一场景页之间的状态反馈和切换逻辑
-- 低：给诊断输出做等级文案
-
-## v1.0（整体产品收敛）
-
-目标：
-- 完成整体 UI、信息架构、稳定发布与核心功能闭环收敛。
-- 让 Recall 进入可持续演进的正式产品状态。
-
-范围：
-- UI 规范系统稳定化
-- 关键页面统一回收
-- 物品 / 任务 / 场景视图统一工作流
-- 发布、回滚、监控、文档完善
-- 版本治理流程稳定化
-
-退出条件：
-- `docs/plan/versions/v1.0.md` 全部 ✅
-- 无未处理高危问题
-- 关键页面、关键流程、关键发布链路都有稳定检查项
-
-风险：
-- 如果只做界面统一，不收敛数据模型和交互逻辑，1.0 会是表面成熟
-- 若发布治理不固化，后续迭代仍可能回到文档与版本混乱
-
-测试 / 可观测性：
-- 关键页面在主题切换、响应式、异常状态下表现一致
-- 发布流程具备可重复执行的校验路径
-
-改进建议：
-- 高：建立正式发布检查清单
-- 中：建立 UI 回归与交互回归清单
-- 低：整理常见运维问题手册
+Exit criteria:
+- `docs/plan/stages/v1.0.md` is complete
+- Release and rollback checks are repeatable
+- Critical user journeys are documented and stable

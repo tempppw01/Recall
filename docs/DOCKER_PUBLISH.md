@@ -1,48 +1,51 @@
-# Docker 发布工作流说明
+# Docker Publish Workflow
 
-已添加 GitHub Actions 工作流：`.github/workflows/docker-publish.yml`
+GitHub Actions workflow: `.github/workflows/docker-publish.yml`
 
-## 触发方式
+## Trigger rules
 
-- push 到 `main`
-  - 推送 Docker Hub 标签：
+- Push to `main`
+  - Publish Docker tag:
     - `latest`
-    - `package.json` 中对应的版本号（例如 `0.1.1`）
-  - **平台策略（重要）**：
-    - 默认构建 `linux/amd64, linux/arm64`
-- push Git tag（如 `v0.1.1`）
-  - 推送 semver 标签（例如 `0.1.1`、`0.1`）
-  - 平台：`linux/amd64, linux/arm64`
-- 手动触发（workflow_dispatch）
-  - 平台：`linux/amd64, linux/arm64`
+  - Do not publish a SemVer image tag from `main` alone
+- Push Git tag such as `v0.3.1`
+  - Publish Docker tags:
+    - `0.3.1`
+    - `0.3`
+- Manual trigger: `workflow_dispatch`
+  - Uses the same workflow, but formal SemVer tags still come from Git tags
 
-## Docker Hub 仓库
+## Why this policy exists
+
+- `package.json.version` is the formal release version
+- A SemVer Docker tag should exist only after the release commit and Git tag are both in place
+- `main` can move ahead of the latest formal release, so `main` publishes `latest` only
+
+## Docker Hub repository
 
 - `34v0wphix/recall`
 
-## 运行端口说明（重要）
+## Runtime port
 
-本项目的 Docker 镜像 **默认监听端口是 `3789`**（不是 3000）。
+The image listens on `3789` by default because `Dockerfile` sets:
 
-原因：`Dockerfile` 中设置了：
 - `ENV PORT=3789`
 - `EXPOSE 3789`
 
-### 本地运行示例
+## Local run example
 
 ```bash
-# 访问: http://localhost:43100/signin
 docker run --rm -p 43100:3789 34v0wphix/recall:latest
 ```
 
-### NextAuth 环境变量（避免 /api/auth/session 500）
+## NextAuth production environment
 
-NextAuth 在 `NODE_ENV=production` 下 **必须** 配置 `NEXTAUTH_SECRET`，否则会出现：
+Provide these variables in production:
 
-- `/api/auth/session` 500
-- `[next-auth][error][NO_SECRET]`
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
 
-示例：
+Example:
 
 ```bash
 docker run --rm \
@@ -52,64 +55,14 @@ docker run --rm \
   34v0wphix/recall:latest
 ```
 
-如果你希望对外暴露 3000，也可以这样做：
+## Multi-arch build
 
-```bash
-# 访问: http://localhost:3000/signin
-docker run --rm -p 3000:3789 34v0wphix/recall:latest
-```
+Default platforms:
 
-## 多架构构建
+- `linux/amd64`
+- `linux/arm64`
 
-- 默认策略（main / tag / 手动触发）：
-  - `linux/amd64`
-  - `linux/arm64`
+## Required GitHub Secrets
 
-工作流通过以下动作完成：
-
-- `docker/setup-qemu-action@v3`
-- `docker/setup-buildx-action@v3`
-
-## 需要配置的 GitHub Secrets
-
-在 GitHub 仓库设置中添加：
-
-- `DOCKERHUB_USERNAME`：Docker Hub 用户名
-- `DOCKERHUB_TOKEN`：Docker Hub Access Token
-
-## 当前标签策略
-
-- 默认分支发布：
-  - `latest`
-  - `${package.json.version}`
-- Git tag 发布：
-  - `{{version}}`
-  - `{{major}}.{{minor}}`
-
-## 说明
-
-如果你希望“只有打 Git tag 才发版本号标签，而 push main 只发 latest”，也可以再改一版。
-
-
-### Compose 连接远程 PostgreSQL
-
-如果你不想在 Compose 里启动本地 `postgres`，可以直接给 `app` 提供远程库连接：
-
-```bash
-export DB_HOST=your-remote-pg-host
-export DB_PORT=5432
-export DB_NAME=recall
-export DB_USER=postgres
-export DB_PASSWORD=your-password
-export NEXTAUTH_URL=http://localhost:3789
-export NEXTAUTH_SECRET=your-strong-secret
-
-docker compose up -d
-```
-
-或者直接传完整连接串：
-
-```bash
-export DATABASE_URL='postgresql://postgres:your-password@your-remote-pg-host:5432/recall'
-docker compose up -d
-```
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
