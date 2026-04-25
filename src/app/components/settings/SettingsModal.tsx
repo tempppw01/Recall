@@ -28,7 +28,7 @@ type SettingsModalProps = {
   DEFAULT_BASE_URL: string;
   DEFAULT_MODEL_LIST: string[];
   parseModelList: (text: string) => string[];
-  fetchModelList: () => void;
+  fetchModelList: () => Promise<void>;
   isFetchingModels: boolean;
   modelFetchError: string | null;
   chatModel: string;
@@ -210,6 +210,23 @@ const SettingsModal = ({
   aiRetentionDays,
 }: SettingsModalProps) => {
   const firstAutoSaveRef = useRef(true);
+  const lastAutoFetchedModelKeyRef = useRef<string | null>(null);
+  const timeoutPresetOptions = [DEFAULT_FALLBACK_TIMEOUT_SEC, 5, 10];
+  const hasApiKey = Boolean(apiKey.trim());
+  const modelOptions = parseModelList(modelListText);
+
+  const handleFetchModelList = async (mode: 'auto' | 'manual' = 'manual') => {
+    if (!hasApiKey || isFetchingModels) return;
+    const fetchKey = `${(apiBaseUrl || DEFAULT_BASE_URL).trim()}::${apiKey.trim()}`;
+    if (mode === 'auto' && lastAutoFetchedModelKeyRef.current === fetchKey) return;
+    await fetchModelList();
+    lastAutoFetchedModelKeyRef.current = fetchKey;
+  };
+
+  const handleModelSelectFocus = () => {
+    if (!hasApiKey) return;
+    void handleFetchModelList('auto');
+  };
 
   useEffect(() => {
     if (!showSettings) return;
@@ -294,21 +311,22 @@ const SettingsModal = ({
   useEffect(() => {
     if (!showSettings) {
       firstAutoSaveRef.current = true;
+      lastAutoFetchedModelKeyRef.current = null;
     }
   }, [showSettings]);
 
   if (!showSettings) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 motion-modal-overlay">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(4,6,10,0.68)] px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6 motion-modal-overlay">
       <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
       <div
-        className="mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-2xl rounded-[32px] border border-[var(--ui-border-strong)] shadow-[0_28px_80px_rgba(0,0,0,0.42)] p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
+        className="mobile-modal mobile-modal-body motion-modal-surface relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(21,25,34,0.98),rgba(14,17,24,0.97))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.5)] sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F3F6FF]">设置</h2><p className="mt-1 text-[12px] sm:text-xs text-[#7d8595]">把 AI、同步、通知、存储和外观统一放在这里，修改后会自动保存。</p></div><span className="rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[10px] text-[#8d95a6]">自动保存</span></div>
-        <div className="space-y-3.5 sm:space-y-4 text-sm">
-          <details open className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+        <div className="mb-4 rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(78,126,208,0.28),transparent_32%),linear-gradient(135deg,rgba(30,41,64,0.92),rgba(18,22,30,0.96)_55%,rgba(11,14,20,0.98))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F3F6FF]">设置</h2><p className="mt-1 text-[12px] leading-5 text-[#95A2BA] sm:text-xs">把 AI、同步、通知、存储和外观收进同一个控制台里，改完即刻自动保存。</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] text-[#B6C2D9]">自动保存</span></div></div>
+        <div className="space-y-3.5 text-sm sm:space-y-4">
+          <details open className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>AI 基础设置</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
@@ -342,33 +360,51 @@ const SettingsModal = ({
                   <label className="block text-[11px] sm:text-xs font-medium text-[#888888] uppercase">可用模型</label>
                   <button
                     type="button"
-                    onClick={fetchModelList}
-                    disabled={isFetchingModels}
+                    onClick={() => void handleFetchModelList('manual')}
+                    disabled={!hasApiKey || isFetchingModels}
                     className="btn btn-sm btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isFetchingModels ? '拉取中…' : '拉取模型列表'}
+                    {isFetchingModels ? '拉取中…' : hasApiKey ? '刷新模型列表' : '填写密钥后可拉取'}
                   </button>
                 </div>
                 <select
                   value={chatModel}
                   onChange={(e) => setChatModel(e.target.value)}
+                  onFocus={handleModelSelectFocus}
+                  onClick={handleModelSelectFocus}
                   aria-label="对话模型"
                   title="对话模型"
                   className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
                 >
-                  {parseModelList(modelListText).map((model) => (
+                  {modelOptions.map((model) => (
                     <option key={model} value={model}>
                       {model}
                     </option>
                   ))}
                 </select>
-                <p className="mt-2 text-[11px] sm:text-xs text-[#666666]">只保留下拉选择；如需刷新，直接点右上角拉取。</p>
+                <p className="mt-2 text-[11px] sm:text-xs text-[#666666]">填写 API 密钥后，点击模型框会自动尝试拉取最新列表；右上角按钮可手动刷新。</p>
                 {modelFetchError && (
                   <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
                 )}
               </div>
               <div>
                 <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {timeoutPresetOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setFallbackTimeoutSec(option)}
+                      className={`rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
+                        fallbackTimeoutSec === option
+                          ? 'border-blue-400/70 bg-blue-500/18 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                          : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:border-[#555555] hover:text-white'
+                      }`}
+                    >
+                      {option === DEFAULT_FALLBACK_TIMEOUT_SEC ? `默认 ${option} 秒` : `${option} 秒`}
+                    </button>
+                  ))}
+                </div>
                 <input
                   type="number"
                   min={1}
@@ -408,7 +444,7 @@ const SettingsModal = ({
                 <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
               </div>
 
-              <div className="glass-panel-soft rounded-[24px] border border-[var(--ui-border-soft)] p-3.5 space-y-3">
+              <div className="rounded-[24px] border border-white/8 bg-[rgba(255,255,255,0.02)] p-3.5 space-y-3">
                 <div className="text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase">外观主题</div>
                 <div>
                   <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主题模式</label>
@@ -472,7 +508,7 @@ const SettingsModal = ({
             </div>
             </div>
           </details>
-          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+          <details className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>浏览器通知</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
@@ -512,7 +548,7 @@ const SettingsModal = ({
               </div>
             </div>
           </details>
-          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+          <details className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>API 专用设置组</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
@@ -669,7 +705,7 @@ const SettingsModal = ({
               </div>
             </div>
           </details>
-          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+          <details className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
             <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
               <span>数据导入导出</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />

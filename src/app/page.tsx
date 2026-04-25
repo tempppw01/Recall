@@ -1284,6 +1284,10 @@ export default function Home() {
   };
 
   const fetchModelList = async () => {
+    if (!apiKey?.trim()) {
+      setModelFetchError('请先填写 API 密钥');
+      return;
+    }
     setIsFetchingModels(true);
     setModelFetchError(null);
     try {
