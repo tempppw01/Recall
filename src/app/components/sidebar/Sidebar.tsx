@@ -336,8 +336,8 @@ const Sidebar = ({
           lg:relative lg:translate-x-0 lg:shadow-none
         `}
         style={{
-          width: isDesktop ? `${pcWidth}px` : '78vw',
-          maxWidth: isDesktop ? `${pcWidth}px` : '300px',
+          width: isDesktop ? `${pcWidth}px` : '74vw',
+          maxWidth: isDesktop ? `${pcWidth}px` : '280px',
           transition: isDragging ? 'none' : 'width var(--motion-base) var(--ease-standard), transform var(--motion-slow) var(--ease-emphasis)',
         }}
       >
@@ -551,34 +551,75 @@ const Sidebar = ({
                         if (groupKeys.length === 0) return null;
 
                         return (
-                          <div key={group.title} className="rounded-[20px] border border-white/6 bg-black/10 px-2 py-2">
-                            <div className="mb-2 px-2">
+                          <div key={group.title} className="rounded-[20px] border border-white/6 bg-[rgba(255,255,255,0.02)] px-1.5 py-2">
+                            <div className="mb-1.5 px-2">
                               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8D95A8]">{group.title}</div>
                               <div className="mt-0.5 text-[10px] text-[#5F6778]">{group.description}</div>
                             </div>
-                            <div className="space-y-1">
-                              {groupKeys.map((key) => {
-                                const item = toolConfig[key];
-                                return (
-                                  <SidebarItem
-                                    key={key}
-                                    icon={item.icon}
-                                    label={item.label}
-                                    count={item.count}
-                                    active={item.active}
-                                    onClick={item.onClick}
-                                    iconColor={item.iconColor}
-                                    draggable
-                                    onDragStart={() => setDraggingToolKey(key)}
-                                    onDragOver={(event) => event.preventDefault()}
-                                    onDrop={() => handleToolDrop(key)}
-                                    onDragEnd={() => setDraggingToolKey(null)}
-                                    className={draggingToolKey === key ? 'opacity-60 border border-white/12 rounded-xl' : ''}
-                                    rightSlot={<GripVertical className="w-3.5 h-3.5 text-[#5C5C5C]" />}
-                                  />
-                                );
-                              })}
-                            </div>
+                            {isDesktop ? (
+                              <div className="space-y-1">
+                                {groupKeys.map((key) => {
+                                  const item = toolConfig[key];
+                                  return (
+                                    <SidebarItem
+                                      key={key}
+                                      icon={item.icon}
+                                      label={item.label}
+                                      count={item.count}
+                                      active={item.active}
+                                      onClick={item.onClick}
+                                      iconColor={item.iconColor}
+                                      draggable
+                                      onDragStart={() => setDraggingToolKey(key)}
+                                      onDragOver={(event) => event.preventDefault()}
+                                      onDrop={() => handleToolDrop(key)}
+                                      onDragEnd={() => setDraggingToolKey(null)}
+                                      className={draggingToolKey === key ? 'opacity-60 border border-white/12 rounded-xl' : ''}
+                                      rightSlot={<GripVertical className="w-3.5 h-3.5 text-[#5C5C5C]" />}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-3 gap-1.5 px-1 pb-1">
+                                {groupKeys.map((key) => {
+                                  const item = toolConfig[key];
+                                  const Icon = item.icon;
+                                  return (
+                                    <button
+                                      key={key}
+                                      type="button"
+                                      onClick={item.onClick}
+                                      className={`relative flex min-h-[84px] flex-col items-center justify-center rounded-[20px] border px-2 py-2.5 text-center transition-all duration-200 ${
+                                        item.active
+                                          ? 'border-[rgba(var(--theme-accent),0.3)] bg-[rgba(var(--theme-accent),0.16)] shadow-[0_12px_28px_rgba(0,0,0,0.16)]'
+                                          : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] hover:border-[color:var(--ui-border-strong)] hover:bg-[rgba(255,255,255,0.055)]'
+                                      }`}
+                                    >
+                                      <div className={`relative flex h-9 w-9 items-center justify-center rounded-[18px] border ${
+                                        item.active
+                                          ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)]'
+                                          : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)]'
+                                      }`}>
+                                        <Icon className={`h-4.5 w-4.5 ${item.iconColor}`} />
+                                        {item.count > 0 && (
+                                          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[rgba(var(--theme-accent),0.9)] px-1 text-[10px] font-semibold text-white shadow-[0_6px_14px_rgba(0,0,0,0.22)]">
+                                            {item.count > 99 ? '99+' : item.count}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="mt-2">
+                                        <div className={`text-[13px] font-semibold leading-tight ${
+                                          item.active ? 'text-white' : 'text-[#D8E0F0]'
+                                        }`}>
+                                          {item.label}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
