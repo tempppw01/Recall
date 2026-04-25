@@ -1,0 +1,80 @@
+import type { Task } from '@/lib/store';
+
+export type WeatherCity = {
+  id: string;
+  name: string;
+  admin1?: string;
+  country?: string;
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+};
+
+export type WeatherForecast = {
+  weatherCode?: number;
+  tempMax?: number;
+  tempMin?: number;
+  weatherText?: string;
+  timezone?: string;
+  provider?: string;
+  warning?: string;
+  errors?: string[];
+};
+
+export type TaskSortMode = 'priority' | 'dueDate' | 'createdAt' | 'title' | 'manual';
+export type TaskGroupMode = 'none' | 'category' | 'priority' | 'dueDate';
+export type TaskGroup = { key: string; label: string; items: Task[] };
+export type FutureTaskBucketKey = 'overdue' | 'today' | 'upcoming' | 'future' | 'someday' | 'completed';
+
+export type AgentItem = {
+  id: string;
+  title: string;
+  dueDate?: string;
+  priority?: number;
+  category?: string;
+  tags?: string[];
+  subtasks?: { title?: string }[];
+};
+
+export type CountdownAgentItem = {
+  id: string;
+  title: string;
+  targetDate?: string;
+};
+
+export type HabitAgentItem = {
+  id: string;
+  title: string;
+  checkInDueDate?: string;
+  reason?: string;
+  frequency?: string;
+  category?: string;
+  priority?: number;
+};
+
+export type AgentMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+export type ManageAgentMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+export type ImageAttachment = {
+  id: string;
+  file: File;
+  dataUrl: string;
+};
+
+export type CountdownDisplayMode = 'days' | 'date';
+export type AiAssistantMode = 'record' | 'manage';
+export type ManageAgentFilter = 'all' | 'todo' | 'today' | 'overdue';
+
+export type StatusFeedback = {
+  id: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  detail?: string;
+};

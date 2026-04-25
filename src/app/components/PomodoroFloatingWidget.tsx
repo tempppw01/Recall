@@ -202,6 +202,7 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
     const stopDragging = () => {
       if (widgetRef.current && position) {
         const rect = widgetRef.current.getBoundingClientRect();
+        setWidgetWidth(rect.width);
         const dockedX = getDockedX(position.x, rect.width);
         setPosition((prev) => (prev ? { ...prev, x: dockedX } : prev));
         setIsEdgeDocked(true);

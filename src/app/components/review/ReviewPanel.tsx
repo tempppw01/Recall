@@ -259,15 +259,15 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     largestGroup: categoryGroups[0]?.tasks.length ?? 0,
   };
 
-  const timeGroupMeta: ReviewGroupMeta[] = useMemo(() => [
+  const timeGroupMeta = useMemo<ReviewGroupMeta[]>(() => [
     { key: 'all', label: '全部待检查', description: '按逾期、今天、未来 7 天、无明确日期的顺序检查。', count: reviewCounts.all },
     { key: 'overdue', label: '逾期', description: bucketMeta.overdue.description, count: reviewCounts.overdue },
     { key: 'today', label: '今天', description: bucketMeta.today.description, count: reviewCounts.today },
     { key: 'upcoming', label: '未来 7 天', description: bucketMeta.upcoming.description, count: reviewCounts.upcoming },
     { key: 'someday', label: '无明确日期', description: bucketMeta.someday.description, count: reviewCounts.someday },
-  ], [reviewCounts]);
+  ], [reviewCounts.all, reviewCounts.overdue, reviewCounts.someday, reviewCounts.today, reviewCounts.upcoming]);
 
-  const categoryGroupMeta: ReviewGroupMeta[] = useMemo(() => [
+  const categoryGroupMeta = useMemo<ReviewGroupMeta[]>(() => [
     {
       key: 'all',
       label: '全部列表',
@@ -280,7 +280,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
       description: group.description,
       count: group.tasks.length,
     })),
-  ], [reviewEligibleTasks.length, categoryGroups]);
+  ], [categoryGroups, reviewEligibleTasks.length]);
 
   const reviewList = useMemo(() => {
     if (reviewMode === 'time') {
