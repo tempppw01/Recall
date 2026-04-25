@@ -3,6 +3,8 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 RUN npm install --frozen-lockfile --prefer-offline
 
 # Stage 2: Build the app
