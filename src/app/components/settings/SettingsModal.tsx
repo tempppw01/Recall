@@ -1,16 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
 
-/**
- * 设置弹窗组件
- *
- * 职责：
- * - 管理 AI 接口、模型、通知、同步、数据库连接等设置项展示
- * - 接收页面层状态与 setter（受控组件）
- * - 调用 `persistSettings` 将变更统一持久化
- */
 type CountdownDisplayMode = 'days' | 'date';
 type ThemePreference = 'system' | 'light' | 'dark';
 type AccentTheme = 'blue' | 'violet' | 'emerald' | 'rose';
@@ -28,7 +20,7 @@ type SettingsModalProps = {
   DEFAULT_BASE_URL: string;
   DEFAULT_MODEL_LIST: string[];
   parseModelList: (text: string) => string[];
-  fetchModelList: () => Promise<void>;
+  fetchModelList: () => void;
   isFetchingModels: boolean;
   modelFetchError: string | null;
   chatModel: string;
@@ -127,6 +119,76 @@ type SettingsModalProps = {
   aiRetentionDays: number;
 };
 
+const ACCENT_THEME_OPTIONS: Array<{
+  value: AccentTheme;
+  label: string;
+  previewClassName: string;
+  glowClassName: string;
+}> = [
+  {
+    value: 'blue',
+    label: '天空蓝',
+    previewClassName: 'bg-[linear-gradient(135deg,#38BDF8_0%,#3B82F6_55%,#1D4ED8_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(56,189,248,0.24)]',
+  },
+  {
+    value: 'violet',
+    label: '霓虹紫',
+    previewClassName: 'bg-[linear-gradient(135deg,#C084FC_0%,#8B5CF6_50%,#6D28D9_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(139,92,246,0.24)]',
+  },
+  {
+    value: 'emerald',
+    label: '薄荷绿',
+    previewClassName: 'bg-[linear-gradient(135deg,#6EE7B7_0%,#10B981_50%,#047857_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(16,185,129,0.22)]',
+  },
+  {
+    value: 'rose',
+    label: '玫瑰粉',
+    previewClassName: 'bg-[linear-gradient(135deg,#FDA4AF_0%,#FB7185_55%,#E11D48_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(244,63,94,0.22)]',
+  },
+];
+
+const GRADIENT_THEME_OPTIONS: Array<{
+  value: GradientTheme;
+  label: string;
+  previewClassName: string;
+  glowClassName: string;
+}> = [
+  {
+    value: 'aurora',
+    label: '极光',
+    previewClassName: 'bg-[linear-gradient(135deg,#22D3EE_0%,#60A5FA_38%,#A78BFA_72%,#34D399_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(34,211,238,0.20)]',
+  },
+  {
+    value: 'sunset',
+    label: '日落',
+    previewClassName: 'bg-[linear-gradient(135deg,#FB7185_0%,#F97316_45%,#F59E0B_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(249,115,22,0.20)]',
+  },
+  {
+    value: 'ocean',
+    label: '海洋',
+    previewClassName: 'bg-[linear-gradient(135deg,#38BDF8_0%,#2563EB_45%,#0F172A_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(37,99,235,0.20)]',
+  },
+  {
+    value: 'mono',
+    label: '极简',
+    previewClassName: 'bg-[linear-gradient(135deg,#E5E7EB_0%,#9CA3AF_42%,#111827_100%)]',
+    glowClassName: 'shadow-[0_0_24px_rgba(156,163,175,0.18)]',
+  },
+];
+
+const baseInputClassName =
+  'ui-input rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm';
+
+const buttonGroupClassName =
+  'btn btn-sm ui-chip text-[12px] sm:text-xs';
+
 const SettingsModal = ({
   showSettings,
   setShowSettings,
@@ -135,7 +197,6 @@ const SettingsModal = ({
   apiKey,
   setApiKey,
   modelListText,
-  setModelListText,
   DEFAULT_BASE_URL,
   DEFAULT_MODEL_LIST,
   parseModelList,
@@ -211,9 +272,12 @@ const SettingsModal = ({
 }: SettingsModalProps) => {
   const firstAutoSaveRef = useRef(true);
   const lastAutoFetchedModelKeyRef = useRef<string | null>(null);
-  const timeoutPresetOptions = [DEFAULT_FALLBACK_TIMEOUT_SEC, 5, 10];
   const hasApiKey = Boolean(apiKey.trim());
-  const modelOptions = parseModelList(modelListText);
+
+  const availableModels = useMemo(() => {
+    const models = parseModelList(modelListText);
+    return models.length > 0 ? models : DEFAULT_MODEL_LIST;
+  }, [DEFAULT_MODEL_LIST, modelListText, parseModelList]);
 
   const handleFetchModelList = async (mode: 'auto' | 'manual' = 'manual') => {
     if (!hasApiKey || isFetchingModels) return;
@@ -311,253 +375,293 @@ const SettingsModal = ({
   useEffect(() => {
     if (!showSettings) {
       firstAutoSaveRef.current = true;
-      lastAutoFetchedModelKeyRef.current = null;
     }
   }, [showSettings]);
 
   if (!showSettings) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(4,6,10,0.68)] px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6 motion-modal-overlay">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 motion-modal-overlay">
       <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
       <div
-        className="mobile-modal mobile-modal-body motion-modal-surface relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(21,25,34,0.98),rgba(14,17,24,0.97))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.5)] sm:p-6"
+        className="theme-native-surface mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-2xl rounded-[32px] border border-[var(--ui-border-strong)] shadow-[0_28px_80px_rgba(0,0,0,0.42)] p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(78,126,208,0.28),transparent_32%),linear-gradient(135deg,rgba(30,41,64,0.92),rgba(18,22,30,0.96)_55%,rgba(11,14,20,0.98))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F3F6FF]">设置</h2><p className="mt-1 text-[12px] leading-5 text-[#95A2BA] sm:text-xs">把 AI、同步、通知、存储和外观收进同一个控制台里，改完即刻自动保存。</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] text-[#B6C2D9]">自动保存</span></div></div>
-        <div className="space-y-3.5 text-sm sm:space-y-4">
-          <details open className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F3F6FF]">设置</h2>
+            <p className="ui-note mt-1 text-[12px] sm:text-xs">
+              把 AI、同步、通知、存储和外观放在这里，修改后会自动保存。
+            </p>
+          </div>
+          <span className="ui-badge rounded-full px-2.5 py-1 text-[10px]">
+            自动保存
+          </span>
+        </div>
+
+        <div className="space-y-3.5 sm:space-y-4 text-sm">
+          <details
+            open={isApiSettingsOpen}
+            onToggle={(event) =>
+              setIsApiSettingsOpen((event.currentTarget as HTMLDetailsElement).open)
+            }
+            className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4"
+          >
+            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>AI 基础设置</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
+              <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
               <div className="mt-3 space-y-3 overflow-hidden">
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI 接口地址</label>
-                <div className="relative">
+                <div>
+                  <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                    OpenAI 接口地址
+                  </label>
                   <input
                     type="text"
                     value={apiBaseUrl}
                     onChange={(e) => setApiBaseUrl(e.target.value)}
                     placeholder={DEFAULT_BASE_URL}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
+                    className={baseInputClassName}
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">OpenAI API 密钥</label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] uppercase">可用模型</label>
-                  <button
-                    type="button"
-                    onClick={() => void handleFetchModelList('manual')}
-                    disabled={!hasApiKey || isFetchingModels}
-                    className="btn btn-sm btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isFetchingModels ? '拉取中…' : hasApiKey ? '刷新模型列表' : '填写密钥后可拉取'}
-                  </button>
+
+                <div>
+                  <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                    OpenAI API 密钥
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className={baseInputClassName}
+                  />
                 </div>
-                <select
-                  value={chatModel}
-                  onChange={(e) => setChatModel(e.target.value)}
-                  onFocus={handleModelSelectFocus}
-                  onClick={handleModelSelectFocus}
-                  aria-label="对话模型"
-                  title="对话模型"
-                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
-                >
-                  {modelOptions.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-2 text-[11px] sm:text-xs text-[#666666]">填写 API 密钥后，点击模型框会自动尝试拉取最新列表；右上角按钮可手动刷新。</p>
-                {modelFetchError && (
-                  <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">创建超时转本地（秒）</label>
-                <div className="mb-2 flex flex-wrap gap-2">
-                  {timeoutPresetOptions.map((option) => (
+
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <label className="ui-field-label mb-0 text-[11px] sm:text-xs">
+                      对话模型
+                    </label>
                     <button
-                      key={option}
                       type="button"
-                      onClick={() => setFallbackTimeoutSec(option)}
-                      className={`rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
-                        fallbackTimeoutSec === option
-                          ? 'border-blue-400/70 bg-blue-500/18 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                          : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:border-[#555555] hover:text-white'
+                      onClick={() => void handleFetchModelList('manual')}
+                      disabled={!hasApiKey || isFetchingModels}
+                      className="btn btn-sm btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="拉取模型列表"
+                    >
+                      {isFetchingModels ? '拉取中...' : hasApiKey ? '拉取模型列表' : '填写密钥后可拉取'}
+                    </button>
+                  </div>
+                  <select
+                    value={chatModel}
+                    onChange={(e) => setChatModel(e.target.value)}
+                    onFocus={handleModelSelectFocus}
+                    onClick={handleModelSelectFocus}
+                    aria-label="对话模型"
+                    title="对话模型"
+                    className={baseInputClassName}
+                  >
+                    {availableModels.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="ui-note mt-2 text-[11px] sm:text-xs">
+                    默认模型已调整为 deepseek-v4-flash；此处获得焦点时会尝试自动刷新，也可点击右上角手动拉取。
+                  </p>
+                  {modelFetchError && (
+                    <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                    倒数日显示模式
+                  </label>
+                  <div className="flex gap-2 text-[12px] sm:text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setCountdownDisplayMode('days')}
+                      className={`btn btn-sm ${
+                        countdownDisplayMode === 'days'
+                          ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                          : buttonGroupClassName
                       }`}
                     >
-                      {option === DEFAULT_FALLBACK_TIMEOUT_SEC ? `默认 ${option} 秒` : `${option} 秒`}
+                      剩余天数
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setCountdownDisplayMode('date')}
+                      className={`btn btn-sm ${
+                        countdownDisplayMode === 'date'
+                          ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                          : buttonGroupClassName
+                      }`}
+                    >
+                      目标日期
+                    </button>
+                  </div>
+                  <p className="ui-note mt-1 text-[11px] sm:text-xs">倒数日卡片右侧显示方式</p>
                 </div>
-                <input
-                  type="number"
-                  min={1}
-                  value={fallbackTimeoutSec}
-                  onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
-                  placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
-                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
-                />
-                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">超时将直接本地创建，避免无法新增（可自由设置）</p>
-              </div>
-              <div>
-                <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">倒数日显示模式</label>
-                <div className="flex gap-2 text-[12px] sm:text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setCountdownDisplayMode('days')}
-                    className={`btn btn-sm ${
-                      countdownDisplayMode === 'days'
-                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
-                    }`}
-                  >
-                    剩余天数
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCountdownDisplayMode('date')}
-                    className={`btn btn-sm ${
-                      countdownDisplayMode === 'date'
-                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
-                    }`}
-                  >
-                    目标日期
-                  </button>
-                </div>
-                <p className="text-[11px] sm:text-xs text-[#555555] mt-1">倒数日卡片右侧显示方式</p>
-              </div>
 
-              <div className="rounded-[24px] border border-white/8 bg-[rgba(255,255,255,0.02)] p-3.5 space-y-3">
-                <div className="text-[11px] sm:text-xs font-medium text-[#AAAAAA] uppercase">外观主题</div>
-                <div>
-                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主题模式</label>
-                  <div className="flex flex-wrap gap-2 text-[12px] sm:text-xs">
-                    {([['system','跟随系统'],['light','浅色'],['dark','深色']] as const).map(([mode,label]) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setThemePreference(mode)}
-                        className={`btn btn-sm ${
-                          themePreference === mode
-                            ? 'bg-blue-500/20 border-blue-400 text-white'
-                            : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                <details className="group rounded-[24px] border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] p-3.5">
+                  <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
+                    <span>高级设置</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
+                  </summary>
+                  <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
+                    <div className="mt-3 overflow-hidden">
+                      <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                        创建超时转本地（秒）
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={fallbackTimeoutSec}
+                        onChange={(e) => setFallbackTimeoutSec(Number(e.target.value))}
+                        placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
+                        className={baseInputClassName}
+                      />
+                      <p className="ui-note mt-1 text-[11px] sm:text-xs">
+                        超时将直接本地创建，避免无法新增。作为高级兜底设置，默认不放在常用区域。
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">主色</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {([['blue','天空蓝'],['violet','霓虹紫'],['emerald','薄荷绿'],['rose','玫瑰粉']] as const).map(([theme,label]) => (
-                      <button
-                        key={theme}
-                        type="button"
-                        onClick={() => setAccentTheme(theme)}
-                        className={`px-3 py-2 rounded-lg border text-xs transition-colors ${
-                          accentTheme === theme
-                            ? 'bg-blue-500/20 border-blue-400 text-white'
-                            : 'border-[#333333] text-[#BBBBBB] hover:border-[#555555] hover:text-white'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                </details>
+
+                <div className="glass-panel-soft rounded-[24px] border border-[var(--ui-border-soft)] p-3.5 space-y-3">
+                  <div className="ui-section-label text-[11px] sm:text-xs">外观主题</div>
+
+                  <div>
+                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                      主题模式
+                    </label>
+                    <div className="flex flex-wrap gap-2 text-[12px] sm:text-xs">
+                      {([
+                        ['system', '跟随系统'],
+                        ['light', '浅色'],
+                        ['dark', '深色'],
+                      ] as const).map(([mode, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setThemePreference(mode)}
+                          className={`btn btn-sm ${
+                            themePreference === mode
+                              ? 'btn btn-sm ui-chip ui-chip-active text-[12px] sm:text-xs'
+                              : buttonGroupClassName
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] sm:text-xs font-medium text-[#888888] mb-2 uppercase">渐变风格</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {([['aurora','极光'],['sunset','日落'],['ocean','海洋'],['mono','极简']] as const).map(([theme,label]) => (
-                      <button
-                        key={theme}
-                        type="button"
-                        onClick={() => setGradientTheme(theme)}
-                        className={`px-3 py-2 rounded-lg border text-xs transition-colors ${
-                          gradientTheme === theme
-                            ? 'bg-blue-500/20 border-blue-400 text-white'
-                            : 'border-[#333333] text-[#BBBBBB] hover:border-[#555555] hover:text-white'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+
+                  <div>
+                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                      主色
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {ACCENT_THEME_OPTIONS.map(({ value, label, previewClassName, glowClassName }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setAccentTheme(value)}
+                          className={`rounded-2xl border p-2.5 text-left transition-all ${
+                            accentTheme === value
+                              ? `ui-chip ui-chip-active ${glowClassName}`
+                              : 'ui-chip'
+                          }`}
+                        >
+                          <span className={`block h-11 rounded-xl ${previewClassName}`} />
+                          <span className="mt-2 block text-xs font-medium text-center">{label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  <div>
+                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                      渐变风格
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {GRADIENT_THEME_OPTIONS.map(({ value, label, previewClassName, glowClassName }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setGradientTheme(value)}
+                          className={`rounded-2xl border p-2.5 text-left transition-all ${
+                            gradientTheme === value
+                              ? `ui-chip ui-chip-active ${glowClassName}`
+                              : 'ui-chip'
+                          }`}
+                        >
+                          <span className={`block h-11 rounded-xl ${previewClassName}`} />
+                          <span className="mt-2 block text-xs font-medium text-center">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="ui-note text-[11px] sm:text-xs">
+                    现在颜色卡片会直接预览主题颜色和渐变氛围，方便选中前就看到效果。
+                  </p>
                 </div>
-                <p className="text-[11px] sm:text-xs text-[#555555]">第一版先影响整体氛围与主要强调色，后续会继续收敛到完整主题系统。</p>
               </div>
-            </div>
             </div>
           </details>
-          <details className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+
+          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>浏览器通知</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
+              <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
-              <div className="space-y-3 overflow-hidden">
-              <div className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs text-[#8b93a4] space-y-1">
-                <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前仅 Safari 表现稳定）</p>
-                <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
-                <p>
-                  权限状态：
-                  {notificationPermission === 'granted'
-                    ? '已授权'
-                    : notificationPermission === 'denied'
-                    ? '已拒绝'
-                    : '未授权'}
+              <div className="space-y-3 overflow-hidden mt-3">
+                <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs space-y-1">
+                  <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前以 Safari/现代浏览器为主）</p>
+                  <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
+                  <p>
+                    权限状态：
+                    {notificationPermission === 'granted'
+                      ? '已授权'
+                      : notificationPermission === 'denied'
+                      ? '已拒绝'
+                      : '未授权'}
+                  </p>
+                  <p>Service Worker：{serviceWorkerSupported ? '已支持' : '不支持'}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={requestNotificationPermission} className="btn btn-md btn-ghost">
+                    申请权限
+                  </button>
+                  <button type="button" onClick={sendTestNotification} className="btn btn-md btn-secondary">
+                    发送测试通知
+                  </button>
+                </div>
+                <p className="ui-note text-[11px] sm:text-xs">
+                  提示：浏览器会拦截非用户触发的通知，请尽量在手动点击按钮时申请或测试。
                 </p>
-                <p>Service Worker：{serviceWorkerSupported ? '已支持' : '不支持'}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={requestNotificationPermission}
-                  className="btn btn-md btn-ghost"
-                >
-                  申请权限
-                </button>
-                <button
-                  type="button"
-                  onClick={sendTestNotification}
-                  className="btn btn-md btn-secondary"
-                >
-                  发送测试通知
-                </button>
-              </div>
-              <p className="text-[11px] sm:text-xs text-[#555555]">提示：浏览器会拦截非用户触发的通知，请确保在手动点击按钮时触发。</p>
               </div>
             </div>
           </details>
-          <details className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+
+          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>API 专用设置组</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
+              <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 grid-rows-[0fr] opacity-85">
-              <div className="space-y-4 overflow-hidden">
-                <div className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs text-[#8b93a4]">
+              <div className="space-y-4 overflow-hidden mt-3">
+                <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs">
                   用于连接远程服务，当前仍保存在浏览器本地。修改后会自动保存。
                 </div>
+
                 <PgSettings
                   host={pgHost}
                   port={pgPort}
@@ -570,6 +674,7 @@ const SettingsModal = ({
                   onUsernameChange={setPgUsername}
                   onPasswordChange={setPgPassword}
                 />
+
                 <RedisSettings
                   host={redisHost}
                   port={redisPort}
@@ -580,18 +685,23 @@ const SettingsModal = ({
                   onDbChange={setRedisDb}
                   onPasswordChange={setRedisPassword}
                 />
+
                 <div className="space-y-3">
-                  <div className="text-[11px] sm:text-xs text-[#999999] uppercase">同步设置</div>
+                  <div className="ui-section-label text-[11px] sm:text-xs">同步设置</div>
                   <div>
-                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">同步命名空间 (Key Prefix)</label>
+                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                      同步命名空间（Key Prefix）
+                    </label>
                     <input
                       type="text"
                       value={syncNamespace}
                       onChange={(e) => setSyncNamespace(e.target.value)}
                       placeholder={DEFAULT_SYNC_NAMESPACE}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
+                      className={baseInputClassName}
                     />
-                    <p className="text-[11px] sm:text-xs text-[#555555] mt-1">类似“房间号”，多端填写一致即可同步同一份数据。</p>
+                    <p className="ui-note mt-1 text-[11px] sm:text-xs">
+                      类似“房间号”，多端填写一致即可同步同一份数据。
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -600,7 +710,7 @@ const SettingsModal = ({
                       className={`px-3 py-2 text-[13px] sm:text-sm rounded-lg border transition-colors ${
                         autoSyncEnabled
                           ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                          : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
+                          : buttonGroupClassName
                       }`}
                     >
                       {autoSyncEnabled ? '自动同步：已开启' : '自动同步：已关闭'}
@@ -610,7 +720,7 @@ const SettingsModal = ({
                       onChange={(e) => setAutoSyncInterval(Number(e.target.value))}
                       aria-label="自动同步间隔"
                       title="自动同步间隔"
-                      className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:outline-none focus:border-blue-500"
+                      className={baseInputClassName}
                     >
                       {AUTO_SYNC_INTERVAL_OPTIONS.map((option) => (
                         <option key={option} value={option}>
@@ -620,21 +730,26 @@ const SettingsModal = ({
                     </select>
                   </div>
                 </div>
+
                 <div>
-                  <label className="block text-[11px] sm:text-xs text-[#999999] uppercase mb-2">第三方日历订阅</label>
+                  <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                    第三方日历订阅
+                  </label>
                   <textarea
                     value={calendarSubscription}
                     onChange={(e) => setCalendarSubscription(e.target.value)}
                     placeholder="粘贴 iCal/CalDAV 订阅地址，支持多行"
                     rows={3}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
+                    className={baseInputClassName}
                   />
-                  <p className="text-[11px] sm:text-xs text-[#555555] mt-1">目前仅保存配置，后续可用于自动抓取日历。</p>
+                  <p className="ui-note mt-1 text-[11px] sm:text-xs">
+                    目前先保存配置，后续可用于自动抓取日历。
+                  </p>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] sm:text-xs text-[#999999] uppercase">附件存储 (WebDAV)</div>
+                    <div className="ui-section-label text-[11px] sm:text-xs">附件存储（WebDAV）</div>
                     <button
                       type="button"
                       onClick={async () => {
@@ -653,51 +768,51 @@ const SettingsModal = ({
                           });
                           const data = await res.json();
                           if (res.ok && data.success) {
-                            alert('连接成功！');
+                            alert('连接成功');
                           } else {
-                            alert(`连接失败: ${data.error || '未知错误'} \n${data.details || ''}`);
+                            alert(`连接失败: ${data.error || '未知错误'}\n${data.details || ''}`);
                           }
                         } catch (error) {
                           alert(`请求失败: ${String(error)}`);
                         }
                       }}
-                      className="text-[10px] text-blue-400 hover:text-blue-300"
+                      className="text-[10px] text-[color:rgb(var(--theme-accent))] hover:brightness-110"
                     >
                       测试连接
                     </button>
                   </div>
-                  <div className="bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs text-[#8b93a4]">
-                    配置 WebDAV 后可上传图片/文件附件。
+                  <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs">
+                    配置 WebDAV 后可上传图片和文件附件。
                   </div>
                   <div>
-                    <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">服务地址</label>
+                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">服务地址</label>
                     <input
                       type="text"
                       value={webdavUrl}
                       onChange={(e) => setWebdavUrl(e.target.value)}
                       placeholder={DEFAULT_WEBDAV_URL}
-                      className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
+                      className={baseInputClassName}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">用户名</label>
+                      <label className="ui-field-label mb-2 text-[11px] sm:text-xs">用户名</label>
                       <input
                         type="text"
                         value={webdavUsername}
                         onChange={(e) => setWebdavUsername(e.target.value)}
                         placeholder="用户名"
-                        className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
+                        className={baseInputClassName}
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">密码</label>
+                      <label className="ui-field-label mb-2 text-[11px] sm:text-xs">密码</label>
                       <input
                         type="password"
                         value={webdavPassword}
                         onChange={(e) => setWebdavPassword(e.target.value)}
                         placeholder="密码"
-                        className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm text-[#E8ECF8] focus:border-blue-500 focus:outline-none transition-colors"
+                        className={baseInputClassName}
                       />
                     </div>
                   </div>
@@ -705,64 +820,69 @@ const SettingsModal = ({
               </div>
             </div>
           </details>
-          <details className="group rounded-[28px] border border-white/8 bg-[rgba(255,255,255,0.025)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] sm:p-4">
-            <summary className="cursor-pointer list-none text-[11px] sm:text-xs font-medium text-[#AAB3C6] uppercase tracking-[0.14em] flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 hover:bg-white/5 hover:text-[#D8DEEF] ui-state-hover">
+
+          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>数据导入导出</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#7A7A7A] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
+              <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
-              <div className="overflow-hidden">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleExportData}
-                  className="px-3 py-2.5 text-[13px] sm:text-sm bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl text-[#D5DBEA] hover:border-[#5f6880] hover:text-white"
-                >
-                  导出 JSON
-                </button>
-                <button
-                  type="button"
-                  onClick={openImportPicker}
-                  className="px-3 py-2.5 text-[13px] sm:text-sm bg-[rgba(255,255,255,0.03)] border border-[var(--ui-border-soft)] rounded-2xl text-[#D5DBEA] hover:border-[#5f6880] hover:text-white"
-                >
-                  导入 JSON
-                </button>
-              </div>
-              <div className="mt-3">
-                <label className="block text-[11px] sm:text-xs text-[#666666] mb-2">导入方式</label>
-                <div className="flex gap-2 text-[12px] sm:text-xs">
+              <div className="overflow-hidden mt-3">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setImportMode('merge')}
-                    className={`btn btn-sm ${
-                      importMode === 'merge'
-                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
-                    }`}
+                    onClick={handleExportData}
+                    className="btn btn-secondary btn-md rounded-2xl"
                   >
-                    合并
+                    导出 JSON
                   </button>
                   <button
                     type="button"
-                    onClick={() => setImportMode('overwrite')}
-                    className={`btn btn-sm ${
-                      importMode === 'overwrite'
-                        ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                        : 'border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8a92a3] hover:text-white hover:border-[#555555]'
-                    }`}
+                    onClick={openImportPicker}
+                    className="btn btn-secondary btn-md rounded-2xl"
                   >
-                    覆盖
+                    导入 JSON
                   </button>
                 </div>
-                <p className="text-[11px] sm:text-xs text-[#555555] mt-2">合并会保留现有数据，覆盖将以导入文件为准。</p>
-              </div>
-              <input
-                ref={importInputRef}
-                type="file"
-                accept="application/json"
-                onChange={handleImportData}
-                className="hidden"
-              />
+
+                <div className="mt-3">
+                  <label className="ui-field-label mb-2 text-[11px] sm:text-xs">导入方式</label>
+                  <div className="flex gap-2 text-[12px] sm:text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setImportMode('merge')}
+                      className={`btn btn-sm ${
+                        importMode === 'merge'
+                          ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                          : buttonGroupClassName
+                      }`}
+                    >
+                      合并
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportMode('overwrite')}
+                      className={`btn btn-sm ${
+                        importMode === 'overwrite'
+                          ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                          : buttonGroupClassName
+                      }`}
+                    >
+                      覆盖
+                    </button>
+                  </div>
+                  <p className="ui-note mt-2 text-[11px] sm:text-xs">
+                    合并会保留现有数据，覆盖将以导入文件为准。
+                  </p>
+                </div>
+
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json"
+                  onChange={handleImportData}
+                  className="hidden"
+                />
               </div>
             </div>
           </details>
@@ -770,13 +890,11 @@ const SettingsModal = ({
           <div className="flex justify-end gap-3 mt-5">
             <button
               onClick={() => setShowSettings(false)}
-              className="px-3 py-2 text-[13px] sm:text-sm text-[#AAAAAA] hover:text-white transition-colors"
+              className="btn btn-ghost btn-md rounded-2xl"
             >
               关闭
             </button>
-            <div className="px-3 py-2 text-[12px] sm:text-xs text-[#7d8595]">
-              已启用自动保存
-            </div>
+            <div className="ui-note px-3 py-2 text-[12px] sm:text-xs">已启用自动保存</div>
           </div>
         </div>
       </div>

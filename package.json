@@ -6,7 +6,7 @@
     "dev": "next dev --webpack",
     "postinstall": "prisma generate",
     "prebuild": "prisma generate",
-    "build": "next build",
+    "build": "next build && node scripts/sync-standalone-assets.js",
     "start": "node .next/standalone/server.js",
     "lint": "npm run lint:eslint",
     "lint:eslint": "eslint .",

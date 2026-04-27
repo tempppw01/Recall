@@ -96,7 +96,8 @@ import {
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
-const DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite'];
+const DEFAULT_MODEL_LIST = ['deepseek-v4-flash'];
+const LEGACY_DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite'];
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 2;
 const DEFAULT_SESSION_ID_KEY = 'recall_session_id';
 const DEFAULT_REDIS_DB = 0;
@@ -220,8 +221,8 @@ const LUNAR_FESTIVALS = [
 
 const AgentThinkingBubble = ({ label, accent = 'cyan' }: { label: string; accent?: 'cyan' | 'violet' }) => {
   const accentClass = accent === 'violet'
-    ? 'border-violet-400/20 bg-gradient-to-r from-[#241B33] to-[#1D2130] text-violet-100'
-    : 'border-cyan-400/20 bg-gradient-to-r from-[#1F232C] to-[#232839] text-[#E8ECF7]';
+    ? 'border-violet-400/20 bg-[color:var(--ui-card-bg)] text-violet-200'
+    : 'border-cyan-400/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]';
 
   const dotClass = accent === 'violet' ? 'bg-violet-300/85' : 'bg-cyan-300/85';
 
@@ -236,7 +237,7 @@ const AgentThinkingBubble = ({ label, accent = 'cyan' }: { label: string; accent
           </div>
           <div>
             <div className="text-sm font-medium">{label}</div>
-            <div className="mt-0.5 text-[11px] text-[#8FA1C8]">正在组织回复，你可以稍等一下。</div>
+            <div className="mt-0.5 text-[11px] text-[color:var(--ui-text-secondary)]">正在组织回复，你可以稍等一下。</div>
           </div>
         </div>
       </div>
@@ -1407,8 +1408,26 @@ export default function Home() {
         setApiKey(storedKey);
       }
       if (storedBaseUrl) setApiBaseUrl(storedBaseUrl);
-      if (storedModelList) setModelListText(storedModelList);
-      if (storedChatModel) setChatModel(storedChatModel);
+      const legacyModelListText = LEGACY_DEFAULT_MODEL_LIST.join('\n');
+      const nextDefaultModelListText = DEFAULT_MODEL_LIST.join('\n');
+      const shouldMigrateModelList =
+        !storedModelList || storedModelList.trim() === legacyModelListText;
+      const shouldMigrateChatModel =
+        !storedChatModel || storedChatModel.trim() === LEGACY_DEFAULT_MODEL_LIST[0];
+
+      if (shouldMigrateModelList) {
+        setModelListText(nextDefaultModelListText);
+        localStorage.setItem('recall_model_list', nextDefaultModelListText);
+      } else if (storedModelList) {
+        setModelListText(storedModelList);
+      }
+
+      if (shouldMigrateChatModel) {
+        setChatModel(DEFAULT_MODEL_LIST[0]);
+        localStorage.setItem('recall_chat_model', DEFAULT_MODEL_LIST[0]);
+      } else if (storedChatModel) {
+        setChatModel(storedChatModel);
+      }
       if (storedFallbackTimeout) {
         const parsed = Number(storedFallbackTimeout);
         if (Number.isFinite(parsed) && parsed > 0) {
@@ -4077,7 +4096,7 @@ const normalizeTimeoutSec = (value: number) => {
   const hasApiKey = apiKey.trim().length > 0;
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#1A1A1A] font-sans text-[#EEEEEE] relative safe-area-top">
+    <div className="theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
       <AmbientBackdrop />
 
       {statusFeedback && (
@@ -4104,23 +4123,23 @@ const normalizeTimeoutSec = (value: number) => {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm text-[#F4F7FF]">{statusFeedback.message}</div>
+                <div className="text-sm text-[color:var(--ui-text-strong)]">{statusFeedback.message}</div>
                 {statusFeedback.detail && (
-                  <div className="mt-0.5 text-xs text-[#C6D0E6]">{statusFeedback.detail}</div>
+                  <div className="mt-0.5 text-xs text-[color:var(--ui-text-primary)]">{statusFeedback.detail}</div>
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowLogs(true)}
-                  className="text-[11px] px-2 py-1 rounded-md border border-white/15 text-[#D7DEEF] hover:text-white ui-state-hover ui-state-press"
+                  className="ui-chip text-[11px] rounded-md px-2 py-1 ui-state-hover ui-state-press"
                 >
                   查看日志
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFeedback(null)}
-                  className="p-1 rounded-md text-[#AAB3C8] hover:text-white ui-state-hover ui-state-press"
+                  className="rounded-md p-1 text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] ui-state-hover ui-state-press"
                   aria-label="关闭状态提示"
                 >
                   <X className="w-4 h-4" />
@@ -4171,7 +4190,7 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 2. Main Task List */}
       <section
-        className={`relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-gradient-to-b from-[#17181C]/92 via-[#17181C]/88 to-[#14161B]/94 ${
+        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,rgba(20,22,27,0.96),rgba(24,27,33,0.92),rgba(18,20,26,0.96))] ${
           selectedTask ? 'hidden lg:flex' : 'flex'
         }`}
       >
@@ -4449,7 +4468,7 @@ const normalizeTimeoutSec = (value: number) => {
                               <div className="relative flex items-center">
                                 <span className="absolute -left-2.5 -top-2.5 w-3 h-3 rounded-full bg-red-400 shadow" />
                                 <div className="h-[2px] w-full bg-red-400/80" />
-                                <span className="ml-2 text-[10px] text-red-300 bg-[#1A1A1A] px-1.5 py-0.5 rounded">
+                                <span className="ml-2 rounded bg-[var(--ui-surface-0)] px-1.5 py-0.5 text-[10px] text-red-300">
                                   {nowLabel}
                                 </span>
                               </div>
@@ -4701,7 +4720,7 @@ const normalizeTimeoutSec = (value: number) => {
                           <select
                             value={aiRetentionDays}
                             onChange={(e) => setAiRetentionDays(Number(e.target.value))}
-                            className="bg-[#1A1A1A] border border-[#333333] rounded px-1 py-0.5 focus:outline-none"
+                            className="ui-input rounded px-1 py-0.5"
                           >
                             <option value={1}>1天</option>
                             <option value={2}>2天</option>
@@ -4752,7 +4771,7 @@ const normalizeTimeoutSec = (value: number) => {
                         onChange={(e) => setCountdownAgentInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleCountdownAgentSend()}
                         placeholder="例如：10 月 1 日去旅行"
-                        className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded-lg px-3 py-3 text-sm text-[#CCCCCC] leading-6 focus:outline-none focus:border-blue-500"
+                        className="ui-input flex-1 rounded-lg px-3 py-3 text-sm leading-6"
                         disabled={countdownAgentLoading}
                       />
                       <button
@@ -4988,28 +5007,28 @@ const normalizeTimeoutSec = (value: number) => {
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
-            <div className="h-[calc(100dvh-8.8rem)] min-h-[420px]">
+            <div className="theme-native-surface h-[calc(100dvh-8.8rem)] min-h-[420px]">
               <div className="h-full rounded-2xl p-[1px] bg-gradient-to-br from-blue-500/40 via-violet-500/20 to-cyan-500/40">
-                <div className="h-full bg-gradient-to-b from-[#1C1F2A] via-[#202020] to-[#1B1B1B] rounded-2xl p-4 flex flex-col shadow-[0_0_0_1px_rgba(59,130,246,0.08)]">
+                <div className="h-full rounded-2xl p-4 flex flex-col bg-[var(--glass-panel-bg)] shadow-[0_0_0_1px_rgba(59,130,246,0.08)]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手</h3>
                       <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
                     </div>
-                    <p className="text-xs text-[#8D94A8] mt-1">把计划丢给我，我负责拆碎再拼好 😎</p>
-                    <div className="mt-2 inline-flex rounded-full border border-[#2A3348] bg-[#141826] p-1">
+                    <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">把计划丢给我，我负责拆碎再拼好 😎</p>
+                    <div className="mt-2 inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-1">
                       <button
                         type="button"
                         onClick={() => setAiAssistantMode('record')}
-                        className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'record' ? 'bg-blue-600 text-white' : 'text-[#9AA8C7] hover:text-white'}`}
+                        className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'record' ? 'bg-blue-600 text-white' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
                       >
                         记录助手
                       </button>
                       <button
                         type="button"
                         onClick={() => setAiAssistantMode('manage')}
-                        className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'manage' ? 'bg-violet-600 text-white' : 'text-[#9AA8C7] hover:text-white'}`}
+                        className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'manage' ? 'bg-violet-600 text-white' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
                       >
                         管理助手
                       </button>
@@ -5019,7 +5038,7 @@ const normalizeTimeoutSec = (value: number) => {
                     <button
                       type="button"
                       onClick={clearCurrentAiContext}
-                      className="p-1.5 rounded-lg border border-[#333333] text-[#7C8499] hover:text-white hover:border-[#59647A]"
+                      className="p-1.5 rounded-lg border border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]"
                       title="清除当前 AI 上下文"
                       aria-label="清除当前 AI 上下文"
                     >
@@ -5027,12 +5046,12 @@ const normalizeTimeoutSec = (value: number) => {
                     </button>
                     <div className="flex items-center gap-2">
                       {redisHost && (
-                        <div className="flex items-center gap-1 text-[10px] text-[#666666]">
+                        <div className="flex items-center gap-1 text-[10px] text-[color:var(--ui-text-muted)]">
                           <span>记忆:</span>
                           <select
                             value={aiRetentionDays}
                             onChange={(e) => setAiRetentionDays(Number(e.target.value))}
-                            className="bg-[#1A1A1A] border border-[#333333] rounded px-1 py-0.5 focus:outline-none"
+                            className="rounded border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-1 py-0.5 text-[color:var(--ui-text-primary)] focus:outline-none"
                           >
                             <option value={1}>1天</option>
                             <option value={2}>2天</option>
@@ -5044,7 +5063,7 @@ const normalizeTimeoutSec = (value: number) => {
                         <select
                           value={chatModel}
                           onChange={(e) => setChatModel(e.target.value)}
-                          className="bg-[#1A1A1A] border border-[#333333] rounded px-1.5 py-0.5 text-[10px] text-[#CCCCCC] focus:outline-none max-w-[100px] truncate"
+                          className="max-w-[100px] truncate rounded border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-primary)] focus:outline-none"
                           title="切换模型"
                         >
                           {parseModelList(modelListText).map((model) => (
@@ -5054,7 +5073,7 @@ const normalizeTimeoutSec = (value: number) => {
                         <button
                           onClick={fetchModelList}
                           disabled={isFetchingModels}
-                          className="p-1 rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
+                          className="rounded border border-[color:var(--ui-border-soft)] p-1 text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)] disabled:opacity-50"
                           title="拉取模型列表"
                         >
                           <Cloud className={`w-3 h-3 ${isFetchingModels ? 'animate-bounce' : ''}`} />
@@ -5064,7 +5083,7 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-xl border border-dashed border-violet-400/30 bg-gradient-to-r from-violet-500/15 to-cyan-500/15 px-3 py-2 text-xs text-[#C7D2FE] shadow-[0_0_24px_rgba(99,102,241,0.16)]">
+                <div className="mt-3 rounded-xl border border-dashed border-violet-400/30 bg-gradient-to-r from-violet-500/15 to-cyan-500/15 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] shadow-[0_0_24px_rgba(99,102,241,0.16)]">
                   小提示：别怕大目标，我负责把它切成一口一口的“薯片任务”。
                 </div>
 
@@ -5093,7 +5112,7 @@ const normalizeTimeoutSec = (value: number) => {
                           <div className="text-xs text-amber-100/80 mt-1">点击这里前往设置页面填写 Key</div>
                         </button>
                       ) : agentMessages.length === 0 ? (
-                        <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：想完成什么事情？</div>
+                        <div className="rounded-lg border border-[rgba(var(--theme-accent),0.16)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-sm text-[color:var(--ui-text-primary)]">先告诉我：想完成什么事情？</div>
                       ) : (
                         <>
                           {agentMessages.map((message, idx) => (
@@ -5105,7 +5124,7 @@ const normalizeTimeoutSec = (value: number) => {
                                 className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
                                   message.role === 'user'
                                     ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100'
-                                    : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                                    : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
                                 {message.content}
@@ -5131,7 +5150,7 @@ const normalizeTimeoutSec = (value: number) => {
                         </div>
                       )}
 
-                      <div className="pt-2 space-y-3 border-t border-[#2C2C2C]">
+                      <div className="space-y-3 border-t border-[color:var(--ui-border-soft)] pt-2">
                         {agentGuidance.length > 0 && (
                           <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100 space-y-1">
                             <div className="font-medium text-cyan-200">行动拆解建议</div>
@@ -5143,7 +5162,7 @@ const normalizeTimeoutSec = (value: number) => {
                           </div>
                         )}
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-[#D7DEEF]">建议待办（切成薯片）</h4>
+                          <h4 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">建议待办（切成薯片）</h4>
                           {showAgentBulkAdd && (
                             <button
                               onClick={handleAddAllAgentItems}
@@ -5155,18 +5174,18 @@ const normalizeTimeoutSec = (value: number) => {
                           )}
                         </div>
                         {agentItems.length === 0 ? (
-                          <div className="bg-gradient-to-r from-[#1F1F1F] to-[#202634] border border-dashed border-cyan-500/20 rounded-2xl p-4 text-xs text-[#8791A8]">
+                          <div className="rounded-2xl border border-dashed border-cyan-500/20 bg-[color:var(--ui-card-bg)] p-4 text-xs text-[color:var(--ui-text-secondary)]">
                             我会把整理结果放在这里。
                           </div>
                         ) : (
                           <div className="grid gap-3">
                             {agentItems.map((item) => (
-                              <div key={item.id} className="bg-gradient-to-br from-[#202020] to-[#232839] border border-violet-500/20 rounded-2xl p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
+                              <div key={item.id} className="rounded-2xl border border-violet-500/20 bg-[color:var(--ui-card-bg)] p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
                                 <div className="flex items-start justify-between gap-3">
                                   <div>
-                                    <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
+                                    <p className="text-sm font-semibold text-[color:var(--ui-text-strong)]">{item.title}</p>
                                     {item.dueDate && (
-                                      <p className="text-xs text-[#777777] mt-1">
+                                      <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
                                         日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
                                       </p>
                                     )}
@@ -5175,7 +5194,7 @@ const normalizeTimeoutSec = (value: number) => {
                                     onClick={() => handleAddAgentItem(item)}
                                     className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
                                       addedAgentItemIds.has(item.id)
-                                        ? 'border-[#333333] text-[#666666]'
+                                        ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
                                         : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
                                     }`}
                                   >
@@ -5183,7 +5202,7 @@ const normalizeTimeoutSec = (value: number) => {
                                   </button>
                                 </div>
                                 {item.subtasks?.length ? (
-                                  <ul className="mt-3 space-y-1 text-xs text-[#777777] list-disc list-inside">
+                                  <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-[color:var(--ui-text-muted)]">
                                     {item.subtasks.map((subtask, index) => (
                                       <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
                                     ))}
@@ -5197,7 +5216,7 @@ const normalizeTimeoutSec = (value: number) => {
                     </>
                   ) : (
                     <>
-                      <div className="text-[11px] text-[#8FA1C8] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">
+                      <div className="rounded-lg border border-[rgba(var(--theme-accent),0.16)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-[11px] text-[color:var(--ui-text-primary)]">
                         管理助手可以读取你当前的任务列表，并给出优先级/推荐/下一步建议。
                       </div>
 
@@ -5210,7 +5229,7 @@ const normalizeTimeoutSec = (value: number) => {
 
                           onClick={() => setManageAgentFilter('all')}
 
-                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'all' ? 'bg-[#2B3448] border-[#3B82F6]/40 text-[#D7DEEF]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'all' ? 'bg-[rgba(var(--theme-accent),0.14)] border-[#3B82F6]/40 text-[color:var(--ui-text-strong)]' : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
 
                         >
 
@@ -5224,7 +5243,7 @@ const normalizeTimeoutSec = (value: number) => {
 
                           onClick={() => setManageAgentFilter('todo')}
 
-                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'todo' ? 'bg-[#2B3448] border-[#3B82F6]/40 text-[#D7DEEF]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'todo' ? 'bg-[rgba(var(--theme-accent),0.14)] border-[#3B82F6]/40 text-[color:var(--ui-text-strong)]' : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
 
                         >
 
@@ -5238,7 +5257,7 @@ const normalizeTimeoutSec = (value: number) => {
 
                           onClick={() => setManageAgentFilter('today')}
 
-                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'today' ? 'bg-[#2B3448] border-[#3B82F6]/40 text-[#D7DEEF]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'today' ? 'bg-[rgba(var(--theme-accent),0.14)] border-[#3B82F6]/40 text-[color:var(--ui-text-strong)]' : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
 
                         >
 
@@ -5252,7 +5271,7 @@ const normalizeTimeoutSec = (value: number) => {
 
                           onClick={() => setManageAgentFilter('overdue')}
 
-                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'overdue' ? 'bg-[#2B3448] border-[#F43F5E]/40 text-[#FFD1DC]' : 'border-[#2A3348] text-[#8FA1C8] hover:text-white'}`}
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'overdue' ? 'bg-[#2B3448] border-[#F43F5E]/40 text-[#FFD1DC]' : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
 
                         >
 
@@ -5269,7 +5288,7 @@ const normalizeTimeoutSec = (value: number) => {
                           <div className="skeleton skeleton-shimmer rounded-lg h-12" />
                         </div>
                       ) : manageAgentMessages.length === 0 ? (
-                        <div className="text-sm text-[#A9B6FF] bg-[#1A2030] border border-[#2C3550] rounded-lg px-3 py-2">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
+                        <div className="rounded-lg border border-[rgba(var(--theme-accent),0.16)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-sm text-[color:var(--ui-text-primary)]">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
                       ) : (
                         <>
                           {manageAgentMessages.map((message, idx) => (
@@ -5281,7 +5300,7 @@ const normalizeTimeoutSec = (value: number) => {
                                 className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
                                   message.role === 'user'
                                     ? 'bg-gradient-to-r from-violet-500/25 to-blue-500/25 border border-violet-400/30 text-blue-100'
-                                    : 'bg-gradient-to-r from-[#2A2A2A] to-[#2A2F3A] border border-cyan-500/20 text-[#E8ECF7]'
+                                    : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
                                 {message.content}
@@ -5299,8 +5318,8 @@ const normalizeTimeoutSec = (value: number) => {
                       )}
 
                       {manageRecommendations.length > 0 && (
-                        <div className="pt-2 space-y-2 border-t border-[#2C2C2C]">
-                          <div className="text-sm font-semibold text-[#D7DEEF]">推荐</div>
+                        <div className="space-y-2 border-t border-[color:var(--ui-border-soft)] pt-2">
+                          <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">推荐</div>
                           <div className="grid gap-2">
                             {manageRecommendations.map((r) => (
                               <button
@@ -5310,10 +5329,10 @@ const normalizeTimeoutSec = (value: number) => {
                                   const target = tasks.find((t) => t.id === r.id);
                                   if (target) setSelectedTask(target);
                                 }}
-                                className="w-full text-left rounded-2xl border border-[#2A2A2A] bg-[#1F1F1F] hover:bg-[#232323] transition-colors p-3"
+                                className="w-full rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3 text-left transition-colors hover:bg-[color:var(--ui-card-hover-bg)]"
                               >
-                                <div className="text-sm text-[#EEEEEE] font-medium">{r.title}</div>
-                                {r.reason && <div className="mt-1 text-xs text-[#777777]">{r.reason}</div>}
+                                <div className="text-sm font-medium text-[color:var(--ui-text-strong)]">{r.title}</div>
+                                {r.reason && <div className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{r.reason}</div>}
 
                                 {(typeof r.suggestedPinned === 'boolean' ||
                                   typeof r.suggestedPriority === 'number' ||
@@ -5335,7 +5354,7 @@ const normalizeTimeoutSec = (value: number) => {
                                           setManageRecommendations((prev) => prev.filter((item) => item.id !== r.id));
                                           pushLog('success', `已${r.suggestedPinned ? '置顶' : '取消置顶'}：${r.title}`);
                                         }}
-                                        className="px-2.5 py-1 text-[11px] rounded-full border border-[#2A3348] text-[#8FA1C8] hover:text-white hover:border-[#3A3F55]"
+                                        className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]"
                                       >
                                         {r.suggestedPinned ? '一键置顶' : '一键取消置顶'}
                                       </button>
@@ -5356,7 +5375,7 @@ const normalizeTimeoutSec = (value: number) => {
                                           setManageRecommendations((prev) => prev.filter((item) => item.id !== r.id));
                                           pushLog('success', `已更新优先级：${r.title}`);
                                         }}
-                                        className="px-2.5 py-1 text-[11px] rounded-full border border-[#2A3348] text-[#8FA1C8] hover:text-white hover:border-[#3A3F55]"
+                                        className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]"
                                       >
                                         一键设为{getPriorityLabel(r.suggestedPriority)}
                                       </button>
@@ -5389,7 +5408,7 @@ const normalizeTimeoutSec = (value: number) => {
                                           setManageRecommendations((prev) => prev.filter((item) => item.id !== r.id));
                                           pushLog('success', `已更新日期：${r.title}`);
                                         }}
-                                        className="px-2.5 py-1 text-[11px] rounded-full border border-[#2A3348] text-[#8FA1C8] hover:text-white hover:border-[#3A3F55]"
+                                        className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]"
                                       >
                                         一键设为{r.suggestedDuePreset === 'today' ? '今天' : r.suggestedDuePreset === 'tomorrow' ? '明天' : '今晚'}
                                       </button>
@@ -5410,7 +5429,7 @@ const normalizeTimeoutSec = (value: number) => {
                     {agentImages.map((image) => (
                       <div
                         key={image.id}
-                        className="relative w-16 h-16 rounded-lg border border-[#333333] overflow-hidden"
+                        className="relative h-16 w-16 overflow-hidden rounded-lg border border-[color:var(--ui-border-soft)]"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -5455,13 +5474,13 @@ const normalizeTimeoutSec = (value: number) => {
                           }
                         }}
                         placeholder={hasApiKey ? '例如：帮我规划本周的工作安排' : '请先在设置中填写 AI Key'}
-                        className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
+                        className="flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
                         disabled={!hasApiKey || agentLoading}
                       />
                       <button
                         type="button"
                         onClick={() => agentImageInputRef.current?.click()}
-                        className="p-2 rounded-lg border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555] disabled:opacity-50"
+                        className="rounded-lg border border-[color:var(--ui-border-soft)] p-2 text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50"
                         title="上传图片"
                         disabled={!hasApiKey || agentLoading}
                       >
@@ -5488,7 +5507,7 @@ const normalizeTimeoutSec = (value: number) => {
                           }
                         }}
                         placeholder={hasApiKey ? '例如：从我的任务里推荐今天最该做的 5 个' : '请先在设置中填写 AI Key'}
-                        className="flex-1 bg-gradient-to-r from-[#1A1A1A] to-[#1D2130] border border-[#3A3F55] rounded-lg px-3 py-3 text-sm text-[#E2E8FF] leading-6 focus:outline-none focus:border-violet-400 disabled:opacity-60"
+                        className="flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
                         disabled={!hasApiKey || manageAgentLoading}
                       />
                       <button
@@ -6089,7 +6108,7 @@ const normalizeTimeoutSec = (value: number) => {
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666] pointer-events-none" />
                     <input 
                       type="date"
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-9 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="ui-input w-full rounded px-9 py-2 text-sm"
                       value={selectedDateValue}
                       onChange={(e) => {
                         const nextDate = e.target.value;
@@ -6105,7 +6124,7 @@ const normalizeTimeoutSec = (value: number) => {
                   <div className="relative">
                     <input
                       type="time"
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="ui-input w-full rounded px-3 py-2 text-sm"
                       value={selectedTimeValue}
                       onChange={(e) => {
                         const nextTime = e.target.value;
@@ -6134,7 +6153,7 @@ const normalizeTimeoutSec = (value: number) => {
                           timezoneOffset: nextOffset,
                         });
                       }}
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="ui-select w-full rounded px-3 py-2 text-sm"
                     >
                       {TIMEZONE_OPTIONS.map((option) => (
                         <option key={option.offsetMinutes} value={option.offsetMinutes}>
@@ -6198,7 +6217,7 @@ const normalizeTimeoutSec = (value: number) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input
                       type="date"
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="ui-input w-full rounded px-3 py-2 text-sm"
                       value={selectedReminderDateValue}
                       onChange={(e) => {
                         if (!selectedTask) return;
@@ -6209,7 +6228,7 @@ const normalizeTimeoutSec = (value: number) => {
                     />
                     <input
                       type="time"
-                      className="w-full bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="ui-input w-full rounded px-3 py-2 text-sm"
                       value={selectedReminderTimeValue}
                       onChange={(e) => {
                         if (!selectedTask) return;
@@ -6290,7 +6309,7 @@ const normalizeTimeoutSec = (value: number) => {
                     onChange={(e) => setNewTagInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addTagToTask()}
                     placeholder="添加标签（回车确认）"
-                    className="flex-1 bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2 text-sm text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                    className="ui-input flex-1 rounded px-3 py-2 text-sm"
                   />
                   <button
                     onClick={addTagToTask}
@@ -6305,7 +6324,7 @@ const normalizeTimeoutSec = (value: number) => {
                 <label className="text-xs font-semibold text-[#555555] uppercase">附件</label>
                 <div className="space-y-2">
                   {(selectedTask.attachments || []).map((att) => (
-                    <div key={att.id} className="flex items-center justify-between bg-[#1A1A1A] border border-[#333333] rounded px-3 py-2">
+                    <div key={att.id} className="ui-hint-panel flex items-center justify-between rounded px-3 py-2">
                       <div className="flex items-center gap-2 overflow-hidden">
                         <Paperclip className="w-3.5 h-3.5 text-[#666666] shrink-0" />
                         <a 
@@ -6411,7 +6430,7 @@ const normalizeTimeoutSec = (value: number) => {
                           monthDay: Math.min(31, Math.max(1, Number(event.target.value) || 1)),
                         })
                       }
-                      className="w-16 bg-[#1A1A1A] border border-[#333333] rounded px-2 py-1 text-xs text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="ui-input w-16 rounded px-2 py-1 text-xs"
                     />
                     <span className="text-xs text-[#777777]">日</span>
                   </div>
@@ -6431,7 +6450,7 @@ const normalizeTimeoutSec = (value: number) => {
                           interval: Math.max(1, Number(event.target.value) || 1),
                         })
                       }
-                      className="w-16 bg-[#1A1A1A] border border-[#333333] rounded px-2 py-1 text-xs text-[#CCCCCC] focus:outline-none focus:border-blue-500"
+                      className="ui-input w-16 rounded px-2 py-1 text-xs"
                     />
                     <span className="text-xs text-[#777777]">天</span>
                   </div>

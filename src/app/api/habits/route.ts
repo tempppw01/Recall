@@ -8,6 +8,8 @@
 import { NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
 import { prisma, ensureLocalUser } from '@/lib/prisma';
+import { buildPaginatedListResult, getPaginationParams } from '@/lib/server/pagination';
+import { normalizeHabitPayload } from '@/lib/server/record-normalizers';
 
 const parseJSON = (value: unknown, fallback: any) => {
   if (!value) return fallback;
@@ -19,25 +21,38 @@ const parseJSON = (value: unknown, fallback: any) => {
   }
 };
 
+const mapHabit = (habit: any) => ({
+  id: habit.id,
+  title: habit.title,
+  createdAt: habit.createdAt.toISOString(),
+  updatedAt: habit.updatedAt?.toISOString?.() ?? undefined,
+  logs: parseJSON(habit.logs, []),
+});
+
 export async function GET(request: Request) {
   const { client, userId } = await getRequestDbContext(request);
+  const pagination = getPaginationParams(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const habits = await client.habit.findMany({
+    const baseQuery = {
       where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+      orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+    };
 
-    return NextResponse.json(
-      habits.map((habit: any) => ({
-        id: habit.id,
-        title: habit.title,
-        createdAt: habit.createdAt.toISOString(),
-        updatedAt: habit.updatedAt?.toISOString?.() ?? undefined,
-        logs: parseJSON(habit.logs, []),
-      })),
-    );
+    if (pagination.enabled) {
+      const habits = await client.habit.findMany({
+        ...baseQuery,
+        skip: pagination.offset,
+        take: pagination.limit + 1,
+      });
+
+      return NextResponse.json(buildPaginatedListResult(habits.map(mapHabit), pagination));
+    }
+
+    const habits = await client.habit.findMany(baseQuery);
+
+    return NextResponse.json(habits.map(mapHabit));
   } catch (error) {
     console.error('API Error', error);
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
@@ -50,6 +65,11 @@ export async function POST(request: Request) {
 
   try {
     const payload = await request.json();
+    const normalized = normalizeHabitPayload(payload);
+
+    if (!normalized.title) {
+      return NextResponse.json({ error: 'Invalid payload', details: 'title is required' }, { status: 400 });
+    }
 
     if (client !== prisma) {
       await ensureLocalUser(client, userId);
@@ -57,11 +77,11 @@ export async function POST(request: Request) {
 
     const habit = await client.habit.create({
       data: {
-        id: payload.id,
+        ...(normalized.id ? { id: normalized.id } : {}),
         userId,
-        title: payload.title,
-        logs: payload.logs ?? [],
-        createdAt: payload.createdAt ? new Date(payload.createdAt) : undefined,
+        title: normalized.title,
+        logs: normalized.logs,
+        createdAt: normalized.createdAt,
       },
     });
 

@@ -329,10 +329,10 @@ const Sidebar = ({
       <aside
         ref={sidebarRef}
         className={`
-          fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden
-          bg-[#171717]/82 border-r border-[#3A3F4B]/50 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.28)]
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:relative lg:translate-x-0 lg:shadow-none
+          theme-native-surface fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden
+          bg-[var(--ui-surface-1)] border-r border-[color:var(--ui-border-soft)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.18)]
+          ${isSidebarOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-full opacity-0 pointer-events-none'}
+          lg:relative lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto lg:shadow-none
         `}
         style={{
           width: isDesktop ? `${pcWidth}px` : '74vw',
@@ -376,8 +376,8 @@ const Sidebar = ({
                 </button>
               ))}
             </nav>
-            <div className="px-2 py-2.5 border-t border-[#3A3F4B]/50 bg-[#1E2128]/78 text-center">
-              <div className="text-[10px] text-[#616161]">v{APP_VERSION}</div>
+            <div className="px-2 py-2.5 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] text-center">
+              <div className="text-[10px] text-[color:var(--ui-text-faint)]">v{APP_VERSION}</div>
             </div>
           </div>
         ) : (
@@ -409,7 +409,7 @@ const Sidebar = ({
                       </button>
                       {showAppMenu && (
                         <div
-                          className="absolute left-0 top-14 w-48 rounded-[24px] border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.32)] z-50 overflow-hidden"
+                          className="absolute left-0 top-14 w-48 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-1)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.18)] z-50 overflow-hidden"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <button
@@ -418,7 +418,7 @@ const Sidebar = ({
                               setShowAppMenu(false);
                               setShowSettings(true);
                             }}
-                            className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
+                            className="w-full text-left px-4 py-3 text-sm text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-card-hover-bg)]"
                           >
                             设置
                           </button>
@@ -428,7 +428,7 @@ const Sidebar = ({
                               setShowAppMenu(false);
                               setShowAbout(true);
                             }}
-                            className="w-full text-left px-4 py-3 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
+                            className="w-full text-left px-4 py-3 text-sm text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-card-hover-bg)]"
                           >
                             关于
                           </button>
@@ -437,12 +437,12 @@ const Sidebar = ({
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h1 className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#F5F7FF]">Recall</h1>
-                        <span className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-[#9BA7C2]">
+                        <h1 className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[color:var(--ui-text-strong)]">Recall</h1>
+                        <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">
                           Flow OS
                         </span>
                       </div>
-                      <p className="mt-1 text-[11px] leading-tight text-[#80889A]">聚合待办、节奏与回顾的个人工作台</p>
+                      <p className="mt-1 text-[11px] leading-tight text-[color:var(--ui-text-secondary)]">聚合待办、节奏与回顾的个人工作台</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -476,7 +476,7 @@ const Sidebar = ({
                   <button
                     type="button"
                     onClick={() => setIsQuickAccessOpen((prev) => !prev)}
-                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[#666666] uppercase tracking-[0.16em] hover:text-[#888888]"
+                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[color:var(--ui-text-muted)] uppercase tracking-[0.16em] hover:text-[color:var(--ui-text-secondary)]"
                   >
                     <span>快捷入口</span>
                     {isQuickAccessOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -538,7 +538,7 @@ const Sidebar = ({
                   <button
                     type="button"
                     onClick={() => setIsToolsOpen((prev) => !prev)}
-                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[#666666] uppercase tracking-[0.16em] hover:text-[#888888]"
+                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[color:var(--ui-text-muted)] uppercase tracking-[0.16em] hover:text-[color:var(--ui-text-secondary)]"
                   >
                     <span>功能</span>
                     {isToolsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -550,10 +550,10 @@ const Sidebar = ({
                         if (groupKeys.length === 0) return null;
 
                         return (
-                          <div key={group.title} className="rounded-[20px] border border-white/6 bg-[rgba(255,255,255,0.02)] px-1.5 py-2">
+                          <div key={group.title} className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1.5 py-2">
                             <div className="mb-1.5 px-2">
-                              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8D95A8]">{group.title}</div>
-                              <div className="mt-0.5 text-[10px] text-[#5F6778]">{group.description}</div>
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{group.title}</div>
+                              <div className="mt-0.5 text-[10px] text-[color:var(--ui-text-faint)]">{group.description}</div>
                             </div>
                             {isDesktop ? (
                               <div className="space-y-1">
@@ -627,8 +627,8 @@ const Sidebar = ({
                 </div>
               </nav>
             </div>
-            <div className="px-4 py-3 border-t border-[#3A3F4B]/50 bg-[#1E2128]/78 shrink-0">
-              <div className="text-[10px] text-[#5F5F5F]">v{APP_VERSION}</div>
+            <div className="px-4 py-3 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] shrink-0">
+              <div className="text-[10px] text-[color:var(--ui-text-faint)]">v{APP_VERSION}</div>
             </div>
           </>
         )}

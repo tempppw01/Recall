@@ -1,18 +1,19 @@
 /**
- * 单个习惯操作 API 路由
+ * 鍗曚釜涔犳儻鎿嶄綔 API 璺敱
  *
- * PUT    /api/habits/:id  - 更新指定习惯（标题、打卡记录）
- * DELETE /api/habits/:id  - 删除指定习惯
+ * PUT    /api/habits/:id  - 鏇存柊鎸囧畾涔犳儻锛堟爣棰樸€佹墦鍗¤褰曪級
+ * DELETE /api/habits/:id  - 鍒犻櫎鎸囧畾涔犳儻
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
+import { normalizeHabitPayload } from '@/lib/server/record-normalizers';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-/** PUT /api/habits/:id - 更新习惯标题和打卡记录 */
+/** PUT /api/habits/:id - 鏇存柊涔犳儻鏍囬鍜屾墦鍗¤褰?*/
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const { client, userId } = await getRequestDbContext(request);
@@ -21,12 +22,17 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   try {
     const payload = await request.json();
+    const normalized = normalizeHabitPayload(payload);
+
+    if (!normalized.title) {
+      return NextResponse.json({ error: 'Invalid payload', details: 'title is required' }, { status: 400 });
+    }
 
     const habit = await client.habit.update({
       where: { id, userId },
       data: {
-        title: payload.title,
-        logs: payload.logs ?? [],
+        title: normalized.title,
+        logs: normalized.logs,
       },
     });
 

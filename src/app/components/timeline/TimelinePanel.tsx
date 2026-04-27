@@ -286,7 +286,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
   };
 
   return (
-    <div className="stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
+    <div className="theme-native-surface stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
       <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_auto] lg:items-start">
           <div>

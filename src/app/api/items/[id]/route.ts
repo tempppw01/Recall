@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
+import { normalizeItemPayload } from '@/lib/server/record-normalizers';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -12,16 +13,22 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   try {
     const payload = await request.json();
+    const normalized = normalizeItemPayload(payload);
+
+    if (!normalized.name) {
+      return NextResponse.json({ error: 'Invalid payload', details: 'name is required' }, { status: 400 });
+    }
+
     const item = await client.item.update({
       where: { id, userId },
       data: {
-        name: payload.name,
-        category: payload.category ?? null,
-        tags: payload.tags ?? [],
-        location: payload.location ?? null,
-        quantity: payload.quantity ?? 0,
-        status: payload.status ?? 'normal',
-        note: payload.note ?? null,
+        name: normalized.name,
+        category: normalized.category,
+        tags: normalized.tags,
+        location: normalized.location,
+        quantity: normalized.quantity,
+        status: normalized.status,
+        note: normalized.note,
       },
     });
     return NextResponse.json({ id: item.id });

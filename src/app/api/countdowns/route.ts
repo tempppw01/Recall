@@ -8,27 +8,42 @@
 import { NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
 import { prisma, ensureLocalUser } from '@/lib/prisma';
+import { buildPaginatedListResult, getPaginationParams } from '@/lib/server/pagination';
+import { normalizeCountdownPayload } from '@/lib/server/record-normalizers';
+
+const mapCountdown = (item: any) => ({
+  id: item.id,
+  title: item.title,
+  targetDate: item.targetDate.toISOString(),
+  pinned: item.pinned,
+  createdAt: item.createdAt.toISOString(),
+  updatedAt: item.updatedAt?.toISOString?.() ?? undefined,
+});
 
 export async function GET(request: Request) {
   const { client, userId } = await getRequestDbContext(request);
+  const pagination = getPaginationParams(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const countdowns = await client.countdown.findMany({
+    const baseQuery = {
       where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+      orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+    };
 
-    return NextResponse.json(
-      countdowns.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        targetDate: item.targetDate.toISOString(),
-        pinned: item.pinned,
-        createdAt: item.createdAt.toISOString(),
-        updatedAt: item.updatedAt?.toISOString?.() ?? undefined,
-      })),
-    );
+    if (pagination.enabled) {
+      const countdowns = await client.countdown.findMany({
+        ...baseQuery,
+        skip: pagination.offset,
+        take: pagination.limit + 1,
+      });
+
+      return NextResponse.json(buildPaginatedListResult(countdowns.map(mapCountdown), pagination));
+    }
+
+    const countdowns = await client.countdown.findMany(baseQuery);
+
+    return NextResponse.json(countdowns.map(mapCountdown));
   } catch (error) {
     console.error('API Error', error);
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
@@ -41,6 +56,11 @@ export async function POST(request: Request) {
 
   try {
     const payload = await request.json();
+    const normalized = normalizeCountdownPayload(payload);
+
+    if (!normalized.title) {
+      return NextResponse.json({ error: 'Invalid payload', details: 'title is required' }, { status: 400 });
+    }
 
     if (client !== prisma) {
       await ensureLocalUser(client, userId);
@@ -48,12 +68,12 @@ export async function POST(request: Request) {
 
     const countdown = await client.countdown.create({
       data: {
-        id: payload.id,
+        ...(normalized.id ? { id: normalized.id } : {}),
         userId,
-        title: payload.title,
-        targetDate: payload.targetDate ? new Date(payload.targetDate) : new Date(),
-        pinned: payload.pinned ?? false,
-        createdAt: payload.createdAt ? new Date(payload.createdAt) : undefined,
+        title: normalized.title,
+        targetDate: normalized.targetDate ?? new Date(),
+        pinned: normalized.pinned,
+        createdAt: normalized.createdAt,
       },
     });
 

@@ -1,14 +1,16 @@
 /**
- * 单个任务操作 API 路由
+ * 鍗曚釜浠诲姟鎿嶄綔 API 璺敱
  *
- * PUT    /api/tasks/:id  - 更新指定任务
- * DELETE /api/tasks/:id  - 删除指定任务
+ * PUT    /api/tasks/:id  - 鏇存柊鎸囧畾浠诲姟
+ * DELETE /api/tasks/:id  - 鍒犻櫎鎸囧畾浠诲姟
  *
- * 通过 URL 参数 id 和 userId 双重条件确保数据隔离
+ * 閫氳繃 URL 鍙傛暟 id 鍜?userId 鍙岄噸鏉′欢纭繚鏁版嵁闅旂
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { getRequestDbContext } from '@/lib/request-db';
+import { normalizeTaskPayload } from '@/lib/server/record-normalizers';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -16,7 +18,7 @@ type RouteContext = {
 
 /**
  * PUT /api/tasks/:id
- * 更新指定任务的所有可变字段
+ * 鏇存柊鎸囧畾浠诲姟鐨勬墍鏈夊彲鍙樺瓧娈?
  */
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
@@ -26,20 +28,25 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   try {
     const payload = await request.json();
+    const normalized = normalizeTaskPayload(payload);
 
-    // where 条件同时包含 id 和 userId，确保用户只能修改自己的任务
+    if (!normalized.title) {
+      return NextResponse.json({ error: 'Invalid payload', details: 'title is required' }, { status: 400 });
+    }
+
     const task = await client.task.update({
       where: { id, userId },
       data: {
-        title: payload.title,
-        dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
-        priority: payload.priority ?? 0,
-        category: payload.category ?? null,
-        status: payload.status ?? 'todo',
-        tags: payload.tags ?? [],
-        subtasks: payload.subtasks ?? [],
-        attachments: payload.attachments ?? [],
-        repeat: payload.repeat ?? null,
+        title: normalized.title,
+        dueDate: normalized.dueDate,
+        priority: normalized.priority,
+        category: normalized.category,
+        status: normalized.status,
+        tags: normalized.tags,
+        subtasks: normalized.subtasks,
+        attachments: normalized.attachments,
+        repeat: normalized.repeat ?? Prisma.DbNull,
+        sortOrder: normalized.sortOrder,
       },
     });
 
@@ -52,7 +59,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
 /**
  * DELETE /api/tasks/:id
- * 删除指定任务（硬删除）
+ * 鍒犻櫎鎸囧畾浠诲姟锛堢‖鍒犻櫎锛?
  */
 export async function DELETE(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;

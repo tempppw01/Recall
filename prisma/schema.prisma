@@ -20,6 +20,13 @@ enum SyncJobStatus {
   failed
 }
 
+enum ItemStatus {
+  normal
+  low_stock
+  need_restock
+  missing
+}
+
 model User {
   id            String     @id @default(cuid())
   name          String?
@@ -52,6 +59,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -61,6 +69,8 @@ model Session {
   expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -92,6 +102,7 @@ model Task {
   @@index([userId, status])
   @@index([userId, dueDate])
   @@index([userId, createdAt])
+  @@index([userId, sortOrder, createdAt])
 }
 
 model Habit {
@@ -120,6 +131,7 @@ model Countdown {
 
   @@index([userId, pinned])
   @@index([userId, targetDate])
+  @@index([userId, createdAt])
 }
 
 model Item {
@@ -130,7 +142,7 @@ model Item {
   tags      Json
   location  String?
   quantity  Int      @default(0)
-  status    String
+  status    ItemStatus
   note      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

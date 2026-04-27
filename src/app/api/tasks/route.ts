@@ -10,8 +10,11 @@
  */
 
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { getRequestDbContext } from '@/lib/request-db';
 import { prisma, ensureLocalUser } from '@/lib/prisma';
+import { buildPaginatedListResult, getPaginationParams } from '@/lib/server/pagination';
+import { normalizeTaskPayload } from '@/lib/server/record-normalizers';
 
 /**
  * 安全解析 JSON 字段
@@ -29,6 +32,22 @@ const parseJSON = (value: unknown, fallback: any) => {
   }
 };
 
+const mapTask = (task: any) => ({
+  id: task.id,
+  title: task.title,
+  dueDate: task.dueDate ? task.dueDate.toISOString() : undefined,
+  priority: task.priority,
+  category: task.category ?? undefined,
+  status: task.status,
+  tags: parseJSON(task.tags, []),
+  subtasks: parseJSON(task.subtasks, []),
+  attachments: parseJSON(task.attachments, []),
+  repeat: parseJSON(task.repeat, null) ?? undefined,
+  createdAt: task.createdAt.toISOString(),
+  updatedAt: task.updatedAt?.toISOString?.() ?? undefined,
+  sortOrder: task.sortOrder ?? 0,
+});
+
 /**
  * GET /api/tasks
  * 获取当前用户的所有任务，按 sortOrder 降序排列
@@ -36,32 +55,29 @@ const parseJSON = (value: unknown, fallback: any) => {
  */
 export async function GET(request: Request) {
   const { client, userId } = await getRequestDbContext(request);
+  const pagination = getPaginationParams(request);
 
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const tasks = await client.task.findMany({
+    const baseQuery = {
       where: { userId },
-      orderBy: [{ sortOrder: 'desc' }, { createdAt: 'desc' }],
-    });
+      orderBy: [{ sortOrder: 'desc' as const }, { createdAt: 'desc' as const }, { id: 'desc' as const }],
+    };
 
-    return NextResponse.json(
-      tasks.map((task: any) => ({
-        id: task.id,
-        title: task.title,
-        dueDate: task.dueDate ? task.dueDate.toISOString() : undefined,
-        priority: task.priority,
-        category: task.category ?? undefined,
-        status: task.status,
-        tags: parseJSON(task.tags, []),
-        subtasks: parseJSON(task.subtasks, []),
-        attachments: parseJSON(task.attachments, []),
-        repeat: parseJSON(task.repeat, null) ?? undefined,
-        createdAt: task.createdAt.toISOString(),
-        updatedAt: task.updatedAt?.toISOString?.() ?? undefined,
-        sortOrder: task.sortOrder ?? 0,
-      })),
-    );
+    if (pagination.enabled) {
+      const tasks = await client.task.findMany({
+        ...baseQuery,
+        skip: pagination.offset,
+        take: pagination.limit + 1,
+      });
+
+      return NextResponse.json(buildPaginatedListResult(tasks.map(mapTask), pagination));
+    }
+
+    const tasks = await client.task.findMany(baseQuery);
+
+    return NextResponse.json(tasks.map(mapTask));
   } catch (error) {
     console.error('API Error', error);
     return NextResponse.json({ error: 'Database Error', details: String(error) }, { status: 500 });
@@ -75,6 +91,11 @@ export async function POST(request: Request) {
 
   try {
     const payload = await request.json();
+    const normalized = normalizeTaskPayload(payload);
+
+    if (!normalized.title) {
+      return NextResponse.json({ error: 'Invalid payload', details: 'title is required' }, { status: 400 });
+    }
 
     if (client !== prisma) {
       await ensureLocalUser(client, userId);
@@ -82,19 +103,19 @@ export async function POST(request: Request) {
 
     const task = await client.task.create({
       data: {
-        id: payload.id,
+        ...(normalized.id ? { id: normalized.id } : {}),
         userId,
-        title: payload.title,
-        dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
-        priority: payload.priority ?? 0,
-        category: payload.category ?? null,
-        status: payload.status ?? 'todo',
-        tags: payload.tags ?? [],
-        subtasks: payload.subtasks ?? [],
-        attachments: payload.attachments ?? [],
-        repeat: payload.repeat ?? null,
-        createdAt: payload.createdAt ? new Date(payload.createdAt) : undefined,
-        sortOrder: payload.sortOrder ?? 0,
+        title: normalized.title,
+        dueDate: normalized.dueDate,
+        priority: normalized.priority,
+        category: normalized.category,
+        status: normalized.status,
+        tags: normalized.tags,
+        subtasks: normalized.subtasks,
+        attachments: normalized.attachments,
+        repeat: normalized.repeat ?? Prisma.DbNull,
+        createdAt: normalized.createdAt,
+        sortOrder: normalized.sortOrder,
       },
     });
 

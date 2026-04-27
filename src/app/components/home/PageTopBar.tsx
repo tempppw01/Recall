@@ -1,6 +1,6 @@
 import { Cloud, Flame, Inbox, Loader2, Menu, Monitor, Moon, Sun, Terminal } from 'lucide-react';
 
-const iconButtonClassName = 'btn btn-ghost motion-card surface-sheen h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[#9aa3b2] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed';
+const iconButtonClassName = 'btn btn-ghost motion-card surface-sheen h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50 disabled:cursor-not-allowed';
 const actionButtonClassName = 'btn btn-secondary btn-sm motion-card surface-sheen rounded-2xl border text-xs';
 
 type ThemePreference = 'system' | 'light' | 'dark';
@@ -42,7 +42,7 @@ export default function PageTopBar({
   onToggleTheme,
 }: PageTopBarProps) {
   return (
-    <header className="sticky top-0 z-20 sticky-glass bg-[rgba(15,17,22,0.52)] backdrop-blur-2xl">
+    <header className="theme-native-surface sticky top-0 z-20 sticky-glass bg-[var(--ui-header-bg)] backdrop-blur-2xl">
       <div className="mx-2 mt-3 rounded-[28px] glass-panel surface-sheen surface-pulse px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 min-w-0">
@@ -51,31 +51,31 @@ export default function PageTopBar({
             </button>
             <div className="min-w-0">
               <div className="mb-1 flex items-center gap-2">
-                <span className="toolbar-chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#C7D8FF]">
+                <span className="toolbar-chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-primary)]">
                   <span className="float-bob inline-flex h-1.5 w-1.5 rounded-full bg-[rgb(var(--theme-accent-soft))]" />
                   Focus Flow
                 </span>
               </div>
-              <h2 className="text-base sm:text-[1.05rem] font-semibold tracking-tight flex items-center gap-2.5 min-w-0 text-[#f3f6ff]">
+              <h2 className="text-base sm:text-[1.05rem] font-semibold tracking-tight flex items-center gap-2.5 min-w-0 text-[color:var(--ui-text-strong)]">
                 {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-400" />}
                 {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-400" />}
                 {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
                 <span className="truncate">{headerTitle}</span>
               </h2>
               {headerSubtitle && (
-                <p className="mt-1 text-xs text-[#8f99ad] truncate">{headerSubtitle}</p>
+                <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)] truncate">{headerSubtitle}</p>
               )}
             </div>
           </div>
 
-          <div className="mobile-toolbar flex items-center gap-2 sm:gap-3 text-[#667085] shrink-0">
+          <div className="mobile-toolbar flex items-center gap-2 sm:gap-3 text-[color:var(--ui-icon-muted)] shrink-0">
             {isListView && (
               <button
                 onClick={onToggleBatchMode}
                 className={`${actionButtonClassName} ${
                   isBatchMode
                     ? 'border-blue-400/60 text-blue-100 bg-blue-500/12 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]'
-                    : 'border-[#3A3F4B]/50 text-[#9A9A9A] hover:text-white hover:border-[#555D6D] hover:bg-[#23262E]'
+                    : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)]'
                 }`}
                 title={isBatchMode ? '退出批量模式' : '批量选择'}
               >
