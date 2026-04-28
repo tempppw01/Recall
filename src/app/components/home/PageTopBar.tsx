@@ -1,7 +1,10 @@
-import { Cloud, Flame, Inbox, Loader2, Menu, Monitor, Moon, Sun, Terminal } from 'lucide-react';
+import { Cloud, Flame, Inbox, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal } from 'lucide-react';
 
-const iconButtonClassName = 'btn btn-ghost motion-card surface-sheen h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50 disabled:cursor-not-allowed';
+const iconButtonClassName =
+  'btn btn-ghost motion-card surface-sheen h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
 const actionButtonClassName = 'btn btn-secondary btn-sm motion-card surface-sheen rounded-2xl border text-xs';
+const utilityGroupClassName =
+  'ml-1 flex items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1.5 py-1';
 
 type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -18,13 +21,18 @@ type PageTopBarProps = {
   onToggleBatchMode: () => void;
   onSync: () => void;
   onClearCompleted: () => void;
+  onOpenSettings: () => void;
+  onOpenAbout: () => void;
   onOpenLogs: () => void;
   onToggleTheme: () => void;
 };
 
-/**
- * 页面顶部操作栏：只负责全局入口和状态按钮，保持 page.tsx 结构更清晰。
- */
+const getThemeToggleLabel = (themePreference: ThemePreference) => {
+  if (themePreference === 'system') return '当前主题：跟随系统，点击切换';
+  if (themePreference === 'light') return '当前主题：浅色，点击切换';
+  return '当前主题：深色，点击切换';
+};
+
 export default function PageTopBar({
   activeFilter,
   headerTitle,
@@ -38,6 +46,8 @@ export default function PageTopBar({
   onToggleBatchMode,
   onSync,
   onClearCompleted,
+  onOpenSettings,
+  onOpenAbout,
   onOpenLogs,
   onToggleTheme,
 }: PageTopBarProps) {
@@ -45,37 +55,37 @@ export default function PageTopBar({
     <header className="theme-native-surface sticky top-0 z-20 sticky-glass bg-[var(--ui-header-bg)] backdrop-blur-2xl">
       <div className="mx-2 mt-3 rounded-[28px] glass-panel surface-sheen surface-pulse px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4 min-w-0">
-            <button onClick={onOpenSidebar} className={`lg:hidden -ml-1 mt-0.5 ${iconButtonClassName}`}>
-              <Menu className="w-6 h-6" />
+          <div className="flex min-w-0 items-start gap-4">
+            <button
+              onClick={onOpenSidebar}
+              className={`lg:hidden -ml-1 mt-0.5 ${iconButtonClassName}`}
+              aria-label="打开导航"
+              title="打开导航"
+            >
+              <Menu className="h-6 w-6" />
             </button>
+
             <div className="min-w-0">
-              <div className="mb-1 flex items-center gap-2">
-                <span className="toolbar-chip inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-primary)]">
-                  <span className="float-bob inline-flex h-1.5 w-1.5 rounded-full bg-[rgb(var(--theme-accent-soft))]" />
-                  Focus Flow
-                </span>
-              </div>
-              <h2 className="text-base sm:text-[1.05rem] font-semibold tracking-tight flex items-center gap-2.5 min-w-0 text-[color:var(--ui-text-strong)]">
-                {activeFilter === 'inbox' && <Inbox className="w-5 h-5 text-blue-400" />}
-                {activeFilter === 'today' && <Sun className="w-5 h-5 text-yellow-400" />}
-                {activeFilter === 'habit' && <Flame className="w-5 h-5 text-orange-400" />}
+              <h2 className="flex min-w-0 items-center gap-2.5 text-base font-semibold tracking-tight text-[color:var(--ui-text-strong)] sm:text-[1.05rem]">
+                {activeFilter === 'inbox' && <Inbox className="h-5 w-5 text-blue-400" />}
+                {activeFilter === 'today' && <Sun className="h-5 w-5 text-yellow-400" />}
+                {activeFilter === 'habit' && <Flame className="h-5 w-5 text-orange-400" />}
                 <span className="truncate">{headerTitle}</span>
               </h2>
               {headerSubtitle && (
-                <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)] truncate">{headerSubtitle}</p>
+                <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">{headerSubtitle}</p>
               )}
             </div>
           </div>
 
-          <div className="mobile-toolbar flex items-center gap-2 sm:gap-3 text-[color:var(--ui-icon-muted)] shrink-0">
+          <div className="mobile-toolbar flex shrink-0 items-center gap-2 text-[color:var(--ui-icon-muted)] sm:gap-3">
             {isListView && (
               <button
                 onClick={onToggleBatchMode}
                 className={`${actionButtonClassName} ${
                   isBatchMode
-                    ? 'border-blue-400/60 text-blue-100 bg-blue-500/12 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]'
-                    : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)]'
+                    ? 'border-blue-400/60 bg-blue-500/12 text-blue-100 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]'
+                    : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
                 }`}
                 title={isBatchMode ? '退出批量模式' : '批量选择'}
               >
@@ -86,19 +96,20 @@ export default function PageTopBar({
             <button
               onClick={onSync}
               className={iconButtonClassName}
-              title={isSyncingNow ? '同步中…' : '云同步（异步队列）'}
+              title={isSyncingNow ? '正在同步' : '执行同步'}
+              aria-label={isSyncingNow ? '正在同步' : '执行同步'}
               disabled={isSyncingNow}
             >
               {isSyncingNow ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-blue-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-blue-400 sm:h-5 sm:w-5" />
               ) : (
-                <Cloud className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Cloud className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </button>
 
             {isSyncingNow && (
-              <div className="skeleton skeleton-shimmer hidden sm:flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] text-blue-100">
-                <span className="icon-halo float-bob w-2 h-2 rounded-full bg-blue-300" />
+              <div className="skeleton skeleton-shimmer hidden items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] text-blue-100 sm:flex">
+                <span className="icon-halo float-bob h-2 w-2 rounded-full bg-blue-300" />
                 同步队列处理中
               </div>
             )}
@@ -106,10 +117,10 @@ export default function PageTopBar({
             {activeFilter === 'completed' && completedTasks > 0 && (
               <button
                 onClick={onClearCompleted}
-                className={`${actionButtonClassName} text-xs sm:text-sm border-red-500/35 text-red-300 hover:bg-red-500/10`}
-                title="清除已完成"
+                className={`${actionButtonClassName} border-red-500/35 text-xs text-red-300 hover:bg-red-500/10 sm:text-sm`}
+                title="清空已完成"
               >
-                清除已完成
+                清空已完成
               </button>
             )}
 
@@ -117,29 +128,47 @@ export default function PageTopBar({
               onClick={onOpenLogs}
               className={iconButtonClassName}
               title="运行日志"
+              aria-label="打开运行日志"
             >
-              <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Terminal className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
 
             <button
               onClick={onToggleTheme}
               className={iconButtonClassName}
-              title={
-                themePreference === 'system'
-                  ? '主题模式：跟随设备（点击切换）'
-                  : themePreference === 'light'
-                    ? '主题模式：日间（点击切换）'
-                    : '主题模式：夜间（点击切换）'
-              }
+              title={getThemeToggleLabel(themePreference)}
+              aria-label={getThemeToggleLabel(themePreference)}
             >
               {themePreference === 'system' ? (
-                <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Monitor className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : themePreference === 'light' ? (
-                <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Sun className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : (
-                <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Moon className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </button>
+
+            <div className={utilityGroupClassName}>
+              <button
+                onClick={onOpenSettings}
+                className="inline-flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-[11px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] sm:h-9 sm:px-3 sm:text-xs"
+                title="打开设置"
+                aria-label="打开设置面板"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">设置</span>
+              </button>
+
+              <button
+                onClick={onOpenAbout}
+                className="inline-flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-[11px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] sm:h-9 sm:px-3 sm:text-xs"
+                title="关于 Recall"
+                aria-label="打开关于 Recall"
+              >
+                <Info className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">关于</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

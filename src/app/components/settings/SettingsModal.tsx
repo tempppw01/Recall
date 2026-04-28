@@ -384,13 +384,13 @@ const SettingsModal = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 motion-modal-overlay">
       <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
       <div
-        className="theme-native-surface mobile-modal mobile-modal-body glass-panel motion-modal-surface w-full max-w-2xl rounded-[32px] border border-[var(--ui-border-strong)] shadow-[0_28px_80px_rgba(0,0,0,0.42)] p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative"
+        className="theme-native-surface ui-modal-surface mobile-modal mobile-modal-body motion-modal-surface relative max-h-[90vh] w-full max-w-2xl overflow-y-auto p-4 sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F3F6FF]">设置</h2>
-            <p className="ui-note mt-1 text-[12px] sm:text-xs">
+            <h2 className="ui-modal-title">设置</h2>
+            <p className="ui-modal-subtitle">
               把 AI、同步、通知、存储和外观放在这里，修改后会自动保存。
             </p>
           </div>

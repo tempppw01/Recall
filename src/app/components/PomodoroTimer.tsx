@@ -1,281 +1,88 @@
 "use client";
 
-/**
- * 番茄钟组件
- *
- * 功能：
- * - 专注/短休息/长休息循环计时
- * - 本地持久化当前计时状态（刷新后可恢复）
- * - 记录专注时段历史（保存到 pomodoroStore）
- * - 秒级提示音
- */
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pause, Play, RotateCcw, Timer as TimerIcon } from 'lucide-react';
 import { pomodoroStore, PomodoroRecord } from '@/lib/store';
-import {
-  PHASE_DURATIONS,
-  PHASE_LABELS,
-  STORAGE_KEY,
-  cycleOrder,
-  formatTime,
-  getResolvedPomodoroState,
-  writePomodoroState,
-} from '@/lib/pomodoro';
+import { PHASE_LABELS, cycleOrder, ensurePomodoroAudioReady, formatTime, usePomodoroState } from '@/lib/pomodoro';
 
-
-/** 生成本地记录 ID */
-const createId = () => Math.random().toString(36).substring(2, 9);
+const sortRecords = (records: PomodoroRecord[]) =>
+  [...records].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
 export default function PomodoroTimer() {
-  const [phaseIndex, setPhaseIndex] = useState(0);
-  const [remaining, setRemaining] = useState(PHASE_DURATIONS[cycleOrder[0]]);
-  const [isRunning, setIsRunning] = useState(false);
+  const { isReady, state, toggleRunning, reset, skip } = usePomodoroState();
   const [records, setRecords] = useState<PomodoroRecord[]>([]);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const previousRemainingRef = useRef(remaining);
-  const sessionStartTimeRef = useRef<number | null>(null);
-
-  const phase = cycleOrder[phaseIndex] ?? 'focus';
-  const totalSeconds = PHASE_DURATIONS[phase];
-  const progress = useMemo(() => 100 - Math.round((remaining / totalSeconds) * 100), [remaining, totalSeconds]);
 
   useEffect(() => {
-    setRecords(pomodoroStore.getAll().sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
-  }, []);
-
-  const saveRecord = (durationMinutes: number, endTime = new Date(), startTimeMs?: number) => {
-    const safeDuration = Math.max(1, Math.round(durationMinutes));
-    const startTime = typeof startTimeMs === 'number'
-      ? new Date(startTimeMs).toISOString()
-      : sessionStartTimeRef.current
-      ? new Date(sessionStartTimeRef.current).toISOString()
-      : new Date(endTime.getTime() - safeDuration * 60000).toISOString();
-
-    const record: PomodoroRecord = {
-      id: createId(),
-      startTime,
-      endTime: endTime.toISOString(),
-      durationMinutes: safeDuration,
-    };
-    pomodoroStore.add(record);
-    setRecords(pomodoroStore.getAll().sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
-    sessionStartTimeRef.current = null;
-  };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as {
-        phaseIndex: number;
-        remaining: number;
-        isRunning: boolean;
-        lastUpdated: number;
-        sessionStartTime?: number;
-      };
-      if (typeof parsed.phaseIndex !== 'number' || typeof parsed.remaining !== 'number') {
-        return;
-      }
-
-      const resolved = getResolvedPomodoroState({
-        phaseIndex: parsed.phaseIndex,
-        remaining: parsed.remaining,
-        isRunning: parsed.isRunning,
-        lastUpdated: parsed.lastUpdated,
-        sessionStartTime: parsed.sessionStartTime,
-      });
-
-      let nextPhaseIndex = resolved.phaseIndex;
-      let nextRemaining = resolved.remaining;
-      let nextIsRunning = resolved.isRunning;
-
-      if (parsed.sessionStartTime) {
-        sessionStartTimeRef.current = parsed.sessionStartTime;
-      }
-
-      if (parsed.isRunning && typeof parsed.lastUpdated === 'number') {
-        const elapsed = Math.floor((Date.now() - parsed.lastUpdated) / 1000);
-        if (elapsed >= parsed.remaining) {
-          const currentPhase = cycleOrder[parsed.phaseIndex];
-          if (currentPhase === 'focus') {
-            const computedEnd = new Date(parsed.lastUpdated + parsed.remaining * 1000);
-            const startMs = parsed.sessionStartTime;
-            const duration = typeof startMs === 'number'
-              ? Math.max(1, Math.round((computedEnd.getTime() - startMs) / 60000))
-              : Math.round(PHASE_DURATIONS.focus / 60);
-            saveRecord(duration, computedEnd, startMs);
-          }
-          sessionStartTimeRef.current = null;
-        }
-      }
-
-      setPhaseIndex(nextPhaseIndex);
-      setRemaining(nextRemaining);
-      setIsRunning(nextIsRunning);
-    } catch (error) {
-      console.error('Failed to restore pomodoro state', error);
-    }
+    setRecords(sortRecords(pomodoroStore.getAll()));
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const payload = {
-      phaseIndex,
-      remaining,
-      isRunning,
-      lastUpdated: Date.now(),
-      sessionStartTime: sessionStartTimeRef.current,
-    };
-    writePomodoroState(payload);
-  }, [phaseIndex, remaining, isRunning]);
-
-  useEffect(() => {
-    if (isRunning && !sessionStartTimeRef.current && phase === 'focus') {
-      sessionStartTimeRef.current = Date.now();
-    }
-    if (!isRunning) return;
-    
-    const timer = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          // 计时结束
-          setIsRunning(false);
-          if (phase === 'focus') {
-            saveRecord(Math.round(PHASE_DURATIONS.focus / 60));
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [isRunning, phase]);
-
-  const ensureAudioContext = () => {
-    if (typeof window === 'undefined') return;
-    if (!audioContextRef.current) {
-      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextCtor) return;
-      audioContextRef.current = new AudioContextCtor();
-    }
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
-  };
-
-  const playTickSound = () => {
-    const ctx = audioContextRef.current;
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    oscillator.type = 'square';
-    oscillator.frequency.setValueAtTime(1200, now);
-    gainNode.gain.setValueAtTime(0.0001, now);
-    gainNode.gain.exponentialRampToValueAtTime(0.035, now + 0.01);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.08);
-  };
-
-  useEffect(() => {
-    if (!isRunning) {
-      previousRemainingRef.current = remaining;
-      return;
-    }
-    if (remaining > 0 && remaining < previousRemainingRef.current) {
-      playTickSound();
-    }
-    previousRemainingRef.current = remaining;
-  }, [isRunning, remaining]);
-
-  useEffect(() => {
-    return () => {
-      audioContextRef.current?.close();
-      audioContextRef.current = null;
-    };
-  }, []);
-
-  const handleNextPhase = useCallback(() => {
-    const nextIndex = (phaseIndex + 1) % cycleOrder.length;
-    setPhaseIndex(nextIndex);
-    setRemaining(PHASE_DURATIONS[cycleOrder[nextIndex]]);
-    setIsRunning(false);
-    sessionStartTimeRef.current = null;
-  }, [phaseIndex]);
-
-  useEffect(() => {
-    if (remaining === 0 && !isRunning) {
-      // 倒计时结束后的自动跳转逻辑已经在 interval 里处理了一部分（状态置为 false）
-      // 这里可以处理阶段切换，给用户一个手动确认的过程会更好，但这里先自动切
-      const timer = setTimeout(() => {
-        handleNextPhase();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [remaining, isRunning, handleNextPhase]);
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    setRemaining(PHASE_DURATIONS[phase]);
-    sessionStartTimeRef.current = null;
-  };
+    if (!state) return;
+    setRecords((previous) => {
+      const next = sortRecords(pomodoroStore.getAll());
+      if (previous.length === next.length && previous[0]?.id === next[0]?.id) {
+        return previous;
+      }
+      return next;
+    });
+  }, [state?.phaseIndex, state?.isRunning]);
 
   const deleteRecord = (id: string) => {
     if (!confirm('确认删除这条专注记录吗？')) return;
     pomodoroStore.remove(id);
-    setRecords(pomodoroStore.getAll().sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
+    setRecords(sortRecords(pomodoroStore.getAll()));
   };
 
-  const totalRounds = cycleOrder.length;
-  const currentRound = phaseIndex + 1;
-
-  // 统计数据
-  const today = new Date().toISOString().split('T')[0];
-  const todayRecords = records.filter(r => r.startTime.startsWith(today));
-  const todayCount = todayRecords.length;
-  const todayDuration = todayRecords.reduce((acc, cur) => acc + cur.durationMinutes, 0);
-  const totalCount = records.length;
-  const totalDuration = records.reduce((acc, cur) => acc + cur.durationMinutes, 0);
-
-  // 按日期分组记录
   const recordsByDate = useMemo(() => {
     const groups: Record<string, PomodoroRecord[]> = {};
-    records.forEach(r => {
-      const date = r.startTime.split('T')[0];
-      const displayDate = new Date(r.startTime).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    for (const record of records) {
+      const displayDate = new Date(record.startTime).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
       if (!groups[displayDate]) groups[displayDate] = [];
-      groups[displayDate].push(r);
-    });
+      groups[displayDate].push(record);
+    }
     return groups;
   }, [records]);
 
+  if (!isReady || !state) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-6 text-center text-sm text-[#777777]">
+          正在恢复番茄状态…
+        </div>
+      </div>
+    );
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayRecords = records.filter((record) => record.startTime.startsWith(today));
+  const todayCount = todayRecords.length;
+  const todayDuration = todayRecords.reduce((acc, current) => acc + current.durationMinutes, 0);
+  const totalCount = records.length;
+  const totalDuration = records.reduce((acc, current) => acc + current.durationMinutes, 0);
+  const currentRound = state.phaseIndex + 1;
+  const totalRounds = cycleOrder.length;
+
   return (
     <div className="space-y-6">
-      {/* 概览统计 */}
       <div>
-        <h3 className="text-base font-bold text-[#EEEEEE] mb-3">概览</h3>
+        <h3 className="mb-3 text-base font-bold text-[#EEEEEE]">概览</h3>
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
-            <div className="text-xs text-[#888888] mb-1">今日番茄</div>
+          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
+            <div className="mb-1 text-xs text-[#888888]">今日番茄</div>
             <div className="text-2xl font-semibold text-[#EEEEEE]">{todayCount}</div>
           </div>
-          <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
-            <div className="text-xs text-[#888888] mb-1">今日专注时长</div>
+          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
+            <div className="mb-1 text-xs text-[#888888]">今日专注时长</div>
             <div className="text-2xl font-semibold text-[#EEEEEE]">
               {todayDuration} <span className="text-sm font-normal text-[#666666]">m</span>
             </div>
           </div>
-          <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
-            <div className="text-xs text-[#888888] mb-1">总番茄</div>
+          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
+            <div className="mb-1 text-xs text-[#888888]">总番茄</div>
             <div className="text-2xl font-semibold text-[#EEEEEE]">{totalCount}</div>
           </div>
-          <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-4">
-            <div className="text-xs text-[#888888] mb-1">总专注时长</div>
+          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
+            <div className="mb-1 text-xs text-[#888888]">总专注时长</div>
             <div className="text-2xl font-semibold text-[#EEEEEE]">
               {totalDuration} <span className="text-sm font-normal text-[#666666]">m</span>
             </div>
@@ -283,86 +90,84 @@ export default function PomodoroTimer() {
         </div>
       </div>
 
-      {/* 计时器主体 */}
-      <div className="bg-[#202020] border border-[#2C2C2C] rounded-xl p-6">
+      <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-6">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-[#EEEEEE]">番茄时钟</h3>
-            <p className="text-xs text-[#777777]">{PHASE_LABELS[phase]} · 第 {currentRound}/{totalRounds} 轮</p>
+            <p className="text-xs text-[#777777]">
+              {PHASE_LABELS[state.phase]} · 第 {currentRound}/{totalRounds} 轮
+            </p>
           </div>
           <span className="text-xs text-[#666666]">默认 25/5/15</span>
         </div>
 
         <div className="mt-6 flex flex-col items-center">
-          <div className="relative w-40 h-40 rounded-full border border-[#2C2C2C] flex items-center justify-center">
+          <div className="relative flex h-40 w-40 items-center justify-center rounded-full border border-[#2C2C2C]">
             <div
               className="absolute inset-0 rounded-full"
               style={{
-                background: `conic-gradient(#3B82F6 ${progress * 3.6}deg, #2A2A2A 0deg)`,
+                background: `conic-gradient(#3B82F6 ${state.progress * 3.6}deg, #2A2A2A 0deg)`,
               }}
             />
-            <div className="relative bg-[#1A1A1A] w-32 h-32 rounded-full flex items-center justify-center text-3xl font-semibold">
-              {formatTime(remaining)}
+            <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-[#1A1A1A] text-3xl font-semibold">
+              {formatTime(state.remaining)}
             </div>
           </div>
 
           <div className="mt-6 flex items-center gap-3">
             <button
               onClick={() => {
-                ensureAudioContext();
-                setIsRunning((prev) => !prev);
+                void ensurePomodoroAudioReady();
+                toggleRunning();
               }}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
             >
-              {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              {isRunning ? '暂停' : '开始'}
+              {state.isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {state.isRunning ? '暂停' : state.hasActiveSession ? '继续' : '开始'}
             </button>
             <button
-              onClick={resetTimer}
-              className="flex items-center gap-2 bg-[#2A2A2A] text-[#CCCCCC] px-4 py-2 rounded-lg text-sm hover:text-white hover:bg-[#333333] transition-colors"
+              onClick={reset}
+              className="flex items-center gap-2 rounded-lg bg-[#2A2A2A] px-4 py-2 text-sm text-[#CCCCCC] transition-colors hover:bg-[#333333] hover:text-white"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="h-4 w-4" />
               重置
             </button>
-            <button
-              onClick={handleNextPhase}
-              className="text-xs text-[#888888] hover:text-[#CCCCCC]"
-            >
+            <button onClick={skip} className="text-xs text-[#888888] hover:text-[#CCCCCC]">
               跳过
             </button>
           </div>
         </div>
       </div>
 
-      {/* 专注记录列表 */}
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-bold text-[#EEEEEE]">专注记录</h3>
-          <div className="text-xs text-[#666666]">倒计时结束后自动记录</div>
+          <div className="text-xs text-[#666666]">专注阶段结束后自动记录</div>
         </div>
-        
+
         <div className="space-y-4">
           {Object.entries(recordsByDate).map(([date, dateRecords]) => (
             <div key={date}>
-              <div className="text-xs text-[#666666] mb-2">{date}</div>
+              <div className="mb-2 text-xs text-[#666666]">{date}</div>
               <div className="space-y-2">
                 {dateRecords.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between group">
+                  <div key={record.id} className="group flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
-                        <TimerIcon className="w-4 h-4" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-400">
+                        <TimerIcon className="h-4 w-4" />
                       </div>
                       <div className="text-sm text-[#CCCCCC]">
-                        {new Date(record.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} - {new Date(record.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(record.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} -{' '}
+                        {new Date(record.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-[#666666]">{record.durationMinutes}m</span>
-                      <button 
+                      <button
                         onClick={() => deleteRecord(record.id)}
-                        className="text-[#444444] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="text-[#444444] opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
                       >
-                        <RotateCcw className="w-3 h-3 rotate-45" /> {/* Use rotate as delete icon */}
+                        <RotateCcw className="h-3 w-3 rotate-45" />
                       </button>
                     </div>
                   </div>
@@ -371,7 +176,7 @@ export default function PomodoroTimer() {
             </div>
           ))}
           {records.length === 0 && (
-            <div className="text-center py-8 text-xs text-[#555555]">暂无专注记录，开始一个番茄钟吧！</div>
+            <div className="py-8 text-center text-xs text-[#555555]">暂无专注记录，开始一个番茄钟吧！</div>
           )}
         </div>
       </div>

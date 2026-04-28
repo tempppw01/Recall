@@ -22,6 +22,8 @@
   --ui-border-soft: rgba(110, 118, 138, 0.14);
   --ui-header-bg: rgba(15, 17, 22, 0.52);
   --ui-footer-bg: rgba(30, 33, 40, 0.78);
+  --ui-overlay-bg: rgba(8, 10, 16, 0.72);
+  --ui-modal-bg: #1b1d22;
   --ui-card-bg: rgba(255, 255, 255, 0.022);
   --ui-card-hover-bg: rgba(255, 255, 255, 0.05);
   --ui-input-bg: rgba(26, 26, 26, 0.82);
@@ -139,6 +141,8 @@ body.theme-light .theme-native-surface {
   --ui-border-soft: rgba(148, 163, 184, 0.18);
   --ui-header-bg: rgba(255, 255, 255, 0.76);
   --ui-footer-bg: rgba(245, 247, 252, 0.9);
+  --ui-overlay-bg: rgba(15, 23, 42, 0.26);
+  --ui-modal-bg: #fbfcff;
   --ui-card-bg: rgba(255, 255, 255, 0.68);
   --ui-card-hover-bg: rgba(255, 255, 255, 0.88);
   --ui-input-bg: rgba(255, 255, 255, 0.92);
@@ -476,6 +480,69 @@ button {
   border: 1px solid var(--ui-border-soft);
   background: rgba(255, 255, 255, 0.03);
   color: var(--ui-text-secondary);
+}
+
+.ui-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  background: rgba(5, 8, 15, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.ui-modal-surface {
+  position: relative;
+  border-radius: 2rem;
+  border: 1px solid var(--ui-border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+    var(--glass-panel-bg);
+  padding: 1.25rem;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+}
+
+.ui-modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--ui-text-strong);
+}
+
+.ui-modal-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ui-text-muted);
+}
+
+.ui-modal-close {
+  border: 1px solid var(--ui-border-soft);
+  border-radius: 999px;
+  background: var(--ui-card-bg);
+  color: var(--ui-text-secondary);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.ui-modal-close:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-card-hover-bg);
+  color: var(--ui-text-strong);
+}
+
+.ui-panel-muted {
+  border-radius: 1.5rem;
+  border: 1px solid var(--ui-border-soft);
+  background: var(--ui-card-bg);
 }
 
 .ui-hint-panel {

@@ -66,6 +66,7 @@ import {
 import { taskStore, habitStore, countdownStore, itemStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
+import PomodoroAudioController from '@/app/components/PomodoroAudioController';
 import Sidebar from '@/app/components/sidebar/Sidebar';
 import SettingsModal from '@/app/components/settings/SettingsModal';
 import TaskItem from '@/app/components/tasks/TaskItem';
@@ -163,23 +164,42 @@ const REPEAT_OPTIONS: { value: RepeatType; label: string }[] = [
 ];
 const REPEAT_WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 const FILTER_LABELS: Record<string, string> = {
-  todo: '待办（别拖）',
-  calendar: '日历（时间魔法）',
-  quadrant: '四象限（老板最爱）',
-  countdown: '倒数日（小期待）',
-  habit: '习惯打卡（今天也行）',
-  agent: 'AI 助手（碎碎念）',
-  search: '搜索（翻旧账）',
-  pomodoro: '番茄时钟（先冲一会）',
-  category: '列表（小分组）',
-  tag: '标签（贴一贴）',
-  inbox: '收件箱（兜底区）',
-  today: '今日（别摸鱼）',
-  next7: '未来7天（未雨绸缪）',
-  completed: '已完成（功德+1）',
-  review: '检查（过一遍）',
-  items: '物品（放哪了）',
+  todo: '待办',
+  calendar: '日历',
+  quadrant: '四象限',
+  countdown: '倒数日',
+  habit: '习惯打卡',
+  agent: 'AI 助手',
+  search: '搜索',
+  pomodoro: '番茄时钟',
+  category: '列表',
+  tag: '标签',
+  inbox: '收件箱',
+  today: '今日',
+  next7: '未来 7 天',
+  completed: '已完成',
+  review: '检查',
+  items: '物品管理',
 };
+const ACTIVE_FILTER_VALUES = new Set([
+  'todo',
+  'calendar',
+  'quadrant',
+  'countdown',
+  'habit',
+  'agent',
+  'search',
+  'pomodoro',
+  'category',
+  'tag',
+  'inbox',
+  'today',
+  'next7',
+  'completed',
+  'review',
+  'items',
+  'timeline',
+]);
 const WEEKDAY_MAP: Record<string, number> = {
   一: 1,
   二: 2,
@@ -1502,7 +1522,7 @@ export default function Home() {
       }
 
       const storedActiveFilter = localStorage.getItem(ACTIVE_FILTER_KEY);
-      if (storedActiveFilter) {
+      if (storedActiveFilter && ACTIVE_FILTER_VALUES.has(storedActiveFilter)) {
         setActiveFilter(storedActiveFilter);
       }
       const storedQuickAccessOpen = localStorage.getItem(QUICK_ACCESS_OPEN_KEY);
@@ -1597,6 +1617,17 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-80)));
   }, [manageAgentMessages]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!ACTIVE_FILTER_VALUES.has(activeFilter)) return;
+    localStorage.setItem(ACTIVE_FILTER_KEY, activeFilter);
+  }, [activeFilter]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(QUICK_ACCESS_OPEN_KEY, String(isQuickAccessOpen));
+  }, [isQuickAccessOpen]);
 
   const clearCurrentAiContext = () => {
     if (typeof window !== 'undefined' && !window.confirm('确认清除当前 AI 助手上下文吗？这不会删除任务数据。')) {
@@ -2053,13 +2084,6 @@ export default function Home() {
     }
     body.style.overflow = '';
   }, [isSidebarOpen]);
-
-  useEffect(() => {
-    if (!showAppMenu) return;
-    const handleClose = () => setShowAppMenu(false);
-    window.addEventListener('click', handleClose);
-    return () => window.removeEventListener('click', handleClose);
-  }, [showAppMenu]);
 
   const snapshotTasksForUndo = (label: string) => {
     setTaskUndoSnapshot(taskStore.getAll().map((task) => ({
@@ -4058,11 +4082,11 @@ const normalizeTimeoutSec = (value: number) => {
     : activeFilter === 'habit'
     ? '追踪长期习惯，把重复的小事慢慢养成'
     : activeFilter === 'items'
-    ? '记录东西放哪了、剩多少、是不是该补货了'
+    ? '记录物品位置、库存状态和补货提醒'
     : activeFilter === 'pomodoro'
-    ? '专注一段时间，休息一下，再继续推进任务'
+    ? '用专注与休息节奏推进当前任务'
     : activeFilter === 'agent'
-    ? '把想法交给 AI 助手，自动拆成可执行清单'
+    ? '输入目标、约束或待办，整理为可执行清单'
     : activeFilter === 'completed'
     ? '查看已经完成的事项，顺手清理历史任务'
     : activeFilter === 'category'
@@ -4190,7 +4214,9 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 2. Main Task List */}
       <section
-        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,rgba(20,22,27,0.96),rgba(24,27,33,0.92),rgba(18,20,26,0.96))] ${
+        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,rgba(20,22,27,0.96),rgba(24,27,33,0.92),rgba(18,20,26,0.96))] transition-[margin,width,filter] duration-[var(--motion-base)] ease-[var(--ease-standard)] lg:ml-0 lg:w-auto ${
+          isSidebarOpen ? 'ml-[min(74vw,280px)] w-[calc(100%_-_min(74vw,_280px))]' : ''
+        } ${
           selectedTask ? 'hidden lg:flex' : 'flex'
         }`}
       >
@@ -4204,7 +4230,7 @@ const normalizeTimeoutSec = (value: number) => {
           completedTasks={completedTasks}
           isSyncingNow={isSyncingNow}
           themePreference={themePreference}
-          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onOpenSidebar={() => setIsSidebarOpen((previous) => !previous)}
           onToggleBatchMode={() => {
             if (isBatchMode) {
               exitBatchMode();
@@ -4214,6 +4240,8 @@ const normalizeTimeoutSec = (value: number) => {
           }}
           onSync={() => handleWebdavSync('sync')}
           onClearCompleted={() => setShowClearCompletedConfirm(true)}
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenAbout={() => setShowAbout(true)}
           onOpenLogs={() => setShowLogs(true)}
           onToggleTheme={handleThemeToggle}
         />
@@ -4709,7 +4737,7 @@ const normalizeTimeoutSec = (value: number) => {
                 <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                    <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手（记性外包处）</h3>
+                    <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手</h3>
                       <p className="text-xs text-[#666666] mt-1">一句话识别重要日期，我来帮你记</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -5016,7 +5044,7 @@ const normalizeTimeoutSec = (value: number) => {
                       <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手</h3>
                       <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
                     </div>
-                    <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">把计划丢给我，我负责拆碎再拼好 😎</p>
+                    <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">把目标、想法或待办告诉我，我会整理成更清晰的执行清单。</p>
                     <div className="mt-2 inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-1">
                       <button
                         type="button"
@@ -5084,7 +5112,7 @@ const normalizeTimeoutSec = (value: number) => {
                 </div>
 
                 <div className="mt-3 rounded-xl border border-dashed border-violet-400/30 bg-gradient-to-r from-violet-500/15 to-cyan-500/15 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] shadow-[0_0_24px_rgba(99,102,241,0.16)]">
-                  小提示：别怕大目标，我负责把它切成一口一口的“薯片任务”。
+                  小提示：可以直接输入目标、约束或截止时间，我会按执行顺序帮你拆解。
                 </div>
 
                 <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
@@ -5162,7 +5190,7 @@ const normalizeTimeoutSec = (value: number) => {
                           </div>
                         )}
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">建议待办（切成薯片）</h4>
+                          <h4 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">建议待办</h4>
                           {showAgentBulkAdd && (
                             <button
                               onClick={handleAddAllAgentItems}
@@ -5175,7 +5203,7 @@ const normalizeTimeoutSec = (value: number) => {
                         </div>
                         {agentItems.length === 0 ? (
                           <div className="rounded-2xl border border-dashed border-cyan-500/20 bg-[color:var(--ui-card-bg)] p-4 text-xs text-[color:var(--ui-text-secondary)]">
-                            我会把整理结果放在这里。
+                            我会把整理后的建议任务显示在这里。
                           </div>
                         ) : (
                           <div className="grid gap-3">
@@ -5552,6 +5580,15 @@ const normalizeTimeoutSec = (value: number) => {
               itemStatusFilter={itemStatusFilter}
               setItemStatusFilter={setItemStatusFilter}
               editingItemId={editingItemId}
+              onCancelItemForm={() => {
+                setEditingItemId(null);
+                setItemNameInput('');
+                setItemCategoryInput('');
+                setItemLocationInput('');
+                setItemQuantityInput('1');
+                setItemTagsInput('');
+                setItemNoteInput('');
+              }}
               onCreateItem={() => {
                 const name = itemNameInput.trim();
                 if (!name) {
@@ -5832,13 +5869,13 @@ const normalizeTimeoutSec = (value: number) => {
                         const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];
                         return (
                           <div key={group.key} className="space-y-2">
-                            <div className={`rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 ${meta.tone}`}>
-                              <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  <div className="text-sm font-semibold text-[#EEF2FF]">{group.label}</div>
-                                  <div className="text-xs text-[#8F9BB3]">{meta.summary}</div>
+                            <div className="flex px-1">
+                              <div className={`inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-2 ${meta.tone}`}>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold leading-tight text-[#EEF2FF]">{group.label}</div>
+                                  <div className="truncate text-xs leading-tight text-[#8F9BB3]">{meta.summary}</div>
                                 </div>
-                                <span className={`rounded-full border px-2.5 py-1 text-[11px] ${meta.chipTone}`}>{group.items.length} 项</span>
+                                <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${meta.chipTone}`}>{group.items.length} 项</span>
                               </div>
                             </div>
                             <div className="space-y-1">
@@ -6570,7 +6607,7 @@ const normalizeTimeoutSec = (value: number) => {
         defaultBaseUrl={DEFAULT_BASE_URL}
       />
 
-      {showClearCompletedConfirm && (
+      {false && showClearCompletedConfirm && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] motion-modal-overlay"
           onClick={() => setShowClearCompletedConfirm(false)}
@@ -6619,12 +6656,60 @@ const normalizeTimeoutSec = (value: number) => {
         </div>
       )}
 
+      {showClearCompletedConfirm && (
+        <div className="ui-modal-backdrop z-[60] motion-modal-overlay" onClick={() => setShowClearCompletedConfirm(false)}>
+          <div
+            className="theme-native-surface ui-modal-surface mobile-modal mobile-modal-body motion-modal-surface w-full max-w-md"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="ui-modal-title">清空已完成</h2>
+                <p className="ui-modal-subtitle">已完成任务会从当前列表移除，这一步无法撤销。</p>
+              </div>
+              <button
+                onClick={() => setShowClearCompletedConfirm(false)}
+                className="ui-modal-close"
+                aria-label="关闭确认弹窗"
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="ui-panel-muted mt-4 border-amber-500/20 bg-amber-500/8 px-3.5 py-3 text-sm text-[color:var(--ui-text-primary)]">
+              确认清空所有已完成任务？
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowClearCompletedConfirm(false)}
+                className="ui-modal-close px-4 py-2 text-sm"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearCompletedTasks();
+                  setShowClearCompletedConfirm(false);
+                }}
+                className="ui-state-hover ui-state-press rounded-full border border-red-400/35 bg-red-500/18 px-4 py-2 text-sm text-white hover:bg-red-500/24"
+              >
+                确认清空
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AboutModal
         show={showAbout}
         onClose={() => setShowAbout(false)}
         appVersion={APP_VERSION}
       />
 
+      <PomodoroAudioController />
       <PomodoroFloatingWidget onOpenPomodoro={() => setActiveFilter('pomodoro')} />
 
     </div>

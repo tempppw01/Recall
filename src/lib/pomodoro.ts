@@ -1,3 +1,8 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { pomodoroStore } from '@/lib/store';
+
 export type PomodoroPhase = 'focus' | 'shortBreak' | 'longBreak';
 
 export const PHASE_LABELS: Record<PomodoroPhase, string> = {
@@ -16,6 +21,8 @@ export const cycleOrder: PomodoroPhase[] = ['focus', 'shortBreak', 'focus', 'sho
 export const STORAGE_KEY = 'recall_pomodoro_state';
 export const POMODORO_STATE_EVENT = 'recall:pomodoro-state';
 
+let pomodoroAudioContext: AudioContext | null = null;
+
 export type PersistedPomodoroState = {
   phaseIndex: number;
   remaining: number;
@@ -24,36 +31,102 @@ export type PersistedPomodoroState = {
   sessionStartTime?: number | null;
 };
 
+export type ResolvedPomodoroState = {
+  phaseIndex: number;
+  phase: PomodoroPhase;
+  remaining: number;
+  isRunning: boolean;
+  sessionStartTime: number | null;
+  totalSeconds: number;
+  progress: number;
+  hasActiveSession: boolean;
+};
+
+const createId = () => Math.random().toString(36).substring(2, 9);
+
 export const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 };
 
-export const getDefaultPomodoroState = (): PersistedPomodoroState => ({
+export const ensurePomodoroAudioReady = async () => {
+  if (typeof window === 'undefined') return null;
+  if (!pomodoroAudioContext) {
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return null;
+    pomodoroAudioContext = new AudioContextCtor();
+  }
+
+  if (pomodoroAudioContext.state === 'suspended') {
+    await pomodoroAudioContext.resume();
+  }
+
+  return pomodoroAudioContext;
+};
+
+export const playPomodoroTickSound = () => {
+  if (!pomodoroAudioContext || pomodoroAudioContext.state !== 'running') return;
+
+  const now = pomodoroAudioContext.currentTime;
+  const oscillator = pomodoroAudioContext.createOscillator();
+  const gainNode = pomodoroAudioContext.createGain();
+  oscillator.type = 'square';
+  oscillator.frequency.setValueAtTime(1200, now);
+  gainNode.gain.setValueAtTime(0.0001, now);
+  gainNode.gain.exponentialRampToValueAtTime(0.035, now + 0.01);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+  oscillator.connect(gainNode);
+  gainNode.connect(pomodoroAudioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.08);
+};
+
+export const getDefaultPomodoroState = (now = Date.now()): PersistedPomodoroState => ({
   phaseIndex: 0,
   remaining: PHASE_DURATIONS[cycleOrder[0]],
   isRunning: false,
-  lastUpdated: Date.now(),
+  lastUpdated: now,
   sessionStartTime: null,
 });
+
+const clampPhaseIndex = (phaseIndex: number) => {
+  if (!Number.isFinite(phaseIndex)) return 0;
+  return Math.min(Math.max(0, Math.floor(phaseIndex)), cycleOrder.length - 1);
+};
+
+const getPhaseDurationByIndex = (phaseIndex: number) => {
+  const phase = cycleOrder[phaseIndex] ?? 'focus';
+  return PHASE_DURATIONS[phase];
+};
+
+export const normalizePomodoroState = (
+  source?: Partial<PersistedPomodoroState> | null,
+  now = Date.now(),
+): PersistedPomodoroState => {
+  const defaultState = getDefaultPomodoroState(now);
+  const phaseIndex = clampPhaseIndex(source?.phaseIndex ?? defaultState.phaseIndex);
+  const phaseDuration = getPhaseDurationByIndex(phaseIndex);
+  const rawRemaining = Number.isFinite(source?.remaining) ? Number(source?.remaining) : phaseDuration;
+  const remaining = Math.min(Math.max(0, Math.floor(rawRemaining)), phaseDuration);
+
+  return {
+    phaseIndex,
+    remaining,
+    isRunning: Boolean(source?.isRunning),
+    lastUpdated: typeof source?.lastUpdated === 'number' ? source.lastUpdated : now,
+    sessionStartTime: typeof source?.sessionStartTime === 'number' ? source.sessionStartTime : null,
+  };
+};
 
 export const safelyReadPomodoroState = (): PersistedPomodoroState => {
   if (typeof window === 'undefined') return getDefaultPomodoroState();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return getDefaultPomodoroState();
-    const parsed = JSON.parse(raw) as PersistedPomodoroState;
-    if (typeof parsed?.phaseIndex !== 'number' || typeof parsed?.remaining !== 'number') {
-      return getDefaultPomodoroState();
-    }
-    return {
-      phaseIndex: parsed.phaseIndex,
-      remaining: parsed.remaining,
-      isRunning: Boolean(parsed.isRunning),
-      lastUpdated: typeof parsed.lastUpdated === 'number' ? parsed.lastUpdated : Date.now(),
-      sessionStartTime: typeof parsed.sessionStartTime === 'number' ? parsed.sessionStartTime : null,
-    };
+    return normalizePomodoroState(JSON.parse(raw) as PersistedPomodoroState);
   } catch {
     return getDefaultPomodoroState();
   }
@@ -61,42 +134,190 @@ export const safelyReadPomodoroState = (): PersistedPomodoroState => {
 
 export const writePomodoroState = (payload: PersistedPomodoroState) => {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  const normalized = normalizePomodoroState(payload);
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
   window.dispatchEvent(new CustomEvent(POMODORO_STATE_EVENT));
 };
 
-export const getResolvedPomodoroState = (source: PersistedPomodoroState, now = Date.now()) => {
-  let phaseIndex = source.phaseIndex;
-  let remaining = source.remaining;
-  let isRunning = source.isRunning;
-  let sessionStartTime = source.sessionStartTime ?? null;
+const saveFocusRecord = (sessionStartTime: number | null, endTimeMs: number) => {
+  const safeEndTimeMs = Number.isFinite(endTimeMs) ? endTimeMs : Date.now();
+  const computedStartMs = typeof sessionStartTime === 'number'
+    ? sessionStartTime
+    : safeEndTimeMs - PHASE_DURATIONS.focus * 1000;
+  const durationMinutes = Math.max(1, Math.round((safeEndTimeMs - computedStartMs) / 60000));
 
-  if (isRunning) {
-    const elapsed = Math.max(0, Math.floor((now - source.lastUpdated) / 1000));
-    if (elapsed >= remaining) {
-      const nextIndex = (phaseIndex + 1) % cycleOrder.length;
-      phaseIndex = nextIndex;
-      remaining = PHASE_DURATIONS[cycleOrder[nextIndex]];
-      isRunning = false;
-      sessionStartTime = null;
-    } else if (elapsed > 0) {
-      remaining = Math.max(remaining - elapsed, 0);
-    }
+  pomodoroStore.add({
+    id: createId(),
+    startTime: new Date(computedStartMs).toISOString(),
+    endTime: new Date(safeEndTimeMs).toISOString(),
+    durationMinutes,
+  });
+};
+
+const getAdvancedPomodoroState = (source: PersistedPomodoroState, now = Date.now()) => {
+  const base = normalizePomodoroState(source, now);
+  if (!base.isRunning) {
+    return { nextState: base, didChange: false };
   }
 
-  const phase = cycleOrder[phaseIndex] ?? 'focus';
+  const elapsed = Math.max(0, Math.floor((now - base.lastUpdated) / 1000));
+  if (elapsed <= 0) {
+    return { nextState: base, didChange: false };
+  }
+
+  if (elapsed < base.remaining) {
+    return {
+      nextState: normalizePomodoroState({
+        ...base,
+        remaining: base.remaining - elapsed,
+        lastUpdated: now,
+      }, now),
+      didChange: true,
+    };
+  }
+
+  const completedPhase = cycleOrder[base.phaseIndex] ?? 'focus';
+  const completedAt = base.lastUpdated + base.remaining * 1000;
+  if (completedPhase === 'focus') {
+    saveFocusRecord(base.sessionStartTime ?? null, completedAt);
+  }
+
+  const nextPhaseIndex = (base.phaseIndex + 1) % cycleOrder.length;
+  return {
+    nextState: normalizePomodoroState({
+      phaseIndex: nextPhaseIndex,
+      remaining: getPhaseDurationByIndex(nextPhaseIndex),
+      isRunning: false,
+      lastUpdated: completedAt,
+      sessionStartTime: null,
+    }, completedAt),
+    didChange: true,
+  };
+};
+
+export const getResolvedPomodoroState = (
+  source: PersistedPomodoroState,
+  now = Date.now(),
+): ResolvedPomodoroState => {
+  const normalized = normalizePomodoroState(source, now);
+  const phase = cycleOrder[normalized.phaseIndex] ?? 'focus';
   const totalSeconds = PHASE_DURATIONS[phase];
-  const progress = 100 - Math.round((remaining / totalSeconds) * 100);
-  const hasActiveSession = isRunning || remaining !== totalSeconds;
+  const progress = 100 - Math.round((normalized.remaining / totalSeconds) * 100);
+  const hasActiveSession = normalized.isRunning || normalized.remaining !== totalSeconds;
 
   return {
-    phaseIndex,
+    phaseIndex: normalized.phaseIndex,
     phase,
-    remaining,
-    isRunning,
-    sessionStartTime,
+    remaining: normalized.remaining,
+    isRunning: normalized.isRunning,
+    sessionStartTime: normalized.sessionStartTime ?? null,
     totalSeconds,
     progress,
     hasActiveSession,
+  };
+};
+
+export const syncPomodoroState = (now = Date.now()) => {
+  const base = safelyReadPomodoroState();
+  const { nextState, didChange } = getAdvancedPomodoroState(base, now);
+  if (didChange) {
+    writePomodoroState(nextState);
+  }
+  return getResolvedPomodoroState(nextState, now);
+};
+
+export const togglePomodoroRunning = (now = Date.now()) => {
+  const state = syncPomodoroState(now);
+  writePomodoroState({
+    phaseIndex: state.phaseIndex,
+    remaining: state.remaining,
+    isRunning: !state.isRunning,
+    lastUpdated: now,
+    sessionStartTime:
+      !state.isRunning && state.phase === 'focus'
+        ? (state.sessionStartTime ?? now)
+        : state.sessionStartTime,
+  });
+  return syncPomodoroState(now);
+};
+
+export const resetPomodoroTimer = (now = Date.now()) => {
+  writePomodoroState(getDefaultPomodoroState(now));
+  return syncPomodoroState(now);
+};
+
+export const skipPomodoroPhase = (now = Date.now()) => {
+  const state = syncPomodoroState(now);
+  const nextPhaseIndex = (state.phaseIndex + 1) % cycleOrder.length;
+  writePomodoroState({
+    phaseIndex: nextPhaseIndex,
+    remaining: getPhaseDurationByIndex(nextPhaseIndex),
+    isRunning: false,
+    lastUpdated: now,
+    sessionStartTime: null,
+  });
+  return syncPomodoroState(now);
+};
+
+export const usePomodoroState = () => {
+  const [state, setState] = useState<null | ResolvedPomodoroState>(() => (
+    typeof window === 'undefined' ? null : syncPomodoroState(Date.now())
+  ));
+  const [isReady, setIsReady] = useState(() => typeof window !== 'undefined');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const sync = () => {
+      setState(syncPomodoroState(Date.now()));
+      setIsReady(true);
+    };
+
+    sync();
+    const timer = window.setInterval(sync, 1000);
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === STORAGE_KEY) sync();
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(POMODORO_STATE_EVENT, sync as EventListener);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(POMODORO_STATE_EVENT, sync as EventListener);
+    };
+  }, []);
+
+  const syncNow = useCallback(() => {
+    const next = syncPomodoroState(Date.now());
+    setState(next);
+    return next;
+  }, []);
+
+  const toggleRunning = useCallback(() => {
+    const next = togglePomodoroRunning(Date.now());
+    setState(next);
+    return next;
+  }, []);
+
+  const reset = useCallback(() => {
+    const next = resetPomodoroTimer(Date.now());
+    setState(next);
+    return next;
+  }, []);
+
+  const skip = useCallback(() => {
+    const next = skipPomodoroPhase(Date.now());
+    setState(next);
+    return next;
+  }, []);
+
+  return {
+    isReady,
+    state,
+    syncNow,
+    toggleRunning,
+    reset,
+    skip,
   };
 };

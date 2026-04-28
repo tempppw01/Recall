@@ -15,6 +15,8 @@ import {
   Inbox,
   LayoutGrid,
   Package2,
+  Info,
+  Settings,
   Sparkles,
   Sun,
   Timer,
@@ -22,10 +24,6 @@ import {
 import { Countdown, Task } from '@/lib/store';
 import SidebarItem from '@/app/components/sidebar/SidebarItem';
 
-/**
- * 主侧边栏：包含入口、快捷入口、功能等区块。
- * PC端支持拖拽调整宽度和折叠功能。
- */
 type SidebarProps = {
   isSidebarOpen: boolean;
   setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -51,7 +49,6 @@ type SidebarProps = {
   formatDateKeyByOffset: (date: Date, offsetMinutes: number) => string;
   formatZonedDate: (iso: string, offsetMinutes: number) => string;
   getTimezoneOffset: (task: Task) => number;
-  // PC端侧边栏宽度和折叠状态
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
   isSidebarCollapsed: boolean;
@@ -62,7 +59,29 @@ const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 480;
 const COLLAPSED_WIDTH = 56;
 
-type ToolItemKey = 'todo' | 'calendar' | 'timeline' | 'review' | 'quadrant' | 'countdown' | 'habit' | 'items' | 'pomodoro' | 'completed';
+type ToolItemKey =
+  | 'todo'
+  | 'calendar'
+  | 'timeline'
+  | 'review'
+  | 'quadrant'
+  | 'countdown'
+  | 'habit'
+  | 'items'
+  | 'pomodoro'
+  | 'completed';
+
+type SidebarAction = {
+  key: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  title?: string;
+  active: boolean;
+  iconColor?: string;
+  count?: number;
+  badge?: number;
+  onClick: () => void;
+};
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
 const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
@@ -100,19 +119,22 @@ const Sidebar = ({
   const [isDragging, setIsDragging] = useState(false);
   const [toolOrder, setToolOrder] = useState<ToolItemKey[]>(DEFAULT_TOOL_ORDER);
   const [draggingToolKey, setDraggingToolKey] = useState<ToolItemKey | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
     setIsDragging(true);
   }, []);
 
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, e.clientX));
-      setSidebarWidth(newWidth);
+    const handleMouseMove = (event: MouseEvent) => {
+      const nextWidth = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, event.clientX));
+      setSidebarWidth(nextWidth);
     };
 
     const handleMouseUp = () => {
@@ -127,9 +149,6 @@ const Sidebar = ({
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, setSidebarWidth]);
-
-  const pcWidth = isSidebarCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
-  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     const checkDesktop = () => {
@@ -160,54 +179,78 @@ const Sidebar = ({
     localStorage.setItem(TOOL_ORDER_KEY, JSON.stringify(toolOrder));
   }, [toolOrder]);
 
-  const handleToolDrop = (targetKey: ToolItemKey) => {
+  useEffect(() => {
+    if (!showAppMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuButtonRef.current?.contains(target)) return;
+      if (menuPanelRef.current?.contains(target)) return;
+      setShowAppMenu(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [setShowAppMenu, showAppMenu]);
+
+  const handleToolDrop = useCallback((targetKey: ToolItemKey) => {
     if (!draggingToolKey || draggingToolKey === targetKey) return;
-    setToolOrder((prev) => {
-      const from = prev.indexOf(draggingToolKey);
-      const to = prev.indexOf(targetKey);
-      if (from < 0 || to < 0) return prev;
-      const next = [...prev];
+    setToolOrder((previous) => {
+      const from = previous.indexOf(draggingToolKey);
+      const to = previous.indexOf(targetKey);
+      if (from < 0 || to < 0) return previous;
+      const next = [...previous];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
       return next;
     });
-  };
+  }, [draggingToolKey]);
 
-  const categoryUsageMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    tasks.forEach((task) => {
-      if (!task) return;
-      if (task.status === 'completed') return;
-      const category = task.category;
-      if (!category) return;
-      map[category] = (map[category] ?? 0) + 1;
-    });
-    return map;
+  const changeFilter = useCallback((nextFilter: string, refresher?: () => void) => {
+    setActiveFilter(nextFilter);
+    refresher?.();
+    setShowAppMenu(false);
+    setIsSidebarOpen(false);
+  }, [setActiveFilter, setIsSidebarOpen, setShowAppMenu]);
+
+  const activeTaskCount = useMemo(
+    () => tasks.filter((task) => task.status !== 'completed').length,
+    [tasks],
+  );
+
+  const todayTaskCount = useMemo(() => {
+    const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
+    return tasks.filter((task) => {
+      if (task.status === 'completed' || !task.dueDate) return false;
+      return formatZonedDate(task.dueDate, getTimezoneOffset(task)) === todayKey;
+    }).length;
+  }, [DEFAULT_TIMEZONE_OFFSET, formatDateKeyByOffset, formatZonedDate, getTimezoneOffset, tasks]);
+
+  const next7TaskCount = useMemo(() => {
+    const now = new Date();
+    const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return tasks.filter((task) => {
+      if (task.status === 'completed' || !task.dueDate) return false;
+      const taskDate = new Date(task.dueDate);
+      return taskDate >= now && taskDate <= next7Days;
+    }).length;
   }, [tasks]);
 
-  const toolConfig: Record<ToolItemKey, { icon: React.ComponentType<{ className?: string }>; label: string; count: number; active: boolean; onClick: () => void; iconColor: string }> = {
+  const toolConfig: Record<ToolItemKey, Omit<SidebarAction, 'key' | 'title' | 'badge'>> = {
     todo: {
       icon: CheckSquare,
       label: '待办',
-      count: tasks.filter((t) => t.status !== 'completed').length,
+      count: activeTaskCount,
       active: activeFilter === 'todo',
-      onClick: () => {
-        setActiveFilter('todo');
-        refreshTasks();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('todo', refreshTasks),
       iconColor: 'text-green-400',
     },
     calendar: {
       icon: Calendar,
       label: '日历',
-      count: 0,
+      count: hasCalendarTasks ? 1 : 0,
       active: activeFilter === 'calendar',
-      onClick: () => {
-        setActiveFilter('calendar');
-        refreshTasks();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('calendar', refreshTasks),
       iconColor: 'text-cyan-400',
     },
     timeline: {
@@ -215,23 +258,15 @@ const Sidebar = ({
       label: '时间轴',
       count: 0,
       active: activeFilter === 'timeline',
-      onClick: () => {
-        setActiveFilter('timeline');
-        refreshTasks();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('timeline', refreshTasks),
       iconColor: 'text-violet-400',
     },
     review: {
       icon: ClipboardCheck,
       label: '检查',
-      count: tasks.filter((t) => t.status !== 'completed').length,
+      count: activeTaskCount,
       active: activeFilter === 'review',
-      onClick: () => {
-        setActiveFilter('review');
-        refreshTasks();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('review', refreshTasks),
       iconColor: 'text-sky-400',
     },
     quadrant: {
@@ -239,11 +274,7 @@ const Sidebar = ({
       label: '四象限',
       count: 0,
       active: activeFilter === 'quadrant',
-      onClick: () => {
-        setActiveFilter('quadrant');
-        refreshTasks();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('quadrant', refreshTasks),
       iconColor: 'text-indigo-400',
     },
     countdown: {
@@ -251,11 +282,7 @@ const Sidebar = ({
       label: '倒数日',
       count: countdowns.length,
       active: activeFilter === 'countdown',
-      onClick: () => {
-        setActiveFilter('countdown');
-        refreshCountdowns();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('countdown', refreshCountdowns),
       iconColor: 'text-pink-400',
     },
     habit: {
@@ -263,11 +290,7 @@ const Sidebar = ({
       label: '习惯打卡',
       count: 0,
       active: activeFilter === 'habit',
-      onClick: () => {
-        setActiveFilter('habit');
-        refreshHabits();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('habit', refreshHabits),
       iconColor: 'text-orange-400',
     },
     items: {
@@ -275,10 +298,7 @@ const Sidebar = ({
       label: '物品管理',
       count: 0,
       active: activeFilter === 'items',
-      onClick: () => {
-        setActiveFilter('items');
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('items'),
       iconColor: 'text-teal-400',
     },
     pomodoro: {
@@ -286,11 +306,7 @@ const Sidebar = ({
       label: '番茄时钟',
       count: 0,
       active: activeFilter === 'pomodoro',
-      onClick: () => {
-        setActiveFilter('pomodoro');
-        refreshTasks();
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('pomodoro', refreshTasks),
       iconColor: 'text-red-400',
     },
     completed: {
@@ -298,13 +314,62 @@ const Sidebar = ({
       label: '已完成',
       count: 0,
       active: activeFilter === 'completed',
-      onClick: () => {
-        setActiveFilter('completed');
-        setIsSidebarOpen(false);
-      },
+      onClick: () => changeFilter('completed'),
       iconColor: 'text-emerald-400',
     },
   };
+
+  const quickAccessItems: SidebarAction[] = [
+    {
+      key: 'inbox',
+      icon: Inbox,
+      label: '收件箱',
+      title: '收件箱',
+      active: activeFilter === 'inbox',
+      iconColor: 'text-blue-400',
+      badge: activeTaskCount,
+      onClick: () => changeFilter('inbox', refreshTasks),
+    },
+    {
+      key: 'today',
+      icon: Sun,
+      label: '今日',
+      title: '今日',
+      active: activeFilter === 'today',
+      iconColor: 'text-yellow-400',
+      badge: todayTaskCount,
+      onClick: () => changeFilter('today', refreshTasks),
+    },
+    {
+      key: 'next7',
+      icon: Calendar,
+      label: '未来 7 天',
+      title: '未来 7 天',
+      active: activeFilter === 'next7',
+      iconColor: 'text-purple-400',
+      badge: next7TaskCount,
+      onClick: () => changeFilter('next7', refreshTasks),
+    },
+  ];
+
+  const collapsedRailItems: SidebarAction[] = [
+    {
+      key: 'agent',
+      icon: Command,
+      label: 'AI 助手',
+      title: 'AI 助手',
+      active: activeFilter === 'agent',
+      count: agentItems.length,
+      iconColor: 'text-blue-400',
+      onClick: () => changeFilter('agent'),
+    },
+    ...quickAccessItems,
+    ...toolOrder.map((key) => ({
+      key,
+      title: toolConfig[key].label,
+      ...toolConfig[key],
+    })),
+  ];
 
   const toolGroups: Array<{ title: string; description: string; keys: ToolItemKey[] }> = [
     {
@@ -324,6 +389,9 @@ const Sidebar = ({
     },
   ];
 
+  const pcWidth = isSidebarCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
+  const toolGridColumnsClass = isDesktop && pcWidth >= 300 ? 'grid-cols-3' : 'grid-cols-2';
+
   return (
     <>
       <aside
@@ -341,60 +409,62 @@ const Sidebar = ({
         }}
       >
         {isSidebarCollapsed ? (
-          <div className="hidden lg:flex flex-col h-full glass-panel-soft">
-            <div className="p-2.5 flex justify-center border-b border-[#3A3F4B]/50">
+          <div className="hidden h-full flex-col lg:flex">
+            <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-2.5">
               <button
                 type="button"
                 onClick={() => setIsSidebarCollapsed(false)}
-                className="w-10 h-10 rounded-xl glass-card hover:bg-[#23262E] flex items-center justify-center text-[#9A9A9A] hover:text-[#E5E5E5] transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
                 title="展开侧边栏"
+                aria-label="展开侧边栏"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 py-3 space-y-1.5 overflow-y-auto">
-              {[
-                { key: 'agent', icon: Command, color: activeFilter === 'agent' ? 'text-blue-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('agent'); setIsSidebarOpen(false); }, title: 'AI 助手' },
-                { key: 'inbox', icon: Inbox, color: activeFilter === 'inbox' ? 'text-blue-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('inbox'); refreshTasks(); setIsSidebarOpen(false); }, title: '收件箱' },
-                { key: 'today', icon: Sun, color: activeFilter === 'today' ? 'text-yellow-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('today'); refreshTasks(); setIsSidebarOpen(false); }, title: '今日' },
-                { key: 'calendar', icon: Calendar, color: activeFilter === 'calendar' ? 'text-cyan-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('calendar'); refreshTasks(); setIsSidebarOpen(false); }, title: '日历' },
-                { key: 'review', icon: ClipboardCheck, color: activeFilter === 'review' ? 'text-sky-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('review'); refreshTasks(); setIsSidebarOpen(false); }, title: '检查' },
-                { key: 'quadrant', icon: LayoutGrid, color: activeFilter === 'quadrant' ? 'text-indigo-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('quadrant'); refreshTasks(); setIsSidebarOpen(false); }, title: '四象限' },
-                { key: 'countdown', icon: Timer, color: activeFilter === 'countdown' ? 'text-pink-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('countdown'); refreshCountdowns(); setIsSidebarOpen(false); }, title: '倒数日' },
-                { key: 'habit', icon: Flame, color: activeFilter === 'habit' ? 'text-orange-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('habit'); refreshHabits(); setIsSidebarOpen(false); }, title: '习惯打卡' },
-                { key: 'items', icon: Package2, color: activeFilter === 'items' ? 'text-teal-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('items'); setIsSidebarOpen(false); }, title: '物品管理' },
-                { key: 'completed', icon: CheckCircle2, color: activeFilter === 'completed' ? 'text-emerald-400' : 'text-[#8B8B8B]', action: () => { setActiveFilter('completed'); setIsSidebarOpen(false); }, title: '已完成' },
-              ].map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={item.action}
-                  className={`mx-2 w-[calc(100%-1rem)] flex justify-center py-2.5 rounded-xl hover:bg-[#23262E] transition-colors ${item.color}`}
-                  title={item.title}
-                >
-                  <item.icon className="w-5 h-5" />
-                </button>
-              ))}
+
+            <nav className="flex-1 space-y-1.5 overflow-y-auto py-3">
+              {collapsedRailItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={item.onClick}
+                    className={`mx-2 flex w-[calc(100%-1rem)] justify-center rounded-2xl border px-0 py-2.5 transition-all ${
+                      item.active
+                        ? 'border-[rgba(var(--theme-accent),0.3)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]'
+                        : 'border-transparent bg-transparent text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
+                    }`}
+                    title={item.title ?? item.label}
+                    aria-label={item.title ?? item.label}
+                  >
+                    <Icon className={`h-5 w-5 ${item.iconColor ?? ''}`} />
+                  </button>
+                );
+              })}
             </nav>
-            <div className="px-2 py-2.5 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] text-center">
+
+            <div className="border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] px-2 py-2.5 text-center">
               <div className="text-[10px] text-[color:var(--ui-text-faint)]">v{APP_VERSION}</div>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto overscroll-contain mobile-scroll safe-scroll-with-footer [--footer-safe-height:0.75rem]">
-              <div className="px-3 py-3 mb-1.5">
+            <div className="mobile-scroll safe-scroll-with-footer [--footer-safe-height:0.75rem] flex-1 overflow-y-auto overscroll-contain">
+              <div className="mb-1.5 px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="relative">
                       <button
+                        ref={menuButtonRef}
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setShowAppMenu((prev) => !prev);
+                          setShowAppMenu((previous) => !previous);
                         }}
                         className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[22px] border border-white/12 bg-[radial-gradient(circle_at_28%_22%,rgba(120,196,255,0.42),transparent_38%),linear-gradient(155deg,rgba(72,102,173,0.78),rgba(36,45,68,0.96)_58%,rgba(13,16,24,0.98))] shadow-[0_18px_36px_rgba(4,10,24,0.42)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_22px_42px_rgba(4,10,24,0.48)]"
                         aria-label="打开应用菜单"
+                        aria-expanded={showAppMenu}
                       >
                         <div className="absolute inset-[1.5px] rounded-[20px] bg-[linear-gradient(180deg,rgba(10,14,22,0.84),rgba(18,22,32,0.96))]" />
                         <div className="absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10" />
@@ -407,10 +477,11 @@ const Sidebar = ({
                           <Sparkles className="absolute -right-2.5 -top-2 h-3.5 w-3.5 text-[#C7B6FF] opacity-85" />
                         </div>
                       </button>
+
                       {showAppMenu && (
                         <div
-                          className="absolute left-0 top-14 w-48 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-1)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.18)] z-50 overflow-hidden"
-                          onClick={(event) => event.stopPropagation()}
+                          ref={menuPanelRef}
+                          className="absolute left-0 top-14 z-50 w-48 overflow-hidden rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-1)] shadow-[0_22px_48px_rgba(0,0,0,0.18)] backdrop-blur-xl"
                         >
                           <button
                             type="button"
@@ -418,7 +489,7 @@ const Sidebar = ({
                               setShowAppMenu(false);
                               setShowSettings(true);
                             }}
-                            className="w-full text-left px-4 py-3 text-sm text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-card-hover-bg)]"
+                            className="w-full px-4 py-3 text-left text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)]"
                           >
                             设置
                           </button>
@@ -428,108 +499,99 @@ const Sidebar = ({
                               setShowAppMenu(false);
                               setShowAbout(true);
                             }}
-                            className="w-full text-left px-4 py-3 text-sm text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-card-hover-bg)]"
+                            className="w-full px-4 py-3 text-left text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)]"
                           >
                             关于
                           </button>
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h1 className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[color:var(--ui-text-strong)]">Recall</h1>
-                        <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">
-                          Flow OS
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[11px] leading-tight text-[color:var(--ui-text-secondary)]">聚合待办、节奏与回顾的个人工作台</p>
+
+                  <div className="min-w-0 flex-1">
+                      <h1 className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[color:var(--ui-text-strong)]">
+                        Recall
+                      </h1>
+                      <p className="mt-1 text-[11px] leading-tight text-[color:var(--ui-text-secondary)]">
+                        任务、时间与回顾的个人工作台
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAppMenu(false);
+                        setShowSettings(true);
+                      }}
+                      className="hidden inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 text-[12px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.32)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                      title="打开设置"
+                      aria-label="打开设置"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="hidden xl:inline">设置</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAppMenu(false);
+                        setShowAbout(true);
+                      }}
+                      className="hidden inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 text-[12px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.32)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                      title="关于 Recall"
+                      aria-label="关于 Recall"
+                    >
+                      <Info className="h-4 w-4" />
+                      <span className="hidden xl:inline">关于</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setIsSidebarCollapsed(true)}
-                      className="hidden lg:flex w-8 h-8 rounded-xl hover:bg-[#23262E] items-center justify-center text-[#707070] hover:text-[#D6D6D6] transition-colors"
+                      className="hidden h-8 w-8 items-center justify-center rounded-xl border border-transparent text-[color:var(--ui-text-muted)] transition-colors hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:flex"
                       title="折叠侧边栏"
+                      aria-label="折叠侧边栏"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <ChevronLeft className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               </div>
 
-              <nav className="px-2.5 space-y-2.5 pb-4">
+              <nav className="space-y-2.5 px-2.5 pb-4">
                 <div className="glass-card rounded-2xl p-1.5">
                   <SidebarItem
                     icon={Command}
                     label="AI 助手"
                     count={agentItems.length}
                     active={activeFilter === 'agent'}
-                    onClick={() => {
-                      setActiveFilter('agent');
-                      setIsSidebarOpen(false);
-                    }}
+                    onClick={() => changeFilter('agent')}
                   />
                 </div>
 
                 <div className="glass-card rounded-2xl p-1.5">
                   <button
                     type="button"
-                    onClick={() => setIsQuickAccessOpen((prev) => !prev)}
-                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[color:var(--ui-text-muted)] uppercase tracking-[0.16em] hover:text-[color:var(--ui-text-secondary)]"
+                    onClick={() => setIsQuickAccessOpen((previous) => !previous)}
+                    className="flex w-full items-center justify-between px-3 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
+                    aria-expanded={isQuickAccessOpen}
+                    aria-label="切换快捷入口"
                   >
                     <span>快捷入口</span>
-                    {isQuickAccessOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    {isQuickAccessOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                   {isQuickAccessOpen && (
                     <div className="space-y-1">
-                      <SidebarItem
-                        icon={Inbox}
-                        label="收件箱"
-                        active={activeFilter === 'inbox'}
-                        onClick={() => {
-                          setActiveFilter('inbox');
-                          refreshTasks();
-                          setIsSidebarOpen(false);
-                        }}
-                        iconColor="text-blue-400"
-                        badge={tasks.filter((t) => t.status !== 'completed').length}
-                      />
-                      <SidebarItem
-                        icon={Sun}
-                        label="今日"
-                        active={activeFilter === 'today'}
-                        onClick={() => {
-                          setActiveFilter('today');
-                          refreshTasks();
-                          setIsSidebarOpen(false);
-                        }}
-                        iconColor="text-yellow-400"
-                        badge={tasks.filter((t) => {
-                          if (t.status === 'completed' || !t.dueDate) return false;
-                          const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
-                          const taskKey = formatZonedDate(t.dueDate, getTimezoneOffset(t));
-                          return taskKey === todayKey;
-                        }).length}
-                      />
-                      <SidebarItem
-                        icon={Calendar}
-                        label="未来 7 天"
-                        active={activeFilter === 'next7'}
-                        onClick={() => {
-                          setActiveFilter('next7');
-                          refreshTasks();
-                          setIsSidebarOpen(false);
-                        }}
-                        iconColor="text-purple-400"
-                        badge={tasks.filter((t) => {
-                          if (t.status === 'completed' || !t.dueDate) return false;
-                          const taskDate = new Date(t.dueDate);
-                          const today = new Date();
-                          const next7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                          return taskDate >= today && taskDate <= next7Days;
-                        }).length}
-                      />
+                      {quickAccessItems.map((item) => (
+                        <SidebarItem
+                          key={item.key}
+                          icon={item.icon}
+                          label={item.label}
+                          active={item.active}
+                          onClick={item.onClick}
+                          iconColor={item.iconColor}
+                          badge={item.badge}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -537,11 +599,13 @@ const Sidebar = ({
                 <div className="glass-card rounded-2xl p-1.5">
                   <button
                     type="button"
-                    onClick={() => setIsToolsOpen((prev) => !prev)}
-                    className="w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-semibold text-[color:var(--ui-text-muted)] uppercase tracking-[0.16em] hover:text-[color:var(--ui-text-secondary)]"
+                    onClick={() => setIsToolsOpen((previous) => !previous)}
+                    className="flex w-full items-center justify-between px-3 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
+                    aria-expanded={isToolsOpen}
+                    aria-label="切换功能导航"
                   >
-                    <span>功能</span>
-                    {isToolsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    <span>功能导航</span>
+                    {isToolsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                   {isToolsOpen && (
                     <div className="space-y-2 px-1 pb-1">
@@ -555,70 +619,58 @@ const Sidebar = ({
                               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{group.title}</div>
                               <div className="mt-0.5 text-[10px] text-[color:var(--ui-text-faint)]">{group.description}</div>
                             </div>
-                            {isDesktop ? (
-                              <div className="space-y-1">
-                                {groupKeys.map((key) => {
-                                  const item = toolConfig[key];
-                                  return (
-                                    <SidebarItem
-                                      key={key}
-                                      icon={item.icon}
-                                      label={item.label}
-                                      count={item.count}
-                                      active={item.active}
-                                      onClick={item.onClick}
-                                      iconColor={item.iconColor}
-                                      draggable
-                                      onDragStart={() => setDraggingToolKey(key)}
-                                      onDragOver={(event) => event.preventDefault()}
-                                      onDrop={() => handleToolDrop(key)}
-                                      onDragEnd={() => setDraggingToolKey(null)}
-                                      className={draggingToolKey === key ? 'opacity-60 border border-white/12 rounded-xl' : ''}
-                                      rightSlot={<GripVertical className="w-3.5 h-3.5 text-[#5C5C5C]" />}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="grid grid-cols-3 gap-1.5 px-1 pb-1">
-                                {groupKeys.map((key) => {
-                                  const item = toolConfig[key];
-                                  const Icon = item.icon;
-                                  return (
-                                    <button
-                                      key={key}
-                                      type="button"
-                                      onClick={item.onClick}
-                                      className={`relative flex min-h-[84px] flex-col items-center justify-center rounded-[20px] border px-2 py-2.5 text-center transition-all duration-200 ${
-                                        item.active
-                                          ? 'border-[rgba(var(--theme-accent),0.3)] bg-[rgba(var(--theme-accent),0.16)] shadow-[0_12px_28px_rgba(0,0,0,0.16)]'
-                                          : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] hover:border-[color:var(--ui-border-strong)] hover:bg-[rgba(255,255,255,0.055)]'
-                                      }`}
-                                    >
-                                      <div className={`relative flex h-9 w-9 items-center justify-center rounded-[18px] border ${
+                            <div className={`grid ${toolGridColumnsClass} gap-2`}>
+                              {groupKeys.map((key) => {
+                                const item = toolConfig[key];
+                                const Icon = item.icon;
+                                return (
+                                  <button
+                                    key={key}
+                                    onClick={item.onClick}
+                                    className={`group relative flex min-h-[86px] w-full flex-col items-start justify-between overflow-hidden rounded-[20px] border px-3 py-3 text-left transition-all ${
+                                      item.active
+                                        ? 'border-[rgba(var(--theme-accent),0.3)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)] shadow-[0_12px_28px_rgba(0,0,0,0.16)]'
+                                        : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
+                                    } ${draggingToolKey === key ? 'opacity-60' : ''}`}
+                                    title={item.label}
+                                    aria-label={item.label}
+                                    draggable={isDesktop}
+                                    onDragStart={isDesktop ? () => setDraggingToolKey(key) : undefined}
+                                    onDragOver={isDesktop ? (event) => event.preventDefault() : undefined}
+                                    onDrop={isDesktop ? () => handleToolDrop(key) : undefined}
+                                    onDragEnd={isDesktop ? () => setDraggingToolKey(null) : undefined}
+                                  >
+                                    <div className="flex w-full items-start justify-between gap-2">
+                                      <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-all ${
                                         item.active
                                           ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)]'
-                                          : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)]'
+                                          : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] group-hover:border-[color:var(--ui-border-strong)] group-hover:bg-[color:var(--ui-card-hover-bg)]'
                                       }`}>
-                                        <Icon className={`h-4.5 w-4.5 ${item.iconColor}`} />
-                                        {item.count > 0 && (
-                                          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[rgba(var(--theme-accent),0.9)] px-1 text-[10px] font-semibold text-white shadow-[0_6px_14px_rgba(0,0,0,0.22)]">
+                                        <Icon className={`h-4 w-4 ${item.iconColor ?? ''}`} />
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        {item.count ? (
+                                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                                            item.active ? 'bg-white/10 text-white/80' : 'bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'
+                                          }`}>
                                             {item.count > 99 ? '99+' : item.count}
                                           </span>
-                                        )}
+                                        ) : null}
+                                        {isDesktop ? <GripVertical className="h-3.5 w-3.5 text-[color:var(--ui-text-faint)]" /> : null}
                                       </div>
-                                      <div className="mt-2">
-                                        <div className={`text-[13px] font-semibold leading-tight ${
-                                          item.active ? 'text-white' : 'text-[#D8E0F0]'
-                                        }`}>
-                                          {item.label}
-                                        </div>
+                                    </div>
+
+                                    <div className="min-w-0">
+                                      <div className={`truncate text-[13px] font-semibold leading-tight ${
+                                        item.active ? 'text-[color:var(--ui-text-strong)]' : 'text-[color:var(--ui-text-primary)]'
+                                      }`}>
+                                        {item.label}
                                       </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         );
                       })}
@@ -627,7 +679,8 @@ const Sidebar = ({
                 </div>
               </nav>
             </div>
-            <div className="px-4 py-3 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] shrink-0">
+
+            <div className="shrink-0 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] px-4 py-3">
               <div className="text-[10px] text-[color:var(--ui-text-faint)]">v{APP_VERSION}</div>
             </div>
           </>
@@ -635,27 +688,18 @@ const Sidebar = ({
 
         {!isSidebarCollapsed && (
           <div
-            className="hidden lg:flex absolute top-0 right-0 w-1 h-full cursor-col-resize group"
+            className="group absolute right-0 top-0 hidden h-full w-1 cursor-col-resize lg:flex"
             onMouseDown={handleMouseDown}
           >
-            <div className={`w-full h-full transition-colors ${isDragging ? 'bg-blue-500' : 'bg-transparent group-hover:bg-white/10'}`} />
-            <div className={`absolute top-1/2 -translate-y-1/2 right-0 translate-x-1/2 w-4 h-8 rounded bg-[#2A2A2A] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${isDragging ? 'opacity-100 bg-blue-500' : ''}`}>
-              <GripVertical className="w-3 h-3 text-[#888888]" />
+            <div className={`h-full w-full transition-colors ${isDragging ? 'bg-blue-500' : 'bg-transparent group-hover:bg-white/10'}`} />
+            <div className={`absolute right-0 top-1/2 flex h-8 w-4 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded bg-[color:var(--ui-surface-2)] transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+              <GripVertical className="h-3 w-3 text-[color:var(--ui-text-faint)]" />
             </div>
           </div>
         )}
       </aside>
 
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-30 lg:hidden motion-modal-overlay"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {isDragging && (
-        <div className="fixed inset-0 z-50 cursor-col-resize" />
-      )}
+      {isDragging && <div className="fixed inset-0 z-50 cursor-col-resize" />}
     </>
   );
 };

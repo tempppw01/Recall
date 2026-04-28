@@ -555,7 +555,11 @@ const TaskItem = ({
                 <span className="text-[10px] text-[#8a92a4] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5">+{hiddenTagCount}</span>
               )}
               <div
-                className={`flex flex-wrap items-center gap-1.5 border-t transition-[max-height,opacity,margin,padding,border-color] duration-[var(--motion-base)] overflow-hidden ${selected ? 'mt-2 pt-1.5 max-h-24 opacity-100 border-[rgba(255,255,255,0.04)]' : 'mt-1 pt-1 max-h-0 opacity-0 border-transparent sm:group-hover:mt-2 sm:group-hover:pt-1.5 sm:group-hover:max-h-24 sm:group-hover:opacity-100 sm:group-hover:border-[rgba(255,255,255,0.04)]'}`}
+                className={`mt-2 flex min-h-[24px] flex-wrap items-center gap-1.5 border-t pt-1.5 transition-[opacity,border-color] duration-[var(--motion-base)] overflow-hidden ${
+                  selected
+                    ? 'opacity-100 border-[rgba(255,255,255,0.04)]'
+                    : 'pointer-events-none opacity-0 border-transparent sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:border-[rgba(255,255,255,0.04)]'
+                }`}
                 onClick={(event) => event.stopPropagation()}
                 onMouseDown={(event) => event.stopPropagation()}
                 onPointerDown={(event) => event.stopPropagation()}
