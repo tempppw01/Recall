@@ -36,6 +36,19 @@ export type AgentItem = {
   subtasks?: { title?: string }[];
 };
 
+export type AgentDecisionType = 'create' | 'reuse' | 'skip' | 'blocked';
+
+export type AgentDecision = {
+  id: string;
+  type: AgentDecisionType;
+  reason?: string;
+  taskId?: string;
+  taskTitle?: string;
+  blockedByTaskIds?: string[];
+  blockedByTaskTitles?: string[];
+  item?: AgentItem;
+};
+
 export type CountdownAgentItem = {
   id: string;
   title: string;

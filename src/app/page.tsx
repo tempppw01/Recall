@@ -14,6 +14,7 @@ import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filt
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import type {
+  AgentDecision,
   AgentItem,
   AgentMessage,
   AiAssistantMode,
@@ -1063,7 +1064,9 @@ export default function Home() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentImages, setAgentImages] = useState<ImageAttachment[]>([]);
   const agentImageInputRef = useRef<HTMLInputElement | null>(null);
+  const agentAbortControllerRef = useRef<AbortController | null>(null);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
+  const [agentDecisions, setAgentDecisions] = useState<AgentDecision[]>([]);
   const [agentGuidance, setAgentGuidance] = useState<string[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
@@ -2464,16 +2467,75 @@ const normalizeTimeoutSec = (value: number) => {
     setAgentImages((prev) => prev.filter((img) => img.id !== id));
   };
 
+  const handleCancelAgentSend = () => {
+    const controller = agentAbortControllerRef.current;
+    if (!controller) return;
+    controller.abort();
+    agentAbortControllerRef.current = null;
+  };
+
+  const buildTaskSummaryForTodoAgent = () => {
+    const nowMs = Date.now();
+    const normalizedInput = agentInput.trim().toLowerCase();
+    const scoreTask = (task: Task) => {
+      let score = 0;
+      const title = task.title.toLowerCase();
+      if (normalizedInput) {
+        if (title.includes(normalizedInput) || normalizedInput.includes(title)) score += 60;
+        normalizedInput.split(/\s+/).filter(Boolean).forEach((token) => {
+          if (title.includes(token)) score += 8;
+        });
+      }
+      if (task.status === 'in_progress') score += 30;
+      if (task.status === 'todo') score += 10;
+      if (task.pinned) score += 12;
+      score += (typeof task.priority === 'number' ? task.priority : 0) * 10;
+      if (task.dueDate) {
+        const diff = new Date(task.dueDate).getTime() - nowMs;
+        if (diff <= 0) score += 25;
+        else if (diff <= 24 * 60 * 60 * 1000) score += 15;
+        else if (diff <= 3 * 24 * 60 * 60 * 1000) score += 8;
+      }
+      if (task.updatedAt) {
+        const updatedMs = new Date(task.updatedAt).getTime();
+        if (Number.isFinite(updatedMs) && nowMs - updatedMs <= 7 * 24 * 60 * 60 * 1000) {
+          score += 6;
+        }
+      }
+      return score;
+    };
+
+    return [...tasks]
+      .sort((a, b) => scoreTask(b) - scoreTask(a))
+      .slice(0, 80)
+      .map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        dueDate: task.dueDate || null,
+        priority: typeof task.priority === 'number' ? task.priority : 0,
+        category: task.category || '',
+        tags: Array.isArray(task.tags) ? task.tags : [],
+        pinned: Boolean(task.pinned),
+        updatedAt: task.updatedAt || task.createdAt,
+        subtaskCompleted: (task.subtasks || []).filter((subtask) => subtask.completed).length,
+        subtaskTotal: task.subtasks?.length ?? 0,
+      }));
+  };
+
   const handleAgentSend = async () => {
     if (agentLoading) return;
     const content = agentInput.trim();
     const imagePayload = agentImages.map((image) => image.dataUrl);
+    const draftImages = [...agentImages];
     if (agentLoading || (!content && imagePayload.length === 0)) return;
 
     setAgentInput('');
     setAgentImages([]);
     pushLog('info', 'todo-agent 请求发送', content, { silentFeedback: true });
     setAgentLoading(true);
+    const controller = new AbortController();
+    agentAbortControllerRef.current = controller;
     if (content) {
       setAgentMessages((prev) => [...prev, { role: 'user', content }]);
     } else {
@@ -2485,10 +2547,12 @@ const normalizeTimeoutSec = (value: number) => {
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           mode: 'todo-agent',
           input: content,
           images: imagePayload,
+          tasks: buildTaskSummaryForTodoAgent(),
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -2508,14 +2572,41 @@ const normalizeTimeoutSec = (value: number) => {
       }
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
-        : '已整理成待办清单，点一下即可加入。';
-      const nextItems: AgentItem[] = Array.isArray(data?.items)
-        ? data.items.map((item: AgentItem) => ({
-            ...item,
-            id: item.id || createId(),
-            title: item.title?.trim() || 'Untitled',
-          }))
+        : '我先对照了当前计划，已经整理好建议。';
+      const nextDecisions: AgentDecision[] = Array.isArray(data?.decisions)
+        ? data.decisions
+            .map((decision: AgentDecision) => {
+              const nextItem = decision.item
+                ? {
+                    ...decision.item,
+                    id: decision.item.id || createId(),
+                    title: decision.item.title?.trim() || 'Untitled',
+                  }
+                : undefined;
+              return {
+                ...decision,
+                id: decision.id || createId(),
+                taskTitle: decision.taskTitle?.trim() || undefined,
+                reason: decision.reason?.trim() || undefined,
+                blockedByTaskIds: Array.isArray(decision.blockedByTaskIds) ? decision.blockedByTaskIds : [],
+                blockedByTaskTitles: Array.isArray(decision.blockedByTaskTitles) ? decision.blockedByTaskTitles : [],
+                item: nextItem,
+              };
+            })
+            .filter((decision: AgentDecision) => ['create', 'reuse', 'skip', 'blocked'].includes(decision.type))
         : [];
+      const createDecisionItems = nextDecisions
+        .filter((decision) => decision.type === 'create' && decision.item)
+        .map((decision) => decision.item as AgentItem);
+      const nextItems: AgentItem[] = createDecisionItems.length > 0
+        ? createDecisionItems
+        : Array.isArray(data?.items)
+          ? data.items.map((item: AgentItem) => ({
+              ...item,
+              id: item.id || createId(),
+              title: item.title?.trim() || 'Untitled',
+            }))
+          : [];
       const nextGuidance: string[] = Array.isArray(data?.guidance)
         ? data.guidance
             .map((tip: string) => (typeof tip === 'string' ? tip.trim() : ''))
@@ -2523,19 +2614,32 @@ const normalizeTimeoutSec = (value: number) => {
             .slice(0, 4)
         : [];
       setAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+      setAgentDecisions(nextDecisions);
       setAgentItems(nextItems);
       setAgentGuidance(nextGuidance);
       setAddedAgentItemIds(new Set());
-      pushLog('success', 'todo-agent 返回成功', `建议待办 ${nextItems.length} 条`, { silentFeedback: true });
+      pushLog('success', 'todo-agent 返回成功', `新增 ${nextItems.length} 条，计划判断 ${nextDecisions.length} 条`, { silentFeedback: true });
     } catch (error) {
+      if ((error as any)?.name === 'AbortError') {
+        if (content) setAgentInput(content);
+        if (draftImages.length > 0) setAgentImages(draftImages);
+        setAgentError(null);
+        setAgentGuidance([]);
+        pushLog('info', 'todo-agent 已停止', '已取消本次整理，你可以继续修改后再发送', { silentFeedback: true });
+        return;
+      }
       console.error(error);
       const message = (error as any)?.message || 'AI 助手无响应，请稍后重试';
       if (content) setAgentInput(content);
+      if (draftImages.length > 0) setAgentImages(draftImages);
       setAgentError(message);
       setAgentGuidance([]);
       // 不要添加 assistant 消息，而是让错误提示显示出来
       pushLog('error', 'todo-agent 请求失败', String(message), { silentFeedback: true });
     } finally {
+      if (agentAbortControllerRef.current === controller) {
+        agentAbortControllerRef.current = null;
+      }
       setAgentLoading(false);
     }
   };
@@ -4114,6 +4218,15 @@ const normalizeTimeoutSec = (value: number) => {
       : true;
     return (count > 0 || activeTag === item) && matches;
   });
+  const agentCreateDecisions = agentDecisions.filter((decision) => decision.type === 'create' && decision.item);
+  const agentReuseDecisions = agentDecisions.filter((decision) => decision.type === 'reuse');
+  const agentSkipDecisions = agentDecisions.filter((decision) => decision.type === 'skip');
+  const agentBlockedDecisions = agentDecisions.filter((decision) => decision.type === 'blocked');
+  const createDecisionReasonMap = new Map(
+    agentCreateDecisions
+      .filter((decision) => decision.item?.id)
+      .map((decision) => [decision.item!.id, decision.reason] as const),
+  );
   const showAgentBulkAdd = agentItems.length > 1
     || agentItems.some((item) => (item.subtasks?.length ?? 0) > 0);
   const showCountdownAgentBulkAdd = countdownAgentItems.length > 1;
@@ -5190,7 +5303,7 @@ const normalizeTimeoutSec = (value: number) => {
                           </div>
                         )}
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">建议待办</h4>
+                          <h4 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">计划对照结果</h4>
                           {showAgentBulkAdd && (
                             <button
                               onClick={handleAddAllAgentItems}
@@ -5201,43 +5314,89 @@ const normalizeTimeoutSec = (value: number) => {
                             </button>
                           )}
                         </div>
-                        {agentItems.length === 0 ? (
+                        {agentDecisions.length === 0 && agentItems.length === 0 ? (
                           <div className="rounded-2xl border border-dashed border-cyan-500/20 bg-[color:var(--ui-card-bg)] p-4 text-xs text-[color:var(--ui-text-secondary)]">
-                            我会把整理后的建议任务显示在这里。
+                            我会先对照现有计划，再把新增、复用和阻塞建议显示在这里。
                           </div>
                         ) : (
                           <div className="grid gap-3">
-                            {agentItems.map((item) => (
-                              <div key={item.id} className="rounded-2xl border border-violet-500/20 bg-[color:var(--ui-card-bg)] p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-semibold text-[color:var(--ui-text-strong)]">{item.title}</p>
-                                    {item.dueDate && (
-                                      <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
-                                        日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
-                                      </p>
+                            {agentItems.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="text-xs font-medium text-blue-200">建议新增 {agentItems.length} 条</div>
+                                {agentItems.map((item) => (
+                                  <div key={item.id} className="rounded-2xl border border-violet-500/20 bg-[color:var(--ui-card-bg)] p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm font-semibold text-[color:var(--ui-text-strong)]">{item.title}</p>
+                                        {item.dueDate && (
+                                          <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                            日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
+                                          </p>
+                                        )}
+                                        {createDecisionReasonMap.get(item.id) && (
+                                          <p className="mt-2 text-xs text-[color:var(--ui-text-secondary)]">
+                                            原因：{createDecisionReasonMap.get(item.id)}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={() => handleAddAgentItem(item)}
+                                        className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
+                                          addedAgentItemIds.has(item.id)
+                                            ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
+                                            : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                                        }`}
+                                      >
+                                        {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
+                                      </button>
+                                    </div>
+                                    {item.subtasks?.length ? (
+                                      <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-[color:var(--ui-text-muted)]">
+                                        {item.subtasks.map((subtask, index) => (
+                                          <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
+                                        ))}
+                                      </ul>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {agentReuseDecisions.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-emerald-200">已有任务可继续推进 {agentReuseDecisions.length} 条</div>
+                                {agentReuseDecisions.map((decision) => (
+                                  <div key={decision.id} className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                                    <div className="font-medium text-emerald-200">{decision.taskTitle || '现有任务'}</div>
+                                    {decision.reason && <div className="mt-1 text-emerald-50/90">{decision.reason}</div>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {agentBlockedDecisions.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-amber-200">存在前置依赖 {agentBlockedDecisions.length} 条</div>
+                                {agentBlockedDecisions.map((decision) => (
+                                  <div key={decision.id} className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-100">
+                                    <div className="font-medium text-amber-200">{decision.taskTitle || decision.item?.title || '待处理事项'}</div>
+                                    {decision.reason && <div className="mt-1 text-amber-50/90">{decision.reason}</div>}
+                                    {decision.blockedByTaskTitles && decision.blockedByTaskTitles.length > 0 && (
+                                      <div className="mt-1 text-amber-50/80">依赖：{decision.blockedByTaskTitles.join('、')}</div>
                                     )}
                                   </div>
-                                  <button
-                                    onClick={() => handleAddAgentItem(item)}
-                                    className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                                      addedAgentItemIds.has(item.id)
-                                        ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
-                                        : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                                    }`}
-                                  >
-                                    {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
-                                  </button>
-                                </div>
-                                {item.subtasks?.length ? (
-                                  <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-[color:var(--ui-text-muted)]">
-                                    {item.subtasks.map((subtask, index) => (
-                                      <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
-                                    ))}
-                                  </ul>
-                                ) : null}
+                                ))}
                               </div>
-                            ))}
+                            )}
+                            {agentSkipDecisions.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-slate-300">已跳过重复或已完成项 {agentSkipDecisions.length} 条</div>
+                                {agentSkipDecisions.map((decision) => (
+                                  <div key={decision.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3 text-xs text-[color:var(--ui-text-secondary)]">
+                                    <div className="font-medium text-[color:var(--ui-text-primary)]">{decision.taskTitle || '现有事项'}</div>
+                                    {decision.reason && <div className="mt-1">{decision.reason}</div>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -5515,11 +5674,15 @@ const normalizeTimeoutSec = (value: number) => {
                         <ImagePlus className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={handleAgentSend}
-                        disabled={agentLoading || (!agentInput.trim() && agentImages.length === 0)}
-                        className="px-3 py-2 text-sm bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-lg hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
+                        onClick={agentLoading ? handleCancelAgentSend : handleAgentSend}
+                        disabled={agentLoading ? false : (!agentInput.trim() && agentImages.length === 0)}
+                        className={`px-3 py-2 text-sm text-white rounded-lg disabled:opacity-50 ${
+                          agentLoading
+                            ? 'bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400'
+                            : 'bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500'
+                        }`}
                       >
-                        {agentLoading ? '整理中…' : '发送'}
+                        {agentLoading ? '停止整理' : '发送'}
                       </button>
                     </>
                   ) : (

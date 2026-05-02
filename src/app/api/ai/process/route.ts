@@ -282,6 +282,42 @@ type AgentItem = {
   };
 };
 
+type TodoAgentTaskSummary = {
+  id: string;
+  title: string;
+  status: 'todo' | 'in_progress' | 'completed';
+  dueDate?: string;
+  priority: number;
+  category?: string;
+  tags: string[];
+  pinned: boolean;
+  updatedAt?: string;
+  subtaskCompleted: number;
+  subtaskTotal: number;
+  dependsOnTaskIds: string[];
+  blockedByTaskIds: string[];
+};
+
+type AgentDecisionPayload = {
+  type?: 'create' | 'reuse' | 'skip' | 'blocked';
+  reason?: string;
+  taskId?: string;
+  taskTitle?: string;
+  blockedByTaskIds?: string[];
+  item?: AgentItem;
+};
+
+type NormalizedAgentDecision = {
+  id: string;
+  type: 'create' | 'reuse' | 'skip' | 'blocked';
+  reason?: string;
+  taskId?: string;
+  taskTitle?: string;
+  blockedByTaskIds?: string[];
+  blockedByTaskTitles?: string[];
+  item?: ReturnType<typeof normalizeTask>;
+};
+
 type CountdownItem = {
   title?: string;
   targetDate?: string;
@@ -300,6 +336,7 @@ type AgentPayload = {
   reply?: string;
   guidance?: string[];
   items?: AgentItem[];
+  decisions?: AgentDecisionPayload[];
 };
 
 type CountdownPayload = {
@@ -534,6 +571,225 @@ function buildCookingSubtasks(title: string) {
   ];
 }
 
+function normalizeCompareText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[\s\-_.,，。！？!?:;；、“”"'`()\[\]{}]+/g, '')
+    .trim();
+}
+
+function scoreTaskRelevance(task: TodoAgentTaskSummary, input: string, nowMs: number) {
+  const normalizedInput = normalizeCompareText(input);
+  const normalizedTitle = normalizeCompareText(task.title);
+  let score = 0;
+
+  if (normalizedInput && normalizedTitle) {
+    if (normalizedTitle === normalizedInput) score += 100;
+    if (normalizedInput.includes(normalizedTitle) || normalizedTitle.includes(normalizedInput)) score += 60;
+
+    const titleTokens = new Set(task.title.toLowerCase().split(/[\s,，。.!?！？:：/]+/).filter(Boolean));
+    const inputTokens = Array.from(new Set(input.toLowerCase().split(/[\s,，。.!?！？:：/]+/).filter(Boolean)));
+    score += inputTokens.reduce((acc, token) => acc + (titleTokens.has(token) ? 8 : 0), 0);
+  }
+
+  if (task.status === 'in_progress') score += 35;
+  if (task.status === 'todo') score += 15;
+  if (task.status === 'completed') score -= 20;
+  if (task.pinned) score += 12;
+  score += task.priority * 10;
+
+  if (task.dueDate) {
+    const dueMs = new Date(task.dueDate).getTime();
+    if (Number.isFinite(dueMs)) {
+      const diff = dueMs - nowMs;
+      if (diff <= 0) score += 30;
+      else if (diff <= 24 * 60 * 60 * 1000) score += 18;
+      else if (diff <= 3 * 24 * 60 * 60 * 1000) score += 8;
+    }
+  }
+
+  if (task.updatedAt) {
+    const updatedMs = new Date(task.updatedAt).getTime();
+    if (Number.isFinite(updatedMs) && nowMs - updatedMs <= 7 * 24 * 60 * 60 * 1000) {
+      score += 6;
+    }
+  }
+
+  return score;
+}
+
+function normalizeTodoAgentTasks(tasks: any[]): TodoAgentTaskSummary[] {
+  return (Array.isArray(tasks) ? tasks : [])
+    .map((task) => {
+      const status: TodoAgentTaskSummary['status'] =
+        task?.status === 'completed' ? 'completed' : task?.status === 'in_progress' ? 'in_progress' : 'todo';
+      return {
+        id: typeof task?.id === 'string' ? task.id.trim() : '',
+        title: typeof task?.title === 'string' ? task.title.trim() : '',
+        status,
+        dueDate: typeof task?.dueDate === 'string' && task.dueDate.trim().length > 0 ? task.dueDate : undefined,
+        priority: typeof task?.priority === 'number' && Number.isFinite(task.priority)
+          ? Math.max(0, Math.min(2, Math.round(task.priority)))
+          : 0,
+        category: typeof task?.category === 'string' && task.category.trim().length > 0 ? task.category.trim() : undefined,
+        tags: Array.isArray(task?.tags)
+          ? task.tags.filter((tag: unknown) => typeof tag === 'string' && tag.trim().length > 0).map((tag: string) => tag.trim())
+          : [],
+        pinned: Boolean(task?.pinned),
+        updatedAt: typeof task?.updatedAt === 'string' && task.updatedAt.trim().length > 0 ? task.updatedAt : undefined,
+        subtaskCompleted: Number.isFinite(task?.subtaskCompleted) ? Math.max(0, Number(task.subtaskCompleted)) : 0,
+        subtaskTotal: Number.isFinite(task?.subtaskTotal) ? Math.max(0, Number(task.subtaskTotal)) : 0,
+        dependsOnTaskIds: Array.isArray(task?.dependsOnTaskIds)
+          ? task.dependsOnTaskIds.filter((id: unknown) => typeof id === 'string' && id.trim().length > 0).map((id: string) => id.trim())
+          : [],
+        blockedByTaskIds: Array.isArray(task?.blockedByTaskIds)
+          ? task.blockedByTaskIds.filter((id: unknown) => typeof id === 'string' && id.trim().length > 0).map((id: string) => id.trim())
+          : [],
+      };
+    })
+    .filter((task) => task.id && task.title);
+}
+
+function findBestTaskMatch(tasks: TodoAgentTaskSummary[], title: string, taskId?: string) {
+  if (taskId) {
+    const byId = tasks.find((task) => task.id === taskId);
+    if (byId) return byId;
+  }
+
+  const normalizedTarget = normalizeCompareText(title);
+  if (!normalizedTarget) return undefined;
+
+  return tasks.find((task) => {
+    const normalizedTitle = normalizeCompareText(task.title);
+    return normalizedTitle === normalizedTarget
+      || normalizedTitle.includes(normalizedTarget)
+      || normalizedTarget.includes(normalizedTitle);
+  });
+}
+
+function buildTodoPlanContext(tasks: TodoAgentTaskSummary[], input: string, networkNow: Date) {
+  const nowMs = networkNow.getTime();
+  const openTasks = tasks.filter((task) => task.status !== 'completed');
+  const completedTasks = tasks.filter((task) => task.status === 'completed');
+  const scored = [...tasks]
+    .sort((a, b) => scoreTaskRelevance(b, input, nowMs) - scoreTaskRelevance(a, input, nowMs));
+  const relatedTasks = scored.slice(0, 10);
+  const activeTasks = [...openTasks]
+    .sort((a, b) => scoreTaskRelevance(b, input, nowMs) - scoreTaskRelevance(a, input, nowMs))
+    .slice(0, 20);
+  const completedMatches = [...completedTasks]
+    .sort((a, b) => scoreTaskRelevance(b, input, nowMs) - scoreTaskRelevance(a, input, nowMs))
+    .slice(0, 6);
+
+  const dueTodayCount = openTasks.filter((task) => {
+    if (!task.dueDate) return false;
+    const diff = new Date(task.dueDate).getTime() - nowMs;
+    return diff > 0 && diff <= 24 * 60 * 60 * 1000;
+  }).length;
+  const overdueCount = openTasks.filter((task) => {
+    if (!task.dueDate) return false;
+    return new Date(task.dueDate).getTime() <= nowMs;
+  }).length;
+
+  return {
+    overview: {
+      total: tasks.length,
+      open: openTasks.length,
+      completed: completedTasks.length,
+      inProgress: openTasks.filter((task) => task.status === 'in_progress').length,
+      highPriority: openTasks.filter((task) => task.priority >= 2).length,
+      dueToday: dueTodayCount,
+      overdue: overdueCount,
+    },
+    relatedTasks,
+    activeTasks,
+    completedMatches,
+  };
+}
+
+function normalizeTodoAgentDecisions(
+  rawDecisions: AgentDecisionPayload[],
+  fallbackItems: AgentItem[],
+  tasks: TodoAgentTaskSummary[],
+) {
+  const next: NormalizedAgentDecision[] = [];
+  const seenCreateTitles = new Set<string>();
+
+  rawDecisions.forEach((decision, index) => {
+    const type = decision?.type === 'reuse' || decision?.type === 'skip' || decision?.type === 'blocked'
+      ? decision.type
+      : 'create';
+    const reason = typeof decision?.reason === 'string' && decision.reason.trim().length > 0
+      ? decision.reason.trim()
+      : undefined;
+    const itemSource = decision?.item ?? {};
+    const titleCandidate = typeof decision?.taskTitle === 'string' && decision.taskTitle.trim().length > 0
+      ? decision.taskTitle.trim()
+      : typeof itemSource?.title === 'string' && itemSource.title.trim().length > 0
+        ? itemSource.title.trim()
+        : '';
+    const matchedTask = findBestTaskMatch(tasks, titleCandidate, decision?.taskId);
+
+    if (type === 'create') {
+      const normalizedItem = normalizeTask(itemSource);
+      const matchedExisting = findBestTaskMatch(tasks, normalizedItem.title, decision?.taskId);
+      if (matchedExisting) {
+        next.push({
+          id: `decision-${index}-${matchedExisting.id}`,
+          type: matchedExisting.status === 'completed' ? 'skip' : 'reuse',
+          reason: reason ?? (matchedExisting.status === 'completed' ? '现有计划里已有完成记录，无需重复新建。' : '现有计划中已有同主题任务，优先继续推进更合适。'),
+          taskId: matchedExisting.id,
+          taskTitle: matchedExisting.title,
+        });
+        return;
+      }
+
+      const normalizedTitle = normalizeCompareText(normalizedItem.title);
+      if (!normalizedTitle || seenCreateTitles.has(normalizedTitle)) return;
+      seenCreateTitles.add(normalizedTitle);
+      next.push({
+        id: `decision-${index}-create`,
+        type: 'create',
+        reason,
+        item: normalizedItem,
+      });
+      return;
+    }
+
+    if (!matchedTask) return;
+
+    next.push({
+      id: `decision-${index}-${matchedTask.id}`,
+      type,
+      reason,
+      taskId: matchedTask.id,
+      taskTitle: matchedTask.title,
+      blockedByTaskIds: Array.isArray(decision?.blockedByTaskIds)
+        ? decision.blockedByTaskIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        : matchedTask.blockedByTaskIds,
+      blockedByTaskTitles: (Array.isArray(decision?.blockedByTaskIds) ? decision.blockedByTaskIds : matchedTask.blockedByTaskIds)
+        .map((id) => tasks.find((task) => task.id === id)?.title)
+        .filter((title): title is string => Boolean(title)),
+    });
+  });
+
+  if (next.length === 0 && fallbackItems.length > 0) {
+    fallbackItems.forEach((item, index) => {
+      const normalizedItem = normalizeTask(item);
+      const normalizedTitle = normalizeCompareText(normalizedItem.title);
+      if (!normalizedTitle || seenCreateTitles.has(normalizedTitle)) return;
+      seenCreateTitles.add(normalizedTitle);
+      next.push({
+        id: `fallback-create-${index}`,
+        type: 'create',
+        item: normalizedItem,
+      });
+    });
+  }
+
+  return next.slice(0, 10);
+}
+
 // ─── 主路由处理器 ───────────────────────────────────────────
 
 /**
@@ -645,6 +901,8 @@ export async function POST(req: NextRequest) {
     if (mode === 'todo-agent') {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
+      const incomingTasks = normalizeTodoAgentTasks(Array.isArray(tasks) ? tasks : []);
+      const planContext = buildTodoPlanContext(incomingTasks, normalizedInput, networkNow);
       // todo-agent：返回聊天回复 + 待办清单
       // 有图片时按 OpenAI 多模态格式构造 content，否则保持纯文本
       const userContent = normalizedImages.length > 0
@@ -663,22 +921,43 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `你是 todo-agent 助理，负责和用户聊天并输出可执行待办清单。请遵循：
+            content: `你是 todo-agent 助理，负责先审视现有计划，再输出“新增 / 复用 / 跳过 / 阻塞”的待办决策。请遵循：
 1) 用简短中文回复用户，字段名 reply，不要输出 Markdown 或多余前缀。
 2) 生成 guidance 数组（2-4条），用于给用户“拆解思路/执行建议”，每条简短可执行。
-3) 生成 items 数组，每项含 title / dueDate / priority / category / tags / subtasks / repeat。
-4) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
-5) priority 必须为 0/1/2。
-6) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
-7) subtasks 仅保留 title。
-8) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-9) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 items 里。
-10) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 items；不要因为历史上下文而追加旧任务。
-11) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
-12) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "items": [{"title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }]}。不要包含 null/undefined 属性时可省略。`,
+3) 必须先阅读当前计划状态（tasks / planContext），再决定是 create / reuse / skip / blocked。
+4) 生成 decisions 数组。每项结构：
+- create: { "type":"create", "reason": string, "item": { title / dueDate / priority / category / tags / subtasks / repeat } }
+- reuse: { "type":"reuse", "reason": string, "taskId": string, "taskTitle": string }
+- skip: { "type":"skip", "reason": string, "taskId": string, "taskTitle": string }
+- blocked: { "type":"blocked", "reason": string, "taskId": string, "taskTitle": string, "blockedByTaskIds": string[] }
+5) 如果当前事项在现有未完成任务里已经存在，优先返回 reuse，不要重复创建。
+6) 如果当前事项在现有已完成任务里已经完成，返回 skip，不要重新复活。
+7) 只有当现有计划里不存在合适任务，且确实需要新增执行项时，才返回 create。
+8) 如果存在明显前置依赖未完成，返回 blocked，而不是 create。
+9) create 类型中的 item 仅在确实要新建时给出。
+10) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
+11) priority 必须为 0/1/2。
+12) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
+13) subtasks 仅保留 title。
+14) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
+15) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
+16) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
+17) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
+18) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...] }。如有 create，再把待新增项放进 item。不要输出 Markdown。`,
           },
           ...recentHistoryMessages,
-          { role: 'user', content: userContent },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              input: normalizedInput,
+              hasImages: normalizedImages.length > 0,
+              planContext,
+              tasks: incomingTasks,
+            }),
+          },
+          ...(normalizedImages.length > 0
+            ? [{ role: 'user' as const, content: userContent }]
+            : []),
         ],
         response_format: { type: 'json_object' },
       };
@@ -686,24 +965,29 @@ export async function POST(req: NextRequest) {
       const { res: agentRes } = await requestChat(baseUrlList, apiKey, agentPayload);
       const agentPayloadJson = await agentRes.json();
       const rawResult = parseChatContent(agentPayloadJson) as AgentPayload;
-      const normalizedItems = Array.isArray(rawResult?.items)
-        ? rawResult.items.map((item) => normalizeTask(item))
-        : [];
+      const normalizedItems = Array.isArray(rawResult?.items) ? rawResult.items : [];
+      const normalizedDecisions = normalizeTodoAgentDecisions(
+        Array.isArray(rawResult?.decisions) ? rawResult.decisions : [],
+        normalizedItems,
+        incomingTasks,
+      );
       const normalizedGuidance = Array.isArray(rawResult?.guidance)
         ? rawResult.guidance
             .map((tip) => (typeof tip === 'string' ? tip.trim() : ''))
             .filter((tip) => tip.length > 0)
             .slice(0, 4)
         : [];
-      const normalizedCategoryItems = normalizedItems.map((item) => ({
-        ...item,
-        category: CATEGORY_OPTIONS.includes(item.category || '')
-          ? item.category
-          : classifyCategory(`${item.title}`),
-        priority: typeof item.priority === 'number'
-          ? item.priority
-          : evaluatePriorityWithNow(item.dueDate, item.subtasks?.length || 0, networkNow.getTime()),
-      }));
+      const normalizedCategoryItems = normalizedDecisions
+        .filter((decision) => decision.type === 'create' && decision.item)
+        .map((decision) => ({
+          ...decision.item!,
+          category: CATEGORY_OPTIONS.includes(decision.item?.category || '')
+            ? decision.item?.category
+            : classifyCategory(`${decision.item?.title || ''}`),
+          priority: typeof decision.item?.priority === 'number'
+            ? decision.item.priority
+            : evaluatePriorityWithNow(decision.item?.dueDate, decision.item?.subtasks?.length || 0, networkNow.getTime()),
+        }));
 
       await appendContextEntry(redisConfig, sessionId, {
         role: 'user',
@@ -719,8 +1003,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
           ? rawResult.reply.trim()
-          : '已整理成待办清单，点一下即可加入。',
+          : '我先对照了当前计划，已经整理好新增和复用建议。',
         guidance: normalizedGuidance,
+        decisions: normalizedDecisions,
         items: normalizedCategoryItems,
         serverTime: networkNow.toISOString(),
         serverTimeText,
