@@ -36,7 +36,24 @@ export type AgentItem = {
   subtasks?: { title?: string }[];
 };
 
-export type AgentDecisionType = 'create' | 'reuse' | 'skip' | 'blocked';
+export type AgentTaskChanges = {
+  title?: string;
+  dueDate?: string | null;
+  priority?: number;
+  category?: string | null;
+  tags?: string[];
+  subtasks?: { title?: string }[];
+  repeat?: {
+    type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+    interval?: number;
+    weekdays?: number[];
+    monthDay?: number;
+  } | null;
+  status?: 'todo' | 'in_progress' | 'completed';
+  pinned?: boolean;
+};
+
+export type AgentDecisionType = 'create' | 'update' | 'delete' | 'reuse' | 'skip' | 'blocked';
 
 export type AgentDecision = {
   id: string;
@@ -47,6 +64,7 @@ export type AgentDecision = {
   blockedByTaskIds?: string[];
   blockedByTaskTitles?: string[];
   item?: AgentItem;
+  changes?: AgentTaskChanges;
 };
 
 export type CountdownAgentItem = {

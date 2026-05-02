@@ -16,6 +16,7 @@ import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
 import type {
   AgentDecision,
   AgentItem,
+  AgentTaskChanges,
   AgentMessage,
   AiAssistantMode,
   CountdownAgentItem,
@@ -1067,6 +1068,7 @@ export default function Home() {
   const agentAbortControllerRef = useRef<AbortController | null>(null);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [agentDecisions, setAgentDecisions] = useState<AgentDecision[]>([]);
+  const [appliedAgentDecisionIds, setAppliedAgentDecisionIds] = useState<Set<string>>(new Set());
   const [agentGuidance, setAgentGuidance] = useState<string[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
@@ -2433,6 +2435,75 @@ const normalizeTimeoutSec = (value: number) => {
     return task;
   };
 
+  const applyAgentTaskChanges = (task: Task, changes?: AgentTaskChanges) => {
+    if (!changes) return task;
+    const next: Task = { ...task };
+
+    if (typeof changes.title === 'string' && changes.title.trim().length > 0) {
+      next.title = changes.title.trim();
+    }
+    if (changes.dueDate === null) {
+      next.dueDate = undefined;
+      next.reminderAt = undefined;
+      next.reminderPreset = 'none';
+    } else if (typeof changes.dueDate === 'string' && changes.dueDate.trim().length > 0) {
+      next.dueDate = changes.dueDate;
+    }
+    if (typeof changes.priority === 'number') {
+      next.priority = changes.priority;
+    }
+    if (changes.category === null) {
+      next.category = undefined;
+    } else if (typeof changes.category === 'string' && changes.category.trim().length > 0) {
+      next.category = changes.category.trim();
+    }
+    if (Array.isArray(changes.tags)) {
+      next.tags = changes.tags.filter(Boolean);
+    }
+    if (Array.isArray(changes.subtasks)) {
+      next.subtasks = changes.subtasks
+        .map((subtask) => ({
+          id: createId(),
+          title: subtask.title?.trim() || '',
+          completed: false,
+        }))
+        .filter((subtask) => subtask.title.length > 0);
+    }
+    if (changes.repeat === null) {
+      next.repeat = undefined;
+    } else if (changes.repeat) {
+      next.repeat = changes.repeat;
+    }
+    if (changes.status === 'todo' || changes.status === 'in_progress' || changes.status === 'completed') {
+      next.status = changes.status;
+    }
+    if (typeof changes.pinned === 'boolean') {
+      next.pinned = changes.pinned;
+    }
+
+    return next;
+  };
+
+  const describeAgentTaskChanges = (changes?: AgentTaskChanges) => {
+    if (!changes) return [];
+    const entries: string[] = [];
+    if (typeof changes.title === 'string' && changes.title.trim()) entries.push(`标题改为“${changes.title.trim()}”`);
+    if (changes.dueDate === null) entries.push('清空日期');
+    else if (typeof changes.dueDate === 'string' && changes.dueDate.trim()) entries.push('更新日期');
+    if (typeof changes.priority === 'number') entries.push(`优先级设为${['低', '中', '高'][changes.priority] || changes.priority}`);
+    if (changes.category === null) entries.push('清空分类');
+    else if (typeof changes.category === 'string' && changes.category.trim()) entries.push(`分类改为${changes.category.trim()}`);
+    if (Array.isArray(changes.tags)) entries.push(`标签更新为 ${changes.tags.join('、') || '空'}`);
+    if (Array.isArray(changes.subtasks)) entries.push(`子任务改为 ${changes.subtasks.length} 项`);
+    if (changes.repeat === null) entries.push('取消重复');
+    else if (changes.repeat) entries.push('更新重复规则');
+    if (changes.status === 'todo' || changes.status === 'in_progress' || changes.status === 'completed') {
+      entries.push(`状态改为${changes.status === 'completed' ? '已完成' : changes.status === 'in_progress' ? '进行中' : '待处理'}`);
+    }
+    if (typeof changes.pinned === 'boolean') entries.push(changes.pinned ? '设为置顶' : '取消置顶');
+    return entries;
+  };
+
   const addAgentImages = async (files: File[]) => {
     const imageFiles = filterImageFiles(files);
     if (imageFiles.length === 0) return;
@@ -2520,6 +2591,7 @@ const normalizeTimeoutSec = (value: number) => {
         updatedAt: task.updatedAt || task.createdAt,
         subtaskCompleted: (task.subtasks || []).filter((subtask) => subtask.completed).length,
         subtaskTotal: task.subtasks?.length ?? 0,
+        subtasks: (task.subtasks || []).map((subtask) => subtask.title).filter(Boolean).slice(0, 8),
       }));
   };
 
@@ -2618,6 +2690,7 @@ const normalizeTimeoutSec = (value: number) => {
       setAgentItems(nextItems);
       setAgentGuidance(nextGuidance);
       setAddedAgentItemIds(new Set());
+      setAppliedAgentDecisionIds(new Set());
       pushLog('success', 'todo-agent 返回成功', `新增 ${nextItems.length} 条，计划判断 ${nextDecisions.length} 条`, { silentFeedback: true });
     } catch (error) {
       if ((error as any)?.name === 'AbortError') {
@@ -2634,6 +2707,9 @@ const normalizeTimeoutSec = (value: number) => {
       if (draftImages.length > 0) setAgentImages(draftImages);
       setAgentError(message);
       setAgentGuidance([]);
+      setAgentDecisions([]);
+      setAgentItems([]);
+      setAppliedAgentDecisionIds(new Set());
       // 不要添加 assistant 消息，而是让错误提示显示出来
       pushLog('error', 'todo-agent 请求失败', String(message), { silentFeedback: true });
     } finally {
@@ -2747,7 +2823,7 @@ const normalizeTimeoutSec = (value: number) => {
       setManageAgentLoading(false);
     }
   };
-  const handleAddAgentItem = (item: AgentItem) => {
+  const handleAddAgentItem = (item: AgentItem, decisionId?: string) => {
     if (addedAgentItemIds.has(item.id)) return;
     const task = createTaskFromAgentItem(item);
     setAddedAgentItemIds((prev) => {
@@ -2755,6 +2831,13 @@ const normalizeTimeoutSec = (value: number) => {
       next.add(item.id);
       return next;
     });
+    if (decisionId) {
+      setAppliedAgentDecisionIds((prev) => {
+        const next = new Set(prev);
+        next.add(decisionId);
+        return next;
+      });
+    }
     setTasks((prev) => {
       if (prev.some((existing) => existing.id === task.id)) return prev;
       return [task, ...prev];
@@ -2782,6 +2865,13 @@ const normalizeTimeoutSec = (value: number) => {
       pendingItems.forEach((item) => next.add(item.id));
       return next;
     });
+    setAppliedAgentDecisionIds((prev) => {
+      const next = new Set(prev);
+      agentDecisions
+        .filter((decision) => decision.type === 'create' && decision.item && pendingItems.some((item) => item.id === decision.item?.id))
+        .forEach((decision) => next.add(decision.id));
+      return next;
+    });
     setTasks((prev) => {
       const existingIds = new Set(prev.map((task) => task.id));
       const uniqueTasks = newTasks.filter((task) => !existingIds.has(task.id));
@@ -2797,6 +2887,39 @@ const normalizeTimeoutSec = (value: number) => {
       (window as any).requestIdleCallback(persistTasks, { timeout: 1200 });
     } else {
       setTimeout(persistTasks, 0);
+    }
+  };
+
+  const handleApplyAgentDecision = (decision: AgentDecision) => {
+    if (appliedAgentDecisionIds.has(decision.id)) return;
+
+    if (decision.type === 'create' && decision.item) {
+      handleAddAgentItem(decision.item, decision.id);
+      return;
+    }
+
+    if (!decision.taskId) return;
+    const target = taskStore.getAll().find((task) => task.id === decision.taskId);
+    if (!target) return;
+
+    if (decision.type === 'update') {
+      updateTask(applyAgentTaskChanges(target, decision.changes));
+      setAppliedAgentDecisionIds((prev) => {
+        const next = new Set(prev);
+        next.add(decision.id);
+        return next;
+      });
+      return;
+    }
+
+    if (decision.type === 'delete') {
+      snapshotTasksForUndo(`恢复任务：${target.title}`);
+      removeTask(target.id);
+      setAppliedAgentDecisionIds((prev) => {
+        const next = new Set(prev);
+        next.add(decision.id);
+        return next;
+      });
     }
   };
 
@@ -4219,6 +4342,8 @@ const normalizeTimeoutSec = (value: number) => {
     return (count > 0 || activeTag === item) && matches;
   });
   const agentCreateDecisions = agentDecisions.filter((decision) => decision.type === 'create' && decision.item);
+  const agentUpdateDecisions = agentDecisions.filter((decision) => decision.type === 'update');
+  const agentDeleteDecisions = agentDecisions.filter((decision) => decision.type === 'delete');
   const agentReuseDecisions = agentDecisions.filter((decision) => decision.type === 'reuse');
   const agentSkipDecisions = agentDecisions.filter((decision) => decision.type === 'skip');
   const agentBlockedDecisions = agentDecisions.filter((decision) => decision.type === 'blocked');
@@ -4226,6 +4351,11 @@ const normalizeTimeoutSec = (value: number) => {
     agentCreateDecisions
       .filter((decision) => decision.item?.id)
       .map((decision) => [decision.item!.id, decision.reason] as const),
+  );
+  const createDecisionIdMap = new Map(
+    agentCreateDecisions
+      .filter((decision) => decision.item?.id)
+      .map((decision) => [decision.item!.id, decision.id] as const),
   );
   const showAgentBulkAdd = agentItems.length > 1
     || agentItems.some((item) => (item.subtasks?.length ?? 0) > 0);
@@ -5340,7 +5470,7 @@ const normalizeTimeoutSec = (value: number) => {
                                         )}
                                       </div>
                                       <button
-                                        onClick={() => handleAddAgentItem(item)}
+                                        onClick={() => handleAddAgentItem(item, createDecisionIdMap.get(item.id))}
                                         className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
                                           addedAgentItemIds.has(item.id)
                                             ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
@@ -5359,6 +5489,74 @@ const normalizeTimeoutSec = (value: number) => {
                                     ) : null}
                                   </div>
                                 ))}
+                              </div>
+                            )}
+                            {agentUpdateDecisions.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-amber-100">建议修改现有任务 {agentUpdateDecisions.length} 条</div>
+                                {agentUpdateDecisions.map((decision) => {
+                                  const changeLines = describeAgentTaskChanges(decision.changes);
+                                  const applied = appliedAgentDecisionIds.has(decision.id);
+                                  return (
+                                    <div key={decision.id} className="rounded-2xl border border-amber-300/20 bg-amber-500/10 p-3">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <div className="text-sm font-medium text-amber-100">{decision.taskTitle || '现有任务'}</div>
+                                          {decision.reason && <div className="mt-1 text-xs text-amber-50/90">{decision.reason}</div>}
+                                          {changeLines.length > 0 && (
+                                            <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-amber-50/80">
+                                              {changeLines.map((line, index) => (
+                                                <li key={`${decision.id}-change-${index}`}>{line}</li>
+                                              ))}
+                                            </ul>
+                                          )}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleApplyAgentDecision(decision)}
+                                          disabled={applied}
+                                          className={`shrink-0 rounded-lg border px-3 py-1 text-xs transition-colors ${
+                                            applied
+                                              ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
+                                              : 'border-amber-300/40 text-amber-100 hover:bg-amber-400/10'
+                                          }`}
+                                        >
+                                          {applied ? '已修改' : '应用修改'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {agentDeleteDecisions.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-rose-200">建议删除任务 {agentDeleteDecisions.length} 条</div>
+                                {agentDeleteDecisions.map((decision) => {
+                                  const applied = appliedAgentDecisionIds.has(decision.id);
+                                  return (
+                                    <div key={decision.id} className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                          <div className="text-sm font-medium text-rose-100">{decision.taskTitle || '现有任务'}</div>
+                                          {decision.reason && <div className="mt-1 text-xs text-rose-50/90">{decision.reason}</div>}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleApplyAgentDecision(decision)}
+                                          disabled={applied}
+                                          className={`shrink-0 rounded-lg border px-3 py-1 text-xs transition-colors ${
+                                            applied
+                                              ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
+                                              : 'border-rose-300/40 text-rose-100 hover:bg-rose-400/10'
+                                          }`}
+                                        >
+                                          {applied ? '已删除' : '删除待办'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                             {agentReuseDecisions.length > 0 && (

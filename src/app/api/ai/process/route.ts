@@ -282,6 +282,23 @@ type AgentItem = {
   };
 };
 
+type AgentTaskChanges = {
+  title?: string;
+  dueDate?: string | null;
+  priority?: number;
+  category?: string | null;
+  tags?: string[];
+  subtasks?: { title?: string }[];
+  repeat?: {
+    type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+    interval?: number;
+    weekdays?: number[];
+    monthDay?: number;
+  } | null;
+  status?: 'todo' | 'in_progress' | 'completed';
+  pinned?: boolean;
+};
+
 type TodoAgentTaskSummary = {
   id: string;
   title: string;
@@ -294,28 +311,31 @@ type TodoAgentTaskSummary = {
   updatedAt?: string;
   subtaskCompleted: number;
   subtaskTotal: number;
+  subtasks: string[];
   dependsOnTaskIds: string[];
   blockedByTaskIds: string[];
 };
 
 type AgentDecisionPayload = {
-  type?: 'create' | 'reuse' | 'skip' | 'blocked';
+  type?: 'create' | 'update' | 'delete' | 'reuse' | 'skip' | 'blocked';
   reason?: string;
   taskId?: string;
   taskTitle?: string;
   blockedByTaskIds?: string[];
   item?: AgentItem;
+  changes?: AgentTaskChanges;
 };
 
 type NormalizedAgentDecision = {
   id: string;
-  type: 'create' | 'reuse' | 'skip' | 'blocked';
+  type: 'create' | 'update' | 'delete' | 'reuse' | 'skip' | 'blocked';
   reason?: string;
   taskId?: string;
   taskTitle?: string;
   blockedByTaskIds?: string[];
   blockedByTaskTitles?: string[];
   item?: ReturnType<typeof normalizeTask>;
+  changes?: ReturnType<typeof normalizeTaskChanges>;
 };
 
 type CountdownItem = {
@@ -400,6 +420,78 @@ function normalizeTask(data: ParsedTask) {
     subtasks,
     repeat,
   };
+}
+
+function normalizeTaskChanges(data: AgentTaskChanges) {
+  const next: {
+    title?: string;
+    dueDate?: string | null;
+    priority?: number;
+    category?: string | null;
+    tags?: string[];
+    subtasks?: { title: string }[];
+    repeat?: {
+      type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+      interval?: number;
+      weekdays?: number[];
+      monthDay?: number;
+    } | null;
+    status?: 'todo' | 'in_progress' | 'completed';
+    pinned?: boolean;
+  } = {};
+
+  if (typeof data?.title === 'string' && data.title.trim().length > 0) {
+    next.title = data.title.trim();
+  }
+
+  if (data?.dueDate === null) {
+    next.dueDate = null;
+  } else if (typeof data?.dueDate === 'string' && data.dueDate.trim().length > 0) {
+    next.dueDate = data.dueDate.trim();
+  }
+
+  if (typeof data?.priority === 'number' && Number.isFinite(data.priority)) {
+    next.priority = Math.max(0, Math.min(2, Math.round(data.priority)));
+  }
+
+  if (data?.category === null) {
+    next.category = null;
+  } else if (typeof data?.category === 'string' && data.category.trim().length > 0) {
+    next.category = data.category.trim();
+  }
+
+  if (Array.isArray(data?.tags)) {
+    next.tags = data.tags
+      .filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
+      .map((tag) => tag.trim());
+  }
+
+  if (Array.isArray(data?.subtasks)) {
+    next.subtasks = data.subtasks
+      .map((item) => ({ title: typeof item?.title === 'string' ? item.title.trim() : '' }))
+      .filter((item) => item.title.length > 0);
+  }
+
+  if (data?.repeat === null) {
+    next.repeat = null;
+  } else if (data?.repeat && typeof data.repeat === 'object') {
+    next.repeat = {
+      type: data.repeat.type || 'none',
+      interval: data.repeat.interval,
+      weekdays: Array.isArray(data.repeat.weekdays) ? data.repeat.weekdays : undefined,
+      monthDay: data.repeat.monthDay,
+    };
+  }
+
+  if (data?.status === 'todo' || data?.status === 'in_progress' || data?.status === 'completed') {
+    next.status = data.status;
+  }
+
+  if (typeof data?.pinned === 'boolean') {
+    next.pinned = data.pinned;
+  }
+
+  return next;
 }
 
 /** 规范化倒数日条目，提取 YYYY-MM-DD 格式的日期 */
@@ -639,6 +731,9 @@ function normalizeTodoAgentTasks(tasks: any[]): TodoAgentTaskSummary[] {
         updatedAt: typeof task?.updatedAt === 'string' && task.updatedAt.trim().length > 0 ? task.updatedAt : undefined,
         subtaskCompleted: Number.isFinite(task?.subtaskCompleted) ? Math.max(0, Number(task.subtaskCompleted)) : 0,
         subtaskTotal: Number.isFinite(task?.subtaskTotal) ? Math.max(0, Number(task.subtaskTotal)) : 0,
+        subtasks: Array.isArray(task?.subtasks)
+          ? task.subtasks.filter((title: unknown) => typeof title === 'string' && title.trim().length > 0).map((title: string) => title.trim())
+          : [],
         dependsOnTaskIds: Array.isArray(task?.dependsOnTaskIds)
           ? task.dependsOnTaskIds.filter((id: unknown) => typeof id === 'string' && id.trim().length > 0).map((id: string) => id.trim())
           : [],
@@ -716,7 +811,11 @@ function normalizeTodoAgentDecisions(
   const seenCreateTitles = new Set<string>();
 
   rawDecisions.forEach((decision, index) => {
-    const type = decision?.type === 'reuse' || decision?.type === 'skip' || decision?.type === 'blocked'
+    const type = decision?.type === 'update'
+      || decision?.type === 'delete'
+      || decision?.type === 'reuse'
+      || decision?.type === 'skip'
+      || decision?.type === 'blocked'
       ? decision.type
       : 'create';
     const reason = typeof decision?.reason === 'string' && decision.reason.trim().length > 0
@@ -757,6 +856,31 @@ function normalizeTodoAgentDecisions(
     }
 
     if (!matchedTask) return;
+
+    if (type === 'update') {
+      const changes = normalizeTaskChanges(decision?.changes ?? {});
+      if (Object.keys(changes).length === 0) return;
+      next.push({
+        id: `decision-${index}-${matchedTask.id}`,
+        type: 'update',
+        reason,
+        taskId: matchedTask.id,
+        taskTitle: matchedTask.title,
+        changes,
+      });
+      return;
+    }
+
+    if (type === 'delete') {
+      next.push({
+        id: `decision-${index}-${matchedTask.id}`,
+        type: 'delete',
+        reason,
+        taskId: matchedTask.id,
+        taskTitle: matchedTask.title,
+      });
+      return;
+    }
 
     next.push({
       id: `decision-${index}-${matchedTask.id}`,
@@ -921,29 +1045,33 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `你是 todo-agent 助理，负责先审视现有计划，再输出“新增 / 复用 / 跳过 / 阻塞”的待办决策。请遵循：
+            content: `你是 todo-agent 助理，负责先审视现有计划，再输出“新增 / 修改 / 删除 / 复用 / 跳过 / 阻塞”的待办决策。请遵循：
 1) 用简短中文回复用户，字段名 reply，不要输出 Markdown 或多余前缀。
 2) 生成 guidance 数组（2-4条），用于给用户“拆解思路/执行建议”，每条简短可执行。
-3) 必须先阅读当前计划状态（tasks / planContext），再决定是 create / reuse / skip / blocked。
+3) 必须先阅读当前计划状态（tasks / planContext），再决定是 create / update / delete / reuse / skip / blocked。
 4) 生成 decisions 数组。每项结构：
 - create: { "type":"create", "reason": string, "item": { title / dueDate / priority / category / tags / subtasks / repeat } }
+- update: { "type":"update", "reason": string, "taskId": string, "taskTitle": string, "changes": { title? / dueDate? / priority? / category? / tags? / subtasks? / repeat? / status? / pinned? } }
+- delete: { "type":"delete", "reason": string, "taskId": string, "taskTitle": string }
 - reuse: { "type":"reuse", "reason": string, "taskId": string, "taskTitle": string }
 - skip: { "type":"skip", "reason": string, "taskId": string, "taskTitle": string }
 - blocked: { "type":"blocked", "reason": string, "taskId": string, "taskTitle": string, "blockedByTaskIds": string[] }
-5) 如果当前事项在现有未完成任务里已经存在，优先返回 reuse，不要重复创建。
-6) 如果当前事项在现有已完成任务里已经完成，返回 skip，不要重新复活。
-7) 只有当现有计划里不存在合适任务，且确实需要新增执行项时，才返回 create。
-8) 如果存在明显前置依赖未完成，返回 blocked，而不是 create。
-9) create 类型中的 item 仅在确实要新建时给出。
-10) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
-11) priority 必须为 0/1/2。
-12) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
-13) subtasks 仅保留 title。
-14) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-15) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
-16) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
-17) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
-18) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...] }。如有 create，再把待新增项放进 item。不要输出 Markdown。`,
+5) 如果用户是在补充、修改、延期、提前、删除某个已有任务，优先返回 update 或 delete，不要新建。
+6) 如果当前事项在现有未完成任务里已经存在且无需修改，优先返回 reuse，不要重复创建。
+7) 如果当前事项在现有已完成任务里已经完成，返回 skip，不要重新复活。
+8) 只有当现有计划里不存在合适任务，且确实需要新增执行项时，才返回 create。
+9) 如果存在明显前置依赖未完成，返回 blocked，而不是 create。
+10) create 类型中的 item 仅在确实要新建时给出。
+11) update 类型中的 changes 只包含真正要改动的字段；不改的字段不要返回。若要清空 dueDate/category/repeat，可显式返回 null。
+12) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
+13) priority 必须为 0/1/2。
+14) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
+15) subtasks 仅保留 title。
+16) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
+17) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
+18) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
+19) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
+20) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...] }。如有 create，再把待新增项放进 item。不要输出 Markdown。`,
           },
           ...recentHistoryMessages,
           {
