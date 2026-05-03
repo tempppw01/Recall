@@ -284,6 +284,53 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.01);
 }
 
+.sidebar-shell {
+  background:
+    radial-gradient(circle at 0% 16%, rgba(var(--theme-accent), 0.14), transparent 34%),
+    linear-gradient(180deg, var(--ui-surface-1), var(--ui-surface-0));
+}
+
+.sidebar-section {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--ui-border-soft);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 18px 40px rgba(0, 0, 0, 0.08);
+}
+
+.sidebar-section-toggle {
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+}
+
+.sidebar-section-toggle:hover {
+  background: var(--ui-card-hover-bg);
+}
+
+.sidebar-nav-item {
+  animation: sidebarItemIn 360ms var(--ease-emphasis) both;
+}
+
+.sidebar-nav-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.08) 48%, transparent 76%);
+  opacity: 0;
+  transform: translateX(-38%);
+  transition: opacity var(--motion-base) var(--ease-standard), transform var(--motion-slow) var(--ease-emphasis);
+}
+
+.sidebar-nav-item:hover {
+  transform: translateX(2px);
+}
+
+.sidebar-nav-item:hover::before,
+.sidebar-nav-item.is-active::before {
+  opacity: 1;
+  transform: translateX(34%);
+}
+
 /* Button system: keep consistent hover/active/focus feel */
 .btn {
   display: inline-flex;
@@ -582,6 +629,17 @@ button {
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes sidebarItemIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
 }
 

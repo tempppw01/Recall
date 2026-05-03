@@ -41,10 +41,10 @@ const SidebarItem = ({
 }: SidebarItemProps) => (
   <button
     onClick={onClick}
-    className={`group/sidebar-item w-full flex items-center justify-between rounded-2xl border px-3.5 py-3 text-[13px] sm:text-sm transition-all duration-200 ${
+    className={`group/sidebar-item sidebar-nav-item relative flex w-full items-center justify-between overflow-hidden rounded-[18px] border px-3 py-2.5 text-[13px] sm:text-sm transition-all duration-200 ${
       active
-        ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)] shadow-[0_12px_30px_rgba(0,0,0,0.16)]'
-        : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
+        ? 'is-active border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.13)] text-[color:var(--ui-text-strong)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]'
+        : 'border-transparent bg-transparent text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
     } ${className || ''}`}
     draggable={draggable}
     onDragStart={onDragStart}
@@ -53,7 +53,7 @@ const SidebarItem = ({
     onDragEnd={onDragEnd}
   >
     <div className="flex items-center gap-3.5 min-w-0">
-      <div className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${active ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)]' : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] group-hover/sidebar-item:border-[color:var(--ui-border-strong)] group-hover/sidebar-item:bg-[color:var(--ui-card-hover-bg)]'}`}>
+      <div className={`relative flex h-8 w-8 items-center justify-center rounded-xl border transition-all ${active ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)]' : 'border-[color:var(--ui-border-soft)]/70 bg-[color:var(--ui-card-bg)]/60 group-hover/sidebar-item:border-[color:var(--ui-border-strong)] group-hover/sidebar-item:bg-[color:var(--ui-card-hover-bg)]'}`}>
         <Icon className={`w-4 h-4 ${iconColor || ''}`} />
         {badge > 0 && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-medium text-white bg-red-500 rounded-full">
