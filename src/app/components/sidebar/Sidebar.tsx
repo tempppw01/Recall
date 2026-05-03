@@ -15,8 +15,6 @@ import {
   Inbox,
   LayoutGrid,
   Package2,
-  Info,
-  Settings,
   Sparkles,
   Sun,
   Timer,
@@ -27,10 +25,6 @@ import SidebarItem from '@/app/components/sidebar/SidebarItem';
 type SidebarProps = {
   isSidebarOpen: boolean;
   setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  showAppMenu: boolean;
-  setShowAppMenu: React.Dispatch<React.SetStateAction<boolean>>;
-  setShowSettings: React.Dispatch<React.SetStateAction<boolean>>;
-  setShowAbout: React.Dispatch<React.SetStateAction<boolean>>;
   isQuickAccessOpen: boolean;
   setIsQuickAccessOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isToolsOpen: boolean;
@@ -89,10 +83,6 @@ const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'revi
 const Sidebar = ({
   isSidebarOpen,
   setIsSidebarOpen,
-  showAppMenu,
-  setShowAppMenu,
-  setShowSettings,
-  setShowAbout,
   isQuickAccessOpen,
   setIsQuickAccessOpen,
   isToolsOpen,
@@ -121,8 +111,6 @@ const Sidebar = ({
   const [draggingToolKey, setDraggingToolKey] = useState<ToolItemKey | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const menuPanelRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -179,20 +167,6 @@ const Sidebar = ({
     localStorage.setItem(TOOL_ORDER_KEY, JSON.stringify(toolOrder));
   }, [toolOrder]);
 
-  useEffect(() => {
-    if (!showAppMenu) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (menuButtonRef.current?.contains(target)) return;
-      if (menuPanelRef.current?.contains(target)) return;
-      setShowAppMenu(false);
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [setShowAppMenu, showAppMenu]);
-
   const handleToolDrop = useCallback((targetKey: ToolItemKey) => {
     if (!draggingToolKey || draggingToolKey === targetKey) return;
     setToolOrder((previous) => {
@@ -209,9 +183,8 @@ const Sidebar = ({
   const changeFilter = useCallback((nextFilter: string, refresher?: () => void) => {
     setActiveFilter(nextFilter);
     refresher?.();
-    setShowAppMenu(false);
     setIsSidebarOpen(false);
-  }, [setActiveFilter, setIsSidebarOpen, setShowAppMenu]);
+  }, [setActiveFilter, setIsSidebarOpen]);
 
   const activeTaskCount = useMemo(
     () => tasks.filter((task) => task.status !== 'completed').length,
@@ -454,60 +427,23 @@ const Sidebar = ({
               <div className="mb-1.5 px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="relative">
-                      <button
-                        ref={menuButtonRef}
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setShowAppMenu((previous) => !previous);
-                        }}
-                        className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[22px] border border-white/12 bg-[radial-gradient(circle_at_28%_22%,rgba(120,196,255,0.42),transparent_38%),linear-gradient(155deg,rgba(72,102,173,0.78),rgba(36,45,68,0.96)_58%,rgba(13,16,24,0.98))] shadow-[0_18px_36px_rgba(4,10,24,0.42)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_22px_42px_rgba(4,10,24,0.48)]"
-                        aria-label="打开应用菜单"
-                        aria-expanded={showAppMenu}
-                      >
-                        <div className="absolute inset-[1.5px] rounded-[20px] bg-[linear-gradient(180deg,rgba(10,14,22,0.84),rgba(18,22,32,0.96))]" />
-                        <div className="absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10" />
-                        <div className="absolute left-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-[#7DD3FC] shadow-[0_0_14px_rgba(125,211,252,0.95)]" />
-                        <div className="relative flex flex-col items-center justify-center">
-                          <span className="bg-[linear-gradient(135deg,#F8FBFF_0%,#CFE1FF_42%,#9EBEFF_72%,#E3D2FF_100%)] bg-clip-text text-[15px] font-semibold tracking-[0.16em] text-transparent">
-                            RC
-                          </span>
-                          <span className="mt-1 h-px w-5 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,0),rgba(125,211,252,0.95),rgba(216,180,255,0))]" />
-                          <Sparkles className="absolute -right-2.5 -top-2 h-3.5 w-3.5 text-[#C7B6FF] opacity-85" />
-                        </div>
-                      </button>
-
-                      {showAppMenu && (
-                        <div
-                          ref={menuPanelRef}
-                          className="absolute left-0 top-14 z-50 w-48 overflow-hidden rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-1)] shadow-[0_22px_48px_rgba(0,0,0,0.18)] backdrop-blur-xl"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowAppMenu(false);
-                              setShowSettings(true);
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)]"
-                          >
-                            设置
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowAppMenu(false);
-                              setShowAbout(true);
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)]"
-                          >
-                            关于
-                          </button>
-                        </div>
-                      )}
+                    <div
+                      className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[22px] border border-white/12 bg-[radial-gradient(circle_at_28%_22%,rgba(120,196,255,0.42),transparent_38%),linear-gradient(155deg,rgba(72,102,173,0.78),rgba(36,45,68,0.96)_58%,rgba(13,16,24,0.98))] shadow-[0_18px_36px_rgba(4,10,24,0.42)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_22px_42px_rgba(4,10,24,0.48)]"
+                      aria-hidden="true"
+                    >
+                      <div className="absolute inset-[1.5px] rounded-[20px] bg-[linear-gradient(180deg,rgba(10,14,22,0.84),rgba(18,22,32,0.96))]" />
+                      <div className="absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10" />
+                      <div className="absolute left-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-[#7DD3FC] shadow-[0_0_14px_rgba(125,211,252,0.95)]" />
+                      <div className="relative flex flex-col items-center justify-center">
+                        <span className="bg-[linear-gradient(135deg,#F8FBFF_0%,#CFE1FF_42%,#9EBEFF_72%,#E3D2FF_100%)] bg-clip-text text-[15px] font-semibold tracking-[0.16em] text-transparent">
+                          RC
+                        </span>
+                        <span className="mt-1 h-px w-5 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,0),rgba(125,211,252,0.95),rgba(216,180,255,0))]" />
+                        <Sparkles className="absolute -right-2.5 -top-2 h-3.5 w-3.5 text-[#C7B6FF] opacity-85" />
+                      </div>
                     </div>
 
-                  <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
                       <h1 className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[color:var(--ui-text-strong)]">
                         Recall
                       </h1>
@@ -518,32 +454,6 @@ const Sidebar = ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAppMenu(false);
-                        setShowSettings(true);
-                      }}
-                      className="hidden inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 text-[12px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.32)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
-                      title="打开设置"
-                      aria-label="打开设置"
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span className="hidden xl:inline">设置</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAppMenu(false);
-                        setShowAbout(true);
-                      }}
-                      className="hidden inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 text-[12px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.32)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
-                      title="关于 Recall"
-                      aria-label="关于 Recall"
-                    >
-                      <Info className="h-4 w-4" />
-                      <span className="hidden xl:inline">关于</span>
-                    </button>
                     <button
                       type="button"
                       onClick={() => setIsSidebarCollapsed(true)}

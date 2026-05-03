@@ -1017,7 +1017,6 @@ export default function Home() {
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isListsOpen, setIsListsOpen] = useState(true);
   const [expandedQuadrants, setExpandedQuadrants] = useState<Record<string, boolean>>({});
-  const [showAppMenu, setShowAppMenu] = useState(false);
   const [lastRemovedTask, setLastRemovedTask] = useState<Task | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
@@ -4516,10 +4515,6 @@ const normalizeTimeoutSec = (value: number) => {
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
-        showAppMenu={showAppMenu}
-        setShowAppMenu={setShowAppMenu}
-        setShowSettings={setShowSettings}
-        setShowAbout={setShowAbout}
         isQuickAccessOpen={isQuickAccessOpen}
         setIsQuickAccessOpen={setIsQuickAccessOpen}
         isToolsOpen={isToolsOpen}
