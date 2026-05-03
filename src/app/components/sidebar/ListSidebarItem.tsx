@@ -26,7 +26,9 @@ const ListSidebarItem = ({
   <div
     onClick={onClick}
     className={`group w-full flex items-center justify-between px-3 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-sm transition-colors cursor-pointer ${
-      active ? 'bg-[#2C2C2C] text-white' : 'text-[#888888] hover:bg-[#2C2C2C] hover:text-[#CCCCCC]'
+      active
+        ? 'bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
+        : 'text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
     }`}
   >
     <div className="flex items-center gap-3">

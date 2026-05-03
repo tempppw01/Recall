@@ -4474,7 +4474,7 @@ const normalizeTimeoutSec = (value: number) => {
   const hasApiKey = apiKey.trim().length > 0;
 
   return (
-    <div className="theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
+    <div className="theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
       <AmbientBackdrop />
 
       {statusFeedback && (
@@ -4491,13 +4491,13 @@ const normalizeTimeoutSec = (value: number) => {
             <div className="flex items-start gap-2.5">
               <div className="mt-0.5 shrink-0">
                 {statusFeedback.level === 'error' ? (
-                  <XCircle className="w-4 h-4 text-red-200" />
+                  <XCircle className="w-4 h-4 text-red-500" />
                 ) : statusFeedback.level === 'warning' ? (
-                  <AlertTriangle className="w-4 h-4 text-amber-200" />
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
                 ) : statusFeedback.level === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 ) : (
-                  <Info className="w-4 h-4 text-blue-200" />
+                  <Info className="w-4 h-4 text-blue-500" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -4568,7 +4568,7 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 2. Main Task List */}
       <section
-        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,rgba(20,22,27,0.96),rgba(24,27,33,0.92),rgba(18,20,26,0.96))] transition-[margin,width,filter] duration-[var(--motion-base)] ease-[var(--ease-standard)] lg:ml-0 lg:w-auto ${
+        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[margin,width,filter] duration-[var(--motion-base)] ease-[var(--ease-standard)] lg:ml-0 lg:w-auto ${
           isSidebarOpen ? 'ml-[min(74vw,280px)] w-[calc(100%_-_min(74vw,_280px))]' : ''
         } ${
           selectedTask ? 'hidden lg:flex' : 'flex'

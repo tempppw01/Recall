@@ -43,7 +43,7 @@ const SidebarItem = ({
     onClick={onClick}
     className={`group/sidebar-item w-full flex items-center justify-between rounded-2xl border px-3.5 py-3 text-[13px] sm:text-sm transition-all duration-200 ${
       active
-        ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-white shadow-[0_12px_30px_rgba(0,0,0,0.16)]'
+        ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)] shadow-[0_12px_30px_rgba(0,0,0,0.16)]'
         : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
     } ${className || ''}`}
     draggable={draggable}
@@ -61,11 +61,11 @@ const SidebarItem = ({
           </span>
         )}
       </div>
-      <span className={`truncate font-medium ${active ? 'text-white' : 'text-[color:var(--ui-text-primary)]'}`}>{label}</span>
+      <span className={`truncate font-medium ${active ? 'text-[color:var(--ui-text-strong)]' : 'text-[color:var(--ui-text-primary)]'}`}>{label}</span>
     </div>
 
     <div className="flex items-center gap-2 shrink-0">
-      {count > 0 && <span className={`rounded-full px-2 py-0.5 text-[11px] ${active ? 'bg-white/10 text-white/80' : 'bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'}`}>{count}</span>}
+      {count > 0 && <span className={`rounded-full px-2 py-0.5 text-[11px] ${active ? 'bg-[rgba(var(--theme-accent),0.12)] text-[color:var(--ui-text-secondary)]' : 'bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'}`}>{count}</span>}
       {rightSlot}
     </div>
   </button>

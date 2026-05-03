@@ -651,7 +651,7 @@ const Sidebar = ({
                                       <div className="flex items-center gap-1.5">
                                         {item.count ? (
                                           <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                                            item.active ? 'bg-white/10 text-white/80' : 'bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'
+                                            item.active ? 'bg-[rgba(var(--theme-accent),0.12)] text-[color:var(--ui-text-secondary)]' : 'bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'
                                           }`}>
                                             {item.count > 99 ? '99+' : item.count}
                                           </span>

@@ -133,7 +133,6 @@ body.theme-light {
 }
 
 body.theme-light .theme-native-surface {
-  filter: invert(1) hue-rotate(180deg);
   --ui-surface-0: #f4f7fb;
   --ui-surface-1: #fbfcff;
   --ui-surface-2: #eef3fb;
@@ -161,6 +160,10 @@ body.theme-light .theme-native-surface {
   --state-hover-bg: rgba(15, 23, 42, 0.04);
   --state-active-bg: rgba(15, 23, 42, 0.08);
   box-shadow: none;
+}
+
+body.theme-light .theme-native-root {
+  filter: invert(1) hue-rotate(180deg);
 }
 
 input,
@@ -931,21 +934,21 @@ button {
 }
 
 .status-feedback-info {
-  background: linear-gradient(180deg, rgba(30, 58, 138, 0.28), rgba(17, 24, 39, 0.82));
+  background: linear-gradient(180deg, rgba(var(--theme-accent), 0.16), var(--ui-card-bg));
   border-color: rgba(96, 165, 250, 0.35);
 }
 
 .status-feedback-success {
-  background: linear-gradient(180deg, rgba(5, 150, 105, 0.24), rgba(17, 24, 39, 0.82));
+  background: linear-gradient(180deg, rgba(5, 150, 105, 0.18), var(--ui-card-bg));
   border-color: rgba(52, 211, 153, 0.35);
 }
 
 .status-feedback-warning {
-  background: linear-gradient(180deg, rgba(180, 83, 9, 0.26), rgba(17, 24, 39, 0.82));
+  background: linear-gradient(180deg, rgba(180, 83, 9, 0.18), var(--ui-card-bg));
   border-color: rgba(251, 191, 36, 0.35);
 }
 
 .status-feedback-error {
-  background: linear-gradient(180deg, rgba(153, 27, 27, 0.28), rgba(17, 24, 39, 0.82));
+  background: linear-gradient(180deg, rgba(153, 27, 27, 0.18), var(--ui-card-bg));
   border-color: rgba(248, 113, 113, 0.38);
 }
