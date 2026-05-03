@@ -29,6 +29,7 @@ import type {
   TaskGroup,
   TaskGroupMode,
   TaskSortMode,
+  UserMemory,
   WeatherCity,
   WeatherForecast,
   FutureTaskBucketKey,
@@ -96,6 +97,10 @@ import {
   AlertTriangle,
   XCircle,
   Eraser,
+  Brain,
+  Pencil,
+  Plus,
+  Save,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -140,6 +145,7 @@ const ACTIVE_FILTER_KEY = 'recall_active_filter';
 const QUICK_ACCESS_OPEN_KEY = 'recall_quick_access_open';
 const AGENT_MESSAGES_KEY = 'recall_agent_messages';
 const MANAGE_AGENT_MESSAGES_KEY = 'recall_manage_agent_messages';
+const USER_MEMORIES_KEY = 'recall_user_memories';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -314,6 +320,30 @@ const getPriorityColor = (priority: number) => {
 };
 
 const getPriorityLabel = (priority: number) => PRIORITY_LABELS[priority] || PRIORITY_LABELS[0];
+
+const normalizeUserMemories = (raw: unknown): UserMemory[] => {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  return raw
+    .map((item) => {
+      const candidate = item as Partial<UserMemory> | null | undefined;
+      const content = typeof candidate?.content === 'string' ? candidate.content.trim() : '';
+      if (!content) return null;
+      const normalizedContent = content.slice(0, 240);
+      const dedupeKey = normalizedContent.toLowerCase();
+      if (seen.has(dedupeKey)) return null;
+      seen.add(dedupeKey);
+      const nowIso = new Date().toISOString();
+      return {
+        id: typeof candidate?.id === 'string' && candidate.id.trim() ? candidate.id.trim() : createId(),
+        content: normalizedContent,
+        createdAt: typeof candidate?.createdAt === 'string' && candidate.createdAt.trim() ? candidate.createdAt.trim() : nowIso,
+        updatedAt: typeof candidate?.updatedAt === 'string' && candidate.updatedAt.trim() ? candidate.updatedAt.trim() : nowIso,
+      } as UserMemory;
+    })
+    .filter(Boolean)
+    .slice(0, 30) as UserMemory[];
+};
 
 
 const getWeatherSummary = (weatherCode?: number) => {
@@ -1066,12 +1096,18 @@ export default function Home() {
   const [agentImages, setAgentImages] = useState<ImageAttachment[]>([]);
   const agentImageInputRef = useRef<HTMLInputElement | null>(null);
   const agentAbortControllerRef = useRef<AbortController | null>(null);
+  const userMemoryPersistReadyRef = useRef(false);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [agentDecisions, setAgentDecisions] = useState<AgentDecision[]>([]);
   const [appliedAgentDecisionIds, setAppliedAgentDecisionIds] = useState<Set<string>>(new Set());
   const [agentGuidance, setAgentGuidance] = useState<string[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [userMemories, setUserMemories] = useState<UserMemory[]>([]);
+  const [memoryInput, setMemoryInput] = useState('');
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
+  const [editingMemoryContent, setEditingMemoryContent] = useState('');
   const [manageAgentInput, setManageAgentInput] = useState('');
   const [manageAgentMessages, setManageAgentMessages] = useState<ManageAgentMessage[]>([]);
   const [manageAgentLoading, setManageAgentLoading] = useState(false);
@@ -1389,6 +1425,7 @@ export default function Home() {
             SIDEBAR_COLLAPSED_KEY,
             ACTIVE_FILTER_KEY,
             QUICK_ACCESS_OPEN_KEY,
+            USER_MEMORIES_KEY,
           ]);
           const preservedEntries = Object.keys(localStorage)
             .filter((key) => keysToPreserve.has(key))
@@ -1428,6 +1465,7 @@ export default function Home() {
       const storedCalendarSubscription = localStorage.getItem(CALENDAR_SUBSCRIPTION_KEY);
       const storedSyncNamespace = localStorage.getItem(SYNC_NAMESPACE_KEY);
       const storedCalendarCity = localStorage.getItem(CALENDAR_CITY_KEY);
+      const storedUserMemories = localStorage.getItem(USER_MEMORIES_KEY);
 
       if (storedKey) {
         setApiKey(storedKey);
@@ -1565,6 +1603,13 @@ export default function Home() {
           console.error('Invalid manage-agent messages cache', error);
         }
       }
+      if (storedUserMemories) {
+        try {
+          setUserMemories(normalizeUserMemories(JSON.parse(storedUserMemories)));
+        } catch (error) {
+          console.error('Invalid user memories cache', error);
+        }
+      }
 
       refreshTasks();
       refreshHabits();
@@ -1622,6 +1667,16 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-80)));
   }, [manageAgentMessages]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !settingsLoaded) return;
+    if (!userMemoryPersistReadyRef.current) {
+      userMemoryPersistReadyRef.current = true;
+      return;
+    }
+    localStorage.setItem(USER_MEMORIES_KEY, JSON.stringify(userMemories.slice(0, 30)));
+    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
+  }, [settingsLoaded, userMemories]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2595,6 +2650,57 @@ const normalizeTimeoutSec = (value: number) => {
       }));
   };
 
+  const buildUserMemorySummaryForAgent = () => userMemories
+    .filter((memory) => memory.content.trim().length > 0)
+    .slice(0, 30)
+    .map((memory) => ({
+      id: memory.id,
+      content: memory.content,
+      updatedAt: memory.updatedAt,
+    }));
+
+  const addUserMemory = () => {
+    const content = memoryInput.trim();
+    if (!content) return;
+    const nowIso = new Date().toISOString();
+    setUserMemories((prev) => normalizeUserMemories([
+      { id: createId(), content, createdAt: nowIso, updatedAt: nowIso },
+      ...prev,
+    ]));
+    setMemoryInput('');
+  };
+
+  const startEditUserMemory = (memory: UserMemory) => {
+    setEditingMemoryId(memory.id);
+    setEditingMemoryContent(memory.content);
+  };
+
+  const saveUserMemoryEdit = () => {
+    if (!editingMemoryId) return;
+    const content = editingMemoryContent.trim();
+    if (!content) {
+      setEditingMemoryId(null);
+      setEditingMemoryContent('');
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    setUserMemories((prev) => normalizeUserMemories(prev.map((memory) => (
+      memory.id === editingMemoryId
+        ? { ...memory, content, updatedAt: nowIso }
+        : memory
+    ))));
+    setEditingMemoryId(null);
+    setEditingMemoryContent('');
+  };
+
+  const removeUserMemory = (memoryId: string) => {
+    setUserMemories((prev) => prev.filter((memory) => memory.id !== memoryId));
+    if (editingMemoryId === memoryId) {
+      setEditingMemoryId(null);
+      setEditingMemoryContent('');
+    }
+  };
+
   const handleAgentSend = async () => {
     if (agentLoading) return;
     const content = agentInput.trim();
@@ -2625,6 +2731,7 @@ const normalizeTimeoutSec = (value: number) => {
           input: content,
           images: imagePayload,
           tasks: buildTaskSummaryForTodoAgent(),
+          memories: buildUserMemorySummaryForAgent(),
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -3201,6 +3308,7 @@ const normalizeTimeoutSec = (value: number) => {
       redisPort,
       redisDb,
       calendarSubscription,
+      userMemories,
     },
     secrets: {
       apiKey,
@@ -3276,6 +3384,9 @@ const normalizeTimeoutSec = (value: number) => {
     setRedisPassword(nextRedisPassword);
     setCalendarSubscription(nextCalendarSubscription);
     setSyncNamespace(nextSyncNamespace);
+    if (Array.isArray(payload?.settings?.userMemories)) {
+      setUserMemories(normalizeUserMemories(payload.settings.userMemories));
+    }
 
     persistSettings({
       apiKey: nextApiKey,
@@ -5306,15 +5417,31 @@ const normalizeTimeoutSec = (value: number) => {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={clearCurrentAiContext}
-                      className="p-1.5 rounded-lg border border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]"
-                      title="清除当前 AI 上下文"
-                      aria-label="清除当前 AI 上下文"
-                    >
-                      <Eraser className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowMemoryPanel((prev) => !prev)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] transition-colors ${
+                          showMemoryPanel
+                            ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100'
+                            : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]'
+                        }`}
+                        title="打开长期记忆"
+                        aria-label="打开长期记忆"
+                      >
+                        <Brain className="h-3.5 w-3.5" />
+                        <span>{userMemories.length}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearCurrentAiContext}
+                        className="p-1.5 rounded-lg border border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]"
+                        title="清除当前 AI 上下文"
+                        aria-label="清除当前 AI 上下文"
+                      >
+                        <Eraser className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2">
                       {redisHost && (
                         <div className="flex items-center gap-1 text-[10px] text-[color:var(--ui-text-muted)]">
@@ -5357,6 +5484,119 @@ const normalizeTimeoutSec = (value: number) => {
                 <div className="mt-3 rounded-xl border border-dashed border-violet-400/30 bg-gradient-to-r from-violet-500/15 to-cyan-500/15 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] shadow-[0_0_24px_rgba(99,102,241,0.16)]">
                   小提示：可以直接输入目标、约束或截止时间，我会按执行顺序帮你拆解。
                 </div>
+
+                {showMemoryPanel && (
+                  <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs font-medium text-cyan-100">
+                        <Brain className="h-3.5 w-3.5" />
+                        <span>长期记忆</span>
+                      </div>
+                      <span className="text-[10px] text-cyan-100/70">随记录助手请求使用</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={memoryInput}
+                        onChange={(event) => setMemoryInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') addUserMemory();
+                        }}
+                        placeholder="例如：我在东莞工作，通勤常从肇庆出发"
+                        maxLength={240}
+                        className="ui-input min-w-0 flex-1 rounded-lg px-3 py-2 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={addUserMemory}
+                        disabled={!memoryInput.trim()}
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/35 text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-45"
+                        title="添加记忆"
+                        aria-label="添加记忆"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mt-3 max-h-32 space-y-2 overflow-y-auto pr-1">
+                      {userMemories.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-cyan-300/20 px-3 py-2 text-xs text-cyan-100/65">
+                          暂无长期记忆
+                        </div>
+                      ) : (
+                        userMemories.map((memory) => {
+                          const editing = editingMemoryId === memory.id;
+                          return (
+                            <div key={memory.id} className="rounded-lg border border-cyan-300/15 bg-[rgba(8,18,32,0.22)] px-3 py-2">
+                              {editing ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={editingMemoryContent}
+                                    onChange={(event) => setEditingMemoryContent(event.target.value)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Enter') saveUserMemoryEdit();
+                                      if (event.key === 'Escape') {
+                                        setEditingMemoryId(null);
+                                        setEditingMemoryContent('');
+                                      }
+                                    }}
+                                    maxLength={240}
+                                    className="ui-input min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={saveUserMemoryEdit}
+                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/30 text-cyan-100 hover:bg-cyan-400/10"
+                                    title="保存记忆"
+                                    aria-label="保存记忆"
+                                  >
+                                    <Save className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingMemoryId(null);
+                                      setEditingMemoryContent('');
+                                    }}
+                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]"
+                                    title="取消编辑"
+                                    aria-label="取消编辑"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 text-xs leading-5 text-cyan-50/90">{memory.content}</div>
+                                  <div className="flex shrink-0 items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditUserMemory(memory)}
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-300/20 text-cyan-100/80 hover:bg-cyan-400/10 hover:text-cyan-50"
+                                      title="编辑记忆"
+                                      aria-label="编辑记忆"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeUserMemory(memory.id)}
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-rose-300/20 text-rose-100/80 hover:bg-rose-400/10 hover:text-rose-50"
+                                      title="删除记忆"
+                                      aria-label="删除记忆"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
                   {aiAssistantMode === 'record' ? (

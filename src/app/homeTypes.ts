@@ -88,6 +88,13 @@ export type AgentMessage = {
   content: string;
 };
 
+export type UserMemory = {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ManageAgentMessage = {
   role: 'user' | 'assistant';
   content: string;

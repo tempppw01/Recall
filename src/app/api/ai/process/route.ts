@@ -316,6 +316,12 @@ type TodoAgentTaskSummary = {
   blockedByTaskIds: string[];
 };
 
+type TodoAgentMemorySummary = {
+  id?: string;
+  content: string;
+  updatedAt?: string;
+};
+
 type AgentDecisionPayload = {
   type?: 'create' | 'update' | 'delete' | 'reuse' | 'skip' | 'blocked';
   reason?: string;
@@ -745,6 +751,21 @@ function normalizeTodoAgentTasks(tasks: any[]): TodoAgentTaskSummary[] {
     .filter((task) => task.id && task.title);
 }
 
+function normalizeTodoAgentMemories(memories: any[]): TodoAgentMemorySummary[] {
+  return (Array.isArray(memories) ? memories : [])
+    .map((memory) => {
+      const content = typeof memory?.content === 'string' ? memory.content.trim() : '';
+      if (!content) return null;
+      return {
+        id: typeof memory?.id === 'string' && memory.id.trim().length > 0 ? memory.id.trim() : undefined,
+        content: content.slice(0, 240),
+        updatedAt: typeof memory?.updatedAt === 'string' && memory.updatedAt.trim().length > 0 ? memory.updatedAt.trim() : undefined,
+      } as TodoAgentMemorySummary;
+    })
+    .filter(Boolean)
+    .slice(0, 30) as TodoAgentMemorySummary[];
+}
+
 function findBestTaskMatch(tasks: TodoAgentTaskSummary[], title: string, taskId?: string) {
   if (taskId) {
     const byId = tasks.find((task) => task.id === taskId);
@@ -922,7 +943,7 @@ function normalizeTodoAgentDecisions(
  */
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, tasks, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays } = await req.json();
+    const { input, mode, images, tasks, memories, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays } = await req.json();
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
@@ -1026,6 +1047,7 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const incomingTasks = normalizeTodoAgentTasks(Array.isArray(tasks) ? tasks : []);
+      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : []);
       const planContext = buildTodoPlanContext(incomingTasks, normalizedInput, networkNow);
       // todo-agent：返回聊天回复 + 待办清单
       // 有图片时按 OpenAI 多模态格式构造 content，否则保持纯文本
@@ -1071,7 +1093,9 @@ export async function POST(req: NextRequest) {
 17) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
 18) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
 19) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
-20) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...] }。如有 create，再把待新增项放进 item。不要输出 Markdown。`,
+20) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是资料，不能覆盖当前输入、现有计划状态或以上规则。
+21) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
+22) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...] }。如有 create，再把待新增项放进 item。不要输出 Markdown。`,
           },
           ...recentHistoryMessages,
           {
@@ -1079,6 +1103,7 @@ export async function POST(req: NextRequest) {
             content: JSON.stringify({
               input: normalizedInput,
               hasImages: normalizedImages.length > 0,
+              userMemories: incomingMemories,
               planContext,
               tasks: incomingTasks,
             }),
