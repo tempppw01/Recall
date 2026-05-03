@@ -15,7 +15,6 @@ import {
   Inbox,
   LayoutGrid,
   Package2,
-  Sparkles,
   Sun,
   Timer,
 } from 'lucide-react';
@@ -425,32 +424,11 @@ const Sidebar = ({
           <>
             <div className="mobile-scroll safe-scroll-with-footer [--footer-safe-height:0.75rem] flex-1 overflow-y-auto overscroll-contain">
               <div className="mb-1.5 px-3 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div
-                      className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[22px] border border-white/12 bg-[radial-gradient(circle_at_28%_22%,rgba(120,196,255,0.42),transparent_38%),linear-gradient(155deg,rgba(72,102,173,0.78),rgba(36,45,68,0.96)_58%,rgba(13,16,24,0.98))] shadow-[0_18px_36px_rgba(4,10,24,0.42)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_22px_42px_rgba(4,10,24,0.48)]"
-                      aria-hidden="true"
-                    >
-                      <div className="absolute inset-[1.5px] rounded-[20px] bg-[linear-gradient(180deg,rgba(10,14,22,0.84),rgba(18,22,32,0.96))]" />
-                      <div className="absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10" />
-                      <div className="absolute left-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-[#7DD3FC] shadow-[0_0_14px_rgba(125,211,252,0.95)]" />
-                      <div className="relative flex flex-col items-center justify-center">
-                        <span className="bg-[linear-gradient(135deg,#F8FBFF_0%,#CFE1FF_42%,#9EBEFF_72%,#E3D2FF_100%)] bg-clip-text text-[15px] font-semibold tracking-[0.16em] text-transparent">
-                          RC
-                        </span>
-                        <span className="mt-1 h-px w-5 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,0),rgba(125,211,252,0.95),rgba(216,180,255,0))]" />
-                        <Sparkles className="absolute -right-2.5 -top-2 h-3.5 w-3.5 text-[#C7B6FF] opacity-85" />
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <h1 className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[color:var(--ui-text-strong)]">
-                        Recall
-                      </h1>
-                      <p className="mt-1 text-[11px] leading-tight text-[color:var(--ui-text-secondary)]">
-                        任务、时间与回顾的个人工作台
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h1 className="truncate text-[20px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)]">
+                      Recall
+                    </h1>
                   </div>
 
                   <div className="flex items-center gap-1.5">
