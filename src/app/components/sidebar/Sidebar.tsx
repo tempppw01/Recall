@@ -506,11 +506,11 @@ const Sidebar = ({
                   )}
                 </div>
 
-                <div className="glass-card rounded-2xl p-1.5">
+                <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/75 p-1.5 shadow-[0_14px_30px_rgba(15,23,42,0.06)]">
                   <button
                     type="button"
                     onClick={() => setIsToolsOpen((previous) => !previous)}
-                    className="flex w-full items-center justify-between px-3 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-muted)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-secondary)]"
                     aria-expanded={isToolsOpen}
                     aria-label="切换功能导航"
                   >
@@ -518,16 +518,16 @@ const Sidebar = ({
                     {isToolsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                   {isToolsOpen && (
-                    <div className="space-y-2 px-1 pb-1">
+                    <div className="px-1 pb-1">
                       {toolGroups.map((group) => {
                         const groupKeys = toolOrder.filter((key) => group.keys.includes(key));
                         if (groupKeys.length === 0) return null;
 
                         return (
-                          <div key={group.title} className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1.5 py-2">
-                            <div className="mb-1.5 px-2">
+                          <div key={group.title} className="border-t border-[color:var(--ui-border-soft)]/70 px-1.5 py-2 first:border-t-0">
+                            <div className="mb-2 flex items-baseline gap-2 px-1.5">
                               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{group.title}</div>
-                              <div className="mt-0.5 text-[10px] text-[color:var(--ui-text-faint)]">{group.description}</div>
+                              <div className="truncate text-[10px] text-[color:var(--ui-text-faint)]">{group.description}</div>
                             </div>
                             <div className={`grid ${toolGridColumnsClass} gap-2`}>
                               {groupKeys.map((key) => {
@@ -537,10 +537,10 @@ const Sidebar = ({
                                   <button
                                     key={key}
                                     onClick={item.onClick}
-                                    className={`group relative flex min-h-[86px] w-full flex-col items-start justify-between overflow-hidden rounded-[20px] border px-3 py-3 text-left transition-all ${
+                                    className={`group relative flex min-h-[72px] w-full flex-col items-start justify-between overflow-hidden rounded-2xl border px-2.5 py-2.5 text-left transition-all ${
                                       item.active
                                         ? 'border-[rgba(var(--theme-accent),0.3)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)] shadow-[0_12px_28px_rgba(0,0,0,0.16)]'
-                                        : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
+                                        : 'border-transparent bg-transparent text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
                                     } ${draggingToolKey === key ? 'opacity-60' : ''}`}
                                     title={item.label}
                                     aria-label={item.label}
@@ -551,10 +551,10 @@ const Sidebar = ({
                                     onDragEnd={isDesktop ? () => setDraggingToolKey(null) : undefined}
                                   >
                                     <div className="flex w-full items-start justify-between gap-2">
-                                      <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-all ${
+                                      <div className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-all ${
                                         item.active
                                           ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)]'
-                                          : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] group-hover:border-[color:var(--ui-border-strong)] group-hover:bg-[color:var(--ui-card-hover-bg)]'
+                                          : 'border-[color:var(--ui-border-soft)]/70 bg-[color:var(--ui-surface-0)]/45 group-hover:border-[color:var(--ui-border-strong)] group-hover:bg-[color:var(--ui-card-hover-bg)]'
                                       }`}>
                                         <Icon className={`h-4 w-4 ${item.iconColor ?? ''}`} />
                                       </div>

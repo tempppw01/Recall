@@ -4608,7 +4608,13 @@ const normalizeTimeoutSec = (value: number) => {
           activeFilter === 'agent'
             ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
             : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'
-        } ${['calendar', 'quadrant', 'countdown', 'habit', 'agent', 'pomodoro', 'items'].includes(activeFilter) ? 'pt-5 sm:pt-6' : 'pt-4 sm:pt-5'}`}>
+        } ${
+          activeFilter === 'agent'
+            ? 'pt-2 sm:pt-3'
+            : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'items'].includes(activeFilter)
+              ? 'pt-5 sm:pt-6'
+              : 'pt-4 sm:pt-5'
+        }`}>
           {activeFilter === 'calendar' ? (
             <div className="stack-gap flex flex-col">
               <CalendarTopPanel
@@ -5368,9 +5374,9 @@ const normalizeTimeoutSec = (value: number) => {
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
-            <div className="theme-native-surface h-[calc(100dvh-8.8rem)] min-h-[420px]">
-              <div className="h-full rounded-2xl border border-[color:var(--ui-border-soft)] bg-[linear-gradient(135deg,rgba(var(--theme-grad-start),0.16),rgba(var(--theme-grad-end),0.08),rgba(var(--theme-accent),0.12))] p-[1px] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
-                <div className="h-full rounded-2xl p-4 flex flex-col bg-[linear-gradient(180deg,var(--ui-surface-1),var(--ui-surface-0))] shadow-[0_0_0_1px_rgba(59,130,246,0.06)]">
+            <div className="theme-native-surface h-[calc(100dvh-8rem)] min-h-[420px]">
+              <div className="h-full rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(135deg,rgba(var(--theme-grad-start),0.14),rgba(var(--theme-grad-end),0.07),rgba(var(--theme-accent),0.10))] p-[1px] shadow-[0_18px_48px_rgba(15,23,42,0.10)]">
+                <div className="h-full rounded-[27px] p-4 flex flex-col bg-[linear-gradient(180deg,var(--ui-surface-1),var(--ui-surface-0))] shadow-[0_0_0_1px_rgba(59,130,246,0.05)]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex flex-wrap items-center gap-2">
                     <div className="inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-1">
