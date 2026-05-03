@@ -355,9 +355,14 @@ const Sidebar = ({
       keys: ['countdown', 'habit', 'pomodoro'],
     },
     {
+      title: '物品',
+      description: '独立功能',
+      keys: ['items'],
+    },
+    {
       title: '归档',
-      description: '物品与完成记录',
-      keys: ['items', 'completed'],
+      description: '完成状态',
+      keys: ['completed'],
     },
   ];
 
