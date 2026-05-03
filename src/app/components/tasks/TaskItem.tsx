@@ -462,7 +462,6 @@ const TaskItem = ({
                 >
                   <Calendar className="w-3 h-3" />
                   {dueLabel}
-                  <span className="text-[#6f7787]">({getTimezoneLabel(timezoneOffset)})</span>
                 </button>
                 {isDueEditorOpen && (
                   <div

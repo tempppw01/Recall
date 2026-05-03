@@ -5676,7 +5676,7 @@ const normalizeTimeoutSec = (value: number) => {
                                         <p className="text-sm font-semibold text-[color:var(--ui-text-strong)]">{item.title}</p>
                                         {item.dueDate && (
                                           <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
-                                            日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)} ({getTimezoneLabel(DEFAULT_TIMEZONE_OFFSET)})
+                                            日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)}
                                           </p>
                                         )}
                                         {createDecisionReasonMap.get(item.id) && (
