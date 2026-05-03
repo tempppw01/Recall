@@ -5390,16 +5390,11 @@ const normalizeTimeoutSec = (value: number) => {
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
             <div className="theme-native-surface h-[calc(100dvh-8.8rem)] min-h-[420px]">
-              <div className="h-full rounded-2xl p-[1px] bg-gradient-to-br from-blue-500/40 via-violet-500/20 to-cyan-500/40">
-                <div className="h-full rounded-2xl p-4 flex flex-col bg-[var(--glass-panel-bg)] shadow-[0_0_0_1px_rgba(59,130,246,0.08)]">
+              <div className="h-full rounded-2xl border border-[color:var(--ui-border-soft)] bg-[linear-gradient(135deg,rgba(var(--theme-grad-start),0.16),rgba(var(--theme-grad-end),0.08),rgba(var(--theme-accent),0.12))] p-[1px] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+                <div className="h-full rounded-2xl p-4 flex flex-col bg-[linear-gradient(180deg,var(--ui-surface-1),var(--ui-surface-0))] shadow-[0_0_0_1px_rgba(59,130,246,0.06)]">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base font-semibold bg-gradient-to-r from-blue-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">AI 助手</h3>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-300">todo-agent</span>
-                    </div>
-                    <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">把目标、想法或待办告诉我，我会整理成更清晰的执行清单。</p>
-                    <div className="mt-2 inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-1">
+                  <div className="min-w-0 flex flex-wrap items-center gap-2">
+                    <div className="inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-1">
                       <button
                         type="button"
                         onClick={() => setAiAssistantMode('record')}
@@ -5415,6 +5410,8 @@ const normalizeTimeoutSec = (value: number) => {
                         管理助手
                       </button>
                     </div>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.10)] text-[color:var(--ui-text-primary)]">todo-agent</span>
+                    <span className="hidden sm:inline text-xs text-[color:var(--ui-text-muted)]">先对照计划，再整理成执行清单</span>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     <div className="flex items-center gap-1">
@@ -5423,7 +5420,7 @@ const normalizeTimeoutSec = (value: number) => {
                         onClick={() => setShowMemoryPanel((prev) => !prev)}
                         className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] transition-colors ${
                           showMemoryPanel
-                            ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100'
+                            ? 'border-cyan-400/40 bg-cyan-500/10 text-[color:var(--ui-text-strong)]'
                             : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]'
                         }`}
                         title="打开长期记忆"
@@ -5488,11 +5485,11 @@ const normalizeTimeoutSec = (value: number) => {
                 {showMemoryPanel && (
                   <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 text-xs font-medium text-cyan-100">
+                      <div className="flex items-center gap-2 text-xs font-medium text-[color:var(--ui-text-strong)]">
                         <Brain className="h-3.5 w-3.5" />
                         <span>长期记忆</span>
                       </div>
-                      <span className="text-[10px] text-cyan-100/70">随记录助手请求使用</span>
+                      <span className="text-[10px] text-[color:var(--ui-text-muted)]">随记录助手请求使用</span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <input
@@ -5510,7 +5507,7 @@ const normalizeTimeoutSec = (value: number) => {
                         type="button"
                         onClick={addUserMemory}
                         disabled={!memoryInput.trim()}
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/35 text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-45"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/35 text-[color:var(--ui-text-strong)] hover:bg-cyan-400/10 disabled:opacity-45"
                         title="添加记忆"
                         aria-label="添加记忆"
                       >
@@ -5519,14 +5516,14 @@ const normalizeTimeoutSec = (value: number) => {
                     </div>
                     <div className="mt-3 max-h-32 space-y-2 overflow-y-auto pr-1">
                       {userMemories.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-cyan-300/20 px-3 py-2 text-xs text-cyan-100/65">
+                        <div className="rounded-lg border border-dashed border-cyan-300/20 px-3 py-2 text-xs text-[color:var(--ui-text-muted)]">
                           暂无长期记忆
                         </div>
                       ) : (
                         userMemories.map((memory) => {
                           const editing = editingMemoryId === memory.id;
                           return (
-                            <div key={memory.id} className="rounded-lg border border-cyan-300/15 bg-[rgba(8,18,32,0.22)] px-3 py-2">
+                            <div key={memory.id} className="rounded-lg border border-cyan-300/15 bg-[color:var(--ui-card-bg)] px-3 py-2">
                               {editing ? (
                                 <div className="flex items-center gap-2">
                                   <input
@@ -5546,7 +5543,7 @@ const normalizeTimeoutSec = (value: number) => {
                                   <button
                                     type="button"
                                     onClick={saveUserMemoryEdit}
-                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/30 text-cyan-100 hover:bg-cyan-400/10"
+                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/30 text-[color:var(--ui-text-strong)] hover:bg-cyan-400/10"
                                     title="保存记忆"
                                     aria-label="保存记忆"
                                   >
@@ -5567,12 +5564,12 @@ const normalizeTimeoutSec = (value: number) => {
                                 </div>
                               ) : (
                                 <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 text-xs leading-5 text-cyan-50/90">{memory.content}</div>
+                                  <div className="min-w-0 text-xs leading-5 text-[color:var(--ui-text-primary)]">{memory.content}</div>
                                   <div className="flex shrink-0 items-center gap-1">
                                     <button
                                       type="button"
                                       onClick={() => startEditUserMemory(memory)}
-                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-300/20 text-cyan-100/80 hover:bg-cyan-400/10 hover:text-cyan-50"
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-300/20 text-[color:var(--ui-text-secondary)] hover:bg-cyan-400/10 hover:text-[color:var(--ui-text-strong)]"
                                       title="编辑记忆"
                                       aria-label="编辑记忆"
                                     >
@@ -5581,7 +5578,7 @@ const normalizeTimeoutSec = (value: number) => {
                                     <button
                                       type="button"
                                       onClick={() => removeUserMemory(memory.id)}
-                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-rose-300/20 text-rose-100/80 hover:bg-rose-400/10 hover:text-rose-50"
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-rose-300/25 text-[color:var(--ui-text-secondary)] hover:bg-rose-400/10 hover:text-rose-400"
                                       title="删除记忆"
                                       aria-label="删除记忆"
                                     >
@@ -5634,7 +5631,7 @@ const normalizeTimeoutSec = (value: number) => {
                               <div
                                 className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
                                   message.role === 'user'
-                                    ? 'bg-gradient-to-r from-blue-500/25 to-violet-500/25 border border-blue-400/30 text-blue-100'
+                                    ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
                                     : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
@@ -5663,8 +5660,8 @@ const normalizeTimeoutSec = (value: number) => {
 
                       <div className="space-y-3 border-t border-[color:var(--ui-border-soft)] pt-2">
                         {agentGuidance.length > 0 && (
-                          <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100 space-y-1">
-                            <div className="font-medium text-cyan-200">行动拆解建议</div>
+                          <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] space-y-1">
+                            <div className="font-medium text-[color:var(--ui-text-strong)]">行动拆解建议</div>
                             <ul className="list-disc list-inside space-y-1">
                               {agentGuidance.map((tip, idx) => (
                                 <li key={`tip-${idx}`}>{tip}</li>
@@ -5692,7 +5689,7 @@ const normalizeTimeoutSec = (value: number) => {
                           <div className="grid gap-3">
                             {agentItems.length > 0 && (
                               <div className="space-y-3">
-                                <div className="text-xs font-medium text-blue-200">建议新增 {agentItems.length} 条</div>
+                                <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">建议新增 {agentItems.length} 条</div>
                                 {agentItems.map((item) => (
                                   <div key={item.id} className="rounded-2xl border border-violet-500/20 bg-[color:var(--ui-card-bg)] p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
                                     <div className="flex items-start justify-between gap-3">
@@ -5733,7 +5730,7 @@ const normalizeTimeoutSec = (value: number) => {
                             )}
                             {agentUpdateDecisions.length > 0 && (
                               <div className="space-y-2">
-                                <div className="text-xs font-medium text-amber-100">建议修改现有任务 {agentUpdateDecisions.length} 条</div>
+                                <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">建议修改现有任务 {agentUpdateDecisions.length} 条</div>
                                 {agentUpdateDecisions.map((decision) => {
                                   const changeLines = describeAgentTaskChanges(decision.changes);
                                   const applied = appliedAgentDecisionIds.has(decision.id);
@@ -5741,10 +5738,10 @@ const normalizeTimeoutSec = (value: number) => {
                                     <div key={decision.id} className="rounded-2xl border border-amber-300/20 bg-amber-500/10 p-3">
                                       <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                          <div className="text-sm font-medium text-amber-100">{decision.taskTitle || '现有任务'}</div>
-                                          {decision.reason && <div className="mt-1 text-xs text-amber-50/90">{decision.reason}</div>}
+                                          <div className="text-sm font-medium text-[color:var(--ui-text-strong)]">{decision.taskTitle || '现有任务'}</div>
+                                          {decision.reason && <div className="mt-1 text-xs text-[color:var(--ui-text-primary)]">{decision.reason}</div>}
                                           {changeLines.length > 0 && (
-                                            <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-amber-50/80">
+                                            <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-[color:var(--ui-text-secondary)]">
                                               {changeLines.map((line, index) => (
                                                 <li key={`${decision.id}-change-${index}`}>{line}</li>
                                               ))}
@@ -5771,15 +5768,15 @@ const normalizeTimeoutSec = (value: number) => {
                             )}
                             {agentDeleteDecisions.length > 0 && (
                               <div className="space-y-2">
-                                <div className="text-xs font-medium text-rose-200">建议删除任务 {agentDeleteDecisions.length} 条</div>
+                                <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">建议删除任务 {agentDeleteDecisions.length} 条</div>
                                 {agentDeleteDecisions.map((decision) => {
                                   const applied = appliedAgentDecisionIds.has(decision.id);
                                   return (
                                     <div key={decision.id} className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3">
                                       <div className="flex items-start justify-between gap-3">
                                         <div>
-                                          <div className="text-sm font-medium text-rose-100">{decision.taskTitle || '现有任务'}</div>
-                                          {decision.reason && <div className="mt-1 text-xs text-rose-50/90">{decision.reason}</div>}
+                                          <div className="text-sm font-medium text-[color:var(--ui-text-strong)]">{decision.taskTitle || '现有任务'}</div>
+                                          {decision.reason && <div className="mt-1 text-xs text-[color:var(--ui-text-primary)]">{decision.reason}</div>}
                                         </div>
                                         <button
                                           type="button"
@@ -5801,24 +5798,24 @@ const normalizeTimeoutSec = (value: number) => {
                             )}
                             {agentReuseDecisions.length > 0 && (
                               <div className="space-y-2">
-                                <div className="text-xs font-medium text-emerald-200">已有任务可继续推进 {agentReuseDecisions.length} 条</div>
+                                <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">已有任务可继续推进 {agentReuseDecisions.length} 条</div>
                                 {agentReuseDecisions.map((decision) => (
-                                  <div key={decision.id} className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-                                    <div className="font-medium text-emerald-200">{decision.taskTitle || '现有任务'}</div>
-                                    {decision.reason && <div className="mt-1 text-emerald-50/90">{decision.reason}</div>}
+                                  <div key={decision.id} className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-xs text-[color:var(--ui-text-primary)]">
+                                    <div className="font-medium text-[color:var(--ui-text-strong)]">{decision.taskTitle || '现有任务'}</div>
+                                    {decision.reason && <div className="mt-1 text-[color:var(--ui-text-primary)]">{decision.reason}</div>}
                                   </div>
                                 ))}
                               </div>
                             )}
                             {agentBlockedDecisions.length > 0 && (
                               <div className="space-y-2">
-                                <div className="text-xs font-medium text-amber-200">存在前置依赖 {agentBlockedDecisions.length} 条</div>
+                                <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">存在前置依赖 {agentBlockedDecisions.length} 条</div>
                                 {agentBlockedDecisions.map((decision) => (
-                                  <div key={decision.id} className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-100">
-                                    <div className="font-medium text-amber-200">{decision.taskTitle || decision.item?.title || '待处理事项'}</div>
-                                    {decision.reason && <div className="mt-1 text-amber-50/90">{decision.reason}</div>}
+                                  <div key={decision.id} className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-[color:var(--ui-text-primary)]">
+                                    <div className="font-medium text-[color:var(--ui-text-strong)]">{decision.taskTitle || decision.item?.title || '待处理事项'}</div>
+                                    {decision.reason && <div className="mt-1 text-[color:var(--ui-text-primary)]">{decision.reason}</div>}
                                     {decision.blockedByTaskTitles && decision.blockedByTaskTitles.length > 0 && (
-                                      <div className="mt-1 text-amber-50/80">依赖：{decision.blockedByTaskTitles.join('、')}</div>
+                                      <div className="mt-1 text-[color:var(--ui-text-secondary)]">依赖：{decision.blockedByTaskTitles.join('、')}</div>
                                     )}
                                   </div>
                                 ))}
@@ -5826,7 +5823,7 @@ const normalizeTimeoutSec = (value: number) => {
                             )}
                             {agentSkipDecisions.length > 0 && (
                               <div className="space-y-2">
-                                <div className="text-xs font-medium text-slate-300">已跳过重复或已完成项 {agentSkipDecisions.length} 条</div>
+                                <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">已跳过重复或已完成项 {agentSkipDecisions.length} 条</div>
                                 {agentSkipDecisions.map((decision) => (
                                   <div key={decision.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3 text-xs text-[color:var(--ui-text-secondary)]">
                                     <div className="font-medium text-[color:var(--ui-text-primary)]">{decision.taskTitle || '现有事项'}</div>
@@ -5924,7 +5921,7 @@ const normalizeTimeoutSec = (value: number) => {
                               <div
                                 className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
                                   message.role === 'user'
-                                    ? 'bg-gradient-to-r from-violet-500/25 to-blue-500/25 border border-violet-400/30 text-blue-100'
+                                    ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
                                     : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
