@@ -6448,12 +6448,12 @@ const normalizeTimeoutSec = (value: number) => {
               ) : (
                 <>
                   {activeFilter !== 'completed' && (
-                    <div className="glass-panel-soft rounded-2xl border border-[color:var(--ui-border-soft)] px-3 py-3 sm:px-4 sm:py-3.5">
+                    <div className="theme-native-surface glass-panel-soft rounded-2xl border border-[color:var(--ui-border-soft)] px-3 py-3 sm:px-4 sm:py-3.5">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="space-y-1">
                           <div className="text-[11px] uppercase tracking-[0.14em] text-[#8EA3FF]">时间感知</div>
-                          <div className="text-sm font-semibold text-[#EEF2FF]">未来任务不再埋在列表里</div>
-                          <div className="text-xs text-[#8F9BB3]">先看今天和即将到来，再决定要不要提前处理更远的计划。</div>
+                          <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">未来任务不再埋在列表里</div>
+                          <div className="text-xs text-[color:var(--ui-text-secondary)]">先看今天和即将到来，再决定要不要提前处理更远的计划。</div>
                         </div>
                         <div className="flex flex-wrap gap-2 text-[11px]">
                           {futureTaskSummary.overdue > 0 && <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-rose-100">逾期 {futureTaskSummary.overdue}</span>}
