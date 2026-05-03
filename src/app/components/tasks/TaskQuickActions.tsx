@@ -22,8 +22,8 @@ export default function TaskQuickActions({
   onStartAddSubtask,
 }: TaskQuickActionsProps) {
   return (
-    <div className="mb-5 rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(28,31,38,0.96),rgba(22,24,30,0.98))] p-4 space-y-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)]">
-      <div className="text-[11px] uppercase tracking-[0.14em] text-[#8A8A8A]">快捷修改</div>
+    <div className="mb-5 rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[var(--ui-card-bg)] p-4 space-y-3 shadow-[0_14px_34px_rgba(15,23,42,0.10)]">
+      <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">快捷修改</div>
 
       <div className="flex flex-wrap gap-2">
         <button onClick={() => onSetDuePreset(task.id, 'today')} className="btn btn-secondary btn-sm rounded-2xl inline-flex items-center gap-1">
@@ -57,7 +57,7 @@ export default function TaskQuickActions({
             className={`btn btn-sm rounded-2xl inline-flex items-center gap-1 ${
               task.priority === level
                 ? 'border-blue-400 text-white bg-blue-500/10'
-                : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#AAAAAA] hover:border-[#666666] hover:text-white'
+                : 'border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:text-[color:var(--ui-text-strong)]'
             }`}
           >
             <Flag className={`w-3 h-3 ${level === 2 ? 'text-red-400' : level === 1 ? 'text-yellow-400' : 'text-emerald-400'}`} />

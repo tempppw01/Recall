@@ -328,7 +328,7 @@ button {
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(110, 118, 138, 0.28);
-  color: #fff;
+  color: var(--ui-text-strong);
 }
 
 .btn-ghost {
@@ -340,7 +340,7 @@ button {
 .btn-ghost:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(110, 118, 138, 0.26);
-  color: #fff;
+  color: var(--ui-text-strong);
 }
 
 .btn-danger {

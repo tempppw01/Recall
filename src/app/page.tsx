@@ -6589,19 +6589,19 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[#222222] border-l border-[#333333] flex flex-col motion-drawer-surface">
-          <div className="h-12 sm:h-14 border-b border-[#333333] flex items-center justify-between px-3 sm:px-4 shrink-0">
+        <aside className="theme-native-surface fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[color:var(--ui-surface-1)] border-l border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface">
+          <div className="h-12 sm:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 sm:px-4 shrink-0">
             <button
               onClick={() => setSelectedTask(null)}
-              className="lg:hidden text-[#666666] hover:text-white flex items-center gap-1"
+              className="lg:hidden text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] flex items-center gap-1"
             >
               <ChevronLeft className="w-4 h-4" />
               返回
             </button>
-            <div className="flex items-center gap-2 text-[#666666]">
+            <div className="flex items-center gap-2 text-[color:var(--ui-text-muted)]">
               <span className="text-xs">创建于 {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
             </div>
-            <button onClick={() => setSelectedTask(null)} className="text-[#666666] hover:text-white">
+            <button onClick={() => setSelectedTask(null)} className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -6613,7 +6613,7 @@ const normalizeTimeoutSec = (value: number) => {
                 className={`mt-1 w-5 h-5 rounded flex items-center justify-center border ${
                   selectedTask.status === 'completed' 
                     ? 'bg-blue-500 border-blue-500 text-white' 
-                    : 'border-[#555555]'
+                    : 'border-[color:var(--ui-border-strong)]'
                 }`}
               >
                 {selectedTask.status === 'completed' && (
@@ -6622,7 +6622,7 @@ const normalizeTimeoutSec = (value: number) => {
               </button>
               <div className="min-w-0 flex-1">
                 <h3 className={`text-xl font-semibold leading-snug break-words ${
-                  selectedTask.status === 'completed' ? 'line-through text-[#666666]' : ''
+                  selectedTask.status === 'completed' ? 'line-through text-[color:var(--ui-text-faint)]' : 'text-[color:var(--ui-text-strong)]'
                 }`}>
                   {selectedTask.title}
                 </h3>
@@ -6655,8 +6655,8 @@ const normalizeTimeoutSec = (value: number) => {
             <div className="space-y-6">
               {/* 子任务管理 */}
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-[#555555] uppercase">子任务</label>
-                <div className="flex items-center gap-2 text-xs text-[#666666]">
+                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">子任务</label>
+                <div className="flex items-center gap-2 text-xs text-[color:var(--ui-text-muted)]">
                   <span>
                     {(selectedTask.subtasks || []).filter((subtask) => subtask.completed).length}
                     /{(selectedTask.subtasks || []).length} 已完成
@@ -6664,7 +6664,7 @@ const normalizeTimeoutSec = (value: number) => {
                 </div>
                 <div className="space-y-2 rounded-2xl border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] p-2.5 sm:p-3">
                   {(selectedTask.subtasks || []).length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] px-3 py-3 text-sm text-[#666666]">
+                    <div className="rounded-xl border border-dashed border-[var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-3 py-3 text-sm text-[color:var(--ui-text-muted)]">
                       还没有子任务，下面可以直接快速补一条
                     </div>
                   ) : (
@@ -6674,12 +6674,12 @@ const normalizeTimeoutSec = (value: number) => {
                           <button
                             onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
                             className={`w-4 h-4 rounded border flex items-center justify-center ${
-                              subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[#555555]'
+                              subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[color:var(--ui-border-strong)]'
                             }`}
                           >
                             {subtask.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
                           </button>
-                          <span className={`text-sm ${subtask.completed ? 'line-through text-[#666666]' : 'text-[#CCCCCC]'}`}>
+                          <span className={`text-sm ${subtask.completed ? 'line-through text-[color:var(--ui-text-faint)]' : 'text-[color:var(--ui-text-primary)]'}`}>
                             {subtask.title}
                           </span>
                         </div>
@@ -6697,7 +6697,7 @@ const normalizeTimeoutSec = (value: number) => {
                         onChange={(e) => setNewSubtaskTitle(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
                         placeholder="快速添加子任务，回车连续录入"
-                        className="flex-1 bg-transparent text-sm text-[#CCCCCC] placeholder:text-[#6B7280] focus:outline-none"
+                        className="flex-1 bg-transparent text-sm text-[color:var(--ui-text-primary)] placeholder:text-[color:var(--ui-text-faint)] focus:outline-none"
                       />
                       <button
                         onClick={addSubtask}
@@ -6711,7 +6711,7 @@ const normalizeTimeoutSec = (value: number) => {
               </div>
 
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs font-semibold text-[#555555] uppercase">
+                <label className="flex items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">
                   日期
                   {isTaskOverdue(selectedTask) && (
                     <span className="text-[11px] text-red-400">已逾期</span>
@@ -6719,7 +6719,7 @@ const normalizeTimeoutSec = (value: number) => {
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666] pointer-events-none" />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[color:var(--ui-text-muted)] pointer-events-none" />
                     <input 
                       type="date"
                       className="ui-input w-full rounded px-9 py-2 text-sm"
@@ -6776,14 +6776,14 @@ const normalizeTimeoutSec = (value: number) => {
                       ))}
                     </select>
                   </div>
-                  <div className="text-[11px] sm:text-xs text-[#666666] flex items-center">
+                  <div className="text-[11px] sm:text-xs text-[color:var(--ui-text-muted)] flex items-center">
                     当前时区：{getTimezoneLabel(selectedTimezoneOffset)}
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">提醒</label>
+                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">提醒</label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => {
@@ -6792,8 +6792,8 @@ const normalizeTimeoutSec = (value: number) => {
                     }}
                     className={`px-2 py-1 text-xs rounded border transition-colors ${
                       selectedReminderPreset === 'none'
-                        ? 'bg-[#333333] border-[#555555] text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        ? 'bg-[rgba(var(--theme-accent),0.12)] border-[rgba(var(--theme-accent),0.35)] text-[color:var(--ui-text-strong)]'
+                        : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                     }`}
                   >
                     不提醒
@@ -6806,8 +6806,8 @@ const normalizeTimeoutSec = (value: number) => {
                     }}
                     className={`px-2 py-1 text-xs rounded border transition-colors ${
                       selectedReminderPreset === '9am'
-                        ? 'bg-[#333333] border-[#555555] text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        ? 'bg-[rgba(var(--theme-accent),0.12)] border-[rgba(var(--theme-accent),0.35)] text-[color:var(--ui-text-strong)]'
+                        : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                     }`}
                   >
                     当天 9 点
@@ -6820,8 +6820,8 @@ const normalizeTimeoutSec = (value: number) => {
                     }}
                     className={`px-2 py-1 text-xs rounded border transition-colors ${
                       selectedReminderPreset === 'custom'
-                        ? 'bg-[#333333] border-[#555555] text-white'
-                        : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                        ? 'bg-[rgba(var(--theme-accent),0.12)] border-[rgba(var(--theme-accent),0.35)] text-[color:var(--ui-text-strong)]'
+                        : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                     }`}
                   >
                     指定时间
@@ -6856,8 +6856,8 @@ const normalizeTimeoutSec = (value: number) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">优先级</label>
-                <div className="text-[11px] text-[#666666]">
+                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">优先级</label>
+                <div className="text-[11px] text-[color:var(--ui-text-muted)]">
                   推荐：{getPriorityLabel(recommendedPriority)}
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -6867,8 +6867,8 @@ const normalizeTimeoutSec = (value: number) => {
                       onClick={() => updatePriority(level)}
                       className={`flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors ${
                         selectedTask.priority === level
-                          ? 'bg-[#333333] border-[#555555] text-white'
-                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                          ? 'bg-[rgba(var(--theme-accent),0.12)] border-[rgba(var(--theme-accent),0.35)] text-[color:var(--ui-text-strong)]'
+                          : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                       }`}
                     >
                       <Flag
@@ -6883,7 +6883,7 @@ const normalizeTimeoutSec = (value: number) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">分类</label>
+                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">分类</label>
                 <div className="flex flex-wrap gap-2">
                   {categoryButtons.map((category) => (
                     <button
@@ -6891,8 +6891,8 @@ const normalizeTimeoutSec = (value: number) => {
                       onClick={() => updateTask({ ...selectedTask, category })}
                       className={`text-xs px-2 py-1 rounded border transition-colors ${
                         selectedTask.category === category
-                          ? 'bg-indigo-500/20 border-indigo-400 text-white'
-                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                          ? 'bg-indigo-500/20 border-indigo-400 text-[color:var(--ui-text-strong)]'
+                          : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                       }`}
                     >
                       {category}
@@ -6902,19 +6902,19 @@ const normalizeTimeoutSec = (value: number) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#555555] uppercase">标签</label>
+                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">标签</label>
                 <div className="flex flex-wrap gap-2">
                   {selectedTask.tags?.length ? selectedTask.tags.map(tag => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => removeTagFromTask(tag)}
-                      className="text-xs bg-[#333333] px-2 py-1 rounded text-[#CCCCCC] hover:bg-[#3A3A3A]"
+                      className="text-xs bg-[var(--ui-card-bg)] border border-[color:var(--ui-border-soft)] px-2 py-1 rounded text-[color:var(--ui-text-primary)] hover:bg-[var(--ui-card-hover-bg)]"
                       title="点击移除标签"
                     >
                       #{tag}
                     </button>
-                  )) : <span className="text-sm text-[#666666]">暂无标签</span>}
+                  )) : <span className="text-sm text-[color:var(--ui-text-muted)]">暂无标签</span>}
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -6935,12 +6935,12 @@ const normalizeTimeoutSec = (value: number) => {
               </div>
 
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-[#555555] uppercase">附件</label>
+                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">附件</label>
                 <div className="space-y-2">
                   {(selectedTask.attachments || []).map((att) => (
                     <div key={att.id} className="ui-hint-panel flex items-center justify-between rounded px-3 py-2">
                       <div className="flex items-center gap-2 overflow-hidden">
-                        <Paperclip className="w-3.5 h-3.5 text-[#666666] shrink-0" />
+                        <Paperclip className="w-3.5 h-3.5 text-[color:var(--ui-text-muted)] shrink-0" />
                         <a 
                           href={att.url} 
                           target="_blank" 
@@ -6949,13 +6949,13 @@ const normalizeTimeoutSec = (value: number) => {
                         >
                           {att.filename}
                         </a>
-                        <span className="text-[10px] text-[#555555] shrink-0">
+                        <span className="text-[10px] text-[color:var(--ui-text-muted)] shrink-0">
                           ({Math.round(att.size / 1024)}KB)
                         </span>
                       </div>
                       <button
                         onClick={() => removeAttachment(att.id)}
-                        className="text-[#666666] hover:text-[#CCCCCC]"
+                        className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]"
                         title="删除附件"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -6974,10 +6974,10 @@ const normalizeTimeoutSec = (value: number) => {
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
-                      className="flex items-center gap-2 px-3 py-2 text-xs bg-[#1F1F1F] border border-[#333333] rounded text-[#CCCCCC] hover:border-[#555555] hover:text-white disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 py-2 text-xs bg-[var(--ui-card-bg)] border border-[color:var(--ui-border-soft)] rounded text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50"
                     >
                       {isUploading ? (
-                        <div className="w-3.5 h-3.5 border-2 border-[#555555] border-t-transparent rounded-full animate-spin" />
+                        <div className="w-3.5 h-3.5 border-2 border-[color:var(--ui-border-strong)] border-t-transparent rounded-full animate-spin" />
                       ) : (
                         <Upload className="w-3.5 h-3.5" />
                       )}
@@ -6991,7 +6991,7 @@ const normalizeTimeoutSec = (value: number) => {
               </div>
 
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-[#555555] uppercase">重复</label>
+                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">重复</label>
                 <div className="grid grid-cols-2 gap-2">
                   {REPEAT_OPTIONS.map((option) => (
                     <button
@@ -6999,8 +6999,8 @@ const normalizeTimeoutSec = (value: number) => {
                       onClick={() => updateRepeat(getDefaultRepeatRule(option.value, selectedTask))}
                       className={`px-2 py-1 rounded border text-xs transition-colors text-center ${
                         repeatRule.type === option.value
-                          ? 'bg-blue-500/20 border-blue-400 text-white'
-                          : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                          ? 'bg-blue-500/20 border-blue-400 text-[color:var(--ui-text-strong)]'
+                          : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                       }`}
                     >
                       {option.label}
@@ -7018,8 +7018,8 @@ const normalizeTimeoutSec = (value: number) => {
                           onClick={() => toggleRepeatWeekday(index)}
                           className={`w-8 h-8 rounded-full text-xs border transition-colors ${
                             active
-                              ? 'bg-blue-500/20 border-blue-400 text-white'
-                              : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                              ? 'bg-blue-500/20 border-blue-400 text-[color:var(--ui-text-strong)]'
+                              : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                           }`}
                         >
                           {label}
@@ -7031,7 +7031,7 @@ const normalizeTimeoutSec = (value: number) => {
 
                 {repeatRule.type === 'monthly' && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#777777]">每月</span>
+                    <span className="text-xs text-[color:var(--ui-text-muted)]">每月</span>
                     <input
                       type="number"
                       min={1}
@@ -7046,13 +7046,13 @@ const normalizeTimeoutSec = (value: number) => {
                       }
                       className="ui-input w-16 rounded px-2 py-1 text-xs"
                     />
-                    <span className="text-xs text-[#777777]">日</span>
+                    <span className="text-xs text-[color:var(--ui-text-muted)]">日</span>
                   </div>
                 )}
 
                 {repeatRule.type === 'custom' && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#777777]">每隔</span>
+                    <span className="text-xs text-[color:var(--ui-text-muted)]">每隔</span>
                     <input
                       type="number"
                       min={1}
@@ -7066,7 +7066,7 @@ const normalizeTimeoutSec = (value: number) => {
                       }
                       className="ui-input w-16 rounded px-2 py-1 text-xs"
                     />
-                    <span className="text-xs text-[#777777]">天</span>
+                    <span className="text-xs text-[color:var(--ui-text-muted)]">天</span>
                   </div>
                 )}
               </div>
@@ -7074,7 +7074,7 @@ const normalizeTimeoutSec = (value: number) => {
             </div>
           </div>
           
-          <div className="p-4 border-t border-[#333333] text-xs text-center text-[#444444]">
+          <div className="p-4 border-t border-[color:var(--ui-border-soft)] text-xs text-center text-[color:var(--ui-text-faint)]">
             ID: {selectedTask.id}
           </div>
         </aside>

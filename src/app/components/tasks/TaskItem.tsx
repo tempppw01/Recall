@@ -125,8 +125,8 @@ const TaskItem = ({
     ? formatZonedDateTime(task.dueDate, timezoneOffset)
     : '未设时间';
   const dueTextColor = task.dueDate
-    ? (isTaskOverdue(task) ? 'text-red-300' : 'text-[#aab3c5]')
-    : 'text-[#6c7382]';
+    ? (isTaskOverdue(task) ? 'text-red-400' : 'text-[color:var(--ui-text-secondary)]')
+    : 'text-[color:var(--ui-text-faint)]';
   const visibleTags = (task.tags ?? []).slice(0, 2);
   const hiddenTagCount = Math.max(0, (task.tags ?? []).length - visibleTags.length);
 
@@ -312,8 +312,8 @@ const TaskItem = ({
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
-              ? 'border-[rgba(94,94,94,0.55)] bg-[rgba(255,255,255,0.028)] shadow-[0_8px_22px_rgba(0,0,0,0.12)]'
-              : 'border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(28,31,38,0.96),rgba(22,24,30,0.98))] hover:border-[rgba(var(--theme-accent),0.24)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.22)] active:bg-[#252A33]'
+              ? 'border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] shadow-[0_8px_22px_rgba(15,23,42,0.08)]'
+              : 'border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] hover:bg-[var(--ui-card-hover-bg)] hover:border-[rgba(var(--theme-accent),0.24)] hover:shadow-[0_16px_36px_rgba(15,23,42,0.12)] active:bg-[var(--state-active-bg)]'
         } ${isSubtasksOpen ? 'shadow-[0_16px_36px_rgba(0,0,0,0.24)]' : ''}`}
         style={{
           transform: `translateX(${offsetX}px)`,
@@ -337,7 +337,7 @@ const TaskItem = ({
               className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
                 isChecked
                   ? 'bg-[rgba(var(--theme-accent),0.95)] border-[rgba(var(--theme-accent),0.95)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.14)]'
-                  : 'border-[#555555] text-transparent hover:border-[#888888]'
+                  : 'border-[color:var(--ui-border-strong)] text-transparent hover:border-[rgba(var(--theme-accent),0.45)]'
               }`}
               aria-label={isChecked ? '取消选择任务' : '选择任务'}
             >
@@ -352,7 +352,7 @@ const TaskItem = ({
             className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
               task.status === 'completed'
                 ? 'bg-[rgba(var(--theme-accent),0.9)] border-[rgba(var(--theme-accent),0.9)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.12)]'
-                : 'border-[#555555] hover:border-[rgba(var(--theme-accent),0.55)] hover:bg-[rgba(var(--theme-accent),0.08)]'
+                : 'border-[color:var(--ui-border-strong)] hover:border-[rgba(var(--theme-accent),0.55)] hover:bg-[rgba(var(--theme-accent),0.08)]'
             }`}
           >
             {task.status === 'completed' && (
@@ -370,7 +370,7 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsSubtasksOpen((prev) => !prev);
                     }}
-                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-[rgba(0,0,0,0.18)] motion-press ${isSubtasksOpen ? 'text-[#E7EEFF] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[#8f97a8] border-[color:var(--ui-border-soft)] hover:text-[#f3f6ff]'}`}
+                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-[var(--ui-card-bg)] motion-press ${isSubtasksOpen ? 'text-[color:var(--ui-text-strong)] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[color:var(--ui-text-muted)] border-[color:var(--ui-border-soft)] hover:text-[color:var(--ui-text-strong)]'}`}
                     aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
                   >
                     {isSubtasksOpen ? (
@@ -392,7 +392,7 @@ const TaskItem = ({
                       onTitleClick?.();
                     }}
                     className={`text-left text-[13px] font-medium leading-snug min-w-0 ${
-                      task.status === 'completed' ? 'text-[#707789] line-through' : 'text-[#F3F6FF]'
+                      task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                     }`}
                     title="点击编辑标题"
                   >
@@ -401,7 +401,7 @@ const TaskItem = ({
                 ) : (
                   <p
                     className={`text-[13px] font-medium leading-snug min-w-0 ${
-                      task.status === 'completed' ? 'text-[#707789] line-through' : 'text-[#F3F6FF]'
+                      task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                     }`}
                   >
                     {task.title}
@@ -415,7 +415,7 @@ const TaskItem = ({
                     draggable
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
-                    className={`transition-opacity text-[10px] text-[#7b8496] px-1.5 py-0.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(0,0,0,0.18)] cursor-grab active:cursor-grabbing touch-none hover:text-[#D6DFF7] hover:border-[#4A5572] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)] ${selected ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
+                    className={`transition-opacity text-[10px] text-[color:var(--ui-text-muted)] px-1.5 py-0.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] cursor-grab active:cursor-grabbing touch-none hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)] ${selected ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
                     onMouseDown={(event) => {
                       event.stopPropagation();
                     }}
@@ -457,7 +457,7 @@ const TaskItem = ({
                     event.stopPropagation();
                     setIsDueEditorOpen((prev) => !prev);
                   }}
-                  className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5 text-[10px] ${dueTextColor} hover:text-[#F3F6FF]`}
+                  className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5 text-[10px] ${dueTextColor} hover:text-[color:var(--ui-text-strong)]`}
                   title="点击编辑时间"
                 >
                   <Calendar className="w-3 h-3" />
@@ -465,7 +465,7 @@ const TaskItem = ({
                 </button>
                 {isDueEditorOpen && (
                   <div
-                    className="absolute left-0 top-full z-20 mt-2 w-[260px] rounded-2xl border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] p-3 shadow-[0_18px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+                    className="absolute left-0 top-full z-20 mt-2 w-[260px] rounded-2xl border border-[var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-3 shadow-[0_18px_36px_rgba(15,23,42,0.16)] backdrop-blur-xl"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="text-[10px] uppercase tracking-[0.14em] text-[#8A8A8A]">快捷设置时间</div>
@@ -473,28 +473,28 @@ const TaskItem = ({
                       <button
                         type="button"
                         onClick={() => applyPreset('today')}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[var(--state-hover-bg)]"
                       >
                         <Sunrise className="w-3 h-3" /> 今天
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('tomorrow')}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[var(--state-hover-bg)]"
                       >
                         <Sunset className="w-3 h-3" /> 明天
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('nextWeek')}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[var(--state-hover-bg)]"
                       >
                         <CalendarDays className="w-3 h-3" /> 下周一
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('tonight')}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[#D6DFF7] hover:border-[#4A5572] hover:bg-[rgba(255,255,255,0.04)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-2 py-1 text-[11px] text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[var(--state-hover-bg)]"
                       >
                         <Bell className="w-3 h-3" /> 今晚
                       </button>
@@ -510,7 +510,7 @@ const TaskItem = ({
                           applyDueDate(nextDate, editorTime);
                         }}
                         title="选择日期"
-                        className="w-full rounded-xl border border-[var(--ui-border-soft)] bg-[#111111] px-3 py-2 text-[12px] text-[#CCCCCC]"
+                        className="w-full rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-input-bg)] px-3 py-2 text-[12px] text-[color:var(--ui-text-primary)]"
                       />
                       <input
                         type="time"
@@ -521,24 +521,24 @@ const TaskItem = ({
                           applyDueDate(editorDate, nextTime);
                         }}
                         title="选择时间"
-                        className="w-full rounded-xl border border-[var(--ui-border-soft)] bg-[#111111] px-3 py-2 text-[12px] text-[#CCCCCC]"
+                        className="w-full rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-input-bg)] px-3 py-2 text-[12px] text-[color:var(--ui-text-primary)]"
                       />
                     </div>
 
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <span className="text-[10px] text-[#666666]">时区：{getTimezoneLabel(timezoneOffset)}</span>
+                      <span className="text-[10px] text-[color:var(--ui-text-muted)]">时区：{getTimezoneLabel(timezoneOffset)}</span>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={clearDueDate}
-                          className="px-2 py-1 text-[10px] rounded-full border border-[var(--ui-border-soft)] text-[#9AA3B5] hover:text-white hover:border-[#555555]"
+                          className="px-2 py-1 text-[10px] rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                         >
                           清除
                         </button>
                         <button
                           type="button"
                           onClick={() => setIsDueEditorOpen(false)}
-                          className="px-2 py-1 text-[10px] rounded-full border border-[var(--ui-border-soft)] text-[#D6DFF7] hover:border-[#555555]"
+                          className="px-2 py-1 text-[10px] rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)]"
                         >
                           完成
                         </button>
@@ -548,10 +548,10 @@ const TaskItem = ({
                 )}
               </div>
               {visibleTags.map((tag: string) => (
-                <span key={tag} className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5">#{tag}</span>
+                <span key={tag} className="text-[10px] text-[color:var(--ui-text-muted)] rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5">#{tag}</span>
               ))}
               {hiddenTagCount > 0 && (
-                <span className="text-[10px] text-[#8a92a4] rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5">+{hiddenTagCount}</span>
+                <span className="text-[10px] text-[color:var(--ui-text-muted)] rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5">+{hiddenTagCount}</span>
               )}
               <div
                 className={`mt-2 flex min-h-[24px] flex-wrap items-center gap-1.5 border-t pt-1.5 transition-[opacity,border-color] duration-[var(--motion-base)] overflow-hidden ${
@@ -577,7 +577,7 @@ const TaskItem = ({
                         className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
                           task.priority === level
                             ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
-                            : 'border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]'
+                            : 'border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
                         }`}
                         title="快捷修改优先级"
                       >
@@ -594,7 +594,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'today');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                       title="快捷设置时间：今天 09:00"
                     >
                       今天
@@ -605,7 +605,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tomorrow');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                       title="快捷设置时间：明天 09:00"
                     >
                       明天
@@ -616,7 +616,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'nextWeek');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572]"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                       title="快捷设置时间：下周一 09:00"
                     >
                       下周
@@ -627,7 +627,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tonight');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[#7C8499] hover:text-[#CDD7F3] hover:border-[#4A5572] flex items-center gap-1"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)] flex items-center gap-1"
                       title="快捷设置时间：今晚 20:00"
                     >
                       <Bell className="w-3 h-3" />
@@ -658,7 +658,7 @@ const TaskItem = ({
                         <Circle className="w-3.5 h-3.5 text-[#666f80]" />
                       )}
                     </button>
-                    <span className={subtask.completed ? 'line-through text-[#707789]' : 'text-[#D3DAE8]'}>
+                    <span className={subtask.completed ? 'line-through text-[color:var(--ui-text-faint)]' : 'text-[color:var(--ui-text-primary)]'}>
                       {subtask.title}
                     </span>
                   </div>
@@ -675,7 +675,7 @@ const TaskItem = ({
         <>
           <div className="fixed inset-0 z-50" onClick={closeContextMenu} />
           <div
-            className="fixed z-50 min-w-[180px] rounded-[22px] border border-[var(--ui-border-soft)] bg-[rgba(19,22,28,0.96)] backdrop-blur-xl shadow-[0_22px_48px_rgba(0,0,0,0.32)] overflow-hidden"
+            className="fixed z-50 min-w-[180px] rounded-[22px] border border-[var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] backdrop-blur-xl shadow-[0_22px_48px_rgba(15,23,42,0.18)] overflow-hidden"
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
             onClick={(event) => event.stopPropagation()}
           >
@@ -685,7 +685,7 @@ const TaskItem = ({
                 closeContextMenu();
                 onCopyTitle?.(task);
               }}
-              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[color:var(--ui-text-primary)] hover:bg-[var(--state-hover-bg)]"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>复制标题</span>
@@ -696,7 +696,7 @@ const TaskItem = ({
                 closeContextMenu();
                 onCopyContent?.(task);
               }}
-              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[color:var(--ui-text-primary)] hover:bg-[var(--state-hover-bg)]"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>复制完整内容</span>
@@ -707,7 +707,7 @@ const TaskItem = ({
                 closeContextMenu();
                 onTogglePinned?.(task);
               }}
-              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[#E7ECFB] hover:bg-[rgba(255,255,255,0.05)]"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[color:var(--ui-text-primary)] hover:bg-[var(--state-hover-bg)]"
             >
               <Pin className="w-3.5 h-3.5" />
               <span>{task.pinned ? '取消置顶' : '置顶'}</span>
