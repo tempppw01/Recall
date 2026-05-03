@@ -20,9 +20,13 @@ Formal release versions follow SemVer and use `package.json.version` as the sour
 6. Push the commit and the tag:
    - `git push origin main`
    - `git push origin vX.Y.Z`
+7. GitHub Actions automatically publishes the GitHub Release from:
+   - `docs/plan/releases/release_notes_vX.Y.Z.md`
+   - `.github/workflows/github-release.yml`
 
 ## Rules
 
 - Do not declare a new release only in docs.
 - Do not create a SemVer Docker tag from `main` pushes alone.
+- Do not manually edit GitHub Release text without also updating the matching release notes file.
 - Release candidates and draft scopes must stay under `docs/plan/release-candidates/`.

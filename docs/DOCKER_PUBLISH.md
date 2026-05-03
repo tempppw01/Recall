@@ -2,6 +2,8 @@
 
 GitHub Actions workflow: `.github/workflows/docker-publish.yml`
 
+GitHub Releases are published by `.github/workflows/github-release.yml` when a `vX.Y.Z` tag is pushed. The release body comes from `docs/plan/releases/release_notes_vX.Y.Z.md`.
+
 ## Trigger rules
 
 - Push to `main`
