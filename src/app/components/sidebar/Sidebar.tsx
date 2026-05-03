@@ -71,10 +71,15 @@ type SidebarAction = {
   title?: string;
   active: boolean;
   iconColor?: string;
+  accentRgb?: string;
   count?: number;
   badge?: number;
   onClick: () => void;
 };
+
+const sidebarAccentStyle = (accentRgb?: string) => ({
+  '--sidebar-item-accent': accentRgb ?? 'var(--theme-accent)',
+}) as React.CSSProperties;
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
 const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
@@ -216,6 +221,7 @@ const Sidebar = ({
       active: activeFilter === 'todo',
       onClick: () => changeFilter('todo', refreshTasks),
       iconColor: 'text-green-400',
+      accentRgb: '34, 197, 94',
     },
     calendar: {
       icon: Calendar,
@@ -224,6 +230,7 @@ const Sidebar = ({
       active: activeFilter === 'calendar',
       onClick: () => changeFilter('calendar', refreshTasks),
       iconColor: 'text-cyan-400',
+      accentRgb: '6, 182, 212',
     },
     timeline: {
       icon: History,
@@ -232,6 +239,7 @@ const Sidebar = ({
       active: activeFilter === 'timeline',
       onClick: () => changeFilter('timeline', refreshTasks),
       iconColor: 'text-violet-400',
+      accentRgb: '139, 92, 246',
     },
     review: {
       icon: ClipboardCheck,
@@ -240,6 +248,7 @@ const Sidebar = ({
       active: activeFilter === 'review',
       onClick: () => changeFilter('review', refreshTasks),
       iconColor: 'text-sky-400',
+      accentRgb: '14, 165, 233',
     },
     quadrant: {
       icon: LayoutGrid,
@@ -248,6 +257,7 @@ const Sidebar = ({
       active: activeFilter === 'quadrant',
       onClick: () => changeFilter('quadrant', refreshTasks),
       iconColor: 'text-indigo-400',
+      accentRgb: '99, 102, 241',
     },
     countdown: {
       icon: Timer,
@@ -256,6 +266,7 @@ const Sidebar = ({
       active: activeFilter === 'countdown',
       onClick: () => changeFilter('countdown', refreshCountdowns),
       iconColor: 'text-pink-400',
+      accentRgb: '236, 72, 153',
     },
     habit: {
       icon: Flame,
@@ -264,6 +275,7 @@ const Sidebar = ({
       active: activeFilter === 'habit',
       onClick: () => changeFilter('habit', refreshHabits),
       iconColor: 'text-orange-400',
+      accentRgb: '249, 115, 22',
     },
     items: {
       icon: Package2,
@@ -272,6 +284,7 @@ const Sidebar = ({
       active: activeFilter === 'items',
       onClick: () => changeFilter('items'),
       iconColor: 'text-teal-400',
+      accentRgb: '20, 184, 166',
     },
     pomodoro: {
       icon: Timer,
@@ -280,6 +293,7 @@ const Sidebar = ({
       active: activeFilter === 'pomodoro',
       onClick: () => changeFilter('pomodoro', refreshTasks),
       iconColor: 'text-red-400',
+      accentRgb: '248, 113, 113',
     },
     completed: {
       icon: CheckCircle2,
@@ -288,6 +302,7 @@ const Sidebar = ({
       active: activeFilter === 'completed',
       onClick: () => changeFilter('completed'),
       iconColor: 'text-emerald-400',
+      accentRgb: '16, 185, 129',
     },
   };
 
@@ -299,6 +314,7 @@ const Sidebar = ({
       title: '收件箱',
       active: activeFilter === 'inbox',
       iconColor: 'text-blue-400',
+      accentRgb: '59, 130, 246',
       badge: activeTaskCount,
       onClick: () => changeFilter('inbox', refreshTasks),
     },
@@ -309,6 +325,7 @@ const Sidebar = ({
       title: '今日',
       active: activeFilter === 'today',
       iconColor: 'text-yellow-400',
+      accentRgb: '234, 179, 8',
       badge: todayTaskCount,
       onClick: () => changeFilter('today', refreshTasks),
     },
@@ -319,6 +336,7 @@ const Sidebar = ({
       title: '未来 7 天',
       active: activeFilter === 'next7',
       iconColor: 'text-purple-400',
+      accentRgb: '168, 85, 247',
       badge: next7TaskCount,
       onClick: () => changeFilter('next7', refreshTasks),
     },
@@ -333,6 +351,7 @@ const Sidebar = ({
       active: activeFilter === 'agent',
       count: agentItems.length,
       iconColor: 'text-blue-400',
+      accentRgb: '96, 165, 250',
       onClick: () => changeFilter('agent'),
     },
     ...quickAccessItems,
@@ -381,8 +400,8 @@ const Sidebar = ({
           transition: isDragging ? 'none' : 'width var(--motion-base) var(--ease-standard), transform var(--motion-slow) var(--ease-emphasis)',
         }}
       >
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[rgba(var(--theme-accent),0.52)] to-transparent opacity-70" />
-        <div className="pointer-events-none absolute -left-16 top-14 h-44 w-44 rounded-full bg-[rgba(var(--theme-accent),0.12)] blur-3xl" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[rgba(var(--theme-accent),0.26)] to-transparent opacity-45" />
+        <div className="pointer-events-none absolute -left-16 top-14 h-44 w-44 rounded-full bg-[rgba(var(--theme-accent),0.045)] blur-3xl" />
         {isSidebarCollapsed ? (
           <div className="relative z-10 hidden h-full flex-col lg:flex">
             <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-2.5">
@@ -405,9 +424,10 @@ const Sidebar = ({
                     key={item.key}
                     type="button"
                     onClick={item.onClick}
+                    style={sidebarAccentStyle(item.accentRgb)}
                     className={`mx-2 flex w-[calc(100%-1rem)] justify-center rounded-2xl border px-0 py-2.5 transition-all ${
                       item.active
-                        ? 'border-[rgba(var(--theme-accent),0.3)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]'
+                        ? 'border-[rgba(var(--sidebar-item-accent),0.3)] bg-[rgba(var(--sidebar-item-accent),0.12)] text-[color:var(--ui-text-strong)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]'
                         : 'border-transparent bg-transparent text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
                     }`}
                     title={item.title ?? item.label}
@@ -456,6 +476,7 @@ const Sidebar = ({
                     count={agentItems.length}
                     active={activeFilter === 'agent'}
                     onClick={() => changeFilter('agent')}
+                    accentRgb="96, 165, 250"
                   />
                 </div>
 
@@ -480,6 +501,7 @@ const Sidebar = ({
                           active={item.active}
                           onClick={item.onClick}
                           iconColor={item.iconColor}
+                          accentRgb={item.accentRgb}
                           badge={item.badge}
                         />
                       ))}
@@ -517,9 +539,10 @@ const Sidebar = ({
                                   <button
                                     key={key}
                                     onClick={item.onClick}
+                                    style={sidebarAccentStyle(item.accentRgb)}
                                     className={`group/sidebar-tool sidebar-nav-item relative flex min-h-[40px] w-full items-center gap-1.5 overflow-hidden rounded-[17px] border px-1.5 py-1.5 text-left transition-all ${
                                       item.active
-                                        ? 'is-active border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.13)] text-[color:var(--ui-text-strong)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]'
+                                        ? 'is-active border-[rgba(var(--sidebar-item-accent),0.28)] bg-[rgba(var(--sidebar-item-accent),0.12)] text-[color:var(--ui-text-strong)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]'
                                         : 'border-transparent bg-transparent text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
                                     } ${draggingToolKey === key ? 'opacity-60' : ''}`}
                                     title={item.label}
@@ -532,7 +555,7 @@ const Sidebar = ({
                                   >
                                     <div className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border transition-all ${
                                       item.active
-                                        ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)]'
+                                        ? 'border-[rgba(var(--sidebar-item-accent),0.28)] bg-[rgba(var(--sidebar-item-accent),0.12)]'
                                         : 'border-[color:var(--ui-border-soft)]/70 bg-[color:var(--ui-card-bg)]/60 group-hover/sidebar-tool:border-[color:var(--ui-border-strong)] group-hover/sidebar-tool:bg-[color:var(--ui-card-hover-bg)]'
                                     }`}>
                                       <Icon className={`h-3.5 w-3.5 ${item.iconColor ?? ''}`} />
@@ -548,7 +571,7 @@ const Sidebar = ({
 
                                     {item.count ? (
                                       <span className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
-                                        item.active ? 'bg-[rgba(var(--theme-accent),0.12)] text-[color:var(--ui-text-secondary)]' : 'bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'
+                                        item.active ? 'bg-[rgba(var(--sidebar-item-accent),0.12)] text-[color:var(--ui-text-secondary)]' : 'bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'
                                       }`}>
                                         {item.count > 99 ? '99+' : item.count}
                                       </span>
@@ -578,7 +601,7 @@ const Sidebar = ({
             className="group absolute right-0 top-0 hidden h-full w-1 cursor-col-resize lg:flex"
             onMouseDown={handleMouseDown}
           >
-            <div className={`h-full w-full transition-colors ${isDragging ? 'bg-blue-500' : 'bg-transparent group-hover:bg-white/10'}`} />
+            <div className={`h-full w-full transition-colors ${isDragging ? 'bg-[rgb(var(--theme-accent))]' : 'bg-transparent group-hover:bg-white/10'}`} />
             <div className={`absolute right-0 top-1/2 flex h-8 w-4 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded bg-[color:var(--ui-surface-2)] transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
               <GripVertical className="h-3 w-3 text-[color:var(--ui-text-faint)]" />
             </div>

@@ -106,7 +106,7 @@ export default function PomodoroTimer() {
             <div
               className="absolute inset-0 rounded-full"
               style={{
-                background: `conic-gradient(#3B82F6 ${state.progress * 3.6}deg, #2A2A2A 0deg)`,
+                background: `conic-gradient(#F87171 ${state.progress * 3.6}deg, #2A2A2A 0deg)`,
               }}
             />
             <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-[#1A1A1A] text-3xl font-semibold">
@@ -120,7 +120,7 @@ export default function PomodoroTimer() {
                 void ensurePomodoroAudioReady();
                 toggleRunning();
               }}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+              className="flex items-center gap-2 rounded-lg bg-[rgba(248,113,113,0.92)] px-4 py-2 text-sm font-medium text-white shadow-[0_12px_26px_rgba(248,113,113,0.18)] transition-colors hover:bg-[rgba(239,68,68,0.96)]"
             >
               {state.isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {state.isRunning ? '暂停' : state.hasActiveSession ? '继续' : '开始'}
@@ -153,7 +153,7 @@ export default function PomodoroTimer() {
                 {dateRecords.map((record) => (
                   <div key={record.id} className="group flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-400">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/15 text-red-300">
                         <TimerIcon className="h-4 w-4" />
                       </div>
                       <div className="text-sm text-[#CCCCCC]">

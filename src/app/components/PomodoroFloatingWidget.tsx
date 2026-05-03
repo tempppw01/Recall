@@ -54,12 +54,12 @@ const DRAG_THRESHOLD = 6;
 
 const PHASE_THEMES: Record<PomodoroPhase, PhaseTheme> = {
   focus: {
-    accent: '#78A6FF',
-    accentSoft: 'rgba(120,166,255,0.78)',
-    border: 'rgba(120,166,255,0.22)',
-    glow: 'rgba(59,130,246,0.16)',
-    progress: 'linear-gradient(180deg, rgba(128,179,255,0.96), rgba(59,130,246,0.82))',
-    surface: 'rgba(14,20,34,0.88)',
+    accent: '#F87171',
+    accentSoft: 'rgba(248,113,113,0.78)',
+    border: 'rgba(248,113,113,0.24)',
+    glow: 'rgba(248,113,113,0.16)',
+    progress: 'linear-gradient(180deg, rgba(252,165,165,0.96), rgba(239,68,68,0.82))',
+    surface: 'rgba(34,18,20,0.9)',
   },
   shortBreak: {
     accent: '#55D99A',
