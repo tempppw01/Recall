@@ -2516,12 +2516,19 @@ const normalizeTimeoutSec = (value: number) => {
       next.tags = changes.tags.filter(Boolean);
     }
     if (Array.isArray(changes.subtasks)) {
+      const existingSubtasksByTitle = new Map(
+        (task.subtasks ?? []).map((subtask) => [subtask.title.trim().toLowerCase(), subtask]),
+      );
       next.subtasks = changes.subtasks
-        .map((subtask) => ({
-          id: createId(),
-          title: subtask.title?.trim() || '',
-          completed: false,
-        }))
+        .map((subtask) => {
+          const title = subtask.title?.trim() || '';
+          const existing = existingSubtasksByTitle.get(title.toLowerCase());
+          return {
+            id: existing?.id ?? createId(),
+            title,
+            completed: existing?.completed ?? false,
+          };
+        })
         .filter((subtask) => subtask.title.length > 0);
     }
     if (changes.repeat === null) {
@@ -2772,7 +2779,7 @@ const normalizeTimeoutSec = (value: number) => {
                 item: nextItem,
               };
             })
-            .filter((decision: AgentDecision) => ['create', 'reuse', 'skip', 'blocked'].includes(decision.type))
+            .filter((decision: AgentDecision) => ['create', 'update', 'delete', 'reuse', 'skip', 'blocked'].includes(decision.type))
         : [];
       const createDecisionItems = nextDecisions
         .filter((decision) => decision.type === 'create' && decision.item)
@@ -2945,21 +2952,9 @@ const normalizeTimeoutSec = (value: number) => {
         return next;
       });
     }
-    setTasks((prev) => {
-      if (prev.some((existing) => existing.id === task.id)) return prev;
-      return [task, ...prev];
-    });
-
-    const persistTask = () => {
-      taskStore.add(task);
-      refreshTasks();
-    };
-
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(persistTask, { timeout: 800 });
-    } else {
-      setTimeout(persistTask, 0);
-    }
+    taskStore.add(task);
+    refreshTasks();
+    syncToPg('tasks', 'POST', task);
   };
 
   const handleAddAllAgentItems = () => {
@@ -2979,22 +2974,11 @@ const normalizeTimeoutSec = (value: number) => {
         .forEach((decision) => next.add(decision.id));
       return next;
     });
-    setTasks((prev) => {
-      const existingIds = new Set(prev.map((task) => task.id));
-      const uniqueTasks = newTasks.filter((task) => !existingIds.has(task.id));
-      return [...uniqueTasks, ...prev];
+    newTasks.forEach((task) => {
+      taskStore.add(task);
+      syncToPg('tasks', 'POST', task);
     });
-
-    const persistTasks = () => {
-      newTasks.forEach((task) => taskStore.add(task));
-      refreshTasks();
-    };
-
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(persistTasks, { timeout: 1200 });
-    } else {
-      setTimeout(persistTasks, 0);
-    }
+    refreshTasks();
   };
 
   const handleApplyAgentDecision = (decision: AgentDecision) => {
@@ -4424,7 +4408,7 @@ const normalizeTimeoutSec = (value: number) => {
     : activeFilter === 'pomodoro'
     ? '用专注与休息节奏推进当前任务'
     : activeFilter === 'agent'
-    ? '输入目标、约束或待办，整理为可执行清单'
+    ? ''
     : activeFilter === 'completed'
     ? '查看已经完成的事项，顺手清理历史任务'
     : activeFilter === 'category'
@@ -5410,8 +5394,6 @@ const normalizeTimeoutSec = (value: number) => {
                         管理助手
                       </button>
                     </div>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.10)] text-[color:var(--ui-text-primary)]">todo-agent</span>
-                    <span className="hidden sm:inline text-xs text-[color:var(--ui-text-muted)]">先对照计划，再整理成执行清单</span>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     <div className="flex items-center gap-1">
@@ -5476,10 +5458,6 @@ const normalizeTimeoutSec = (value: number) => {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-3 rounded-xl border border-dashed border-violet-400/30 bg-gradient-to-r from-violet-500/15 to-cyan-500/15 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] shadow-[0_0_24px_rgba(99,102,241,0.16)]">
-                  小提示：可以直接输入目标、约束或截止时间，我会按执行顺序帮你拆解。
                 </div>
 
                 {showMemoryPanel && (
