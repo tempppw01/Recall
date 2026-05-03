@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
@@ -270,7 +270,9 @@ const SettingsModal = ({
   webdavPath,
   aiRetentionDays,
 }: SettingsModalProps) => {
+  const [showAutoSavedNotice, setShowAutoSavedNotice] = useState(false);
   const firstAutoSaveRef = useRef(true);
+  const autoSavedNoticeTimerRef = useRef<number | null>(null);
   const lastAutoFetchedModelKeyRef = useRef<string | null>(null);
   const hasApiKey = Boolean(apiKey.trim());
 
@@ -334,6 +336,14 @@ const SettingsModal = ({
         accentTheme,
         gradientTheme,
       });
+      setShowAutoSavedNotice(true);
+      if (autoSavedNoticeTimerRef.current) {
+        window.clearTimeout(autoSavedNoticeTimerRef.current);
+      }
+      autoSavedNoticeTimerRef.current = window.setTimeout(() => {
+        setShowAutoSavedNotice(false);
+        autoSavedNoticeTimerRef.current = null;
+      }, 1600);
     }, 220);
 
     return () => window.clearTimeout(timer);
@@ -375,6 +385,11 @@ const SettingsModal = ({
   useEffect(() => {
     if (!showSettings) {
       firstAutoSaveRef.current = true;
+      setShowAutoSavedNotice(false);
+      if (autoSavedNoticeTimerRef.current) {
+        window.clearTimeout(autoSavedNoticeTimerRef.current);
+        autoSavedNoticeTimerRef.current = null;
+      }
     }
   }, [showSettings]);
 
@@ -391,12 +406,9 @@ const SettingsModal = ({
           <div>
             <h2 className="ui-modal-title">设置</h2>
             <p className="ui-modal-subtitle">
-              把 AI、同步、通知、存储和外观放在这里，修改后会自动保存。
+              把 AI、同步、通知、存储和外观放在这里。
             </p>
           </div>
-          <span className="ui-badge rounded-full px-2.5 py-1 text-[10px]">
-            自动保存
-          </span>
         </div>
 
         <div className="space-y-3.5 sm:space-y-4 text-sm">
@@ -659,7 +671,7 @@ const SettingsModal = ({
             <div className="grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 grid-rows-[0fr] opacity-85">
               <div className="space-y-4 overflow-hidden mt-3">
                 <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs">
-                  用于连接远程服务，当前仍保存在浏览器本地。修改后会自动保存。
+                  用于连接远程服务，当前仍保存在浏览器本地。
                 </div>
 
                 <PgSettings
@@ -748,7 +760,7 @@ const SettingsModal = ({
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="ui-section-label text-[11px] sm:text-xs">附件存储（WebDAV）</div>
                     <button
                       type="button"
@@ -776,9 +788,9 @@ const SettingsModal = ({
                           alert(`请求失败: ${String(error)}`);
                         }
                       }}
-                      className="text-[10px] text-[color:rgb(var(--theme-accent))] hover:brightness-110"
+                      className="rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.08)] px-2.5 py-1 text-[10px] text-[color:rgb(var(--theme-accent))] transition-all hover:border-[rgba(var(--theme-accent),0.42)] hover:bg-[rgba(var(--theme-accent),0.12)] hover:brightness-110"
                     >
-                      测试连接
+                      测试 WebDAV
                     </button>
                   </div>
                   <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs">
@@ -887,16 +899,13 @@ const SettingsModal = ({
             </div>
           </details>
 
-          <div className="flex justify-end gap-3 mt-5">
-            <button
-              onClick={() => setShowSettings(false)}
-              className="btn btn-ghost btn-md rounded-2xl"
-            >
-              关闭
-            </button>
-            <div className="ui-note px-3 py-2 text-[12px] sm:text-xs">已启用自动保存</div>
-          </div>
         </div>
+
+        {showAutoSavedNotice && (
+          <div className="pointer-events-none sticky bottom-3 ml-auto mt-4 w-fit rounded-2xl border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-3 py-2 text-[12px] text-[color:var(--ui-text-strong)] opacity-100 shadow-[0_18px_40px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all duration-200">
+            已自动保存
+          </div>
+        )}
       </div>
     </div>
   );

@@ -60,15 +60,15 @@ ${data.details || ''}`);
 
   return (
     <div className="space-y-3.5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="text-[11px] sm:text-xs text-[#AAB3C6] uppercase tracking-[0.12em]">PostgreSQL 连接</div>
         <button
           type="button"
           onClick={handleTest}
           disabled={testing}
-          className="text-[10px] rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-blue-300 hover:text-blue-200 hover:border-blue-400/40 disabled:opacity-50"
+          className="text-[10px] rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.08)] px-2.5 py-1 text-blue-300 transition-all hover:border-blue-400/40 hover:bg-[rgba(var(--theme-accent),0.12)] hover:text-blue-200 disabled:opacity-50"
         >
-          {testing ? '测试中...' : '测试连接'}
+          {testing ? '测试中...' : '测试 PostgreSQL'}
         </button>
       </div>
       <div className="grid grid-cols-2 gap-3">
