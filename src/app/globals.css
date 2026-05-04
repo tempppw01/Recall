@@ -3,7 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --background: #1a1a1a;
+  color-scheme: dark;
+  --font-sans: "Alibaba PuHuiTi 3.0", "Alibaba PuHuiTi", "阿里巴巴普惠体", "HarmonyOS Sans SC", "MiSans", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --font-display: "YouSheBiaoTiHei", "优设标题黑", "Alibaba PuHuiTi 3.0", "Alibaba PuHuiTi", "阿里巴巴普惠体", "HarmonyOS Sans SC", "MiSans", "PingFang SC", sans-serif;
+  --background: #0e1117;
   --foreground: #ffffff;
   --sidebar: #222222;
   --border: #333333;
@@ -15,30 +18,30 @@
   --theme-grad-end: 168, 85, 247;
 
   /* Semantic UI surfaces (v1.0 UI system baseline) */
-  --ui-surface-0: #14161b;
-  --ui-surface-1: #1b1d22;
-  --ui-surface-2: #22252c;
-  --ui-border-strong: rgba(110, 118, 138, 0.22);
-  --ui-border-soft: rgba(110, 118, 138, 0.14);
-  --ui-header-bg: rgba(15, 17, 22, 0.52);
-  --ui-footer-bg: rgba(30, 33, 40, 0.78);
-  --ui-overlay-bg: rgba(8, 10, 16, 0.72);
-  --ui-modal-bg: #1b1d22;
-  --ui-card-bg: rgba(255, 255, 255, 0.022);
-  --ui-card-hover-bg: rgba(255, 255, 255, 0.05);
-  --ui-input-bg: rgba(26, 26, 26, 0.82);
-  --ui-text-strong: #f3f6ff;
-  --ui-text-primary: #dce3f4;
-  --ui-text-secondary: #8f99ad;
-  --ui-text-muted: #697386;
-  --ui-text-faint: #565f72;
-  --ui-icon-muted: #9aa3b2;
-  --glass-panel-bg: linear-gradient(180deg, rgba(34, 34, 34, 0.82), rgba(24, 24, 24, 0.72));
-  --glass-panel-soft-bg: linear-gradient(180deg, rgba(29, 29, 29, 0.78), rgba(23, 23, 23, 0.66));
-  --glass-card-bg: rgba(255, 255, 255, 0.022);
-  --btn-secondary-bg: rgba(255, 255, 255, 0.04);
-  --btn-secondary-text: #d6d6d6;
-  --btn-ghost-text: #a0a0a0;
+  --ui-surface-0: #0e1117;
+  --ui-surface-1: #141923;
+  --ui-surface-2: #1b2230;
+  --ui-border-strong: rgba(132, 147, 178, 0.24);
+  --ui-border-soft: rgba(132, 147, 178, 0.13);
+  --ui-header-bg: rgba(9, 12, 18, 0.7);
+  --ui-footer-bg: rgba(15, 19, 28, 0.88);
+  --ui-overlay-bg: rgba(4, 7, 12, 0.76);
+  --ui-modal-bg: #151a24;
+  --ui-card-bg: rgba(148, 163, 184, 0.045);
+  --ui-card-hover-bg: rgba(148, 163, 184, 0.082);
+  --ui-input-bg: rgba(7, 11, 18, 0.76);
+  --ui-text-strong: #f7f9ff;
+  --ui-text-primary: #dce6f7;
+  --ui-text-secondary: #9aa8bf;
+  --ui-text-muted: #75839a;
+  --ui-text-faint: #5d6a80;
+  --ui-icon-muted: #a5b0c2;
+  --glass-panel-bg: linear-gradient(180deg, rgba(22, 27, 38, 0.9), rgba(12, 16, 24, 0.78));
+  --glass-panel-soft-bg: linear-gradient(180deg, rgba(21, 26, 36, 0.84), rgba(13, 17, 25, 0.72));
+  --glass-card-bg: rgba(148, 163, 184, 0.045);
+  --btn-secondary-bg: rgba(148, 163, 184, 0.075);
+  --btn-secondary-text: #d8e1f1;
+  --btn-ghost-text: #a5b0c2;
 
   /* Motion tokens */
   --motion-fast: 140ms;
@@ -87,6 +90,7 @@
 body {
   color: var(--foreground);
   background: var(--background);
+  font-family: var(--font-sans);
   min-height: 100vh;
   padding-bottom: env(safe-area-inset-bottom);
   transition: background-color 0.2s ease, color 0.2s ease, filter 0.2s ease;
@@ -129,6 +133,7 @@ body > * {
 
 
 body.theme-light {
+  color-scheme: light;
   filter: invert(1) hue-rotate(180deg);
 }
 
@@ -171,6 +176,14 @@ select,
 textarea,
 button {
   font: inherit;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
 }
 
 button {
@@ -471,6 +484,7 @@ button {
 .ui-input,
 .ui-select,
 .ui-textarea {
+  color-scheme: dark;
   width: 100%;
   border-radius: 1rem;
   border: 1px solid var(--ui-border-soft);
@@ -511,6 +525,42 @@ button {
   outline: none;
   border-color: rgba(var(--theme-accent), 0.48);
   box-shadow: 0 0 0 4px rgba(var(--theme-accent), 0.1);
+}
+
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'],
+.ui-input[type='date'],
+.ui-input[type='time'],
+.ui-input[type='datetime-local'] {
+  color-scheme: dark;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    var(--ui-input-bg);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  opacity: 0.72;
+  filter: invert(0.88) sepia(0.12) saturate(1.35) hue-rotate(180deg);
+  cursor: pointer;
+}
+
+body.theme-light .theme-native-surface input[type='date'],
+body.theme-light .theme-native-surface input[type='time'],
+body.theme-light .theme-native-surface input[type='datetime-local'],
+body.theme-light .theme-native-surface .ui-input,
+body.theme-light .theme-native-surface .ui-select,
+body.theme-light .theme-native-surface .ui-textarea {
+  color-scheme: light;
+}
+
+body.theme-light .theme-native-surface input[type='date']::-webkit-calendar-picker-indicator,
+body.theme-light .theme-native-surface input[type='time']::-webkit-calendar-picker-indicator,
+body.theme-light .theme-native-surface input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.66;
 }
 
 .ui-chip {
