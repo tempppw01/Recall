@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Crosshair, MapPin, Search } from 'lucide-react';
 
 type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
@@ -20,6 +20,7 @@ type CalendarTopPanelProps = {
   isSearchingWeatherCity: boolean;
   weatherCities: WeatherCity[];
   weatherCitySearchMessage?: string;
+  hasSelectedCity: boolean;
   selectedCalendarLabel: string;
   cityLabel: string;
   weatherLoading: boolean;
@@ -52,6 +53,7 @@ export default function CalendarTopPanel({
   isSearchingWeatherCity,
   weatherCities,
   weatherCitySearchMessage,
+  hasSelectedCity,
   selectedCalendarLabel,
   cityLabel,
   weatherLoading,
@@ -70,8 +72,16 @@ export default function CalendarTopPanel({
   onRetryLocate,
   onSelectCity,
 }: CalendarTopPanelProps) {
+  const [isEditingCity, setIsEditingCity] = useState(false);
+  const showCitySearch = !hasSelectedCity || isEditingCity;
   const showCityDropdown =
-    isSearchingWeatherCity || weatherCities.length > 0 || Boolean(weatherCitySearchMessage);
+    showCitySearch && (isSearchingWeatherCity || weatherCities.length > 0 || Boolean(weatherCitySearchMessage));
+
+  useEffect(() => {
+    if (hasSelectedCity) {
+      setIsEditingCity(false);
+    }
+  }, [hasSelectedCity, cityLabel]);
 
   return (
     <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-5">
@@ -112,30 +122,31 @@ export default function CalendarTopPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <div className="relative">
-          <div className="glass-panel-soft flex items-center gap-2 px-3.5 py-3 rounded-2xl">
-            <Search className="w-4 h-4 text-[#7A7A7A]" />
-            <input
-              value={calendarCityInput}
-              onChange={(event) => onCityInputChange(event.target.value)}
-              onFocus={() => onCityInputFocus?.()}
-              onBlur={() => onCityInputBlur?.()}
-              placeholder="搜索城市：例如 北京、上海、Tokyo"
-              className="w-full bg-transparent text-sm text-[#DDDDDD] placeholder:text-[#5F5F5F] outline-none"
-            />
-            {onLocateCity && (
-              <button
-                type="button"
-                onClick={onLocateCity}
-                className="btn btn-sm btn-ghost shrink-0"
-                title="定位当前城市"
-              >
-                <Crosshair className="w-3.5 h-3.5" />
-                {isLocatingCity ? '定位中…' : '定位'}
-              </button>
-            )}
-          </div>
+      <div className={showCitySearch ? 'grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid gap-4'}>
+        {showCitySearch && (
+          <div className="relative">
+            <div className="glass-panel-soft flex items-center gap-2 px-3.5 py-3 rounded-2xl">
+              <Search className="w-4 h-4 text-[#7A7A7A]" />
+              <input
+                value={calendarCityInput}
+                onChange={(event) => onCityInputChange(event.target.value)}
+                onFocus={() => onCityInputFocus?.()}
+                onBlur={() => onCityInputBlur?.()}
+                placeholder="搜索城市：例如 北京、上海、Tokyo"
+                className="w-full bg-transparent text-sm text-[#DDDDDD] placeholder:text-[#5F5F5F] outline-none"
+              />
+              {onLocateCity && (
+                <button
+                  type="button"
+                  onClick={onLocateCity}
+                  className="btn btn-sm btn-ghost shrink-0"
+                  title="定位当前城市"
+                >
+                  <Crosshair className="w-3.5 h-3.5" />
+                  {isLocatingCity ? '定位中…' : '定位'}
+                </button>
+              )}
+            </div>
           {locateErrorMessage && (
             <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
               <span>{locateErrorMessage}</span>
@@ -159,7 +170,10 @@ export default function CalendarTopPanel({
                 weatherCities.map((city) => (
                   <button
                     key={city.id}
-                    onClick={() => onSelectCity(city)}
+                    onClick={() => {
+                      onSelectCity(city);
+                      setIsEditingCity(false);
+                    }}
                     className="w-full text-left px-3 py-2.5 text-sm text-[#CCCCCC] hover:bg-[#23262E] transition-colors"
                   >
                     {[city.name, city.admin1, city.country].filter(Boolean).join(' · ')}
@@ -170,7 +184,8 @@ export default function CalendarTopPanel({
               ) : null}
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         <div className="glass-panel-soft rounded-2xl px-4 py-3.5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -194,7 +209,45 @@ export default function CalendarTopPanel({
               </>
             )}
           </div>
+          {hasSelectedCity && (
+            <div className="flex w-full flex-wrap justify-end gap-2 border-t border-[color:var(--ui-border-soft)] pt-2 sm:w-auto sm:border-t-0 sm:pt-0">
+              <button
+                type="button"
+                onClick={() => setIsEditingCity(true)}
+                className="btn btn-sm btn-ghost"
+                title="更换天气城市"
+              >
+                更换
+              </button>
+              {onLocateCity && (
+                <button
+                  type="button"
+                  onClick={onLocateCity}
+                  className="btn btn-sm btn-ghost"
+                  title="重新定位当前城市"
+                >
+                  <Crosshair className="w-3.5 h-3.5" />
+                  {isLocatingCity ? '定位中…' : '定位'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
+
+        {!showCitySearch && locateErrorMessage && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+            <span>{locateErrorMessage}</span>
+            {onRetryLocate && (
+              <button
+                type="button"
+                onClick={onRetryLocate}
+                className="btn btn-sm btn-ghost shrink-0"
+              >
+                重试定位
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

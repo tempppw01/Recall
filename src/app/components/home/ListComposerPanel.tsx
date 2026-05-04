@@ -62,11 +62,17 @@ export default function ListComposerPanel({
   onTaskGroupModeChange,
 }: ListComposerPanelProps) {
   const [randomPlaceholder, setRandomPlaceholder] = useState(TASK_PLACEHOLDERS[0]);
+  const [isMetaPanelOpen, setIsMetaPanelOpen] = useState(false);
 
   useEffect(() => {
     const index = Math.floor(Math.random() * TASK_PLACEHOLDERS.length);
     setRandomPlaceholder(TASK_PLACEHOLDERS[index]);
   }, []);
+
+  const appendInputToken = (token: string) => {
+    const nextInput = `${input.trim()}${input.trim() ? ' ' : ''}${token}`.trim();
+    setInput(nextInput);
+  };
 
   return (
     <div className="theme-native-surface px-3 sm:px-6 pt-4 sm:pt-5">
@@ -167,10 +173,54 @@ export default function ListComposerPanel({
                   className="min-w-[12rem] flex-1 border-none bg-transparent text-sm text-[color:var(--ui-text-strong)] outline-none placeholder:text-[color:var(--ui-text-muted)]"
                   disabled={loading}
                 />
-                <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  备注 / 日期 / 优先级 / 标签
-                </span>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsMetaPanelOpen((previous) => !previous);
+                    }}
+                    className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 text-[11px] text-[color:var(--ui-text-muted)] transition-colors hover:border-[rgba(var(--theme-accent),0.32)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                    aria-expanded={isMetaPanelOpen}
+                    aria-label="打开任务属性快捷项"
+                    title="备注 / 日期 / 优先级 / 标签"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    备注 / 日期 / 优先级 / 标签
+                  </button>
+
+                  {isMetaPanelOpen && (
+                    <div
+                      className="absolute right-0 top-full z-30 mt-2 w-[min(19rem,calc(100vw-2rem))] rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2.5 shadow-[0_18px_38px_rgba(0,0,0,0.22)] backdrop-blur-xl"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[
+                          ['高', '高优先级'],
+                          ['中', '中优先级'],
+                          ['低', '低优先级'],
+                          ['标签', '#Recall'],
+                          ['今天', '今天'],
+                          ['明天', '明天'],
+                          ['今晚', '今晚'],
+                          ['备注', '备注：'],
+                        ].map(([label, token]) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => {
+                              appendInputToken(token);
+                              setIsMetaPanelOpen(false);
+                            }}
+                            className="h-7 rounded-xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               {input && (
                 <button onClick={onMagicSubmit} className="btn btn-primary btn-md rounded-2xl shadow-[0_10px_24px_rgba(37,99,235,0.28)]">

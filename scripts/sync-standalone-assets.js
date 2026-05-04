@@ -14,8 +14,9 @@ const copyRecursive = (source, destination) => {
   for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
     const sourcePath = path.join(source, entry.name);
     const destinationPath = path.join(destination, entry.name);
+    const sourceStats = fs.statSync(sourcePath);
 
-    if (entry.isDirectory()) {
+    if (sourceStats.isDirectory()) {
       copyRecursive(sourcePath, destinationPath);
       continue;
     }

@@ -468,8 +468,8 @@ const Sidebar = ({
                 </div>
               </div>
 
-              <nav className="sidebar-nav space-y-2 px-2.5 pb-4">
-                <div className="sidebar-section rounded-[24px] p-1.5">
+              <nav className="sidebar-nav space-y-1.5 px-2.5 pb-4">
+                <div className="sidebar-section rounded-[18px] p-1">
                   <SidebarItem
                     icon={Command}
                     label="AI 助手"
@@ -480,11 +480,11 @@ const Sidebar = ({
                   />
                 </div>
 
-                <div className="sidebar-section rounded-[24px] p-1.5">
+                <div className="sidebar-section rounded-[18px] p-1">
                   <button
                     type="button"
                     onClick={() => setIsQuickAccessOpen((previous) => !previous)}
-                    className="sidebar-section-toggle flex w-full items-center justify-between rounded-[18px] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
+                    className="sidebar-section-toggle flex w-full items-center justify-between rounded-[14px] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
                     aria-expanded={isQuickAccessOpen}
                     aria-label="切换快捷入口"
                   >
@@ -509,11 +509,11 @@ const Sidebar = ({
                   )}
                 </div>
 
-                <div className="sidebar-section rounded-[26px] p-1.5">
+                <div className="sidebar-section rounded-[18px] p-1">
                   <button
                     type="button"
                     onClick={() => setIsToolsOpen((previous) => !previous)}
-                    className="sidebar-section-toggle flex w-full items-center justify-between rounded-[18px] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
+                    className="sidebar-section-toggle flex w-full items-center justify-between rounded-[14px] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
                     aria-expanded={isToolsOpen}
                     aria-label="切换功能导航"
                   >
@@ -521,14 +521,14 @@ const Sidebar = ({
                     {isToolsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                   {isToolsOpen && (
-                    <div className="space-y-2 px-1 pb-1">
+                    <div className="space-y-1 px-1 pb-1">
                       {toolGroups.map((group) => {
                         const groupKeys = toolOrder.filter((key) => group.keys.includes(key));
                         if (groupKeys.length === 0) return null;
 
                         return (
-                          <div key={group.title} className="rounded-[20px] px-1 py-1.5">
-                            <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-faint)]">
+                          <div key={group.title} className="rounded-[16px] px-0.5 py-1">
+                            <div className="mb-1 px-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-faint)]">
                               {group.title}
                             </div>
                             <div className={`grid ${toolGridColumnsClass} gap-1`}>

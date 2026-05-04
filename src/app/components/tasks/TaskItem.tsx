@@ -129,6 +129,15 @@ const TaskItem = ({
     : 'text-[color:var(--ui-text-faint)]';
   const visibleTags = (task.tags ?? []).slice(0, 2);
   const hiddenTagCount = Math.max(0, (task.tags ?? []).length - visibleTags.length);
+  const taskTone = isCompleted
+    ? 'rgba(148,163,184,0.75)'
+    : isTaskOverdue(task)
+      ? 'rgba(248,113,113,0.92)'
+      : task.priority === 2
+        ? 'rgba(251,146,60,0.92)'
+        : task.priority === 1
+          ? 'rgba(250,204,21,0.86)'
+          : 'rgba(52,211,153,0.82)';
 
   useEffect(() => {
     setOffsetX(0);
@@ -308,21 +317,25 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative overflow-visible p-2.5 sm:p-3 rounded-[24px] cursor-pointer motion-card motion-press motion-glow ui-state-hover ui-state-press border ${
+        className={`group relative overflow-visible p-2.5 pl-3.5 sm:p-3 sm:pl-4 rounded-[20px] cursor-pointer motion-card motion-press ui-state-hover ui-state-press border ${
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
-              ? 'border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] shadow-[0_8px_22px_rgba(15,23,42,0.08)]'
-              : 'border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] hover:bg-[var(--ui-card-hover-bg)] hover:border-[rgba(var(--theme-accent),0.24)] hover:shadow-[0_16px_36px_rgba(15,23,42,0.12)] active:bg-[var(--state-active-bg)]'
+              ? 'border-[color:var(--ui-border-soft)] bg-[rgba(148,163,184,0.035)] shadow-[0_6px_18px_rgba(15,23,42,0.06)]'
+              : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] hover:bg-[var(--ui-card-hover-bg)] hover:border-[rgba(var(--theme-accent),0.2)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] active:bg-[var(--state-active-bg)]'
         } ${isSubtasksOpen ? 'shadow-[0_16px_36px_rgba(0,0,0,0.24)]' : ''}`}
         style={{
           transform: `translateX(${offsetX}px)`,
           transition: isSwiping ? 'none' : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
+        <div
+          className="absolute bottom-3 left-1.5 top-3 w-1 rounded-full"
+          style={{ background: taskTone, boxShadow: `0 0 14px ${taskTone}` }}
+        />
         {subtaskTotal > 0 && (
           <div
-            className="absolute inset-y-0 left-0 rounded-l-2xl bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.2),rgba(var(--theme-grad-end),0.14))] transition-all duration-[var(--motion-slow)]"
+            className="absolute inset-y-0 left-0 rounded-l-[20px] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(var(--theme-grad-end),0.08))] transition-all duration-[var(--motion-slow)]"
             style={{ width: `${subtaskProgress}%` }}
           />
         )}
@@ -554,7 +567,7 @@ const TaskItem = ({
                 <span className="text-[10px] text-[color:var(--ui-text-muted)] rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5">+{hiddenTagCount}</span>
               )}
               <div
-                className={`mt-2 flex min-h-[24px] flex-wrap items-center gap-1.5 border-t pt-1.5 transition-[opacity,border-color] duration-[var(--motion-base)] overflow-hidden ${
+                className={`mt-2 flex min-h-6 flex-wrap items-center gap-1 border-t pt-1.5 leading-none transition-[opacity,border-color] duration-[var(--motion-base)] overflow-hidden ${
                   selected
                     ? 'opacity-100 border-[rgba(255,255,255,0.04)]'
                     : 'pointer-events-none opacity-0 border-transparent sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:border-[rgba(255,255,255,0.04)]'
@@ -574,7 +587,7 @@ const TaskItem = ({
                           event.stopPropagation();
                           onQuickSetPriority(task.id, level);
                         }}
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                        className={`h-5 min-w-7 text-[10px] px-1.5 rounded-full border transition-colors ${
                           task.priority === level
                             ? 'border-blue-400/60 bg-blue-500/15 text-blue-200'
                             : 'border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
@@ -594,7 +607,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'today');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
+                      className="h-5 min-w-9 text-[10px] px-1.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                       title="快捷设置时间：今天 09:00"
                     >
                       今天
@@ -605,7 +618,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tomorrow');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
+                      className="h-5 min-w-9 text-[10px] px-1.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                       title="快捷设置时间：明天 09:00"
                     >
                       明天
@@ -616,7 +629,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'nextWeek');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
+                      className="h-5 min-w-9 text-[10px] px-1.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                       title="快捷设置时间：下周一 09:00"
                     >
                       下周
@@ -627,7 +640,7 @@ const TaskItem = ({
                         event.stopPropagation();
                         onQuickSetDuePreset(task.id, 'tonight');
                       }}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)] flex items-center gap-1"
+                      className="flex h-5 min-w-9 items-center gap-1 rounded-full border border-[var(--ui-border-soft)] px-1.5 text-[10px] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
                       title="快捷设置时间：今晚 20:00"
                     >
                       <Bell className="w-3 h-3" />

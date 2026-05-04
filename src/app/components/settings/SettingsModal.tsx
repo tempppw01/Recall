@@ -417,7 +417,7 @@ const SettingsModal = ({
             onToggle={(event) =>
               setIsApiSettingsOpen((event.currentTarget as HTMLDetailsElement).open)
             }
-            className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4"
+            className="group settings-section rounded-[22px] p-3 sm:p-3.5"
           >
             <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>AI 基础设置</span>
@@ -520,7 +520,7 @@ const SettingsModal = ({
                   <p className="ui-note mt-1 text-[11px] sm:text-xs">倒数日卡片右侧显示方式</p>
                 </div>
 
-                <details className="group rounded-[24px] border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] p-3.5">
+                <details className="group rounded-[18px] border border-[var(--ui-border-soft)] bg-transparent p-3">
                   <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
                     <span>高级设置</span>
                     <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
@@ -545,7 +545,7 @@ const SettingsModal = ({
                   </div>
                 </details>
 
-                <div className="glass-panel-soft rounded-[24px] border border-[var(--ui-border-soft)] p-3.5 space-y-3">
+                <div className="rounded-[18px] border border-[var(--ui-border-soft)] bg-transparent p-3 space-y-3">
                   <div className="ui-section-label text-[11px] sm:text-xs">外观主题</div>
 
                   <div>
@@ -628,7 +628,7 @@ const SettingsModal = ({
             </div>
           </details>
 
-          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+          <details className="group settings-section rounded-[22px] p-3 sm:p-3.5">
             <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>浏览器通知</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
@@ -663,7 +663,7 @@ const SettingsModal = ({
             </div>
           </details>
 
-          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+          <details className="group settings-section rounded-[22px] p-3 sm:p-3.5">
             <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>API 专用设置组</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
@@ -833,7 +833,7 @@ const SettingsModal = ({
             </div>
           </details>
 
-          <details className="group glass-panel-soft rounded-[28px] border border-[var(--ui-border-soft)] p-3.5 sm:p-4">
+          <details className="group settings-section rounded-[22px] p-3 sm:p-3.5">
             <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>数据导入导出</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />

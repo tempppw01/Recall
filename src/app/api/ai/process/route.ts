@@ -255,6 +255,7 @@ type ParsedTask = {
   category?: string;
   tags?: string[];
   subtasks?: { title?: string }[];
+  scheduleOptions?: AgentScheduleOption[];
   repeat?: {
     type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
     interval?: number;
@@ -274,6 +275,7 @@ type AgentItem = {
   category?: string;
   tags?: string[];
   subtasks?: { title?: string }[];
+  scheduleOptions?: AgentScheduleOption[];
   repeat?: {
     type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
     interval?: number;
@@ -363,6 +365,15 @@ type AgentPayload = {
   guidance?: string[];
   items?: AgentItem[];
   decisions?: AgentDecisionPayload[];
+  memoryUpdates?: unknown[];
+};
+
+type AgentScheduleOption = {
+  id?: string;
+  label?: string;
+  dueDate?: string;
+  priority?: number;
+  reason?: string;
 };
 
 type CountdownPayload = {
@@ -390,6 +401,41 @@ const DEFAULT_COUNTDOWN = {
 };
 
 // ─── 数据规范化工具 ─────────────────────────────────────────
+
+function normalizeAgentScheduleOptions(options: unknown): AgentScheduleOption[] {
+  if (!Array.isArray(options)) return [];
+  const seen = new Set<string>();
+  const normalized: AgentScheduleOption[] = [];
+
+  options.forEach((option, index) => {
+    const source = option as AgentScheduleOption | null | undefined;
+    const label = typeof source?.label === 'string' && source.label.trim().length > 0
+      ? source.label.trim().slice(0, 36)
+      : `方案 ${index + 1}`;
+    const dueDate = typeof source?.dueDate === 'string' && source.dueDate.trim().length > 0
+      ? source.dueDate.trim()
+      : undefined;
+    const priority = typeof source?.priority === 'number' && Number.isFinite(source.priority)
+      ? Math.max(0, Math.min(2, Math.round(source.priority)))
+      : undefined;
+    const reason = typeof source?.reason === 'string' && source.reason.trim().length > 0
+      ? source.reason.trim().slice(0, 120)
+      : undefined;
+    if (!dueDate && typeof priority !== 'number') return;
+    const dedupeKey = `${label}|${dueDate || ''}|${priority ?? ''}`.toLowerCase();
+    if (seen.has(dedupeKey)) return;
+    seen.add(dedupeKey);
+    normalized.push({
+      id: typeof source?.id === 'string' && source.id.trim().length > 0 ? source.id.trim() : `schedule-${index + 1}`,
+      label,
+      dueDate,
+      priority,
+      reason,
+    });
+  });
+
+  return normalized.slice(0, 4);
+}
 
 /** 规范化 AI 返回的任务字段，确保类型安全和默认值 */
 function normalizeTask(data: ParsedTask) {
@@ -424,6 +470,7 @@ function normalizeTask(data: ParsedTask) {
     category,
     tags,
     subtasks,
+    scheduleOptions: normalizeAgentScheduleOptions(data.scheduleOptions),
     repeat,
   };
 }
@@ -766,6 +813,28 @@ function normalizeTodoAgentMemories(memories: any[]): TodoAgentMemorySummary[] {
     .slice(0, 30) as TodoAgentMemorySummary[];
 }
 
+function normalizeAgentMemoryUpdates(updates: unknown): string[] {
+  if (!Array.isArray(updates)) return [];
+  const seen = new Set<string>();
+
+  return updates
+    .map((update) => {
+      const content = typeof update === 'string'
+        ? update.trim()
+        : typeof (update as { content?: unknown } | null)?.content === 'string'
+          ? String((update as { content?: string }).content).trim()
+          : '';
+      if (!content) return null;
+      const normalizedContent = content.slice(0, 240);
+      const dedupeKey = normalizedContent.toLowerCase();
+      if (seen.has(dedupeKey)) return null;
+      seen.add(dedupeKey);
+      return normalizedContent;
+    })
+    .filter((content): content is string => Boolean(content))
+    .slice(0, 5);
+}
+
 function findBestTaskMatch(tasks: TodoAgentTaskSummary[], title: string, taskId?: string) {
   if (taskId) {
     const byId = tasks.find((task) => task.id === taskId);
@@ -806,6 +875,27 @@ function buildTodoPlanContext(tasks: TodoAgentTaskSummary[], input: string, netw
     if (!task.dueDate) return false;
     return new Date(task.dueDate).getTime() <= nowMs;
   }).length;
+  const upcomingTimedTasks = openTasks
+    .filter((task) => {
+      if (!task.dueDate) return false;
+      const dueMs = new Date(task.dueDate).getTime();
+      return Number.isFinite(dueMs) && dueMs >= nowMs && dueMs <= nowMs + 14 * 24 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime())
+    .slice(0, 30)
+    .map((task) => ({
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      priority: task.priority,
+      category: task.category,
+    }));
+  const busyDays = upcomingTimedTasks.reduce<Record<string, number>>((acc, task) => {
+    const key = task.dueDate ? task.dueDate.slice(0, 10) : '';
+    if (!key) return acc;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
 
   return {
     overview: {
@@ -820,6 +910,10 @@ function buildTodoPlanContext(tasks: TodoAgentTaskSummary[], input: string, netw
     relatedTasks,
     activeTasks,
     completedMatches,
+    scheduleContext: {
+      upcomingTimedTasks,
+      busyDays,
+    },
   };
 }
 
@@ -1101,6 +1195,14 @@ export async function POST(req: NextRequest) {
 25) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
 26) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...] }。如有 create，再把待新增项放进 item。不要输出 Markdown。`,
           },
+          {
+            role: 'system',
+            content: 'Planning choices: when creating a new task or suggesting a meaningful dueDate/priority change, use planContext.scheduleContext (upcomingTimedTasks and busyDays) to avoid obviously crowded time slots. For each create item, include scheduleOptions with 2-4 alternatives when timing is ambiguous. Each option shape: { "id": string, "label": string, "dueDate"?: ISO8601 string, "priority"?: 0|1|2, "reason"?: string }. Labels should be short Chinese phrases like "今晚备份", "明早处理", "周末整理"; reasons should mention why this slot or priority fits. Also set item.dueDate and item.priority to the recommended default option. If the user gave an exact time, you may return one option or omit options. Do not invent unavailable free/busy data; infer only from the provided tasks and scheduleContext.',
+          },
+          {
+            role: 'system',
+            content: 'Long-term memory extraction: use userMemories as reference facts only. If the current user message clearly states stable personal facts, preferences, locations, routines, constraints, or recurring work context that should help future chats, include them in memoryUpdates as short Chinese sentences. Do not store one-off tasks, transient deadlines, sensitive secrets, API keys, passwords, or facts inferred only from old history. If there is nothing durable to remember, return memoryUpdates: []. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }.',
+          },
           ...recentHistoryMessages,
           {
             role: 'user',
@@ -1122,6 +1224,7 @@ export async function POST(req: NextRequest) {
       const { res: agentRes } = await requestChat(baseUrlList, apiKey, agentPayload);
       const agentPayloadJson = await agentRes.json();
       const rawResult = parseChatContent(agentPayloadJson) as AgentPayload;
+      const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(rawResult?.memoryUpdates);
       const normalizedItems = Array.isArray(rawResult?.items) ? rawResult.items : [];
       const normalizedDecisions = normalizeTodoAgentDecisions(
         Array.isArray(rawResult?.decisions) ? rawResult.decisions : [],
@@ -1164,6 +1267,7 @@ export async function POST(req: NextRequest) {
         guidance: normalizedGuidance,
         decisions: normalizedDecisions,
         items: normalizedCategoryItems,
+        memoryUpdates: normalizedMemoryUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });
@@ -1175,6 +1279,7 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const incomingTasks = Array.isArray(tasks) ? tasks : [];
+      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : []);
 
       // 精简任务，避免 prompt 过长
       const normalizedTasks = incomingTasks
@@ -1192,6 +1297,10 @@ export async function POST(req: NextRequest) {
       const managePayload = {
         model: resolvedChatModel,
         messages: [
+          {
+            role: 'system',
+            content: 'Long-term memory extraction: use userMemories as reference facts only. If the current user message clearly states stable personal facts, preferences, locations, routines, constraints, or recurring work context that should help future chats, include them in memoryUpdates as short Chinese sentences. Do not store one-off tasks, transient deadlines, sensitive secrets, API keys, passwords, or facts inferred only from old history. If there is nothing durable to remember, return memoryUpdates: []. The JSON response shape is { "reply": string, "recommendations": [...], "memoryUpdates": string[] }.',
+          },
           {
             role: 'system',
             content: `你是 manage-agent（任务管理助手），基于用户的任务列表给出建议。
@@ -1214,6 +1323,7 @@ export async function POST(req: NextRequest) {
             role: 'user',
             content: JSON.stringify({
               input: normalizedInput,
+              userMemories: incomingMemories,
               tasks: normalizedTasks,
             }),
           },
@@ -1224,6 +1334,7 @@ export async function POST(req: NextRequest) {
       const { res: manageRes } = await requestChat(baseUrlList, apiKey, managePayload);
       const managePayloadJson = await manageRes.json();
       const raw = parseChatContent(managePayloadJson) as any;
+      const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(raw?.memoryUpdates);
 
       const recommendations = Array.isArray(raw?.recommendations) ? raw.recommendations : [];
       const allowedIds = new Set(normalizedTasks.map((t: any) => t.id));
@@ -1291,6 +1402,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         reply: typeof raw?.reply === 'string' && raw.reply.trim().length > 0 ? raw.reply.trim() : '已生成管理建议。',
         recommendations: normalizedRecs,
+        memoryUpdates: normalizedMemoryUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });
