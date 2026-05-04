@@ -423,6 +423,30 @@ const extractDurableMemoryCandidates = (input: string) => {
     .slice(0, 3);
 };
 
+const normalizeTaskReferenceText = (value: string) => (
+  value
+    .toLowerCase()
+    .replace(/[\s"'“”‘’「」『』《》【】（）()，,。.!！?？:：;；、#\-_/\\|]/g, '')
+);
+
+const findReferencedTasksInText = (content: string, sourceTasks: Task[], limit = 3) => {
+  const normalizedContent = normalizeTaskReferenceText(content);
+  if (!normalizedContent) return [];
+
+  const seen = new Set<string>();
+  return [...sourceTasks]
+    .sort((a, b) => b.title.length - a.title.length)
+    .filter((task) => {
+      const title = task.title.trim();
+      const normalizedTitle = normalizeTaskReferenceText(title);
+      if (normalizedTitle.length < 2 || seen.has(task.id)) return false;
+      const matched = content.includes(title) || normalizedContent.includes(normalizedTitle);
+      if (matched) seen.add(task.id);
+      return matched;
+    })
+    .slice(0, limit);
+};
+
 
 const getWeatherSummary = (weatherCode?: number) => {
   if (weatherCode === undefined || weatherCode === null) {
@@ -3158,12 +3182,15 @@ const normalizeTimeoutSec = (value: number) => {
     refreshTasks();
   };
 
+  const openTaskDetailFromAssistant = (task: Task) => {
+    setSelectedTask(task);
+    setIsSidebarOpen(false);
+  };
+
   const handleOpenAddedAgentTask = (itemId: string) => {
     const task = addedAgentTaskMap[itemId];
     if (!task) return;
-    setActiveFilter('todo');
-    setSelectedTask(task);
-    setIsSidebarOpen(false);
+    openTaskDetailFromAssistant(task);
   };
 
   const handleApplyAgentScheduleOption = (itemId: string, option: AgentScheduleOption) => {
@@ -6221,22 +6248,43 @@ const normalizeTimeoutSec = (value: number) => {
                         <div className="rounded-lg border border-[rgba(var(--theme-accent),0.16)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-sm text-[color:var(--ui-text-primary)]">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
                       ) : (
                         <>
-                          {manageAgentMessages.map((message, idx) => (
-                            <div
-                              key={`${message.role}-${idx}`}
-                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
+                          {manageAgentMessages.map((message, idx) => {
+                            const referencedTasks = message.role === 'assistant'
+                              ? findReferencedTasksInText(message.content, tasks)
+                              : [];
+
+                            return (
                               <div
-                                className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
-                                  message.role === 'user'
-                                    ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
-                                    : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
-                                }`}
+                                key={`${message.role}-${idx}`}
+                                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                               >
-                                {message.content}
+                                <div
+                                  className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm ${
+                                    message.role === 'user'
+                                      ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
+                                      : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
+                                  }`}
+                                >
+                                  <div className="whitespace-pre-wrap">{message.content}</div>
+                                  {referencedTasks.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-2 border-t border-cyan-400/10 pt-2">
+                                      {referencedTasks.map((task) => (
+                                        <button
+                                          key={`${message.role}-${idx}-${task.id}`}
+                                          type="button"
+                                          onClick={() => openTaskDetailFromAssistant(task)}
+                                          className="max-w-full rounded-full border border-cyan-300/30 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-400/16 hover:text-white"
+                                          title={`打开任务：${task.title}`}
+                                        >
+                                          <span className="inline-block max-w-[18rem] truncate align-bottom">去看「{task.title}」</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                           {manageAgentLoading && (
                             <AgentThinkingBubble label="正在分析你的任务列表…" accent="violet" />
                           )}
@@ -6251,18 +6299,30 @@ const normalizeTimeoutSec = (value: number) => {
                         <div className="space-y-2 border-t border-[color:var(--ui-border-soft)] pt-2">
                           <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">推荐</div>
                           <div className="grid gap-2">
-                            {manageRecommendations.map((r) => (
-                              <button
+                            {manageRecommendations.map((r) => {
+                              const targetTask = tasks.find((t) => t.id === r.id);
+
+                              return (
+                              <div
                                 key={r.id}
-                                type="button"
-                                onClick={() => {
-                                  const target = tasks.find((t) => t.id === r.id);
-                                  if (target) setSelectedTask(target);
-                                }}
                                 className="w-full rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3 text-left transition-colors hover:bg-[color:var(--ui-card-hover-bg)]"
                               >
-                                <div className="text-sm font-medium text-[color:var(--ui-text-strong)]">{r.title}</div>
-                                {r.reason && <div className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{r.reason}</div>}
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium text-[color:var(--ui-text-strong)]">{r.title}</div>
+                                    {r.reason && <div className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{r.reason}</div>}
+                                  </div>
+                                  {targetTask && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openTaskDetailFromAssistant(targetTask)}
+                                      className="shrink-0 rounded-full border border-cyan-300/30 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-400/16 hover:text-white"
+                                      title={`打开任务：${targetTask.title}`}
+                                    >
+                                      去看任务
+                                    </button>
+                                  )}
+                                </div>
 
                                 {(typeof r.suggestedPinned === 'boolean' ||
                                   typeof r.suggestedPriority === 'number' ||
@@ -6345,8 +6405,9 @@ const normalizeTimeoutSec = (value: number) => {
                                     )}
                                   </div>
                                 )}
-                              </button>
-                            ))}
+                              </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
