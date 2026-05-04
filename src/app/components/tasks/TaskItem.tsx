@@ -449,11 +449,7 @@ const TaskItem = ({
             </div>
 
             <div
-              className={`absolute left-11 right-3 top-[calc(100%-0.35rem)] z-30 flex flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2 shadow-[0_18px_38px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-[opacity,transform] duration-[var(--motion-base)] ${
-                isDueEditorOpen
-                  ? 'opacity-100 translate-y-0'
-                  : 'pointer-events-none opacity-0 -translate-y-1 group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0'
-              }`}
+              className="pointer-events-none absolute left-11 right-3 top-[calc(100%-0.35rem)] z-30 hidden flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2 opacity-0 shadow-[0_18px_38px_rgba(0,0,0,0.22)] backdrop-blur-xl"
               onClick={(event) => event.stopPropagation()}
               onMouseDown={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}

@@ -4661,10 +4661,12 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 2. Main Task List */}
       <section
-        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[margin,width,filter] duration-[var(--motion-base)] ease-[var(--ease-standard)] lg:ml-0 lg:w-auto ${
+        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[margin,width,filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] lg:ml-0 lg:w-auto ${
           isSidebarOpen ? 'ml-[min(74vw,280px)] w-[calc(100%_-_min(74vw,_280px))]' : ''
         } ${
           selectedTask ? 'hidden lg:flex' : 'flex'
+        } ${
+          selectedTask ? 'lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
         }`}
       >
         {/* 顶部栏组件：统一管理页面入口按钮与状态动作。 */}
