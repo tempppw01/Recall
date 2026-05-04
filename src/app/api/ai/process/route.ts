@@ -217,6 +217,42 @@ async function requestChat(baseUrls: string[], apiKey: string | undefined, paylo
   throw new Error(`Chat completion failed: ${errors.join(' | ') || 'all endpoints failed'}`);
 }
 
+/** 将 AI 处理异常转换为前端可展示、可排查的错误信息 */
+function describeAiProcessError(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : String(error || 'Unknown error');
+  const detail = rawMessage.length > 900 ? `${rawMessage.slice(0, 900)}...` : rawMessage;
+
+  if (detail.includes('Chat completion failed')) {
+    return {
+      error: 'AI 上游请求失败',
+      detail,
+      hint: '请检查 AI Base URL、API Key、模型名称，以及当前网络是否能访问模型服务。',
+    };
+  }
+
+  if (detail.includes('LLM invalid JSON')) {
+    return {
+      error: 'AI 返回格式无法解析',
+      detail,
+      hint: '模型没有按要求返回结构化结果。可以换模型，或把输入拆短后重试。',
+    };
+  }
+
+  if (detail.includes('Input is required')) {
+    return {
+      error: '输入内容为空',
+      detail,
+      hint: '请先输入要整理的内容后再发送。',
+    };
+  }
+
+  return {
+    error: 'AI 助手处理失败',
+    detail,
+    hint: '请打开运行日志查看详情；如果反复出现，优先检查模型配置和本地服务日志。',
+  };
+}
+
 /** 从 AI 响应中提取并解析 JSON 内容 */
 function parseChatContent(payload: any) {
   const content = payload?.choices?.[0]?.message?.content;
@@ -1609,6 +1645,6 @@ if (mode === 'habit-agent') {
 
   } catch (error) {
     console.error('AI Process Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(describeAiProcessError(error), { status: 500 });
   }
 }

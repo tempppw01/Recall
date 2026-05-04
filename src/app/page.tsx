@@ -150,6 +150,57 @@ const USER_MEMORIES_KEY = 'recall_user_memories';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
+
+type AiErrorResponseBody = {
+  error?: unknown;
+  detail?: unknown;
+  hint?: unknown;
+};
+
+const truncateAiErrorText = (value: string, maxLength = 900) => (
+  value.length > maxLength ? `${value.slice(0, maxLength)}...` : value
+);
+
+const readAiResponseBody = async (res: Response): Promise<AiErrorResponseBody & Record<string, any>> => {
+  const text = await res.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text };
+  }
+};
+
+const buildAiResponseErrorMessage = (res: Response, body: AiErrorResponseBody, fallback: string) => {
+  const title = typeof body?.error === 'string' && body.error.trim() ? body.error.trim() : fallback;
+  const detail = typeof body?.detail === 'string' && body.detail.trim() ? truncateAiErrorText(body.detail.trim()) : '';
+  const hint = typeof body?.hint === 'string' && body.hint.trim() ? body.hint.trim() : '';
+  const parts = [`请求失败（HTTP ${res.status}）：${title}`];
+
+  if (detail) parts.push(`详情：${detail}`);
+  if (hint) {
+    parts.push(`建议：${hint}`);
+  } else if (res.status === 401 || res.status === 403) {
+    parts.push('建议：检查 API Key 是否有效，以及模型服务是否允许当前 Key 调用。');
+  } else if (res.status >= 500) {
+    parts.push('建议：查看运行日志或服务端控制台，确认模型服务、Base URL 和网络连接是否正常。');
+  }
+
+  return parts.join('\n');
+};
+
+const formatAiRequestError = (error: unknown, fallback: string) => {
+  if ((error as any)?.name === 'AbortError') return fallback;
+  const message = (error as any)?.message || String(error || fallback);
+  if (message === 'Failed to fetch' || error instanceof TypeError) {
+    return [
+      '无法连接到 AI 接口。',
+      '详情：浏览器没有连上 /api/ai/process，可能是本地服务重启、端口不可用、代理或网络拦截。',
+      '建议：刷新页面，确认 http://127.0.0.1:3001/ 仍可访问；如果刚构建过，请等待服务启动后重试。',
+    ].join('\n');
+  }
+  return message;
+};
 const TIMEZONE_OPTIONS = [
   { label: 'UTC-12', offsetMinutes: -720 },
   { label: 'UTC-8 (PST)', offsetMinutes: -480 },
@@ -2821,9 +2872,9 @@ const normalizeTimeoutSec = (value: number) => {
           },
         }),
       });
-      const data = await res.json();
+      const data = await readAiResponseBody(res);
       if (!res.ok) {
-        throw new Error(data?.error || 'todo-agent request failed');
+        throw new Error(buildAiResponseErrorMessage(res, data, 'todo-agent request failed'));
       }
       applyAgentMemoryUpdates(data?.memoryUpdates);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
@@ -2889,7 +2940,7 @@ const normalizeTimeoutSec = (value: number) => {
         return;
       }
       console.error(error);
-      const message = (error as any)?.message || 'AI 助手无响应，请稍后重试';
+      const message = formatAiRequestError(error, 'AI 助手无响应，请稍后重试');
       if (content) setAgentInput(content);
       if (draftImages.length > 0) setAgentImages(draftImages);
       setAgentError(message);
@@ -2976,9 +3027,9 @@ const normalizeTimeoutSec = (value: number) => {
           },
         }),
       });
-      const data = await res.json();
+      const data = await readAiResponseBody(res);
       if (!res.ok) {
-        throw new Error(data?.error || 'manage-agent request failed');
+        throw new Error(buildAiResponseErrorMessage(res, data, 'manage-agent request failed'));
       }
       applyAgentMemoryUpdates(data?.memoryUpdates);
       const replyText = typeof data?.reply === 'string' ? data.reply : '已生成建议。';
@@ -3006,7 +3057,7 @@ const normalizeTimeoutSec = (value: number) => {
         }),
       );
     } catch (error) {
-      const message = (error as any)?.message || 'AI 管理助手无响应，请稍后重试';
+      const message = formatAiRequestError(error, 'AI 管理助手无响应，请稍后重试');
       setManageAgentInput(content);
       setManageAgentError(message);
     } finally {
@@ -3205,9 +3256,9 @@ const normalizeTimeoutSec = (value: number) => {
           },
         }),
       });
-      const data = await res.json();
+      const data = await readAiResponseBody(res);
       if (!res.ok) {
-        throw new Error(data?.error || 'habit-agent request failed');
+        throw new Error(buildAiResponseErrorMessage(res, data, 'habit-agent request failed'));
       }
       const nextItems: HabitAgentItem[] = Array.isArray(data?.items)
         ? data.items.map((item: HabitAgentItem) => ({
@@ -3221,7 +3272,7 @@ const normalizeTimeoutSec = (value: number) => {
       setHabitAgentInput('');
       pushLog('success', 'habit-agent 返回成功', `建议习惯 ${nextItems.length} 条`, { silentFeedback: true });
     } catch (error) {
-      const message = (error as any)?.message || '习惯助手无响应，请稍后重试';
+      const message = formatAiRequestError(error, '习惯助手无响应，请稍后重试');
       setHabitAgentError(message);
       pushLog('error', 'habit-agent 请求失败', String(message), { silentFeedback: true });
     } finally {
@@ -3288,9 +3339,9 @@ const normalizeTimeoutSec = (value: number) => {
           },
         }),
       });
-      const data = await res.json();
+      const data = await readAiResponseBody(res);
       if (!res.ok) {
-        throw new Error(data?.error || 'countdown-agent request failed');
+        throw new Error(buildAiResponseErrorMessage(res, data, 'countdown-agent request failed'));
       }
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
@@ -3308,7 +3359,7 @@ const normalizeTimeoutSec = (value: number) => {
       pushLog('success', 'countdown-agent 返回成功', `建议倒数日 ${nextItems.length} 条`, { silentFeedback: true });
     } catch (error) {
       console.error(error);
-      const message = (error as any)?.message || '倒数日助手无响应，请稍后重试';
+      const message = formatAiRequestError(error, '倒数日助手无响应，请稍后重试');
       setCountdownAgentError(message);
       setCountdownAgentMessages((prev) => [
         ...prev,
@@ -3716,10 +3767,10 @@ const normalizeTimeoutSec = (value: number) => {
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
-      const data = await res.json();
+      const data = await readAiResponseBody(res);
 
       if (!res.ok) {
-        throw new Error(data?.error || 'Request failed');
+        throw new Error(buildAiResponseErrorMessage(res, data, 'Request failed'));
       }
 
       if (isSearch) {
@@ -5263,8 +5314,8 @@ const normalizeTimeoutSec = (value: number) => {
                       )}
                     </div>
                     {countdownAgentError && (
-                      <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
-                        <span>{countdownAgentError}</span>
+                      <div className="flex items-start justify-between gap-3 text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
+                        <span className="whitespace-pre-wrap leading-relaxed">{countdownAgentError}</span>
                         <button
                           onClick={handleCountdownAgentSend}
                           disabled={countdownAgentLoading}
@@ -5749,8 +5800,8 @@ const normalizeTimeoutSec = (value: number) => {
                       )}
 
                       {hasApiKey && agentError && (
-                        <div className="flex items-center justify-between text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
-                          <span>{agentError}</span>
+                        <div className="flex items-start justify-between gap-3 text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
+                          <span className="whitespace-pre-wrap leading-relaxed">{agentError}</span>
                           <button
                             onClick={handleAgentSend}
                             disabled={agentLoading}
@@ -6094,7 +6145,7 @@ const normalizeTimeoutSec = (value: number) => {
                       )}
 
                       {manageAgentError && (
-                        <div className="text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">{manageAgentError}</div>
+                        <div className="whitespace-pre-wrap text-xs leading-relaxed text-red-300 bg-red-500/10 p-2 rounded-lg">{manageAgentError}</div>
                       )}
 
                       {manageRecommendations.length > 0 && (
@@ -6507,7 +6558,7 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
 
                   {habitAgentError && (
-                    <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                    <div className="whitespace-pre-wrap text-xs leading-relaxed text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
                       {habitAgentError}
                     </div>
                   )}
