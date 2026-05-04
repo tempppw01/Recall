@@ -1155,6 +1155,7 @@ export default function Home() {
   const [agentImages, setAgentImages] = useState<ImageAttachment[]>([]);
   const agentImageInputRef = useRef<HTMLInputElement | null>(null);
   const agentAbortControllerRef = useRef<AbortController | null>(null);
+  const agentConversationEndRef = useRef<HTMLDivElement | null>(null);
   const userMemoryPersistReadyRef = useRef(false);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [agentDecisions, setAgentDecisions] = useState<AgentDecision[]>([]);
@@ -1722,6 +1723,11 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(AGENT_MESSAGES_KEY, JSON.stringify(agentMessages.slice(-80)));
   }, [agentMessages]);
+
+  useEffect(() => {
+    if (activeFilter !== 'agent' || aiAssistantMode !== 'record') return;
+    agentConversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [activeFilter, aiAssistantMode, agentMessages.length, agentLoading, agentError]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -5749,9 +5755,10 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
                 )}
 
-                <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
                   {aiAssistantMode === 'record' ? (
                     <>
+                      <div className="order-2 space-y-2">
                       {hasApiKey && agentLoading && agentMessages.length === 0 && (
                         <div className="space-y-2">
                           <div className="skeleton skeleton-shimmer rounded-lg h-10" />
@@ -5811,8 +5818,10 @@ const normalizeTimeoutSec = (value: number) => {
                           </button>
                         </div>
                       )}
+                      <div ref={agentConversationEndRef} aria-hidden="true" />
+                      </div>
 
-                      <div className="space-y-3 border-t border-[color:var(--ui-border-soft)] pt-2">
+                      <div className="order-1 space-y-3 border-t border-[color:var(--ui-border-soft)] pt-2">
                         {agentGuidance.length > 0 && (
                           <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] space-y-1">
                             <div className="font-medium text-[color:var(--ui-text-strong)]">行动拆解建议</div>
