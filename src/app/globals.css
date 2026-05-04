@@ -263,6 +263,40 @@ button {
   backface-visibility: hidden;
 }
 
+.topbar-shell {
+  position: sticky;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(var(--theme-grad-start), 0.16), transparent 30%),
+    radial-gradient(circle at 86% 10%, rgba(var(--theme-grad-end), 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(18, 25, 38, 0.9), rgba(8, 11, 17, 0.72));
+  border-bottom: 1px solid rgba(var(--theme-accent-soft), 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+.topbar-shell::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(var(--theme-accent-soft), 0.26), transparent);
+  opacity: 0.75;
+}
+
+body.theme-light .topbar-shell {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(var(--theme-grad-start), 0.13), transparent 30%),
+    radial-gradient(circle at 86% 10%, rgba(var(--theme-grad-end), 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 248, 255, 0.78));
+  border-bottom-color: rgba(148, 163, 184, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
 .glass-panel {
   background: var(--glass-panel-bg);
   border: 1px solid rgba(110, 118, 138, 0.18);

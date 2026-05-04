@@ -4626,6 +4626,35 @@ const normalizeTimeoutSec = (value: number) => {
     || agentItems.some((item) => (item.subtasks?.length ?? 0) > 0);
   const showCountdownAgentBulkAdd = countdownAgentItems.length > 1;
   const hasApiKey = apiKey.trim().length > 0;
+  const openTasksForAgent = tasks.filter((task) => task.status !== 'completed');
+  const todayTasksForAgent = openTasksForAgent.filter((task) => isTaskDueToday(task, now));
+  const overdueTasksForAgent = openTasksForAgent.filter((task) => isTaskOverdue(task));
+  const pendingAgentSuggestions = agentItems.filter((item) => !addedAgentItemIds.has(item.id));
+  const agentPlaceholderOptions = [
+    overdueTasksForAgent.length > 0
+      ? `我有 ${overdueTasksForAgent.length} 个逾期任务，帮我重新安排`
+      : '',
+    todayTasksForAgent.length > 0
+      ? `根据今天 ${todayTasksForAgent.length} 个任务，推荐下一步先做什么`
+      : '',
+    pendingAgentSuggestions.length > 0
+      ? `把上面的 ${pendingAgentSuggestions.length} 条建议再按时间和优先级细化`
+      : '',
+    userMemories.length > 0
+      ? '结合我的个人资料，帮我调整今天安排'
+      : '',
+    hasCalendarTasks
+      ? '结合日历安排，帮我找一个不冲突的执行时间'
+      : '',
+    openTasksForAgent.length > 0
+      ? `从 ${openTasksForAgent.length} 个待办里挑出最值得推进的 3 个`
+      : '',
+    '先问我 3 个问题，再帮我拆成可执行任务',
+    '把我刚说的事整理成任务、时间和优先级',
+  ].filter(Boolean);
+  const agentInputPlaceholder = hasApiKey
+    ? agentPlaceholderOptions[now.getMinutes() % agentPlaceholderOptions.length]
+    : '请先在设置中填写 AI Key';
 
   return (
     <div className="theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
@@ -6337,7 +6366,7 @@ const normalizeTimeoutSec = (value: number) => {
                             handleAgentSend();
                           }
                         }}
-                        placeholder={hasApiKey ? '例如：帮我规划本周的工作安排' : '请先在设置中填写 AI Key'}
+                        placeholder={agentInputPlaceholder}
                         className="flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
                         disabled={!hasApiKey || agentLoading}
                       />

@@ -54,7 +54,7 @@ export default function PageTopBar({
   const isAgentView = activeFilter === 'agent';
 
   return (
-    <header className="theme-native-surface sticky top-0 z-20 sticky-glass bg-[var(--ui-header-bg)] backdrop-blur-2xl">
+    <header className="theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
       <div
         className={`mx-2 mt-3 px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6 ${
           isAgentView
