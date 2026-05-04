@@ -51,17 +51,9 @@ export default function PageTopBar({
   onOpenLogs,
   onToggleTheme,
 }: PageTopBarProps) {
-  const isAgentView = activeFilter === 'agent';
-
   return (
     <header className="theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
-      <div
-        className={`mx-2 mt-3 px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6 ${
-          isAgentView
-            ? 'rounded-none border border-transparent bg-transparent shadow-none'
-            : 'rounded-[28px] glass-panel surface-sheen surface-pulse'
-        }`}
-      >
+      <div className="topbar-panel mx-2 mt-3 px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
         <div className="flex min-h-10 items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <button
