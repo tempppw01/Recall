@@ -11,6 +11,7 @@ type RedisSettingsProps = {
   onPortChange: (value: string) => void;
   onDbChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
+  focusHost?: boolean;
 };
 
 export default function RedisSettings({
@@ -22,8 +23,18 @@ export default function RedisSettings({
   onPortChange,
   onDbChange,
   onPasswordChange,
+  focusHost,
 }: RedisSettingsProps) {
   const [testing, setTesting] = React.useState(false);
+  const hostInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (!focusHost) return;
+    const timer = window.setTimeout(() => {
+      hostInputRef.current?.focus();
+    }, 160);
+    return () => window.clearTimeout(timer);
+  }, [focusHost]);
 
   const handleTest = async () => {
     if (!host || !port) {
@@ -71,6 +82,7 @@ ${data.details || ''}`);
         <div>
           <label className="block text-[11px] sm:text-xs text-[#7d8595] mb-2">主机</label>
           <input
+            ref={hostInputRef}
             type="text"
             value={host}
             onChange={(event) => onHostChange(event.target.value)}

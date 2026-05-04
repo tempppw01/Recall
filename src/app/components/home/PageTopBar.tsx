@@ -2,9 +2,9 @@ import { Cloud, Flame, Inbox, Info, Loader2, Menu, Monitor, Moon, Settings, Sun,
 
 const iconButtonClassName =
   'btn btn-ghost motion-card surface-sheen h-10 w-10 rounded-2xl border-[color:var(--ui-border-soft)] p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
-const actionButtonClassName = 'btn btn-secondary btn-sm motion-card surface-sheen rounded-2xl border text-xs';
+const actionButtonClassName = 'btn btn-secondary btn-sm motion-card surface-sheen shrink-0 rounded-2xl border text-xs';
 const utilityGroupClassName =
-  'ml-1 flex items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1.5 py-1';
+  'flex shrink-0 items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1.5 py-1 sm:ml-1';
 
 type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -54,22 +54,22 @@ export default function PageTopBar({
   return (
     <header className="theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
       <div className="topbar-panel mx-2 mt-3 px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
-        <div className="flex min-h-10 items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4">
+        <div className="flex min-h-10 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="flex w-full min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
             <button
               onClick={onOpenSidebar}
-              className={`lg:hidden -ml-1 ${iconButtonClassName}`}
+              className={`-ml-1 min-h-11 min-w-11 shrink-0 bg-[color:var(--ui-card-bg)] shadow-[0_8px_20px_rgba(0,0,0,0.14)] lg:hidden sm:min-h-10 sm:min-w-10 ${iconButtonClassName}`}
               aria-label="打开导航"
               title="打开导航"
             >
               <Menu className="h-6 w-6" />
             </button>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="flex min-w-0 items-center gap-2.5 text-base font-semibold tracking-tight text-[color:var(--ui-text-strong)] sm:text-[1.05rem]">
-                {activeFilter === 'inbox' && <Inbox className="h-5 w-5 text-blue-400" />}
-                {activeFilter === 'today' && <Sun className="h-5 w-5 text-yellow-400" />}
-                {activeFilter === 'habit' && <Flame className="h-5 w-5 text-orange-400" />}
+                {activeFilter === 'inbox' && <Inbox className="h-5 w-5 shrink-0 text-blue-400" />}
+                {activeFilter === 'today' && <Sun className="h-5 w-5 shrink-0 text-yellow-400" />}
+                {activeFilter === 'habit' && <Flame className="h-5 w-5 shrink-0 text-orange-400" />}
                 <span className="truncate">{headerTitle}</span>
               </h2>
               {headerSubtitle && (
@@ -78,7 +78,7 @@ export default function PageTopBar({
             </div>
           </div>
 
-          <div className="mobile-toolbar flex shrink-0 items-center gap-2 text-[color:var(--ui-icon-muted)] sm:gap-3">
+          <div className="mobile-toolbar -mx-1 flex w-[calc(100%+0.5rem)] shrink-0 items-center gap-1.5 overflow-x-auto px-1 pb-0.5 text-[color:var(--ui-icon-muted)] sm:mx-0 sm:w-auto sm:justify-end sm:gap-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:gap-3">
             {isListView && (
               <button
                 onClick={onToggleBatchMode}
@@ -95,7 +95,7 @@ export default function PageTopBar({
 
             <button
               onClick={onSync}
-              className={iconButtonClassName}
+              className={`shrink-0 ${iconButtonClassName}`}
               title={isSyncingNow ? '正在同步' : '执行同步'}
               aria-label={isSyncingNow ? '正在同步' : '执行同步'}
               disabled={isSyncingNow}
@@ -126,7 +126,7 @@ export default function PageTopBar({
 
             <button
               onClick={onOpenLogs}
-              className={iconButtonClassName}
+              className={`shrink-0 ${iconButtonClassName}`}
               title="运行日志"
               aria-label="打开运行日志"
             >
@@ -135,7 +135,7 @@ export default function PageTopBar({
 
             <button
               onClick={onToggleTheme}
-              className={iconButtonClassName}
+              className={`shrink-0 ${iconButtonClassName}`}
               title={getThemeToggleLabel(themePreference)}
               aria-label={getThemeToggleLabel(themePreference)}
             >

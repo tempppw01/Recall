@@ -298,6 +298,14 @@ button {
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.mobile-toolbar {
+  scrollbar-width: none;
+}
+
+.mobile-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
 body.theme-light .topbar-panel {
   border-color: rgba(148, 163, 184, 0.22);
   background:
@@ -317,6 +325,36 @@ body.theme-light .topbar-shell {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
     0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 1023px) {
+  .sticky-glass {
+    backface-visibility: visible;
+    transform: none;
+    will-change: auto;
+  }
+
+  .topbar-shell,
+  body.theme-light .topbar-shell {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    overflow: visible;
+    border-bottom-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .topbar-shell::after {
+    opacity: 0;
+  }
+
+  .topbar-panel {
+    margin-top: 0.75rem;
+    border-radius: 24px;
+  }
 }
 
 .glass-panel {

@@ -7,10 +7,12 @@ type CountdownDisplayMode = 'days' | 'date';
 type ThemePreference = 'system' | 'light' | 'dark';
 type AccentTheme = 'blue' | 'violet' | 'emerald' | 'rose';
 type GradientTheme = 'aurora' | 'sunset' | 'ocean' | 'mono';
+type SettingsFocusTarget = 'sync' | null;
 
 type SettingsModalProps = {
   showSettings: boolean;
   setShowSettings: React.Dispatch<React.SetStateAction<boolean>>;
+  settingsFocusTarget?: SettingsFocusTarget;
   apiBaseUrl: string;
   setApiBaseUrl: React.Dispatch<React.SetStateAction<string>>;
   apiKey: string;
@@ -192,6 +194,7 @@ const buttonGroupClassName =
 const SettingsModal = ({
   showSettings,
   setShowSettings,
+  settingsFocusTarget,
   apiBaseUrl,
   setApiBaseUrl,
   apiKey,
@@ -271,9 +274,11 @@ const SettingsModal = ({
   aiRetentionDays,
 }: SettingsModalProps) => {
   const [showAutoSavedNotice, setShowAutoSavedNotice] = useState(false);
+  const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
   const firstAutoSaveRef = useRef(true);
   const autoSavedNoticeTimerRef = useRef<number | null>(null);
   const lastAutoFetchedModelKeyRef = useRef<string | null>(null);
+  const serverSettingsRef = useRef<HTMLDetailsElement>(null);
   const hasApiKey = Boolean(apiKey.trim());
 
   const availableModels = useMemo(() => {
@@ -392,6 +397,15 @@ const SettingsModal = ({
       }
     }
   }, [showSettings]);
+
+  useEffect(() => {
+    if (!showSettings || settingsFocusTarget !== 'sync') return;
+    setIsServerSettingsOpen(true);
+
+    window.setTimeout(() => {
+      serverSettingsRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 80);
+  }, [settingsFocusTarget, showSettings]);
 
   if (!showSettings) return null;
 
@@ -663,7 +677,16 @@ const SettingsModal = ({
             </div>
           </details>
 
-          <details className="group settings-section rounded-[22px] p-3 sm:p-3.5">
+          <details
+            ref={serverSettingsRef}
+            open={isServerSettingsOpen}
+            onToggle={(event) =>
+              setIsServerSettingsOpen((event.currentTarget as HTMLDetailsElement).open)
+            }
+            className={`group settings-section rounded-[22px] p-3 sm:p-3.5 ${
+              settingsFocusTarget === 'sync' ? 'ring-1 ring-amber-300/35' : ''
+            }`}
+          >
             <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
               <span>API 专用设置组</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
@@ -696,6 +719,7 @@ const SettingsModal = ({
                   onPortChange={setRedisPort}
                   onDbChange={setRedisDb}
                   onPasswordChange={setRedisPassword}
+                  focusHost={settingsFocusTarget === 'sync'}
                 />
 
                 <div className="space-y-3">

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, TouchEvent as ReactTouchEvent } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, TouchEvent as ReactTouchEvent } from 'react';
 import {
   Calendar,
   CalendarDays,
@@ -15,6 +15,44 @@ import {
   Sunset,
 } from 'lucide-react';
 import type { Subtask, Task, TaskRepeatRule } from '@/lib/store';
+
+const CONTEXT_MENU_VIEWPORT_MARGIN = 12;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+const formatDueCountdownLabel = (dueDate?: string, nowMs?: number) => {
+  if (!dueDate || nowMs === undefined) return null;
+  const dueMs = new Date(dueDate).getTime();
+  if (!Number.isFinite(dueMs)) return null;
+
+  const diffMs = dueMs - nowMs;
+  const absMs = Math.abs(diffMs);
+  const isOverdue = diffMs < 0;
+  const prefix = isOverdue ? '逾期' : '剩';
+
+  if (absMs >= DAY_MS) {
+    return {
+      label: `${prefix} ${Math.max(1, Math.ceil(absMs / HOUR_MS))} 小时`,
+      isOverdue,
+    };
+  }
+
+  const totalMinutes = Math.max(1, Math.ceil(absMs / MINUTE_MS));
+  if (totalMinutes < 60) {
+    return {
+      label: `${prefix} ${totalMinutes} 分钟`,
+      isOverdue,
+    };
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return {
+    label: minutes > 0 ? `${prefix} ${hours} 小时 ${minutes} 分` : `${prefix} ${hours} 小时`,
+    isOverdue,
+  };
+};
 
 /**
  * 任务卡片：支持滑动删除、拖拽、子任务展开、时间编辑。
@@ -100,6 +138,7 @@ const TaskItem = ({
   const startYRef = useRef<number | null>(null);
   const isHorizontalRef = useRef<boolean | null>(null);
   const dueEditorRef = useRef<HTMLDivElement | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPointerDragging, setIsPointerDragging] = useState(false);
@@ -109,6 +148,7 @@ const TaskItem = ({
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [editorDate, setEditorDate] = useState('');
   const [editorTime, setEditorTime] = useState('09:00');
+  const [nowMs, setNowMs] = useState<number | undefined>(undefined);
   const maxOffset = 84;
   const timezoneOffset = getTimezoneOffset(task);
   const canDrag = Boolean(onDragStart) && dragEnabled;
@@ -127,6 +167,7 @@ const TaskItem = ({
   const dueTextColor = task.dueDate
     ? (isTaskOverdue(task) ? 'text-red-400' : 'text-[color:var(--ui-text-secondary)]')
     : 'text-[color:var(--ui-text-faint)]';
+  const dueCountdown = isCompleted ? null : formatDueCountdownLabel(task.dueDate, nowMs);
   const visibleTags = (task.tags ?? []).slice(0, 2);
   const hiddenTagCount = Math.max(0, (task.tags ?? []).length - visibleTags.length);
   const taskTone = isCompleted
@@ -151,6 +192,22 @@ const TaskItem = ({
     setIsSubtasksOpen(false);
     setIsDueEditorOpen(false);
   }, [task.id]);
+
+  useEffect(() => {
+    if (!task.dueDate || isCompleted) {
+      setNowMs(undefined);
+      return;
+    }
+
+    setNowMs(Date.now());
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 30 * 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [task.dueDate, isCompleted]);
 
   useEffect(() => {
     if (!isDueEditorOpen) return;
@@ -201,6 +258,43 @@ const TaskItem = ({
   const closeContextMenu = () => {
     setShowContextMenu(false);
   };
+
+  useLayoutEffect(() => {
+    if (!showContextMenu || typeof window === 'undefined') return;
+    const menu = contextMenuRef.current;
+    if (!menu) return;
+
+    const rect = menu.getBoundingClientRect();
+    const maxLeft = Math.max(
+      CONTEXT_MENU_VIEWPORT_MARGIN,
+      window.innerWidth - rect.width - CONTEXT_MENU_VIEWPORT_MARGIN,
+    );
+    const maxTop = Math.max(
+      CONTEXT_MENU_VIEWPORT_MARGIN,
+      window.innerHeight - rect.height - CONTEXT_MENU_VIEWPORT_MARGIN,
+    );
+
+    const nextX = Math.min(
+      Math.max(contextMenuPosition.x, CONTEXT_MENU_VIEWPORT_MARGIN),
+      maxLeft,
+    );
+    let nextY = contextMenuPosition.y;
+
+    if (nextY > maxTop) {
+      nextY = contextMenuPosition.y - rect.height - CONTEXT_MENU_VIEWPORT_MARGIN;
+    }
+
+    nextY = Math.min(
+      Math.max(nextY, CONTEXT_MENU_VIEWPORT_MARGIN),
+      maxTop,
+    );
+
+    const roundedX = Math.round(nextX);
+    const roundedY = Math.round(nextY);
+    if (roundedX !== contextMenuPosition.x || roundedY !== contextMenuPosition.y) {
+      setContextMenuPosition({ x: roundedX, y: roundedY });
+    }
+  }, [contextMenuPosition.x, contextMenuPosition.y, showContextMenu]);
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (event.touches.length !== 1) return;
@@ -330,8 +424,8 @@ const TaskItem = ({
         }}
       >
         <div
-          className="absolute bottom-3 left-1.5 top-3 w-1 rounded-full"
-          style={{ background: taskTone, boxShadow: `0 0 14px ${taskTone}` }}
+          className="absolute bottom-3 left-1.5 top-3 w-[3px] rounded-full opacity-70"
+          style={{ background: taskTone, boxShadow: `0 0 6px ${taskTone}` }}
         />
         {subtaskTotal > 0 && (
           <div
@@ -349,7 +443,7 @@ const TaskItem = ({
               }}
               className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
                 isChecked
-                  ? 'bg-[rgba(var(--theme-accent),0.95)] border-[rgba(var(--theme-accent),0.95)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.14)]'
+                  ? 'bg-[rgba(var(--theme-accent),0.82)] border-[rgba(var(--theme-accent),0.82)] text-white shadow-[0_0_0_3px_rgba(var(--theme-accent),0.07)]'
                   : 'border-[color:var(--ui-border-strong)] text-transparent hover:border-[rgba(var(--theme-accent),0.45)]'
               }`}
               aria-label={isChecked ? '取消选择任务' : '选择任务'}
@@ -364,7 +458,7 @@ const TaskItem = ({
             }}
             className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
               task.status === 'completed'
-                ? 'bg-[rgba(var(--theme-accent),0.9)] border-[rgba(var(--theme-accent),0.9)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.12)]'
+                ? 'bg-[rgba(var(--theme-accent),0.78)] border-[rgba(var(--theme-accent),0.78)] text-white shadow-[0_0_0_3px_rgba(var(--theme-accent),0.06)]'
                 : 'border-[color:var(--ui-border-strong)] hover:border-[rgba(var(--theme-accent),0.55)] hover:bg-[rgba(var(--theme-accent),0.08)]'
             }`}
           >
@@ -422,6 +516,18 @@ const TaskItem = ({
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {dueCountdown && (
+                  <span
+                    className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border px-1.5 text-[10px] font-medium leading-none tracking-[-0.01em] ${
+                      dueCountdown.isOverdue
+                        ? 'border-red-500/25 bg-red-500/10 text-red-300'
+                        : 'border-sky-500/20 bg-sky-500/10 text-sky-200'
+                    }`}
+                    title={dueLabel}
+                  >
+                    {dueCountdown.label}
+                  </span>
+                )}
                 {canDrag && (
                   <button
                     type="button"
@@ -688,9 +794,10 @@ const TaskItem = ({
 
       {showContextMenu && (
         <>
-          <div className="fixed inset-0 z-50" onClick={closeContextMenu} />
+          <div className="fixed inset-0 z-[70]" onClick={closeContextMenu} />
           <div
-            className="fixed z-50 min-w-[180px] rounded-[22px] border border-[var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] backdrop-blur-xl shadow-[0_22px_48px_rgba(15,23,42,0.18)] overflow-hidden"
+            ref={contextMenuRef}
+            className="fixed z-[80] min-w-[180px] rounded-[22px] border border-[var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] backdrop-blur-xl shadow-[0_22px_48px_rgba(15,23,42,0.18)] overflow-hidden"
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
             onClick={(event) => event.stopPropagation()}
           >

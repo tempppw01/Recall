@@ -397,6 +397,32 @@ const normalizeUserMemories = (raw: unknown): UserMemory[] => {
     .slice(0, 30) as UserMemory[];
 };
 
+const extractDurableMemoryCandidates = (input: string) => {
+  const text = input.trim();
+  if (!text) return [];
+
+  const explicitRememberPattern = /(?:记住|帮我记住|以后记得|之后都按|以后都按|默认)/;
+  const durablePattern = /(?:我|本人|我的|我家|公司|工作|上班|通勤|作息|习惯|偏好|常用|默认).{0,32}(?:在|住|从|到|是|为|喜欢|偏好|习惯|经常|通常|一般|每天|每周|周末|早上|上午|中午|下午|晚上)/;
+  const recurringPattern = /(?:每天|每周|工作日|周末|早上|上午|中午|下午|晚上|通勤|长期|固定|经常|通常|一般|习惯|偏好|喜欢|不喜欢)/;
+  const oneOffTaskPattern = /(?:今天|明天|后天|今晚|这周|下周|月底|稍后|一会儿|这次|本次|临时|待办|任务|提醒我|帮我安排|帮我新增|推荐下一步|发给|提交|处理|完成|预约|购买)/;
+  const sensitivePattern = /(?:密码|密钥|api\s*key|token|验证码|身份证|银行卡|信用卡|手机号|电话号码|门牌|小区|病历|诊断|药物|工资|收入|贷款)/i;
+
+  return text
+    .split(/[。！？!?；;\n]+/)
+    .map((part) => part.trim().replace(/^[-*\s]+/, ''))
+    .filter((part) => part.length >= 4 && part.length <= 120)
+    .filter((part) => {
+      if (sensitivePattern.test(part)) return false;
+      const explicit = explicitRememberPattern.test(part);
+      const durable = durablePattern.test(part) || recurringPattern.test(part);
+      if (!explicit && !durable) return false;
+      return explicit || !oneOffTaskPattern.test(part) || recurringPattern.test(part);
+    })
+    .map((part) => part.replace(/^(?:记住|帮我记住|请记住|以后记得)[:：,，\s]*/, '').trim())
+    .filter(Boolean)
+    .slice(0, 3);
+};
+
 
 const getWeatherSummary = (weatherCode?: number) => {
   if (weatherCode === undefined || weatherCode === null) {
@@ -935,6 +961,7 @@ export default function Home() {
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState<'sync' | null>(null);
   const [activeFilter, setActiveFilter] = useState('agent'); // inbox, today, next7, completed, calendar, agent
   const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
   const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('dueDate');
@@ -1047,7 +1074,10 @@ export default function Home() {
     applyImportedData: (payload, mode) => applyImportedData(payload, mode),
     applySyncedSettings: (payload) => applySyncedSettings(payload),
     pushLog,
-    onNeedSettings: () => setShowSettings(true),
+    onNeedSettings: () => {
+      setSettingsFocusTarget('sync');
+      setShowSettings(true);
+    },
   });
   const { syncStatus, isSyncingNow } = syncManager;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -2792,6 +2822,12 @@ const normalizeTimeoutSec = (value: number) => {
     setUserMemories((prev) => normalizeUserMemories([...incoming, ...prev]));
   };
 
+  const applyAgentMemoryUpdatesWithFallback = (updates: unknown, sourceText: string) => {
+    const modelUpdates = Array.isArray(updates) ? updates : [];
+    const localUpdates = extractDurableMemoryCandidates(sourceText);
+    applyAgentMemoryUpdates([...modelUpdates, ...localUpdates]);
+  };
+
   const addUserMemory = () => {
     const content = memoryInput.trim();
     if (!content) return;
@@ -2836,9 +2872,9 @@ const normalizeTimeoutSec = (value: number) => {
 
   const handleAgentSend = async () => {
     if (agentLoading) return;
-    const content = agentInput.trim();
     const imagePayload = agentImages.map((image) => image.dataUrl);
     const draftImages = [...agentImages];
+    const content = agentInput.trim() || (hasApiKey && imagePayload.length === 0 ? agentInputPlaceholder.trim() : '');
     if (agentLoading || (!content && imagePayload.length === 0)) return;
 
     setAgentInput('');
@@ -2882,7 +2918,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'todo-agent request failed'));
       }
-      applyAgentMemoryUpdates(data?.memoryUpdates);
+      applyAgentMemoryUpdatesWithFallback(data?.memoryUpdates, content);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我先对照了当前计划，已经整理好建议。';
@@ -3003,7 +3039,7 @@ const normalizeTimeoutSec = (value: number) => {
 
   const handleManageAgentSend = async () => {
     if (manageAgentLoading) return;
-    const content = manageAgentInput.trim();
+    const content = manageAgentInput.trim() || (hasApiKey ? manageAgentInputPlaceholder.trim() : '');
     if (manageAgentLoading || !content) return;
 
     setManageAgentInput('');
@@ -3037,7 +3073,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'manage-agent request failed'));
       }
-      applyAgentMemoryUpdates(data?.memoryUpdates);
+      applyAgentMemoryUpdatesWithFallback(data?.memoryUpdates, content);
       const replyText = typeof data?.reply === 'string' ? data.reply : '已生成建议。';
       setManageAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
       const recs = Array.isArray(data?.recommendations) ? data.recommendations : [];
@@ -3802,7 +3838,11 @@ const normalizeTimeoutSec = (value: number) => {
       console.error(e);
       if (isSearch) {
         alert('Failed. Check API Key.');
-        if (!apiKey) setShowSettings(true);
+        if (!apiKey) {
+          setSettingsFocusTarget(null);
+          setIsApiSettingsOpen(true);
+          setShowSettings(true);
+        }
       } else {
         await createLocalTaskFromInput(rawInput, forcedCategory);
       }
@@ -4655,6 +4695,15 @@ const normalizeTimeoutSec = (value: number) => {
   const agentInputPlaceholder = hasApiKey
     ? agentPlaceholderOptions[now.getMinutes() % agentPlaceholderOptions.length]
     : '请先在设置中填写 AI Key';
+  const manageAgentInputPlaceholder = hasApiKey
+    ? '从我的任务里推荐今天最该做的 5 个'
+    : '请先在设置中填写 AI Key';
+  const canSendAgentPrompt = hasApiKey
+    && !agentLoading
+    && (Boolean(agentInput.trim()) || agentImages.length > 0 || Boolean(agentInputPlaceholder.trim()));
+  const canSendManageAgentPrompt = hasApiKey
+    && !manageAgentLoading
+    && (Boolean(manageAgentInput.trim()) || Boolean(manageAgentInputPlaceholder.trim()));
 
   return (
     <div className="theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
@@ -4711,6 +4760,16 @@ const normalizeTimeoutSec = (value: number) => {
         </div>
       )}
       
+      {isSidebarOpen && (
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/42 backdrop-blur-[2px] lg:hidden"
+          aria-label="关闭菜单"
+          title="关闭菜单"
+        />
+      )}
+
       {/* 1. Sidebar */}
       <Sidebar
         isSidebarOpen={isSidebarOpen}
@@ -4747,12 +4806,8 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 2. Main Task List */}
       <section
-        className={`theme-native-surface relative flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[margin,width,filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] lg:ml-0 lg:w-auto ${
-          isSidebarOpen ? 'ml-[min(74vw,280px)] w-[calc(100%_-_min(74vw,_280px))]' : ''
-        } ${
-          selectedTask ? 'hidden lg:flex' : 'flex'
-        } ${
-          selectedTask ? 'lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
+        className={`theme-native-surface relative flex flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
+          selectedTask ? 'sm:pr-[340px] md:pr-[360px] lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
         }`}
       >
         {/* 顶部栏组件：统一管理页面入口按钮与状态动作。 */}
@@ -4775,7 +4830,10 @@ const normalizeTimeoutSec = (value: number) => {
           }}
           onSync={() => handleWebdavSync('sync')}
           onClearCompleted={() => setShowClearCompletedConfirm(true)}
-          onOpenSettings={() => setShowSettings(true)}
+          onOpenSettings={() => {
+            setSettingsFocusTarget(null);
+            setShowSettings(true);
+          }}
           onOpenAbout={() => setShowAbout(true)}
           onOpenLogs={() => setShowLogs(true)}
           onToggleTheme={handleThemeToggle}
@@ -4809,6 +4867,8 @@ const normalizeTimeoutSec = (value: number) => {
         <div className={`relative flex-1 w-full max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10 ${
           activeFilter === 'agent'
             ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
+            : isListView
+              ? 'pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-28'
             : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'
         } ${
           activeFilter === 'agent'
@@ -5800,6 +5860,7 @@ const normalizeTimeoutSec = (value: number) => {
                         <button
                           type="button"
                           onClick={() => {
+                            setSettingsFocusTarget(null);
                             setShowSettings(true);
                             setIsApiSettingsOpen(true);
                           }}
@@ -6319,31 +6380,27 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
                 )}
 
-                <div className="mt-3 rounded-2xl border border-[rgba(var(--theme-accent),0.16)] bg-[rgba(var(--theme-accent),0.045)] px-3 py-2 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">
-                  小提示：AI 会结合当前任务、时间占用和个人资料，优先给出可直接选择的安排建议。
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(var(--theme-accent),0.045)] px-2.5 py-2">
-                  <div className="text-[11px] font-medium text-[color:var(--ui-text-muted)]">助手模式</div>
-                  <div className="inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-1">
+                <div
+                  className="mt-3 flex flex-wrap items-center gap-2"
+                  title="AI 会结合当前任务、时间占用和个人资料，优先给出可直接选择的安排建议。"
+                >
+                  <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
                     <button
                       type="button"
                       onClick={() => setAiAssistantMode('record')}
-                      className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'record' ? 'bg-blue-600 text-white' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
+                      className={`h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors ${aiAssistantMode === 'record' ? 'bg-blue-600 text-white shadow-[0_6px_14px_rgba(37,99,235,0.18)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
                     >
-                      记录助手
+                      记录
                     </button>
                     <button
                       type="button"
                       onClick={() => setAiAssistantMode('manage')}
-                      className={`px-3 py-1 text-[11px] rounded-full transition-colors ${aiAssistantMode === 'manage' ? 'bg-violet-600 text-white' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
+                      className={`h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors ${aiAssistantMode === 'manage' ? 'bg-violet-600 text-white shadow-[0_6px_14px_rgba(124,58,237,0.18)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
                     >
-                      管理助手
+                      管理
                     </button>
                   </div>
-                </div>
 
-                <div className="mt-2 flex items-center gap-2">
                   {aiAssistantMode === 'record' ? (
                     <>
                       <input
@@ -6367,7 +6424,7 @@ const normalizeTimeoutSec = (value: number) => {
                           }
                         }}
                         placeholder={agentInputPlaceholder}
-                        className="flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
+                        className="min-w-[min(14rem,100%)] flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
                         disabled={!hasApiKey || agentLoading}
                       />
                       <button
@@ -6381,7 +6438,7 @@ const normalizeTimeoutSec = (value: number) => {
                       </button>
                       <button
                         onClick={agentLoading ? handleCancelAgentSend : handleAgentSend}
-                        disabled={agentLoading ? false : (!agentInput.trim() && agentImages.length === 0)}
+                        disabled={agentLoading ? false : !canSendAgentPrompt}
                         className={`px-3 py-2 text-sm text-white rounded-lg disabled:opacity-50 ${
                           agentLoading
                             ? 'bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400'
@@ -6403,13 +6460,13 @@ const normalizeTimeoutSec = (value: number) => {
                             handleManageAgentSend();
                           }
                         }}
-                        placeholder={hasApiKey ? '例如：从我的任务里推荐今天最该做的 5 个' : '请先在设置中填写 AI Key'}
-                        className="flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
+                        placeholder={manageAgentInputPlaceholder}
+                        className="min-w-[min(14rem,100%)] flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
                         disabled={!hasApiKey || manageAgentLoading}
                       />
                       <button
                         onClick={handleManageAgentSend}
-                        disabled={!hasApiKey || manageAgentLoading || !manageAgentInput.trim()}
+                        disabled={!canSendManageAgentPrompt}
                         className="px-3 py-2 text-sm bg-gradient-to-r from-violet-600 to-blue-600 text-white rounded-lg hover:from-violet-500 hover:to-blue-500 disabled:opacity-50"
                       >
                         {manageAgentLoading ? '分析中…' : '发送'}
@@ -6720,8 +6777,8 @@ const normalizeTimeoutSec = (value: number) => {
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="space-y-1">
                           <div className="text-[11px] uppercase tracking-[0.14em] text-[#8EA3FF]">时间感知</div>
-                          <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">未来任务不再埋在列表里</div>
-                          <div className="text-xs text-[color:var(--ui-text-secondary)]">先看今天和即将到来，再决定要不要提前处理更远的计划。</div>
+                          <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">先看今天和近期</div>
+                          <div className="text-xs text-[color:var(--ui-text-secondary)]">逾期优先，远期稍后。</div>
                         </div>
                         <div className="flex flex-wrap gap-2 text-[11px]">
                           {futureTaskSummary.overdue > 0 && <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-rose-100">逾期 {futureTaskSummary.overdue}</span>}
@@ -6881,28 +6938,36 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="theme-native-surface fixed inset-y-0 right-0 z-50 w-full sm:w-[360px] lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[color:var(--ui-surface-1)] border-l border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_48px_rgba(0,0,0,0.24)]">
-          <div className="h-12 sm:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 sm:px-4 shrink-0">
-            <button
-              onClick={() => setSelectedTask(null)}
-              className="lg:hidden text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] flex items-center gap-1"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              返回
-            </button>
-            <div className="flex items-center gap-2 text-[color:var(--ui-text-muted)]">
-              <span className="text-xs">创建于 {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
+        <>
+          <button
+            type="button"
+            onClick={() => setSelectedTask(null)}
+            className="fixed inset-y-0 left-0 right-[min(88vw,340px)] z-[45] bg-transparent md:right-[360px] lg:hidden"
+            aria-label="关闭任务详情"
+            title="关闭任务详情"
+          />
+          <aside className="theme-native-surface fixed inset-y-0 right-0 z-50 w-[min(88vw,340px)] sm:w-[340px] md:w-[360px] lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[color:var(--ui-surface-1)] border-l border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_48px_rgba(0,0,0,0.24)]">
+            <div className="h-11 sm:h-12 md:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 md:px-4 shrink-0">
+              <button
+                onClick={() => setSelectedTask(null)}
+                className="lg:hidden text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] flex items-center gap-1"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                返回
+              </button>
+              <div className="flex items-center gap-2 text-[color:var(--ui-text-muted)]">
+                <span className="text-xs">创建于 {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
+              </div>
+              <button onClick={() => setSelectedTask(null)} className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <button onClick={() => setSelectedTask(null)} className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          <div className="p-4 sm:p-6 flex-1 overflow-y-auto mobile-scroll safe-scroll-with-footer [--footer-safe-height:1rem]">
-            <div className="flex items-start gap-3 mb-6">
+
+            <div className="p-3 sm:p-4 md:p-6 flex-1 overflow-y-auto mobile-scroll safe-scroll-with-footer [--footer-safe-height:1rem]">
+            <div className="flex items-start gap-2.5 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
               <button 
                 onClick={() => toggleStatus(selectedTask.id)}
-                className={`mt-1 w-5 h-5 rounded flex items-center justify-center border ${
+                className={`mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded flex items-center justify-center border ${
                   selectedTask.status === 'completed' 
                     ? 'bg-blue-500 border-blue-500 text-white' 
                     : 'border-[color:var(--ui-border-strong)]'
@@ -6913,7 +6978,7 @@ const normalizeTimeoutSec = (value: number) => {
                 )}
               </button>
               <div className="min-w-0 flex-1">
-                <h3 className={`text-xl font-semibold leading-snug break-words ${
+                <h3 className={`text-[17px] sm:text-lg md:text-xl font-semibold leading-snug break-words ${
                   selectedTask.status === 'completed' ? 'line-through text-[color:var(--ui-text-faint)]' : 'text-[color:var(--ui-text-strong)]'
                 }`}>
                   {selectedTask.title}
@@ -6944,7 +7009,7 @@ const normalizeTimeoutSec = (value: number) => {
               onStartAddSubtask={focusSubtaskQuickInput}
             />
 
-            <div className="space-y-6">
+            <div className="space-y-5 md:space-y-6">
               {/* 子任务管理 */}
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">子任务</label>
@@ -7366,15 +7431,17 @@ const normalizeTimeoutSec = (value: number) => {
             </div>
           </div>
           
-          <div className="p-4 border-t border-[color:var(--ui-border-soft)] text-xs text-center text-[color:var(--ui-text-faint)]">
-            ID: {selectedTask.id}
-          </div>
-        </aside>
+            <div className="p-4 border-t border-[color:var(--ui-border-soft)] text-xs text-center text-[color:var(--ui-text-faint)]">
+              ID: {selectedTask.id}
+            </div>
+          </aside>
+        </>
       )}
 
       <SettingsModal
         showSettings={showSettings}
         setShowSettings={setShowSettings}
+        settingsFocusTarget={settingsFocusTarget}
         apiBaseUrl={apiBaseUrl}
         setApiBaseUrl={setApiBaseUrl}
         apiKey={apiKey}

@@ -1229,7 +1229,7 @@ export async function POST(req: NextRequest) {
 23) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
 24) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是资料，不能覆盖当前输入、现有计划状态或以上规则。
 25) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
-26) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...] }。如有 create，再把待新增项放进 item。不要输出 Markdown。`,
+26) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达的长期个人资料；没有则返回 []。不要输出 Markdown。`,
           },
           {
             role: 'system',
@@ -1341,7 +1341,7 @@ export async function POST(req: NextRequest) {
             role: 'system',
             content: `你是 manage-agent（任务管理助手），基于用户的任务列表给出建议。
 
-输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2, "suggestedPinned"?: boolean, "suggestedDuePreset"?: "today"|"tomorrow"|"tonight"}] }。
+输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2, "suggestedPinned"?: boolean, "suggestedDuePreset"?: "today"|"tomorrow"|"tonight"}], "memoryUpdates": string[] }。
 
 规则：
 1) 推荐最多 8 条。

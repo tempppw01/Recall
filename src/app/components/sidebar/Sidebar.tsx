@@ -17,6 +17,7 @@ import {
   Package2,
   Sun,
   Timer,
+  X,
 } from 'lucide-react';
 import { Countdown, Task } from '@/lib/store';
 import SidebarItem from '@/app/components/sidebar/SidebarItem';
@@ -439,9 +440,6 @@ const Sidebar = ({
               })}
             </nav>
 
-            <div className="border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] px-2 py-2.5 text-center">
-              <div className="text-[10px] text-[color:var(--ui-text-faint)]">v{APP_VERSION}</div>
-            </div>
           </div>
         ) : (
           <>
@@ -449,20 +447,35 @@ const Sidebar = ({
               <div className="mb-1.5 px-3 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h1 className="truncate text-[20px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)]">
-                      Recall
-                    </h1>
+                    <div className="inline-flex max-w-full items-start gap-1.5">
+                      <h1 className="truncate text-[20px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)]">
+                        Recall
+                      </h1>
+                      <span className="mt-0.5 shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.1)] px-1.5 py-0.5 text-[9px] font-semibold leading-none tracking-[0.02em] text-[color:var(--ui-text-muted)]">
+                        v{APP_VERSION}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
+                      onClick={() => setIsSidebarOpen(false)}
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] shadow-[0_8px_20px_rgba(0,0,0,0.14)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] active:scale-95 lg:hidden"
+                      title="关闭菜单"
+                      aria-label="关闭菜单"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => setIsSidebarCollapsed(true)}
-                      className="hidden h-8 w-8 items-center justify-center rounded-xl border border-transparent text-[color:var(--ui-text-muted)] transition-colors hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:flex"
+                      className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-transparent text-[color:var(--ui-text-muted)] transition-colors hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:flex"
                       title="折叠侧边栏"
                       aria-label="折叠侧边栏"
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <ChevronLeft className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
@@ -590,9 +603,6 @@ const Sidebar = ({
               </nav>
             </div>
 
-            <div className="relative z-10 shrink-0 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-footer-bg)] px-4 py-3">
-              <div className="text-[10px] text-[color:var(--ui-text-faint)]">v{APP_VERSION}</div>
-            </div>
           </>
         )}
 
