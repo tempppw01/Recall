@@ -1110,6 +1110,7 @@ export default function Home() {
   const [appliedAgentDecisionIds, setAppliedAgentDecisionIds] = useState<Set<string>>(new Set());
   const [agentGuidance, setAgentGuidance] = useState<string[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
+  const [addedAgentTaskMap, setAddedAgentTaskMap] = useState<Record<string, Task>>({});
   const [agentError, setAgentError] = useState<string | null>(null);
   const [userMemories, setUserMemories] = useState<UserMemory[]>([]);
   const [memoryInput, setMemoryInput] = useState('');
@@ -1715,6 +1716,7 @@ export default function Home() {
       setAgentItems([]);
       setAgentGuidance([]);
       setAddedAgentItemIds(new Set());
+      setAddedAgentTaskMap({});
       setAgentError(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem(AGENT_MESSAGES_KEY);
@@ -2874,6 +2876,7 @@ const normalizeTimeoutSec = (value: number) => {
       setAgentItems(nextItems);
       setAgentGuidance(nextGuidance);
       setAddedAgentItemIds(new Set());
+      setAddedAgentTaskMap({});
       setAppliedAgentDecisionIds(new Set());
       pushLog('success', 'todo-agent 返回成功', `新增 ${nextItems.length} 条，计划判断 ${nextDecisions.length} 条`, { silentFeedback: true });
     } catch (error) {
@@ -2893,6 +2896,7 @@ const normalizeTimeoutSec = (value: number) => {
       setAgentGuidance([]);
       setAgentDecisions([]);
       setAgentItems([]);
+      setAddedAgentTaskMap({});
       setAppliedAgentDecisionIds(new Set());
       // 不要添加 assistant 消息，而是让错误提示显示出来
       pushLog('error', 'todo-agent 请求失败', String(message), { silentFeedback: true });
@@ -3017,6 +3021,7 @@ const normalizeTimeoutSec = (value: number) => {
       next.add(item.id);
       return next;
     });
+    setAddedAgentTaskMap((prev) => ({ ...prev, [item.id]: task }));
     if (decisionId) {
       setAppliedAgentDecisionIds((prev) => {
         const next = new Set(prev);
@@ -3050,7 +3055,22 @@ const normalizeTimeoutSec = (value: number) => {
       taskStore.add(task);
       syncToPg('tasks', 'POST', task);
     });
+    setAddedAgentTaskMap((prev) => {
+      const next = { ...prev };
+      pendingItems.forEach((item, index) => {
+        next[item.id] = newTasks[index];
+      });
+      return next;
+    });
     refreshTasks();
+  };
+
+  const handleOpenAddedAgentTask = (itemId: string) => {
+    const task = addedAgentTaskMap[itemId];
+    if (!task) return;
+    setActiveFilter('todo');
+    setSelectedTask(task);
+    setIsSidebarOpen(false);
   };
 
   const handleApplyAgentScheduleOption = (itemId: string, option: AgentScheduleOption) => {
@@ -5787,16 +5807,29 @@ const normalizeTimeoutSec = (value: number) => {
                                           </p>
                                         )}
                                       </div>
-                                      <button
-                                        onClick={() => handleAddAgentItem(item, createDecisionIdMap.get(item.id))}
-                                        className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                                          addedAgentItemIds.has(item.id)
-                                            ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
-                                            : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                                        }`}
-                                      >
-                                        {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
-                                      </button>
+                                      <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAddAgentItem(item, createDecisionIdMap.get(item.id))}
+                                          disabled={addedAgentItemIds.has(item.id)}
+                                          className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
+                                            addedAgentItemIds.has(item.id)
+                                              ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
+                                              : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
+                                          }`}
+                                        >
+                                          {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
+                                        </button>
+                                        {addedAgentItemIds.has(item.id) && addedAgentTaskMap[item.id] && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenAddedAgentTask(item.id)}
+                                            className="text-xs px-3 py-1 rounded-lg border border-emerald-400/45 text-emerald-100 hover:bg-emerald-400/10"
+                                          >
+                                            去看任务
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                     {item.scheduleOptions && item.scheduleOptions.length > 0 && (
                                       <div className="mt-3 space-y-2 rounded-2xl border border-[rgba(var(--theme-accent),0.14)] bg-[rgba(var(--theme-accent),0.045)] p-2.5">
