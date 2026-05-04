@@ -111,6 +111,7 @@ export default function ListComposerPanel({
           {isBatchMode && (
             <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-1">
               <span className="px-1 text-[11px] text-[color:var(--ui-text-secondary)]">已选 {selectedCount}</span>
+              <span className="hidden px-1 text-[11px] text-[color:var(--ui-text-muted)] sm:inline">按住滑过可多选</span>
               <button
                 type="button"
                 onClick={onBatchComplete}

@@ -151,7 +151,7 @@ const TaskItem = ({
   const [nowMs, setNowMs] = useState<number | undefined>(undefined);
   const maxOffset = 84;
   const timezoneOffset = getTimezoneOffset(task);
-  const canDrag = Boolean(onDragStart) && dragEnabled;
+  const canDrag = Boolean(onDragStart) && dragEnabled && !multiSelectEnabled;
   const subtaskTotal = task.subtasks?.length ?? 0;
   const completedSubtasks = subtaskTotal
     ? (task.subtasks ?? []).filter((subtask: Subtask) => subtask.completed).length
@@ -375,6 +375,7 @@ const TaskItem = ({
 
   return (
     <div
+      data-task-drag-select-id={multiSelectEnabled ? task.id : undefined}
       className={`relative rounded-[24px] ${isDueEditorOpen ? 'z-40' : ''} ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
@@ -150,6 +150,18 @@ const USER_MEMORIES_KEY = 'recall_user_memories';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
+
+type TaskSelectionDragMode = 'select' | 'deselect';
+
+type TaskSelectionDragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startTaskId: string;
+  mode: TaskSelectionDragMode;
+  seenTaskIds: Set<string>;
+  dragging: boolean;
+};
 
 type AiErrorResponseBody = {
   error?: unknown;
@@ -974,6 +986,10 @@ export default function Home() {
   const [draggingSubtaskId, setDraggingSubtaskId] = useState<string | null>(null);
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [isTaskSelectionPointerActive, setIsTaskSelectionPointerActive] = useState(false);
+  const [isTaskSelectionDragging, setIsTaskSelectionDragging] = useState(false);
+  const taskSelectionDragRef = useRef<TaskSelectionDragState | null>(null);
+  const suppressTaskSelectionClickRef = useRef<Set<string>>(new Set());
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [dragOverSubtaskId, setDragOverSubtaskId] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -3946,6 +3962,125 @@ const normalizeTimeoutSec = (value: number) => {
     });
   };
 
+  const applyTaskSelectionDragState = useCallback((taskId: string, mode: TaskSelectionDragMode) => {
+    setSelectedTaskIds((prev) => {
+      const hasTask = prev.has(taskId);
+      if ((mode === 'select' && hasTask) || (mode === 'deselect' && !hasTask)) {
+        return prev;
+      }
+
+      const next = new Set(prev);
+      if (mode === 'select') {
+        next.add(taskId);
+      } else {
+        next.delete(taskId);
+      }
+      return next;
+    });
+  }, []);
+
+  const getTaskDragSelectElement = (target: EventTarget | null) => {
+    if (!(target instanceof Element)) return null;
+    return target.closest('[data-task-drag-select-id]') as HTMLElement | null;
+  };
+
+  const isTaskSelectionBlockedTarget = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return true;
+    return Boolean(target.closest('button, a, input, textarea, select, [contenteditable="true"], [data-task-drag-select-block="true"]'));
+  };
+
+  const handleTaskSelectionPointerDownCapture = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!isBatchMode || event.button !== 0 || event.pointerType !== 'mouse') return;
+    if (isTaskSelectionBlockedTarget(event.target)) return;
+
+    const taskElement = getTaskDragSelectElement(event.target);
+    const taskId = taskElement?.dataset.taskDragSelectId;
+    if (!taskId || editingTaskId === taskId) return;
+
+    taskSelectionDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startTaskId: taskId,
+      mode: selectedTaskIds.has(taskId) ? 'deselect' : 'select',
+      seenTaskIds: new Set([taskId]),
+      dragging: false,
+    };
+    setIsTaskSelectionPointerActive(true);
+  };
+
+  const handleTaskSelectionClickCapture = (event: ReactMouseEvent<HTMLElement>) => {
+    if (!isBatchMode) return;
+
+    const taskElement = getTaskDragSelectElement(event.target);
+    const taskId = taskElement?.dataset.taskDragSelectId;
+    if (!taskId || !suppressTaskSelectionClickRef.current.has(taskId)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    suppressTaskSelectionClickRef.current.delete(taskId);
+  };
+
+  useEffect(() => {
+    if (!isTaskSelectionPointerActive) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const dragState = taskSelectionDragRef.current;
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+
+      const deltaX = Math.abs(event.clientX - dragState.startX);
+      const deltaY = Math.abs(event.clientY - dragState.startY);
+      if (!dragState.dragging) {
+        if (Math.max(deltaX, deltaY) < 6) return;
+
+        dragState.dragging = true;
+        suppressTaskSelectionClickRef.current.add(dragState.startTaskId);
+        applyTaskSelectionDragState(dragState.startTaskId, dragState.mode);
+        setIsTaskSelectionDragging(true);
+      }
+
+      event.preventDefault();
+      const elementUnderPointer = document.elementFromPoint(event.clientX, event.clientY);
+      const taskElement = getTaskDragSelectElement(elementUnderPointer);
+      const taskId = taskElement?.dataset.taskDragSelectId;
+      if (!taskId || dragState.seenTaskIds.has(taskId)) return;
+
+      dragState.seenTaskIds.add(taskId);
+      suppressTaskSelectionClickRef.current.add(taskId);
+      applyTaskSelectionDragState(taskId, dragState.mode);
+    };
+
+    const finishSelectionDrag = (event: PointerEvent) => {
+      const dragState = taskSelectionDragRef.current;
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+
+      if (dragState.dragging) {
+        dragState.seenTaskIds.forEach((taskId) => suppressTaskSelectionClickRef.current.add(taskId));
+      }
+      taskSelectionDragRef.current = null;
+      setIsTaskSelectionPointerActive(false);
+      setIsTaskSelectionDragging(false);
+    };
+
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', finishSelectionDrag);
+    document.addEventListener('pointercancel', finishSelectionDrag);
+
+    return () => {
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', finishSelectionDrag);
+      document.removeEventListener('pointercancel', finishSelectionDrag);
+    };
+  }, [applyTaskSelectionDragState, isTaskSelectionPointerActive]);
+
+  useEffect(() => {
+    if (isBatchMode) return;
+    taskSelectionDragRef.current = null;
+    suppressTaskSelectionClickRef.current.clear();
+    setIsTaskSelectionPointerActive(false);
+    setIsTaskSelectionDragging(false);
+  }, [isBatchMode]);
+
   const clearBatchSelection = () => {
     setSelectedTaskIds(new Set());
   };
@@ -4833,8 +4968,12 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 2. Main Task List */}
       <section
+        onPointerDownCapture={handleTaskSelectionPointerDownCapture}
+        onClickCapture={handleTaskSelectionClickCapture}
         className={`theme-native-surface relative flex flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
           selectedTask ? 'sm:pr-[340px] md:pr-[360px] lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
+        } ${
+          isTaskSelectionDragging ? 'select-none cursor-default' : ''
         }`}
       >
         {/* 顶部栏组件：统一管理页面入口按钮与状态动作。 */}
