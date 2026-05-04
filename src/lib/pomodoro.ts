@@ -166,12 +166,13 @@ const getAdvancedPomodoroState = (source: PersistedPomodoroState, now = Date.now
   }
 
   if (elapsed < base.remaining) {
+    const consumedAt = base.lastUpdated + elapsed * 1000;
     return {
       nextState: normalizePomodoroState({
         ...base,
         remaining: base.remaining - elapsed,
-        lastUpdated: now,
-      }, now),
+        lastUpdated: consumedAt,
+      }, consumedAt),
       didChange: true,
     };
   }
@@ -259,6 +260,15 @@ export const skipPomodoroPhase = (now = Date.now()) => {
   return syncPomodoroState(now);
 };
 
+const getNextPomodoroSyncDelay = (now = Date.now()) => {
+  const state = safelyReadPomodoroState();
+  if (!state.isRunning) return 1000;
+
+  const elapsedMs = Math.max(0, now - state.lastUpdated);
+  const msUntilNextSecond = 1000 - (elapsedMs % 1000);
+  return Math.min(Math.max(80, msUntilNextSecond + 12), 1000);
+};
+
 export const usePomodoroState = () => {
   const [state, setState] = useState<null | ResolvedPomodoroState>(() => (
     typeof window === 'undefined' ? null : syncPomodoroState(Date.now())
@@ -274,17 +284,36 @@ export const usePomodoroState = () => {
     };
 
     sync();
-    const timer = window.setInterval(sync, 1000);
+    let timer: number | null = null;
+    const scheduleSync = () => {
+      timer = window.setTimeout(() => {
+        timer = null;
+        sync();
+        if (timer === null) scheduleSync();
+      }, getNextPomodoroSyncDelay(Date.now()));
+    };
+    scheduleSync();
     const onStorage = (event: StorageEvent) => {
-      if (!event.key || event.key === STORAGE_KEY) sync();
+      if (!event.key || event.key === STORAGE_KEY) {
+        if (timer) window.clearTimeout(timer);
+        timer = null;
+        sync();
+        if (timer === null) scheduleSync();
+      }
+    };
+    const onPomodoroEvent = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = null;
+      sync();
+      if (timer === null) scheduleSync();
     };
 
     window.addEventListener('storage', onStorage);
-    window.addEventListener(POMODORO_STATE_EVENT, sync as EventListener);
+    window.addEventListener(POMODORO_STATE_EVENT, onPomodoroEvent);
     return () => {
-      window.clearInterval(timer);
+      if (timer) window.clearTimeout(timer);
       window.removeEventListener('storage', onStorage);
-      window.removeEventListener(POMODORO_STATE_EVENT, sync as EventListener);
+      window.removeEventListener(POMODORO_STATE_EVENT, onPomodoroEvent);
     };
   }, []);
 
