@@ -448,18 +448,28 @@ const TaskItem = ({
               </div>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1.5 py-0.5 text-[10px] ${getPriorityColor(task.priority)}`}>
+            <div
+              className={`absolute left-11 right-3 top-[calc(100%-0.35rem)] z-30 flex flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2 shadow-[0_18px_38px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-[opacity,transform] duration-[var(--motion-base)] ${
+                isDueEditorOpen
+                  ? 'opacity-100 translate-y-0'
+                  : 'pointer-events-none opacity-0 -translate-y-1 group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0'
+              }`}
+              onClick={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+            >
+              <span className={`inline-flex h-6 items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2 text-[10px] ${getPriorityColor(task.priority)}`}>
                 <Flag className="w-3 h-3 fill-current" />
                 {getPriorityLabel(task.priority)}
               </span>
               {task.repeat && task.repeat.type !== 'none' && (
-                <span className="text-[10px] text-purple-200 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-full">
+                <span className="inline-flex h-6 items-center rounded-full border border-purple-500/20 bg-purple-500/10 px-2 text-[10px] text-purple-200">
                   {formatRepeatLabel(task.repeat)}
                 </span>
               )}
               {task.category && (
-                <span className="text-[10px] text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
+                <span className="inline-flex h-6 items-center rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 text-[10px] text-indigo-200">
                   {task.category}
                 </span>
               )}
@@ -470,7 +480,7 @@ const TaskItem = ({
                     event.stopPropagation();
                     setIsDueEditorOpen((prev) => !prev);
                   }}
-                  className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5 text-[10px] ${dueTextColor} hover:text-[color:var(--ui-text-strong)]`}
+                  className={`inline-flex h-6 items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-2 text-[10px] ${dueTextColor} hover:text-[color:var(--ui-text-strong)]`}
                   title="点击编辑时间"
                 >
                   <Calendar className="w-3 h-3" />
@@ -561,17 +571,13 @@ const TaskItem = ({
                 )}
               </div>
               {visibleTags.map((tag: string) => (
-                <span key={tag} className="text-[10px] text-[color:var(--ui-text-muted)] rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5">#{tag}</span>
+                <span key={tag} className="inline-flex h-6 items-center rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-2 text-[10px] text-[color:var(--ui-text-muted)]">#{tag}</span>
               ))}
               {hiddenTagCount > 0 && (
-                <span className="text-[10px] text-[color:var(--ui-text-muted)] rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5">+{hiddenTagCount}</span>
+                <span className="inline-flex h-6 items-center rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-2 text-[10px] text-[color:var(--ui-text-muted)]">+{hiddenTagCount}</span>
               )}
               <div
-                className={`mt-2 flex min-h-6 flex-wrap items-center gap-1 border-t pt-1.5 leading-none transition-[opacity,border-color] duration-[var(--motion-base)] overflow-hidden ${
-                  selected
-                    ? 'opacity-100 border-[rgba(255,255,255,0.04)]'
-                    : 'pointer-events-none opacity-0 border-transparent sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:border-[rgba(255,255,255,0.04)]'
-                }`}
+                className="basis-full flex min-h-6 flex-wrap items-center gap-1 border-t border-[rgba(255,255,255,0.04)] pt-1.5 leading-none"
                 onClick={(event) => event.stopPropagation()}
                 onMouseDown={(event) => event.stopPropagation()}
                 onPointerDown={(event) => event.stopPropagation()}

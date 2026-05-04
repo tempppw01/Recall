@@ -6228,6 +6228,10 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
                 )}
 
+                <div className="mt-3 rounded-2xl border border-[rgba(var(--theme-accent),0.16)] bg-[rgba(var(--theme-accent),0.045)] px-3 py-2 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">
+                  小提示：AI 会结合当前任务、时间占用和个人资料，优先给出可直接选择的安排建议。
+                </div>
+
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(var(--theme-accent),0.045)] px-2.5 py-2">
                   <div className="text-[11px] font-medium text-[color:var(--ui-text-muted)]">助手模式</div>
                   <div className="inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-1">
@@ -6642,9 +6646,9 @@ const normalizeTimeoutSec = (value: number) => {
                     ? futureAwareGroupedTasks.map((group) => {
                         const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];
                         return (
-                          <div key={group.key} className="space-y-1.5 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] p-2">
+                          <div key={group.key} className="space-y-2 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] p-2.5">
                             <div className="flex">
-                              <div className={`inline-flex max-w-full items-center gap-2 rounded-[18px] border px-3 py-2 ${meta.tone}`}>
+                              <div className={`flex w-full max-w-full items-center justify-between gap-2 border-b border-[color:var(--ui-border-soft)] px-2 pb-2 ${meta.tone}`}>
                                 <div className="min-w-0">
                                   <div className="text-sm font-semibold leading-tight text-[#EEF2FF]">{group.label}</div>
                                   <div className="truncate text-xs leading-tight text-[#8F9BB3]">{meta.summary}</div>
@@ -6786,7 +6790,7 @@ const normalizeTimeoutSec = (value: number) => {
 
       {/* 3. Detail Sidebar (Right) */}
       {selectedTask && (
-        <aside className="theme-native-surface fixed inset-y-0 right-0 z-50 lg:z-10 w-full sm:w-[360px] lg:relative lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[color:var(--ui-surface-1)] border-l border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface">
+        <aside className="theme-native-surface fixed inset-y-0 right-0 z-50 w-full sm:w-[360px] lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[color:var(--ui-surface-1)] border-l border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_48px_rgba(0,0,0,0.24)]">
           <div className="h-12 sm:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 sm:px-4 shrink-0">
             <button
               onClick={() => setSelectedTask(null)}
