@@ -54,11 +54,11 @@ export default function PageTopBar({
   return (
     <header className="theme-native-surface sticky top-0 z-20 sticky-glass bg-[var(--ui-header-bg)] backdrop-blur-2xl">
       <div className="mx-2 mt-3 rounded-[28px] glass-panel surface-sheen surface-pulse px-3.5 py-3.5 sm:mx-4 sm:px-5 lg:mx-6 lg:px-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-4">
+        <div className="flex min-h-10 items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <button
               onClick={onOpenSidebar}
-              className={`lg:hidden -ml-1 mt-0.5 ${iconButtonClassName}`}
+              className={`lg:hidden -ml-1 ${iconButtonClassName}`}
               aria-label="打开导航"
               title="打开导航"
             >
