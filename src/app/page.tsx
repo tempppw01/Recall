@@ -1235,6 +1235,7 @@ export default function Home() {
   const [agentGuidance, setAgentGuidance] = useState<string[]>([]);
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [addedAgentTaskMap, setAddedAgentTaskMap] = useState<Record<string, Task>>({});
+  const [expandedAgentSubtaskIds, setExpandedAgentSubtaskIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
   const [userMemories, setUserMemories] = useState<UserMemory[]>([]);
   const [memoryInput, setMemoryInput] = useState('');
@@ -1846,6 +1847,7 @@ export default function Home() {
       setAgentGuidance([]);
       setAddedAgentItemIds(new Set());
       setAddedAgentTaskMap({});
+      setExpandedAgentSubtaskIds(new Set());
       setAgentError(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem(AGENT_MESSAGES_KEY);
@@ -3014,6 +3016,7 @@ const normalizeTimeoutSec = (value: number) => {
       setAgentGuidance(nextGuidance);
       setAddedAgentItemIds(new Set());
       setAddedAgentTaskMap({});
+      setExpandedAgentSubtaskIds(new Set());
       setAppliedAgentDecisionIds(new Set());
       pushLog('success', 'todo-agent 返回成功', `新增 ${nextItems.length} 条，计划判断 ${nextDecisions.length} 条`, { silentFeedback: true });
     } catch (error) {
@@ -3034,6 +3037,7 @@ const normalizeTimeoutSec = (value: number) => {
       setAgentDecisions([]);
       setAgentItems([]);
       setAddedAgentTaskMap({});
+      setExpandedAgentSubtaskIds(new Set());
       setAppliedAgentDecisionIds(new Set());
       // 不要添加 assistant 消息，而是让错误提示显示出来
       pushLog('error', 'todo-agent 请求失败', String(message), { silentFeedback: true });
@@ -3169,6 +3173,18 @@ const normalizeTimeoutSec = (value: number) => {
     taskStore.add(task);
     refreshTasks();
     syncToPg('tasks', 'POST', task);
+  };
+
+  const toggleAgentSuggestionSubtasks = (itemId: string) => {
+    setExpandedAgentSubtaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
   };
 
   const handleAddAllAgentItems = () => {
@@ -6559,6 +6575,11 @@ const normalizeTimeoutSec = (value: number) => {
                         const isAdded = addedAgentItemIds.has(item.id);
                         const reason = createDecisionReasonMap.get(item.id);
                         const timeReason = item.timeReason?.trim();
+                        const subtasks = (item.subtasks ?? [])
+                          .map((subtask) => subtask.title?.trim())
+                          .filter((title): title is string => Boolean(title));
+                        const hasSubtasks = subtasks.length > 0;
+                        const isSubtasksOpen = expandedAgentSubtaskIds.has(item.id);
                         return (
                           <div
                             key={item.id}
@@ -6582,8 +6603,25 @@ const normalizeTimeoutSec = (value: number) => {
                                   <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5">
                                     {item.dueDate ? formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET) : '未定时间'}
                                   </span>
-                                  {item.subtasks?.length ? (
-                                    <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5">子任务 {item.subtasks.length}</span>
+                                  {hasSubtasks ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleAgentSuggestionSubtasks(item.id)}
+                                      className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 transition-colors ${
+                                        isSubtasksOpen
+                                          ? 'border-blue-300/45 bg-blue-500/14 text-blue-50'
+                                          : 'border-[color:var(--ui-border-soft)] hover:border-blue-300/40 hover:text-[color:var(--ui-text-strong)]'
+                                      }`}
+                                      aria-expanded={isSubtasksOpen}
+                                      aria-label={isSubtasksOpen ? '收起建议子任务' : '展开建议子任务'}
+                                    >
+                                      <span>子任务 {subtasks.length}</span>
+                                      {isSubtasksOpen ? (
+                                        <ChevronUp className="h-3 w-3" />
+                                      ) : (
+                                        <ChevronDown className="h-3 w-3" />
+                                      )}
+                                    </button>
                                   ) : null}
                                   {timeReason && (
                                     <span className="min-w-0 max-w-full truncate text-blue-200/90">推荐：{timeReason}</span>
@@ -6615,6 +6653,20 @@ const normalizeTimeoutSec = (value: number) => {
                                 )}
                               </div>
                             </div>
+                            {hasSubtasks && (
+                              <div className={`grid transition-[grid-template-rows,opacity,margin] duration-[var(--motion-base)] ease-out ${isSubtasksOpen ? 'mt-2 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0'}`}>
+                                <div className="min-h-0 overflow-hidden">
+                                  <div className="space-y-1 rounded-lg border border-blue-300/15 bg-blue-950/15 p-2">
+                                    {subtasks.map((subtask, subtaskIndex) => (
+                                      <div key={`${item.id}-suggestion-subtask-${subtaskIndex}`} className="flex items-start gap-2 text-[11px] leading-snug text-[color:var(--ui-text-secondary)]">
+                                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300/70" />
+                                        <span className="min-w-0 flex-1">{subtask}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             {item.scheduleOptions && item.scheduleOptions.length > 0 && (
                               <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5">
                                 {item.scheduleOptions.map((option, optionIndex) => {
