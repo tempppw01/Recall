@@ -4824,14 +4824,18 @@ const normalizeTimeoutSec = (value: number) => {
       .filter((decision) => decision.item?.id)
       .map((decision) => [decision.item!.id, decision.id] as const),
   );
-  const showAgentBulkAdd = agentItems.length > 1
-    || agentItems.some((item) => (item.subtasks?.length ?? 0) > 0);
   const showCountdownAgentBulkAdd = countdownAgentItems.length > 1;
   const hasApiKey = apiKey.trim().length > 0;
   const openTasksForAgent = tasks.filter((task) => task.status !== 'completed');
   const todayTasksForAgent = openTasksForAgent.filter((task) => isTaskDueToday(task, now));
   const overdueTasksForAgent = openTasksForAgent.filter((task) => isTaskOverdue(task));
   const pendingAgentSuggestions = agentItems.filter((item) => !addedAgentItemIds.has(item.id));
+  const hasAgentComparisonResults = agentGuidance.length > 0
+    || agentUpdateDecisions.length > 0
+    || agentDeleteDecisions.length > 0
+    || agentReuseDecisions.length > 0
+    || agentBlockedDecisions.length > 0
+    || agentSkipDecisions.length > 0;
   const agentPlaceholderOptions = [
     overdueTasksForAgent.length > 0
       ? `我有 ${overdueTasksForAgent.length} 个逾期任务，帮我重新安排`
@@ -6077,7 +6081,8 @@ const normalizeTimeoutSec = (value: number) => {
                       <div ref={agentConversationEndRef} aria-hidden="true" />
                       </div>
 
-                      <div className="order-1 space-y-3 border-t border-[color:var(--ui-border-soft)] pt-2">
+                      {hasAgentComparisonResults && (
+                      <div className="order-3 space-y-2 border-t border-[color:var(--ui-border-soft)] pt-2">
                         {agentGuidance.length > 0 && (
                           <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] space-y-1">
                             <div className="font-medium text-[color:var(--ui-text-strong)]">行动拆解建议</div>
@@ -6089,119 +6094,9 @@ const normalizeTimeoutSec = (value: number) => {
                           </div>
                         )}
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">计划对照结果</h4>
-                          {showAgentBulkAdd && (
-                            <button
-                              onClick={handleAddAllAgentItems}
-                              disabled={agentItems.length === 0 || addedAgentItemIds.size === agentItems.length}
-                              className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              一键全部添加
-                            </button>
-                          )}
+                          <h4 className="text-xs font-semibold text-[color:var(--ui-text-primary)]">计划对照</h4>
                         </div>
-                        {agentDecisions.length === 0 && agentItems.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-cyan-500/20 bg-[color:var(--ui-card-bg)] p-4 text-xs text-[color:var(--ui-text-secondary)]">
-                            我会先对照现有计划，再把新增、复用和阻塞建议显示在这里。
-                          </div>
-                        ) : (
-                          <div className="grid gap-3">
-                            {agentItems.length > 0 && (
-                              <div className="space-y-3">
-                                <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">建议新增 {agentItems.length} 条</div>
-                                {agentItems.map((item) => (
-                                  <div key={item.id} className="rounded-2xl border border-violet-500/20 bg-[color:var(--ui-card-bg)] p-4 shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div>
-                                        <p className="text-sm font-semibold text-[color:var(--ui-text-strong)]">{item.title}</p>
-                                        {item.dueDate && (
-                                          <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
-                                            日期：{formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET)}
-                                          </p>
-                                        )}
-                                        {createDecisionReasonMap.get(item.id) && (
-                                          <p className="mt-2 text-xs text-[color:var(--ui-text-secondary)]">
-                                            原因：{createDecisionReasonMap.get(item.id)}
-                                          </p>
-                                        )}
-                                      </div>
-                                      <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleAddAgentItem(item, createDecisionIdMap.get(item.id))}
-                                          disabled={addedAgentItemIds.has(item.id)}
-                                          className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                                            addedAgentItemIds.has(item.id)
-                                              ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
-                                              : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                                          }`}
-                                        >
-                                          {addedAgentItemIds.has(item.id) ? '已添加' : '加入待办'}
-                                        </button>
-                                        {addedAgentItemIds.has(item.id) && addedAgentTaskMap[item.id] && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleOpenAddedAgentTask(item.id)}
-                                            className="text-xs px-3 py-1 rounded-lg border border-emerald-400/45 text-emerald-100 hover:bg-emerald-400/10"
-                                          >
-                                            去看任务
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {item.scheduleOptions && item.scheduleOptions.length > 0 && (
-                                      <div className="mt-3 space-y-2 rounded-2xl border border-[rgba(var(--theme-accent),0.14)] bg-[rgba(var(--theme-accent),0.045)] p-2.5">
-                                        <div className="text-[11px] font-medium text-[color:var(--ui-text-strong)]">可选安排</div>
-                                        <div className="grid gap-2 sm:grid-cols-2">
-                                          {item.scheduleOptions.map((option, optionIndex) => {
-                                            const selected =
-                                              Boolean(option.dueDate && item.dueDate === option.dueDate)
-                                              && (typeof option.priority !== 'number' || item.priority === option.priority);
-                                            return (
-                                              <button
-                                                key={option.id || `${item.id}-schedule-${optionIndex}`}
-                                                type="button"
-                                                onClick={() => handleApplyAgentScheduleOption(item.id, option)}
-                                                disabled={addedAgentItemIds.has(item.id)}
-                                                className={`rounded-xl border px-3 py-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
-                                                  selected
-                                                    ? 'border-blue-400/60 bg-blue-500/14 text-[color:var(--ui-text-strong)]'
-                                                    : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] hover:border-blue-400/45 hover:text-[color:var(--ui-text-strong)]'
-                                                }`}
-                                              >
-                                                <div className="flex items-center justify-between gap-2">
-                                                  <span className="font-medium">{option.label}</span>
-                                                  {typeof option.priority === 'number' && (
-                                                    <span className={getPriorityColor(option.priority)}>
-                                                      {getPriorityLabel(option.priority)}
-                                                    </span>
-                                                  )}
-                                                </div>
-                                                {option.dueDate && (
-                                                  <div className="mt-1 text-[11px] text-[color:var(--ui-text-muted)]">
-                                                    {formatZonedDateTime(option.dueDate, DEFAULT_TIMEZONE_OFFSET)}
-                                                  </div>
-                                                )}
-                                                {option.reason && (
-                                                  <div className="mt-1 leading-4 text-[color:var(--ui-text-secondary)]">{option.reason}</div>
-                                                )}
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {item.subtasks?.length ? (
-                                      <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-[color:var(--ui-text-muted)]">
-                                        {item.subtasks.map((subtask, index) => (
-                                          <li key={`${item.id}-subtask-${index}`}>{subtask.title}</li>
-                                        ))}
-                                      </ul>
-                                    ) : null}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                          <div className="grid gap-2">
                             {agentUpdateDecisions.length > 0 && (
                               <div className="space-y-2">
                                 <div className="text-xs font-medium text-[color:var(--ui-text-strong)]">建议修改现有任务 {agentUpdateDecisions.length} 条</div>
@@ -6307,8 +6202,8 @@ const normalizeTimeoutSec = (value: number) => {
                               </div>
                             )}
                           </div>
-                        )}
                       </div>
+                      )}
                     </>
                   ) : (
                     <>
@@ -6553,6 +6448,117 @@ const normalizeTimeoutSec = (value: number) => {
                     </>
                   )}
                 </div>
+
+                {aiAssistantMode === 'record' && agentItems.length > 0 && (
+                  <div className="mt-3 rounded-2xl border border-blue-400/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.14),rgba(14,165,233,0.07))] p-2.5 shadow-[0_12px_28px_rgba(15,23,42,0.16)]">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">
+                          建议新增
+                          <span className="ml-1 text-[color:var(--ui-text-secondary)]">
+                            {pendingAgentSuggestions.length > 0 ? `${pendingAgentSuggestions.length} 条待确认` : '已处理'}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">靠近输入框，先快速加入，细节可以之后再调整</div>
+                      </div>
+                      {pendingAgentSuggestions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={handleAddAllAgentItems}
+                          className="shrink-0 rounded-full border border-blue-300/35 bg-blue-500/12 px-3 py-1.5 text-[11px] font-medium text-blue-100 transition-colors hover:bg-blue-500/20"
+                        >
+                          全部加入
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                      {agentItems.map((item) => {
+                        const isAdded = addedAgentItemIds.has(item.id);
+                        const reason = createDecisionReasonMap.get(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`rounded-xl border px-2.5 py-2 transition-colors ${
+                              isAdded
+                                ? 'border-emerald-300/25 bg-emerald-400/10'
+                                : 'border-blue-300/18 bg-[color:var(--ui-card-bg)] hover:border-blue-300/35'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="truncate text-sm font-medium text-[color:var(--ui-text-strong)]">{item.title}</span>
+                                  {typeof item.priority === 'number' && (
+                                    <span className={`shrink-0 text-[10px] ${getPriorityColor(item.priority)}`}>
+                                      {getPriorityLabel(item.priority)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[color:var(--ui-text-muted)]">
+                                  <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5">
+                                    {item.dueDate ? formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET) : '未定时间'}
+                                  </span>
+                                  {item.subtasks?.length ? (
+                                    <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5">子任务 {item.subtasks.length}</span>
+                                  ) : null}
+                                  {reason && <span className="min-w-0 max-w-full truncate">{reason}</span>}
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddAgentItem(item, createDecisionIdMap.get(item.id))}
+                                  disabled={isAdded}
+                                  className={`h-8 rounded-lg border px-3 text-xs font-medium transition-colors ${
+                                    isAdded
+                                      ? 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
+                                      : 'border-blue-400/50 bg-blue-500/12 text-blue-100 hover:bg-blue-500/20'
+                                  }`}
+                                >
+                                  {isAdded ? '已添加' : '加入'}
+                                </button>
+                                {isAdded && addedAgentTaskMap[item.id] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenAddedAgentTask(item.id)}
+                                    className="h-8 rounded-lg border border-emerald-300/40 bg-emerald-400/10 px-3 text-xs font-medium text-emerald-100 transition-colors hover:bg-emerald-400/16"
+                                  >
+                                    去看
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {item.scheduleOptions && item.scheduleOptions.length > 0 && (
+                              <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5">
+                                {item.scheduleOptions.map((option, optionIndex) => {
+                                  const selected =
+                                    Boolean(option.dueDate && item.dueDate === option.dueDate)
+                                    && (typeof option.priority !== 'number' || item.priority === option.priority);
+                                  return (
+                                    <button
+                                      key={option.id || `${item.id}-compact-schedule-${optionIndex}`}
+                                      type="button"
+                                      onClick={() => handleApplyAgentScheduleOption(item.id, option)}
+                                      disabled={isAdded}
+                                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+                                        selected
+                                          ? 'border-blue-300/60 bg-blue-500/16 text-blue-50'
+                                          : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:border-blue-300/40 hover:text-[color:var(--ui-text-strong)]'
+                                      }`}
+                                      title={option.reason}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {aiAssistantMode === 'record' && agentImages.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
