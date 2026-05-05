@@ -5559,7 +5559,7 @@ const normalizeTimeoutSec = (value: number) => {
                     <p className="text-sm">还没有倒数日</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {countdowns.map((item) => {
                       const diff = getCountdownDays(item.targetDate);
                       const isPast = diff < 0;
@@ -5567,61 +5567,63 @@ const normalizeTimeoutSec = (value: number) => {
                       return (
                         <div
                           key={item.id}
-                          className="bg-[#20242C] border border-[#343C4C] rounded-2xl px-4 py-4 sm:px-5 sm:py-4 flex flex-col gap-4"
+                          className="bg-[#20242C]/90 border border-[#343C4C]/80 rounded-xl px-3 py-3 sm:px-4 flex items-center justify-between gap-3"
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-base font-semibold text-[#EEEEEE] leading-snug">{item.title}</h4>
-                                {item.pinned && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">置顶</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-sm font-semibold text-[#EEEEEE] leading-snug">{item.title}</h4>
+                                  {item.pinned && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">置顶</span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-[#8A93A6] mt-0.5">目标日期：{item.targetDate}</p>
+                              </div>
+                              <div className="text-right shrink-0 min-w-[58px]">
+                                {countdownDisplayMode === 'date' ? (
+                                  <>
+                                    <p className={`text-sm font-semibold ${isPast ? 'text-red-300' : 'text-blue-200'}`}>
+                                      {formatCountdownDate(item.targetDate)}
+                                    </p>
+                                    <p className="text-[11px] text-[#666666]">
+                                      {isPast ? `已过去 ${displayDays} 天` : `还有 ${displayDays} 天`}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className={`text-xl font-semibold leading-none ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
+                                      {displayDays}
+                                    </p>
+                                    <p className="mt-1 text-[10px] text-[#666666]">{isPast ? '已过去' : '天后'}</p>
+                                  </>
                                 )}
                               </div>
-                              <p className="text-xs text-[#8A93A6] mt-1.5">目标日期：{item.targetDate}</p>
                             </div>
-                            <div className="text-right shrink-0 min-w-[72px]">
-                              {countdownDisplayMode === 'date' ? (
-                                <>
-                                  <p className={`text-sm font-semibold ${isPast ? 'text-red-300' : 'text-blue-200'}`}>
-                                    {formatCountdownDate(item.targetDate)}
-                                  </p>
-                                  <p className="text-[11px] text-[#666666]">
-                                    {isPast ? `已过去 ${displayDays} 天` : `还有 ${displayDays} 天`}
-                                  </p>
-                                </>
-                              ) : (
-                                <>
-                                  <p className={`text-2xl font-semibold ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
-                                    {displayDays}
-                                  </p>
-                                  <p className="text-[11px] text-[#666666]">{isPast ? '已过期天数' : '天后'}</p>
-                                </>
-                              )}
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              <button
+                                onClick={() => toggleCountdownPinned(item)}
+                                className={`px-2 py-0.5 text-[11px] rounded-md border transition-colors ${
+                                  item.pinned
+                                    ? 'border-yellow-500 text-yellow-300 bg-yellow-500/10'
+                                    : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
+                                }`}
+                              >
+                                {item.pinned ? '取消置顶' : '置顶'}
+                              </button>
+                              <button
+                                onClick={() => openCountdownForm(item)}
+                                className="px-2 py-0.5 text-[11px] rounded-md border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
+                              >
+                                编辑
+                              </button>
+                              <button
+                                onClick={() => removeCountdown(item.id)}
+                                className="px-2 py-0.5 text-[11px] rounded-md border border-red-500/40 text-red-300 hover:bg-red-500/10"
+                              >
+                                删除
+                              </button>
                             </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            <button
-                              onClick={() => toggleCountdownPinned(item)}
-                              className={`px-2.5 py-1 text-xs rounded border transition-colors ${
-                                item.pinned
-                                  ? 'border-yellow-500 text-yellow-300 bg-yellow-500/10'
-                                  : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                              }`}
-                            >
-                              {item.pinned ? '取消置顶' : '置顶'}
-                            </button>
-                            <button
-                              onClick={() => openCountdownForm(item)}
-                              className="px-2.5 py-1 text-xs rounded border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
-                            >
-                              编辑
-                            </button>
-                            <button
-                              onClick={() => removeCountdown(item.id)}
-                              className="px-2.5 py-1 text-xs rounded border border-red-500/40 text-red-300 hover:bg-red-500/10"
-                            >
-                              删除
-                            </button>
                           </div>
                         </div>
                       );
@@ -5666,10 +5668,10 @@ const normalizeTimeoutSec = (value: number) => {
                         countdownAgentMessages.map((message, idx) => (
                           <div
                             key={`${message.role}-${idx}`}
-                            className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                            className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap sm:max-w-[76%] ${
                               message.role === 'user'
                                 ? 'bg-blue-600/20 text-blue-100 ml-auto'
-                                : 'bg-[#2A2A2A] text-[#DDDDDD]'
+                                : 'bg-[#2A2A2A] text-[#DDDDDD] mr-auto'
                             }`}
                           >
                             {message.content}
