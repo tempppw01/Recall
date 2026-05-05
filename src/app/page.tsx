@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
@@ -982,6 +982,8 @@ export default function Home() {
   const [dragOverQuadrantKey, setDragOverQuadrantKey] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
+  const [calendarDraggingTaskId, setCalendarDraggingTaskId] = useState<string | null>(null);
+  const [calendarDropTarget, setCalendarDropTarget] = useState<{ hour: number; timeText: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [draggingSubtaskId, setDraggingSubtaskId] = useState<string | null>(null);
   const [isBatchMode, setIsBatchMode] = useState(false);
@@ -4744,6 +4746,59 @@ const normalizeTimeoutSec = (value: number) => {
     (_, idx) => visibleStartHour + idx,
   );
 
+  const getCalendarDropTimeText = (event: ReactDragEvent<HTMLDivElement>, hour: number) => {
+    const rowRect = event.currentTarget.getBoundingClientRect();
+    const rowHeight = Math.max(rowRect.height, 1);
+    const minuteRatio = Math.min(1, Math.max(0, (event.clientY - rowRect.top) / rowHeight));
+    const snappedMinutes = Math.round((minuteRatio * 60) / 15) * 15;
+    const absoluteMinutes = Math.min((23 * 60) + 45, Math.max(0, (hour * 60) + snappedMinutes));
+    const targetHour = Math.floor(absoluteMinutes / 60);
+    const targetMinute = absoluteMinutes % 60;
+    return `${pad2(targetHour)}:${pad2(targetMinute)}`;
+  };
+
+  const handleCalendarTaskDragStart = (taskId: string) => {
+    setCalendarDraggingTaskId(taskId);
+    setCalendarDropTarget(null);
+  };
+
+  const resetCalendarTaskDrag = () => {
+    setCalendarDraggingTaskId(null);
+    setCalendarDropTarget(null);
+  };
+
+  const handleCalendarTimeDragOver = (event: ReactDragEvent<HTMLDivElement>, hour: number) => {
+    if (!calendarDraggingTaskId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const timeText = getCalendarDropTimeText(event, hour);
+    setCalendarDropTarget((prev) => (
+      prev?.hour === hour && prev.timeText === timeText ? prev : { hour, timeText }
+    ));
+  };
+
+  const handleCalendarTimeDrop = (event: ReactDragEvent<HTMLDivElement>, hour: number) => {
+    event.preventDefault();
+    const taskId = calendarDraggingTaskId || event.dataTransfer.getData('text/plain');
+    const target = taskStore.getAll().find((task) => task.id === taskId);
+    if (!target) {
+      resetCalendarTaskDrag();
+      return;
+    }
+
+    const timezoneOffset = target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
+    const timeText = getCalendarDropTimeText(event, hour);
+    const dueDate = buildDueDateIso(effectiveCalendarDate, timeText, timezoneOffset);
+    if (!dueDate) {
+      resetCalendarTaskDrag();
+      return;
+    }
+
+    updateTaskDueDate(taskId, dueDate, timezoneOffset);
+    pushLog('success', '已调整任务时间', `${target.title} → ${selectedCalendarLabel} ${timeText}`);
+    resetCalendarTaskDrag();
+  };
+
   const nowLineTop = ((nowMinutes - visibleStartHour * 60) / 60) * dayRowHeight;
   const nowLabel = `${pad2(nowZoned.getUTCHours())}:${pad2(nowZoned.getUTCMinutes())}`;
   const agendaTasks = calendarSourceTasks
@@ -5264,8 +5319,9 @@ const normalizeTimeoutSec = (value: number) => {
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-[#666666]">
-                    显示时段：{pad2(visibleStartHour)}:00 - {pad2(Math.min(23, visibleEndHour + 1))}:00
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#666666]">
+                    <span>显示时段：{pad2(visibleStartHour)}:00 - {pad2(Math.min(23, visibleEndHour + 1))}:00</span>
+                    <span className="text-blue-300/80">拖拽任务到时间线，可按 15 分钟调整时间</span>
                   </div>
                   <div className="max-h-[62vh] overflow-y-auto pr-1 rounded-[24px]">
                     <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
@@ -5302,13 +5358,32 @@ const normalizeTimeoutSec = (value: number) => {
                           )}
                           {dayVisibleHours.map((hour) => {
                             const hourTasks = dayTasksByHour[hour] || [];
+                            const isCalendarDropTarget = calendarDropTarget?.hour === hour;
                             return (
                               <div
                                 key={hour}
-                                className="min-h-[36px] border-b border-[#3A3F4B]/45 last:border-b-0 px-2.5 py-1.5"
+                                onDragOver={(event) => handleCalendarTimeDragOver(event, hour)}
+                                onDrop={(event) => handleCalendarTimeDrop(event, hour)}
+                                onDragLeave={(event) => {
+                                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                    setCalendarDropTarget((prev) => (prev?.hour === hour ? null : prev));
+                                  }
+                                }}
+                                className={`relative min-h-[36px] border-b px-2.5 py-1.5 transition-colors last:border-b-0 ${
+                                  isCalendarDropTarget
+                                    ? 'border-blue-400/45 bg-blue-500/12'
+                                    : 'border-[#3A3F4B]/45'
+                                }`}
                               >
+                                {isCalendarDropTarget && (
+                                  <div className="pointer-events-none absolute right-3 top-1 z-20 rounded-full border border-blue-300/40 bg-blue-500/18 px-2 py-0.5 text-[10px] font-medium text-blue-100 shadow-[0_8px_18px_rgba(37,99,235,0.22)]">
+                                    改到 {calendarDropTarget.timeText}
+                                  </div>
+                                )}
                                 {hourTasks.length === 0 ? (
-                                  <div className="text-[10px] text-[#333333]">&nbsp;</div>
+                                  <div className={`text-[10px] ${isCalendarDropTarget ? 'text-blue-200/70' : 'text-[#333333]'}`}>
+                                    {isCalendarDropTarget ? '松开即可调整到这个时间' : '\u00A0'}
+                                  </div>
                                 ) : (
                                   <div className="space-y-2">
                                     {hourTasks.map((task) => (
@@ -5326,6 +5401,12 @@ const normalizeTimeoutSec = (value: number) => {
                                         onTogglePinned={toggleTaskPinned}
                                         onQuickSetPriority={quickSetPriority}
                                         onQuickSetDuePreset={quickSetDuePreset}
+                                        onDragStart={handleCalendarTaskDragStart}
+                                        isDragging={calendarDraggingTaskId === task.id}
+                                        onDragEnd={resetCalendarTaskDrag}
+                                        dragEnabled={!isBatchMode}
+                                        dragLabel="调整时间"
+                                        dragTitle="拖到时间线调整时间"
                                         multiSelectEnabled={isBatchMode}
                                         isChecked={selectedTaskIds.has(task.id)}
                                         onToggleSelect={toggleTaskSelected}

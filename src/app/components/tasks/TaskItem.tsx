@@ -94,6 +94,8 @@ export type TaskItemProps = {
   onToggleSelect?: (taskId: string) => void;
   onQuickSetPriority?: (taskId: string, priority: number) => void;
   onQuickSetDuePreset?: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => void;
+  dragLabel?: string;
+  dragTitle?: string;
   helpers: TaskItemHelpers;
 };
 
@@ -119,6 +121,8 @@ const TaskItem = ({
   onToggleSelect,
   onQuickSetPriority,
   onQuickSetDuePreset,
+  dragLabel = '拖动排序',
+  dragTitle = '拖动排序',
   dragEnabled = true,
   helpers,
 }: TaskItemProps) => {
@@ -542,9 +546,10 @@ const TaskItem = ({
                     onTouchStart={(event) => {
                       event.stopPropagation();
                     }}
-                    title="拖动排序"
+                    title={dragTitle}
+                    aria-label={dragTitle}
                   >
-                    拖动排序
+                    {dragLabel}
                   </button>
                 )}
                 {(task as any).similarity !== undefined && (task as any).similarity > 0.7 && (
