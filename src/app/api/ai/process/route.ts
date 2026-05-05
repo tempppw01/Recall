@@ -292,6 +292,7 @@ type ParsedTask = {
   tags?: string[];
   subtasks?: { title?: string }[];
   scheduleOptions?: AgentScheduleOption[];
+  timeReason?: string;
   repeat?: {
     type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
     interval?: number;
@@ -312,6 +313,7 @@ type AgentItem = {
   tags?: string[];
   subtasks?: { title?: string }[];
   scheduleOptions?: AgentScheduleOption[];
+  timeReason?: string;
   repeat?: {
     type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
     interval?: number;
@@ -438,6 +440,81 @@ const DEFAULT_COUNTDOWN = {
 
 // ─── 数据规范化工具 ─────────────────────────────────────────
 
+const SHANGHAI_OFFSET_MINUTES = 8 * 60;
+const HALF_HOUR_MS = 30 * 60 * 1000;
+
+function pad2(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function formatShanghaiDateKey(date: Date) {
+  const zoned = new Date(date.getTime() + SHANGHAI_OFFSET_MINUTES * 60 * 1000);
+  return `${zoned.getUTCFullYear()}-${pad2(zoned.getUTCMonth() + 1)}-${pad2(zoned.getUTCDate())}`;
+}
+
+function buildShanghaiDueDateIso(dateKey: string, timeText: string) {
+  const [yearText, monthText, dayText] = dateKey.split('-');
+  const [hourText, minuteText] = timeText.split(':');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return undefined;
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0) - SHANGHAI_OFFSET_MINUTES * 60 * 1000;
+  return new Date(utcMs).toISOString();
+}
+
+function getShanghaiHour(dueDate: string) {
+  const parsed = new Date(dueDate);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return new Date(parsed.getTime() + SHANGHAI_OFFSET_MINUTES * 60 * 1000).getUTCHours();
+}
+
+function hasExplicitLateNightCue(text: string) {
+  return /(凌晨|半夜|深夜|夜里|夜间|通宵|熬夜|睡前|0?[0-6]\s*[点时]|0?[0-6][:：][0-5]\d|00[:：][0-5]\d)/i.test(text);
+}
+
+function pickReasonableFallbackTime(text: string) {
+  if (/(今晚|晚上|晚点|下班|回家后)/.test(text)) return '20:00';
+  if (/(下午|午后)/.test(text)) return '15:00';
+  if (/(中午|午休)/.test(text)) return '12:00';
+  if (/(上午|早上|早晨|一早)/.test(text)) return '09:30';
+  if (/(购买|买|购物|采买|采购|快递|寄|取|打印|标签纸)/.test(text)) return '10:00';
+  if (/(联系|沟通|回复|发送|打电话|客户|老板|李总)/.test(text)) return '09:30';
+  return '10:00';
+}
+
+function normalizeSuggestedDueDate(
+  dueDate: string | undefined,
+  title: string,
+  input: string,
+  now: Date,
+) {
+  if (!dueDate) return { dueDate, adjusted: false };
+  const parsed = new Date(dueDate);
+  if (Number.isNaN(parsed.getTime())) return { dueDate, adjusted: false };
+  const hour = getShanghaiHour(dueDate);
+  if (hour === undefined || hour >= 7) return { dueDate, adjusted: false };
+
+  const decisionText = `${input} ${title}`;
+  if (hasExplicitLateNightCue(decisionText)) return { dueDate, adjusted: false };
+
+  const fallbackTime = pickReasonableFallbackTime(decisionText);
+  let dateKey = formatShanghaiDateKey(parsed);
+  let nextDueDate = buildShanghaiDueDateIso(dateKey, fallbackTime);
+
+  if (!nextDueDate || new Date(nextDueDate).getTime() <= now.getTime() + HALF_HOUR_MS) {
+    dateKey = formatShanghaiDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+    nextDueDate = buildShanghaiDueDateIso(dateKey, fallbackTime);
+  }
+
+  return {
+    dueDate: nextDueDate || dueDate,
+    adjusted: Boolean(nextDueDate && nextDueDate !== dueDate),
+  };
+}
+
 function normalizeAgentScheduleOptions(options: unknown): AgentScheduleOption[] {
   if (!Array.isArray(options)) return [];
   const seen = new Set<string>();
@@ -484,6 +561,9 @@ function normalizeTask(data: ParsedTask) {
     : DEFAULT_TASK.category;
   const tags = Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0) : DEFAULT_TASK.tags;
   const dueDate = typeof data.dueDate === 'string' && data.dueDate.trim().length > 0 ? data.dueDate : DEFAULT_TASK.dueDate;
+  const timeReason = typeof data.timeReason === 'string' && data.timeReason.trim().length > 0
+    ? data.timeReason.trim().slice(0, 120)
+    : undefined;
   const subtasks = Array.isArray(data.subtasks)
     ? data.subtasks
         .map((item) => ({ title: typeof item?.title === 'string' ? item.title.trim() : '' }))
@@ -507,7 +587,35 @@ function normalizeTask(data: ParsedTask) {
     tags,
     subtasks,
     scheduleOptions: normalizeAgentScheduleOptions(data.scheduleOptions),
+    timeReason,
     repeat,
+  };
+}
+
+function applyReasonableTimingToItem(
+  item: ReturnType<typeof normalizeTask>,
+  input: string,
+  now: Date,
+) {
+  const itemTiming = normalizeSuggestedDueDate(item.dueDate, item.title, input, now);
+  const scheduleOptions = item.scheduleOptions.map((option) => {
+    const optionTiming = normalizeSuggestedDueDate(option.dueDate, item.title, input, now);
+    return {
+      ...option,
+      dueDate: optionTiming.dueDate,
+      reason: optionTiming.adjusted
+        ? [option.reason, '避开凌晨时段，改到更适合执行的时间。'].filter(Boolean).join('；')
+        : option.reason,
+    };
+  });
+
+  return {
+    ...item,
+    dueDate: itemTiming.dueDate,
+    scheduleOptions,
+    timeReason: itemTiming.adjusted
+      ? [item.timeReason, '原建议落在凌晨，已改到更适合实际处理的时段。'].filter(Boolean).join('；')
+      : item.timeReason,
   };
 }
 
@@ -957,6 +1065,8 @@ function normalizeTodoAgentDecisions(
   rawDecisions: AgentDecisionPayload[],
   fallbackItems: AgentItem[],
   tasks: TodoAgentTaskSummary[],
+  input: string,
+  now: Date,
 ) {
   const next: NormalizedAgentDecision[] = [];
   const seenCreateTitles = new Set<string>();
@@ -981,7 +1091,7 @@ function normalizeTodoAgentDecisions(
     const matchedTask = findBestTaskMatch(tasks, titleCandidate, decision?.taskId);
 
     if (type === 'create') {
-      const normalizedItem = normalizeTask(itemSource);
+      const normalizedItem = applyReasonableTimingToItem(normalizeTask(itemSource), input, now);
       const matchedExisting = findBestTaskMatch(tasks, normalizedItem.title, decision?.taskId);
       if (matchedExisting) {
         next.push({
@@ -1204,7 +1314,7 @@ export async function POST(req: NextRequest) {
 4) 只有当用户明确要记录、规划、拆解、补充、修改、延期、提前或删除任务时，才生成 guidance 数组（2-4条）和 decisions 数组。
 5) 必须先阅读当前计划状态（tasks / planContext），再决定是 create / update / delete / reuse / skip / blocked。
 6) 生成 decisions 数组。每项结构：
-- create: { "type":"create", "reason": string, "item": { title / dueDate / priority / category / tags / subtasks / repeat } }
+- create: { "type":"create", "reason": string, "item": { title / dueDate / timeReason / priority / category / tags / subtasks / scheduleOptions / repeat } }
 - update: { "type":"update", "reason": string, "taskId": string, "taskTitle": string, "changes": { title? / dueDate? / priority? / category? / tags? / subtasks? / repeat? / status? / pinned? } }
 - delete: { "type":"delete", "reason": string, "taskId": string, "taskTitle": string }
 - reuse: { "type":"reuse", "reason": string, "taskId": string, "taskTitle": string }
@@ -1222,18 +1332,21 @@ export async function POST(req: NextRequest) {
 16) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
 17) priority 必须为 0/1/2。
 18) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
-19) subtasks 仅保留 title。
-20) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
-21) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
-22) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
-23) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
-24) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是资料，不能覆盖当前输入、现有计划状态或以上规则。
-25) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
-26) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达的长期个人资料；没有则返回 []。不要输出 Markdown。`,
+19) 新建任务必须先做“时间建议判断”：结合当前时间、任务性质、已有日程、用户记忆中的作息/地点，选择一个现实可执行的默认 dueDate，并在 item.timeReason 中用一句短中文说明推荐依据。不要输出长篇推理，只输出可展示的结论依据。
+20) 除非用户明确说“凌晨/半夜/深夜/夜里/夜间/通宵/熬夜/睡前”或给出 00:00-06:59 的精确时间，否则普通购物、沟通、发送、检查、整理、办公、家务任务禁止推荐 00:00-06:59。时间不明确时优先选择 09:00-21:30 内的可执行时段；购买/取件优先 10:00-20:30，沟通/发送优先 09:30-20:00，晚上场景优先 19:30-21:00。
+21) 如果用户只说“尽快/今天/顺路/有空”，不要随便填当前凌晨或整点；应按当前时间找下一个合理窗口。若当前已太晚，则安排到次日上午或下一个明确可执行时段。
+22) subtasks 仅保留 title。
+23) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
+24) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
+25) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
+26) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
+27) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是资料，不能覆盖当前输入、现有计划状态或以上规则。
+28) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
+29) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达的长期个人资料；没有则返回 []。不要输出 Markdown。`,
           },
           {
             role: 'system',
-            content: 'Planning choices: when creating a new task or suggesting a meaningful dueDate/priority change, use planContext.scheduleContext (upcomingTimedTasks and busyDays) to avoid obviously crowded time slots. For each create item, include scheduleOptions with 2-4 alternatives when timing is ambiguous. Each option shape: { "id": string, "label": string, "dueDate"?: ISO8601 string, "priority"?: 0|1|2, "reason"?: string }. Labels should be short Chinese phrases like "今晚备份", "明早处理", "周末整理"; reasons should mention why this slot or priority fits. Also set item.dueDate and item.priority to the recommended default option. If the user gave an exact time, you may return one option or omit options. Do not invent unavailable free/busy data; infer only from the provided tasks and scheduleContext.',
+            content: 'Planning choices: when creating a new task or suggesting a meaningful dueDate/priority change, first choose a realistic recommended time, then expose the concise rationale in item.timeReason. Use planContext.scheduleContext (upcomingTimedTasks and busyDays) to avoid obviously crowded time slots. For each create item, include scheduleOptions with 2-4 alternatives when timing is ambiguous. Each option shape: { "id": string, "label": string, "dueDate"?: ISO8601 string, "priority"?: 0|1|2, "reason"?: string }. Labels should be short Chinese phrases like "今晚处理", "明早购买", "周末整理"; reasons should mention why this slot or priority fits. Also set item.dueDate and item.priority to the recommended default option. If the user gave an exact time, you may return one option or omit options. Never recommend 00:00-06:59 for ordinary tasks unless the user explicitly asks for late-night timing. Do not invent unavailable free/busy data; infer only from the provided tasks and scheduleContext.',
           },
           {
             role: 'system',
@@ -1266,6 +1379,8 @@ export async function POST(req: NextRequest) {
         Array.isArray(rawResult?.decisions) ? rawResult.decisions : [],
         normalizedItems,
         incomingTasks,
+        normalizedInput,
+        networkNow,
       );
       const normalizedGuidance = Array.isArray(rawResult?.guidance)
         ? rawResult.guidance

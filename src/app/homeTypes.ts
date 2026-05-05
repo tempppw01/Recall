@@ -35,6 +35,7 @@ export type AgentItem = {
   tags?: string[];
   subtasks?: { title?: string }[];
   scheduleOptions?: AgentScheduleOption[];
+  timeReason?: string;
 };
 
 export type AgentScheduleOption = {

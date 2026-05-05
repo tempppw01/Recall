@@ -2972,6 +2972,7 @@ const normalizeTimeoutSec = (value: number) => {
                     ...decision.item,
                     id: decision.item.id || createId(),
                     title: decision.item.title?.trim() || 'Untitled',
+                    timeReason: decision.item.timeReason?.trim() || undefined,
                     scheduleOptions: normalizeAgentScheduleOptions(decision.item.scheduleOptions),
                   }
                 : undefined;
@@ -2997,6 +2998,7 @@ const normalizeTimeoutSec = (value: number) => {
               ...item,
               id: item.id || createId(),
               title: item.title?.trim() || 'Untitled',
+              timeReason: item.timeReason?.trim() || undefined,
               scheduleOptions: normalizeAgentScheduleOptions(item.scheduleOptions),
             }))
           : [];
@@ -6556,6 +6558,7 @@ const normalizeTimeoutSec = (value: number) => {
                       {agentItems.map((item) => {
                         const isAdded = addedAgentItemIds.has(item.id);
                         const reason = createDecisionReasonMap.get(item.id);
+                        const timeReason = item.timeReason?.trim();
                         return (
                           <div
                             key={item.id}
@@ -6582,6 +6585,9 @@ const normalizeTimeoutSec = (value: number) => {
                                   {item.subtasks?.length ? (
                                     <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5">子任务 {item.subtasks.length}</span>
                                   ) : null}
+                                  {timeReason && (
+                                    <span className="min-w-0 max-w-full truncate text-blue-200/90">推荐：{timeReason}</span>
+                                  )}
                                   {reason && <span className="min-w-0 max-w-full truncate">{reason}</span>}
                                 </div>
                               </div>
