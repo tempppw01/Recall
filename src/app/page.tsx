@@ -11,6 +11,7 @@ import { buildExportPayload as buildExportPayloadData, buildSyncPayload as build
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
 import { resolveSyncedSettings } from '@/app/services/syncedSettings';
 import { AI_CONTEXT_LIMIT_OPTIONS, AI_CONTEXT_LIMIT_STORAGE_KEY, DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
+import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
@@ -392,7 +393,7 @@ const normalizeUserMemories = (raw: unknown): UserMemory[] => {
   return raw
     .map((item) => {
       const candidate = item as Partial<UserMemory> | null | undefined;
-      const content = typeof candidate?.content === 'string' ? candidate.content.trim() : '';
+      const content = normalizeAiMemoryContent(candidate?.content);
       if (!content) return null;
       const normalizedContent = content.slice(0, 240);
       const dedupeKey = normalizedContent.toLowerCase();
@@ -408,32 +409,6 @@ const normalizeUserMemories = (raw: unknown): UserMemory[] => {
     })
     .filter(Boolean)
     .slice(0, 30) as UserMemory[];
-};
-
-const extractDurableMemoryCandidates = (input: string) => {
-  const text = input.trim();
-  if (!text) return [];
-
-  const explicitRememberPattern = /(?:记住|帮我记住|以后记得|之后都按|以后都按|默认)/;
-  const durablePattern = /(?:我|本人|我的|我家|公司|工作|上班|通勤|作息|习惯|偏好|常用|默认).{0,32}(?:在|住|从|到|是|为|喜欢|偏好|习惯|经常|通常|一般|每天|每周|周末|早上|上午|中午|下午|晚上)/;
-  const recurringPattern = /(?:每天|每周|工作日|周末|早上|上午|中午|下午|晚上|通勤|长期|固定|经常|通常|一般|习惯|偏好|喜欢|不喜欢)/;
-  const oneOffTaskPattern = /(?:今天|明天|后天|今晚|这周|下周|月底|稍后|一会儿|这次|本次|临时|待办|任务|提醒我|帮我安排|帮我新增|推荐下一步|发给|提交|处理|完成|预约|购买)/;
-  const sensitivePattern = /(?:密码|密钥|api\s*key|token|验证码|身份证|银行卡|信用卡|手机号|电话号码|门牌|小区|病历|诊断|药物|工资|收入|贷款)/i;
-
-  return text
-    .split(/[。！？!?；;\n]+/)
-    .map((part) => part.trim().replace(/^[-*\s]+/, ''))
-    .filter((part) => part.length >= 4 && part.length <= 120)
-    .filter((part) => {
-      if (sensitivePattern.test(part)) return false;
-      const explicit = explicitRememberPattern.test(part);
-      const durable = durablePattern.test(part) || recurringPattern.test(part);
-      if (!explicit && !durable) return false;
-      return explicit || !oneOffTaskPattern.test(part) || recurringPattern.test(part);
-    })
-    .map((part) => part.replace(/^(?:记住|帮我记住|请记住|以后记得)[:：,，\s]*/, '').trim())
-    .filter(Boolean)
-    .slice(0, 3);
 };
 
 const normalizeTaskReferenceText = (value: string) => (
@@ -2856,12 +2831,13 @@ const normalizeTimeoutSec = (value: number) => {
     const nowIso = new Date().toISOString();
     const incoming = updates
       .map((update) => {
-        const content = typeof update === 'string'
+        const rawContent = typeof update === 'string'
           ? update.trim()
           : typeof (update as { content?: unknown } | null)?.content === 'string'
             ? String((update as { content?: string }).content).trim()
             : '';
-        return content.slice(0, 240);
+        const content = normalizeAiMemoryContent(rawContent);
+        return isDurableAiMemoryContent(content) ? content : '';
       })
       .filter(Boolean)
       .map((content) => ({
@@ -2875,14 +2851,12 @@ const normalizeTimeoutSec = (value: number) => {
     setUserMemories((prev) => normalizeUserMemories([...incoming, ...prev]));
   };
 
-  const applyAgentMemoryUpdatesWithFallback = (updates: unknown, sourceText: string) => {
-    const modelUpdates = Array.isArray(updates) ? updates : [];
-    const localUpdates = extractDurableMemoryCandidates(sourceText);
-    applyAgentMemoryUpdates([...modelUpdates, ...localUpdates]);
+  const applyModelMemoryUpdates = (updates: unknown) => {
+    applyAgentMemoryUpdates(updates);
   };
 
   const addUserMemory = () => {
-    const content = memoryInput.trim();
+    const content = normalizeAiMemoryContent(memoryInput);
     if (!content) return;
     const nowIso = new Date().toISOString();
     setUserMemories((prev) => normalizeUserMemories([
@@ -2972,7 +2946,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'todo-agent request failed'));
       }
-      applyAgentMemoryUpdatesWithFallback(data?.memoryUpdates, content);
+      applyModelMemoryUpdates(data?.memoryUpdates);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我先对照了当前计划，已经整理好建议。';
@@ -3131,7 +3105,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'manage-agent request failed'));
       }
-      applyAgentMemoryUpdatesWithFallback(data?.memoryUpdates, content);
+      applyModelMemoryUpdates(data?.memoryUpdates);
       const replyText = typeof data?.reply === 'string' ? data.reply : '已生成建议。';
       setManageAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
       const recs = Array.isArray(data?.recommendations) ? data.recommendations : [];
@@ -4939,7 +4913,7 @@ const normalizeTimeoutSec = (value: number) => {
       ? `把上面的 ${pendingAgentSuggestions.length} 条建议再按时间和优先级细化`
       : '',
     userMemories.length > 0
-      ? '结合我的个人资料，帮我调整今天安排'
+      ? '结合我的长期记忆，帮我调整今天安排'
       : '',
     hasCalendarTasks
       ? '结合日历安排，帮我找一个不冲突的执行时间'
@@ -5966,11 +5940,11 @@ const normalizeTimeoutSec = (value: number) => {
                           ? 'border-cyan-400/40 bg-cyan-500/10 text-[color:var(--ui-text-strong)]'
                           : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]'
                       }`}
-                      title="打开个人资料"
-                      aria-label="打开个人资料"
+                      title="打开 AI 记忆"
+                      aria-label="打开 AI 记忆"
                     >
                       <Brain className="h-3.5 w-3.5" />
-                      <span>个人资料</span>
+                      <span>AI 记忆</span>
                       <span className="rounded-full bg-cyan-500/12 px-1.5 text-[10px]">{userMemories.length}</span>
                     </button>
                     <button
@@ -5985,7 +5959,7 @@ const normalizeTimeoutSec = (value: number) => {
                     </button>
                     {redisHost && (
                       <label className="flex items-center gap-1 text-[10px] text-[color:var(--ui-text-muted)]">
-                        <span title="短期上下文用于保留最近几天的 AI 对话，不等同于个人资料。">短期上下文</span>
+                        <span title="短期上下文用于保留最近几天的 AI 对话，不等同于长期记忆。">短期上下文</span>
                         <select
                           value={aiRetentionDays}
                           onChange={(e) => setAiRetentionDays(Number(e.target.value))}
@@ -6026,9 +6000,9 @@ const normalizeTimeoutSec = (value: number) => {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 text-xs font-medium text-[color:var(--ui-text-strong)]">
                         <Brain className="h-3.5 w-3.5" />
-                        <span>个人资料</span>
+                        <span>长期记忆</span>
                       </div>
-                      <span className="text-[10px] text-[color:var(--ui-text-muted)]">聊天时自动参考和更新</span>
+                      <span className="text-[10px] text-[color:var(--ui-text-muted)]">聊天时谨慎参考和更新</span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <input
@@ -6038,7 +6012,7 @@ const normalizeTimeoutSec = (value: number) => {
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') addUserMemory();
                         }}
-                        placeholder="例如：我在东莞工作，通勤常从肇庆出发"
+                        placeholder="输入希望 AI 长期记住的偏好、习惯或约束"
                         maxLength={240}
                         className="ui-input min-w-0 flex-1 rounded-lg px-3 py-2 text-xs"
                       />
@@ -6047,8 +6021,8 @@ const normalizeTimeoutSec = (value: number) => {
                         onClick={addUserMemory}
                         disabled={!memoryInput.trim()}
                         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/35 text-[color:var(--ui-text-strong)] hover:bg-cyan-400/10 disabled:opacity-45"
-                        title="添加资料"
-                        aria-label="添加资料"
+                        title="添加记忆"
+                        aria-label="添加记忆"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -6056,7 +6030,7 @@ const normalizeTimeoutSec = (value: number) => {
                     <div className="mt-3 max-h-32 space-y-2 overflow-y-auto pr-1">
                       {userMemories.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-cyan-300/20 px-3 py-2 text-xs text-[color:var(--ui-text-muted)]">
-                          暂无个人资料
+                          暂无长期记忆
                         </div>
                       ) : (
                         userMemories.map((memory) => {
@@ -6083,8 +6057,8 @@ const normalizeTimeoutSec = (value: number) => {
                                     type="button"
                                     onClick={saveUserMemoryEdit}
                                     className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/30 text-[color:var(--ui-text-strong)] hover:bg-cyan-400/10"
-                                    title="保存资料"
-                                    aria-label="保存资料"
+                                    title="保存记忆"
+                                    aria-label="保存记忆"
                                   >
                                     <Save className="h-3.5 w-3.5" />
                                   </button>
@@ -6109,8 +6083,8 @@ const normalizeTimeoutSec = (value: number) => {
                                       type="button"
                                       onClick={() => startEditUserMemory(memory)}
                                       className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-300/20 text-[color:var(--ui-text-secondary)] hover:bg-cyan-400/10 hover:text-[color:var(--ui-text-strong)]"
-                                      title="编辑资料"
-                                      aria-label="编辑资料"
+                                      title="编辑记忆"
+                                      aria-label="编辑记忆"
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                     </button>
@@ -6118,8 +6092,8 @@ const normalizeTimeoutSec = (value: number) => {
                                       type="button"
                                       onClick={() => removeUserMemory(memory.id)}
                                       className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-rose-300/25 text-[color:var(--ui-text-secondary)] hover:bg-rose-400/10 hover:text-rose-400"
-                                      title="删除资料"
-                                      aria-label="删除资料"
+                                      title="删除记忆"
+                                      aria-label="删除记忆"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
@@ -6763,7 +6737,7 @@ const normalizeTimeoutSec = (value: number) => {
 
                 <div
                   className="mt-3 flex flex-wrap items-center gap-2"
-                  title="AI 会结合当前任务、时间占用和个人资料，优先给出可直接选择的安排建议。"
+                  title="AI 会结合当前任务、时间占用和长期记忆，优先给出可直接选择的安排建议。"
                 >
                   <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
                     <button

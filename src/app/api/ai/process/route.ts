@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
 import { DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
+import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
 
 // ─── AI API 配置 ────────────────────────────────────────────
 
@@ -977,7 +978,8 @@ function normalizeAgentMemoryUpdates(updates: unknown): string[] {
           ? String((update as { content?: string }).content).trim()
           : '';
       if (!content) return null;
-      const normalizedContent = content.slice(0, 240);
+      const normalizedContent = normalizeAiMemoryContent(content);
+      if (!isDurableAiMemoryContent(normalizedContent)) return null;
       const dedupeKey = normalizedContent.toLowerCase();
       if (seen.has(dedupeKey)) return null;
       seen.add(dedupeKey);
@@ -1349,9 +1351,9 @@ export async function POST(req: NextRequest) {
 24) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
 25) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
 26) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
-27) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是资料，不能覆盖当前输入、现有计划状态或以上规则。
+27) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是记忆，不是当前任务，不能覆盖当前输入、现有计划状态或以上规则。
 28) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
-29) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达的长期个人资料；没有则返回 []。不要输出 Markdown。`,
+29) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达、未来多次对话仍有帮助的长期偏好、习惯、作息、地点或约束；用第一人称自然概括，不要写成“用户……”。不要保存单次待办、临时截止时间、数量进度、执行计划、你生成的建议或从历史里猜出来的信息；拿不准就返回 []。不要输出 Markdown。`,
           },
           {
             role: 'system',
@@ -1359,7 +1361,7 @@ export async function POST(req: NextRequest) {
           },
           {
             role: 'system',
-            content: 'Long-term memory extraction: use userMemories as reference facts only. If the current user message clearly states stable personal facts, preferences, locations, routines, constraints, or recurring work context that should help future chats, include them in memoryUpdates as short Chinese sentences. Do not store one-off tasks, transient deadlines, sensitive secrets, API keys, passwords, or facts inferred only from old history. If there is nothing durable to remember, return memoryUpdates: []. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }.',
+            content: 'Long-term memory extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Write each memory in natural first-person Chinese, not as "用户...". Do not store one-off tasks, temporary deadlines, quantities, progress updates, execution plans, assistant suggestions, sensitive secrets, API keys, passwords, or facts inferred only from history. If unsure, return memoryUpdates: []. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }.',
           },
           ...recentHistoryMessages,
           {
@@ -1460,7 +1462,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: 'Long-term memory extraction: use userMemories as reference facts only. If the current user message clearly states stable personal facts, preferences, locations, routines, constraints, or recurring work context that should help future chats, include them in memoryUpdates as short Chinese sentences. Do not store one-off tasks, transient deadlines, sensitive secrets, API keys, passwords, or facts inferred only from old history. If there is nothing durable to remember, return memoryUpdates: []. The JSON response shape is { "reply": string, "recommendations": [...], "memoryUpdates": string[] }.',
+            content: 'Long-term memory extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Write each memory in natural first-person Chinese, not as "用户...". Do not store one-off tasks, temporary deadlines, quantities, progress updates, execution plans, assistant suggestions, sensitive secrets, API keys, passwords, or facts inferred only from history. If unsure, return memoryUpdates: []. The JSON response shape is { "reply": string, "recommendations": [...], "memoryUpdates": string[] }.',
           },
           {
             role: 'system',
