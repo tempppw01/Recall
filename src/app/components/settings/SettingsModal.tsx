@@ -30,6 +30,9 @@ type SettingsModalProps = {
   fallbackTimeoutSec: number;
   setFallbackTimeoutSec: React.Dispatch<React.SetStateAction<number>>;
   DEFAULT_FALLBACK_TIMEOUT_SEC: number;
+  aiContextLimit: number;
+  setAiContextLimit: React.Dispatch<React.SetStateAction<number>>;
+  aiContextLimitOptions: readonly number[];
   countdownDisplayMode: CountdownDisplayMode;
   setCountdownDisplayMode: React.Dispatch<React.SetStateAction<CountdownDisplayMode>>;
   themePreference: ThemePreference;
@@ -102,6 +105,7 @@ type SettingsModalProps = {
     autoSyncInterval: number;
     countdownDisplayMode: CountdownDisplayMode;
     aiRetentionDays: number;
+    aiContextLimit: number;
     pgHost: string;
     pgPort: string;
     pgDatabase: string;
@@ -211,6 +215,9 @@ const SettingsModal = ({
   fallbackTimeoutSec,
   setFallbackTimeoutSec,
   DEFAULT_FALLBACK_TIMEOUT_SEC,
+  aiContextLimit,
+  setAiContextLimit,
+  aiContextLimitOptions,
   countdownDisplayMode,
   setCountdownDisplayMode,
   themePreference,
@@ -326,6 +333,7 @@ const SettingsModal = ({
         autoSyncInterval,
         countdownDisplayMode,
         aiRetentionDays,
+        aiContextLimit,
         pgHost,
         pgPort,
         pgDatabase,
@@ -367,6 +375,7 @@ const SettingsModal = ({
     autoSyncInterval,
     countdownDisplayMode,
     aiRetentionDays,
+    aiContextLimit,
     pgHost,
     pgPort,
     pgDatabase,
@@ -540,7 +549,7 @@ const SettingsModal = ({
                     <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
                   </summary>
                   <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
-                    <div className="mt-3 overflow-hidden">
+                    <div className="mt-3 space-y-3 overflow-hidden">
                       <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
                         创建超时转本地（秒）
                       </label>
@@ -555,6 +564,35 @@ const SettingsModal = ({
                       <p className="ui-note mt-1 text-[11px] sm:text-xs">
                         超时将直接本地创建，避免无法新增。作为高级兜底设置，默认不放在常用区域。
                       </p>
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="ui-field-label mb-0 text-[11px] sm:text-xs">
+                            上下文限制
+                          </label>
+                          <span className="rounded-full border border-[var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                            {aiContextLimit} 条
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[12px] sm:text-xs">
+                          {aiContextLimitOptions.map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setAiContextLimit(option)}
+                              className={`btn btn-sm ${
+                                aiContextLimit === option
+                                  ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                                  : buttonGroupClassName
+                              }`}
+                            >
+                              {option} 条
+                            </button>
+                          ))}
+                        </div>
+                        <p className="ui-note mt-1 text-[11px] sm:text-xs">
+                          限制每次发送给 AI 的任务摘要、个人资料和短期对话数量；越小越快，越大越完整。
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </details>

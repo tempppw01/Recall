@@ -1,3 +1,5 @@
+import { normalizeAiContextLimit } from '@/app/services/aiContextLimit';
+
 export type ResolveSyncedSettingsParams = {
   payload: any;
   current: {
@@ -9,6 +11,7 @@ export type ResolveSyncedSettingsParams = {
     autoSyncInterval: number;
     countdownDisplayMode: 'date' | 'days';
     aiRetentionDays: number;
+    aiContextLimit: number;
 
     apiKey: string;
     pgHost: string;
@@ -28,6 +31,7 @@ export type ResolveSyncedSettingsParams = {
     defaultModelListText: string;
     defaultChatModel: string;
     defaultFallbackTimeoutSec: number;
+    defaultAiContextLimit: number;
     defaultAutoSyncIntervalMin: number;
   };
 };
@@ -47,6 +51,9 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
   const nextAutoSyncInterval = Number(settings.autoSyncInterval) || defaults.defaultAutoSyncIntervalMin;
   const nextCountdownDisplayMode = settings.countdownDisplayMode === 'date' ? 'date' : 'days';
   const nextAiRetentionDays = Math.max(1, Math.min(3, Number(settings.aiRetentionDays) || 1));
+  const nextAiContextLimit = normalizeAiContextLimit(
+    typeof settings.aiContextLimit === 'undefined' ? defaults.defaultAiContextLimit : settings.aiContextLimit,
+  );
 
   const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : current.apiKey;
   const nextPgHost = typeof settings.pgHost === 'string' ? settings.pgHost : current.pgHost;
@@ -74,6 +81,7 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
     nextAutoSyncInterval,
     nextCountdownDisplayMode,
     nextAiRetentionDays,
+    nextAiContextLimit,
     nextApiKey,
     nextPgHost,
     nextPgPort,

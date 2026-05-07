@@ -10,6 +10,7 @@ import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { buildExportPayload as buildExportPayloadData, buildSyncPayload as buildSyncPayloadData } from '@/app/services/syncPayload';
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
 import { resolveSyncedSettings } from '@/app/services/syncedSettings';
+import { AI_CONTEXT_LIMIT_OPTIONS, AI_CONTEXT_LIMIT_STORAGE_KEY, DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
@@ -1101,6 +1102,7 @@ export default function Home() {
   const [autoSyncInterval, setAutoSyncInterval] = useState(DEFAULT_AUTO_SYNC_INTERVAL_MIN);
   const [countdownDisplayMode, setCountdownDisplayMode] = useState<CountdownDisplayMode>('days');
   const [aiRetentionDays, setAiRetentionDays] = useState(1);
+  const [aiContextLimit, setAiContextLimit] = useState(DEFAULT_AI_CONTEXT_LIMIT);
 
 
   const syncManager = useSyncManager({
@@ -1329,6 +1331,7 @@ export default function Home() {
     autoSyncInterval: number;
     countdownDisplayMode: CountdownDisplayMode;
     aiRetentionDays: number;
+    aiContextLimit: number;
     pgHost: string;
     pgPort: string;
     pgDatabase: string;
@@ -1357,6 +1360,7 @@ export default function Home() {
     localStorage.setItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY, String(next.autoSyncInterval));
     localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
     localStorage.setItem(AI_RETENTION_KEY, String(next.aiRetentionDays));
+    localStorage.setItem(AI_CONTEXT_LIMIT_STORAGE_KEY, String(normalizeAiContextLimit(next.aiContextLimit)));
     localStorage.setItem(PG_HOST_KEY, next.pgHost);
     localStorage.setItem(PG_PORT_KEY, next.pgPort);
     localStorage.setItem(PG_DATABASE_KEY, next.pgDatabase);
@@ -1587,6 +1591,10 @@ export default function Home() {
       const storedAutoSyncInterval = localStorage.getItem(WEBDAV_AUTO_SYNC_INTERVAL_KEY);
       const storedCountdownDisplayMode = localStorage.getItem(COUNTDOWN_DISPLAY_MODE_KEY);
       const storedAiRetentionDays = localStorage.getItem(AI_RETENTION_KEY);
+      const storedAiContextLimit = localStorage.getItem(AI_CONTEXT_LIMIT_STORAGE_KEY);
+      const nextStoredAiContextLimit = storedAiContextLimit
+        ? normalizeAiContextLimit(storedAiContextLimit)
+        : DEFAULT_AI_CONTEXT_LIMIT;
       const storedPgHost = localStorage.getItem(PG_HOST_KEY);
       const storedPgPort = localStorage.getItem(PG_PORT_KEY);
       const storedPgDatabase = localStorage.getItem(PG_DATABASE_KEY);
@@ -1684,6 +1692,7 @@ export default function Home() {
           setAiRetentionDays(Math.max(1, Math.min(3, parsed)));
         }
       }
+      setAiContextLimit(nextStoredAiContextLimit);
 
       // 读取侧边栏设置
       const storedSidebarWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
@@ -1714,7 +1723,7 @@ export default function Home() {
             setAgentMessages(
               parsed
                 .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-                .slice(-80),
+                .slice(-nextStoredAiContextLimit),
             );
           }
         } catch (error) {
@@ -1730,7 +1739,7 @@ export default function Home() {
             setManageAgentMessages(
               parsed
                 .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-                .slice(-80),
+                .slice(-nextStoredAiContextLimit),
             );
           }
         } catch (error) {
@@ -1794,8 +1803,8 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(AGENT_MESSAGES_KEY, JSON.stringify(agentMessages.slice(-80)));
-  }, [agentMessages]);
+    localStorage.setItem(AGENT_MESSAGES_KEY, JSON.stringify(agentMessages.slice(-aiContextLimit)));
+  }, [agentMessages, aiContextLimit]);
 
   useEffect(() => {
     if (activeFilter !== 'agent' || aiAssistantMode !== 'record') return;
@@ -1804,8 +1813,8 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-80)));
-  }, [manageAgentMessages]);
+    localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-aiContextLimit)));
+  }, [manageAgentMessages, aiContextLimit]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded) return;
@@ -2781,7 +2790,7 @@ const normalizeTimeoutSec = (value: number) => {
 
     return [...tasks]
       .sort((a, b) => scoreTask(b) - scoreTask(a))
-      .slice(0, 80)
+      .slice(0, aiContextLimit)
       .map((task) => ({
         id: task.id,
         title: task.title,
@@ -2800,7 +2809,7 @@ const normalizeTimeoutSec = (value: number) => {
 
   const buildUserMemorySummaryForAgent = () => userMemories
     .filter((memory) => memory.content.trim().length > 0)
-    .slice(0, 30)
+    .slice(0, Math.min(30, aiContextLimit))
     .map((memory) => ({
       id: memory.id,
       content: memory.content,
@@ -2950,6 +2959,7 @@ const normalizeTimeoutSec = (value: number) => {
           chatModel: chatModel?.trim() || undefined,
           sessionId,
           retentionDays: aiRetentionDays,
+          contextLimit: aiContextLimit,
           redisConfig: {
             host: redisHost,
             port: redisPort,
@@ -3071,8 +3081,7 @@ const normalizeTimeoutSec = (value: number) => {
     });
 
     // 给一个上限，避免任务很多时 token 爆炸。
-    const MAX_TASKS = 120;
-    const slice = filtered.slice(0, MAX_TASKS);
+    const slice = filtered.slice(0, aiContextLimit);
 
     return slice.map((t) => ({
       id: t.id,
@@ -3109,6 +3118,7 @@ const normalizeTimeoutSec = (value: number) => {
           chatModel: chatModel?.trim() || undefined,
           sessionId,
           retentionDays: aiRetentionDays,
+          contextLimit: aiContextLimit,
           redisConfig: {
             host: redisHost,
             port: redisPort,
@@ -3353,6 +3363,7 @@ const normalizeTimeoutSec = (value: number) => {
           chatModel: chatModel?.trim() || undefined,
           sessionId,
           retentionDays: aiRetentionDays,
+          contextLimit: aiContextLimit,
           redisConfig: {
             host: redisHost,
             port: redisPort,
@@ -3436,6 +3447,7 @@ const normalizeTimeoutSec = (value: number) => {
           chatModel: chatModel?.trim() || undefined,
           sessionId,
           retentionDays: aiRetentionDays,
+          contextLimit: aiContextLimit,
           redisConfig: {
             host: redisHost,
             port: redisPort,
@@ -3551,6 +3563,7 @@ const normalizeTimeoutSec = (value: number) => {
       autoSyncInterval,
       countdownDisplayMode,
       aiRetentionDays,
+      aiContextLimit,
       pgHost,
       pgPort,
       pgDatabase,
@@ -3578,6 +3591,7 @@ const normalizeTimeoutSec = (value: number) => {
       nextAutoSyncInterval,
       nextCountdownDisplayMode,
       nextAiRetentionDays,
+      nextAiContextLimit,
       nextApiKey,
       nextPgHost,
       nextPgPort,
@@ -3601,6 +3615,7 @@ const normalizeTimeoutSec = (value: number) => {
         autoSyncInterval,
         countdownDisplayMode,
         aiRetentionDays,
+        aiContextLimit,
         apiKey,
         pgHost,
         pgPort,
@@ -3619,6 +3634,7 @@ const normalizeTimeoutSec = (value: number) => {
         defaultModelListText: DEFAULT_MODEL_LIST.join('\n'),
         defaultChatModel: DEFAULT_MODEL_LIST[0],
         defaultFallbackTimeoutSec: DEFAULT_FALLBACK_TIMEOUT_SEC,
+        defaultAiContextLimit: DEFAULT_AI_CONTEXT_LIMIT,
         defaultAutoSyncIntervalMin: DEFAULT_AUTO_SYNC_INTERVAL_MIN,
       },
     });
@@ -3635,6 +3651,7 @@ const normalizeTimeoutSec = (value: number) => {
     setRedisPassword(nextRedisPassword);
     setCalendarSubscription(nextCalendarSubscription);
     setSyncNamespace(nextSyncNamespace);
+    setAiContextLimit(nextAiContextLimit);
     if (Array.isArray(payload?.settings?.userMemories)) {
       setUserMemories(normalizeUserMemories(payload.settings.userMemories));
     }
@@ -3653,6 +3670,7 @@ const normalizeTimeoutSec = (value: number) => {
       autoSyncInterval: nextAutoSyncInterval,
       countdownDisplayMode: nextCountdownDisplayMode as CountdownDisplayMode,
       aiRetentionDays: nextAiRetentionDays,
+      aiContextLimit: nextAiContextLimit,
       pgHost: nextPgHost,
       pgPort: nextPgPort,
       pgDatabase: nextPgDatabase,
@@ -3849,6 +3867,8 @@ const normalizeTimeoutSec = (value: number) => {
       apiBaseUrl: apiBaseUrl?.trim() || undefined,
       chatModel: chatModel?.trim() || undefined,
       sessionId,
+      retentionDays: aiRetentionDays,
+      contextLimit: aiContextLimit,
       redisConfig: {
         host: redisHost,
         port: redisPort,
@@ -7820,6 +7840,9 @@ const normalizeTimeoutSec = (value: number) => {
         fallbackTimeoutSec={fallbackTimeoutSec}
         setFallbackTimeoutSec={setFallbackTimeoutSec}
         DEFAULT_FALLBACK_TIMEOUT_SEC={DEFAULT_FALLBACK_TIMEOUT_SEC}
+        aiContextLimit={aiContextLimit}
+        setAiContextLimit={setAiContextLimit}
+        aiContextLimitOptions={AI_CONTEXT_LIMIT_OPTIONS}
         countdownDisplayMode={countdownDisplayMode}
         setCountdownDisplayMode={setCountdownDisplayMode}
         themePreference={themePreference}

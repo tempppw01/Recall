@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
+import { DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
 
 // ─── AI API 配置 ────────────────────────────────────────────
 
@@ -57,9 +58,7 @@ type ContextEntry = {
 /** 内存级上下文缓存（Redis 不可用时的降级方案） */
 const MEMORY_CONTEXT_CACHE = new Map<string, ContextEntry[]>();
 
-/** 每个会话最多保留的上下文条数 */
-const MAX_CONTEXT_ENTRIES = 12;
-
+/** 上下文条数由设置页传入，默认使用 DEFAULT_AI_CONTEXT_LIMIT。 */
 /** 将 Redis 中的原始字符串数组解析为结构化的上下文条目 */
 function normalizeContextEntries(raw: string[]): ContextEntry[] {
   return raw
@@ -84,13 +83,19 @@ function normalizeContextEntries(raw: string[]): ContextEntry[] {
  * 获取指定会话的历史上下文消息
  * 优先从 Redis 读取，Redis 不可用时降级到内存缓存
  */
-async function getContextMessages(redisConfig: any, sessionId: string): Promise<ContextEntry[]> {
+async function getContextMessages(
+  redisConfig: any,
+  sessionId: string,
+  contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT,
+): Promise<ContextEntry[]> {
   if (!sessionId) {
     return [];
   }
 
+  const limit = normalizeAiContextLimit(contextLimit);
+
   if (!redisConfig || !redisConfig.host) {
-    return MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
+    return (MEMORY_CONTEXT_CACHE.get(sessionId) ?? []).slice(-limit);
   }
 
   let redis: Redis | null = null;
@@ -105,12 +110,12 @@ async function getContextMessages(redisConfig: any, sessionId: string): Promise<
     });
 
     const contextKey = `session:${sessionId}:context`;
-    const raw = await redis.lrange(contextKey, 0, MAX_CONTEXT_ENTRIES - 1);
+    const raw = await redis.lrange(contextKey, 0, limit - 1);
     // Redis 存储顺序是最新在前（LPUSH），AI 提示词需要按时间正序排列
     return normalizeContextEntries(raw).reverse();
   } catch (error) {
     console.error('Redis context retrieval failed:', error);
-    return MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
+    return (MEMORY_CONTEXT_CACHE.get(sessionId) ?? []).slice(-limit);
   } finally {
     if (redis) {
       try {
@@ -143,13 +148,15 @@ async function appendContextEntry(
   sessionId: string,
   entry: ContextEntry,
   retentionDays: number = 1,
+  contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT,
 ) {
   if (!sessionId) return;
   const payload = JSON.stringify(entry);
+  const limit = normalizeAiContextLimit(contextLimit);
 
   if (!redisConfig || !redisConfig.host) {
     const current = MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
-    const next = [...current, entry].slice(-MAX_CONTEXT_ENTRIES);
+    const next = [...current, entry].slice(-limit);
     MEMORY_CONTEXT_CACHE.set(sessionId, next);
     return;
   }
@@ -169,13 +176,13 @@ async function appendContextEntry(
     const ttlSeconds = Math.max(1, Math.min(3, Math.round(retentionDays))) * 24 * 60 * 60;
     
     await redis.lpush(contextKey, payload);
-    await redis.ltrim(contextKey, 0, MAX_CONTEXT_ENTRIES - 1);
+    await redis.ltrim(contextKey, 0, limit - 1);
     // 设置过期时间
     await redis.expire(contextKey, ttlSeconds);
   } catch (error) {
     console.error('Redis context storage failed:', error);
     const current = MEMORY_CONTEXT_CACHE.get(sessionId) ?? [];
-    const next = [...current, entry].slice(-MAX_CONTEXT_ENTRIES);
+    const next = [...current, entry].slice(-limit);
     MEMORY_CONTEXT_CACHE.set(sessionId, next);
   } finally {
     if (redis) {
@@ -907,7 +914,7 @@ function scoreTaskRelevance(task: TodoAgentTaskSummary, input: string, nowMs: nu
   return score;
 }
 
-function normalizeTodoAgentTasks(tasks: any[]): TodoAgentTaskSummary[] {
+function normalizeTodoAgentTasks(tasks: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT): TodoAgentTaskSummary[] {
   return (Array.isArray(tasks) ? tasks : [])
     .map((task) => {
       const status: TodoAgentTaskSummary['status'] =
@@ -939,10 +946,11 @@ function normalizeTodoAgentTasks(tasks: any[]): TodoAgentTaskSummary[] {
           : [],
       };
     })
-    .filter((task) => task.id && task.title);
+    .filter((task) => task.id && task.title)
+    .slice(0, normalizeAiContextLimit(contextLimit));
 }
 
-function normalizeTodoAgentMemories(memories: any[]): TodoAgentMemorySummary[] {
+function normalizeTodoAgentMemories(memories: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT): TodoAgentMemorySummary[] {
   return (Array.isArray(memories) ? memories : [])
     .map((memory) => {
       const content = typeof memory?.content === 'string' ? memory.content.trim() : '';
@@ -954,7 +962,7 @@ function normalizeTodoAgentMemories(memories: any[]): TodoAgentMemorySummary[] {
       } as TodoAgentMemorySummary;
     })
     .filter(Boolean)
-    .slice(0, 30) as TodoAgentMemorySummary[];
+    .slice(0, Math.min(30, normalizeAiContextLimit(contextLimit))) as TodoAgentMemorySummary[];
 }
 
 function normalizeAgentMemoryUpdates(updates: unknown): string[] {
@@ -1183,7 +1191,8 @@ function normalizeTodoAgentDecisions(
  */
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, tasks, memories, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays } = await req.json();
+    const { input, mode, images, tasks, memories, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
+    const effectiveContextLimit = normalizeAiContextLimit(contextLimit);
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
@@ -1206,7 +1215,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
     }
 
-    const contextMessages = await getContextMessages(redisConfig, sessionId);
+    const contextMessages = await getContextMessages(redisConfig, sessionId, effectiveContextLimit);
     const historyMessages = contextMessages.map((msg) => ({
       role: msg.role,
       content: msg.content,
@@ -1273,12 +1282,12 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: normalizedInput,
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: JSON.stringify({ tasks: normalizedCategoryTasks }),
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
 
       return NextResponse.json({ tasks: normalizedCategoryTasks });
     }
@@ -1286,8 +1295,8 @@ export async function POST(req: NextRequest) {
     if (mode === 'todo-agent') {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
-      const incomingTasks = normalizeTodoAgentTasks(Array.isArray(tasks) ? tasks : []);
-      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : []);
+      const incomingTasks = normalizeTodoAgentTasks(Array.isArray(tasks) ? tasks : [], effectiveContextLimit);
+      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : [], effectiveContextLimit);
       const planContext = buildTodoPlanContext(incomingTasks, normalizedInput, networkNow);
       // todo-agent：返回聊天回复 + 待办清单
       // 有图片时按 OpenAI 多模态格式构造 content，否则保持纯文本
@@ -1404,12 +1413,12 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: normalizedInput || '[图片]',
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: rawResult?.reply || '已整理成待办清单，点一下即可加入。',
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
 
       return NextResponse.json({
         reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
@@ -1430,7 +1439,7 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const incomingTasks = Array.isArray(tasks) ? tasks : [];
-      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : []);
+      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : [], effectiveContextLimit);
 
       // 精简任务，避免 prompt 过长
       const normalizedTasks = incomingTasks
@@ -1443,7 +1452,8 @@ export async function POST(req: NextRequest) {
           category: typeof t?.category === 'string' ? t.category : '',
           tags: Array.isArray(t?.tags) ? t.tags : [],
         }))
-        .filter((t: any) => t.id && t.title);
+        .filter((t: any) => t.id && t.title)
+        .slice(0, effectiveContextLimit);
 
       const managePayload = {
         model: resolvedChatModel,
@@ -1543,12 +1553,12 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: `[manage-agent] ${normalizedInput}`,
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: typeof raw?.reply === 'string' ? raw.reply : '已生成管理建议。',
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
 
       return NextResponse.json({
         reply: typeof raw?.reply === 'string' && raw.reply.trim().length > 0 ? raw.reply.trim() : '已生成管理建议。',
@@ -1605,12 +1615,12 @@ if (mode === 'habit-agent') {
         role: 'user',
         content: normalizedInput,
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: rawHabit?.reply || '已拆解为习惯与检查任务，点击即可加入。',
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
 
       return NextResponse.json({
         reply: typeof rawHabit?.reply === 'string' && rawHabit.reply.trim().length > 0
@@ -1655,12 +1665,12 @@ if (mode === 'habit-agent') {
         role: 'user',
         content: normalizedInput,
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
       await appendContextEntry(redisConfig, sessionId, {
         role: 'assistant',
         content: rawCountdown?.reply || '已识别倒数日内容，点击即可加入。',
         timestamp: Date.now(),
-      }, retentionDays);
+      }, retentionDays, effectiveContextLimit);
 
       return NextResponse.json({
         reply: typeof rawCountdown?.reply === 'string' && rawCountdown.reply.trim().length > 0
@@ -1735,12 +1745,12 @@ if (mode === 'habit-agent') {
       role: 'user',
       content: normalizedInput,
       timestamp: Date.now(),
-    }, retentionDays);
+    }, retentionDays, effectiveContextLimit);
     await appendContextEntry(redisConfig, sessionId, {
       role: 'assistant',
       content: taskData.title || '已生成任务',
       timestamp: Date.now(),
-    }, retentionDays);
+    }, retentionDays, effectiveContextLimit);
 
     return NextResponse.json({
       task: {
