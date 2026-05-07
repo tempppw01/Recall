@@ -12,6 +12,7 @@ import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/
 import { resolveSyncedSettings } from '@/app/services/syncedSettings';
 import { AI_CONTEXT_LIMIT_OPTIONS, AI_CONTEXT_LIMIT_STORAGE_KEY, DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
 import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
+import { normalizeTaskRepeatRule } from '@/app/services/repeatRules';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
@@ -2590,6 +2591,7 @@ const normalizeTimeoutSec = (value: number) => {
     const priority = typeof item.priority === 'number'
       ? item.priority
       : evaluatePriority(item.dueDate, item.subtasks?.length || 0, now.getTime());
+    const repeat = normalizeTaskRepeatRule(item.repeat, item.dueDate);
     const task: Task = {
       id: createId(),
       title,
@@ -2600,6 +2602,7 @@ const normalizeTimeoutSec = (value: number) => {
       status: 'todo',
       tags: Array.isArray(item.tags) ? item.tags : [],
       pinned: false,
+      repeat,
       subtasks: Array.isArray(item.subtasks)
         ? item.subtasks
             .map((subtask) => ({
@@ -2659,7 +2662,8 @@ const normalizeTimeoutSec = (value: number) => {
     if (changes.repeat === null) {
       next.repeat = undefined;
     } else if (changes.repeat) {
-      next.repeat = changes.repeat;
+      const repeat = normalizeTaskRepeatRule(changes.repeat, next.dueDate);
+      if (repeat) next.repeat = repeat;
     }
     if (changes.status === 'todo' || changes.status === 'in_progress' || changes.status === 'completed') {
       next.status = changes.status;
@@ -6580,6 +6584,7 @@ const normalizeTimeoutSec = (value: number) => {
                           const isAdded = addedAgentItemIds.has(item.id);
                           const reason = createDecisionReasonMap.get(item.id);
                           const timeReason = item.timeReason?.trim();
+                          const repeatLabel = formatRepeatLabel(normalizeTaskRepeatRule(item.repeat, item.dueDate));
                           const subtasks = (item.subtasks ?? [])
                             .map((subtask) => subtask.title?.trim())
                             .filter((title): title is string => Boolean(title));
@@ -6608,6 +6613,11 @@ const normalizeTimeoutSec = (value: number) => {
                                   <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5">
                                     {item.dueDate ? formatZonedDateTime(item.dueDate, DEFAULT_TIMEZONE_OFFSET) : '未定时间'}
                                   </span>
+                                  {repeatLabel && (
+                                    <span className="rounded-full border border-emerald-300/25 bg-emerald-400/10 px-1.5 py-0.5 text-emerald-100">
+                                      {repeatLabel}
+                                    </span>
+                                  )}
                                   {hasSubtasks ? (
                                     <button
                                       type="button"

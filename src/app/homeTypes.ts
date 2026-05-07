@@ -1,4 +1,4 @@
-import type { Task } from '@/lib/store';
+import type { Task, TaskRepeatRule } from '@/lib/store';
 
 export type WeatherCity = {
   id: string;
@@ -36,6 +36,7 @@ export type AgentItem = {
   subtasks?: { title?: string }[];
   scheduleOptions?: AgentScheduleOption[];
   timeReason?: string;
+  repeat?: TaskRepeatRule;
 };
 
 export type AgentScheduleOption = {

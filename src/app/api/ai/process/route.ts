@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
 import { DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
 import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
+import { inferRepeatRuleFromText, normalizeTaskRepeatRule } from '@/app/services/repeatRules';
 
 // ─── AI API 配置 ────────────────────────────────────────────
 
@@ -559,7 +560,7 @@ function normalizeAgentScheduleOptions(options: unknown): AgentScheduleOption[] 
 }
 
 /** 规范化 AI 返回的任务字段，确保类型安全和默认值 */
-function normalizeTask(data: ParsedTask) {
+function normalizeTask(data: ParsedTask, sourceText = '') {
   const title = typeof data.title === 'string' && data.title.trim().length > 0 ? data.title.trim() : DEFAULT_TASK.title;
   const priority = typeof data.priority === 'number' && Number.isFinite(data.priority)
     ? Math.max(0, Math.min(2, Math.round(data.priority)))
@@ -579,12 +580,8 @@ function normalizeTask(data: ParsedTask) {
     : DEFAULT_TASK.subtasks;
   const id = typeof data.id === 'string' && data.id.trim().length > 0 ? data.id.trim() : undefined;
 
-  const repeat = data.repeat && typeof data.repeat === 'object' ? {
-    type: data.repeat.type || 'none',
-    interval: data.repeat.interval,
-    weekdays: Array.isArray(data.repeat.weekdays) ? data.repeat.weekdays : undefined,
-    monthDay: data.repeat.monthDay,
-  } : undefined;
+  const repeat = normalizeTaskRepeatRule(data.repeat, dueDate)
+    ?? inferRepeatRuleFromText(`${sourceText} ${title}`, dueDate);
 
   return {
     id,
@@ -627,7 +624,7 @@ function applyReasonableTimingToItem(
   };
 }
 
-function normalizeTaskChanges(data: AgentTaskChanges) {
+function normalizeTaskChanges(data: AgentTaskChanges, sourceText = '') {
   const next: {
     title?: string;
     dueDate?: string | null;
@@ -680,12 +677,15 @@ function normalizeTaskChanges(data: AgentTaskChanges) {
   if (data?.repeat === null) {
     next.repeat = null;
   } else if (data?.repeat && typeof data.repeat === 'object') {
-    next.repeat = {
-      type: data.repeat.type || 'none',
-      interval: data.repeat.interval,
-      weekdays: Array.isArray(data.repeat.weekdays) ? data.repeat.weekdays : undefined,
-      monthDay: data.repeat.monthDay,
-    };
+    const repeat = normalizeTaskRepeatRule(data.repeat, typeof next.dueDate === 'string' ? next.dueDate : undefined);
+    if (repeat) next.repeat = repeat;
+    else if (data.repeat.type === 'none') next.repeat = null;
+  } else {
+    const repeat = inferRepeatRuleFromText(
+      `${sourceText} ${typeof next.title === 'string' ? next.title : ''}`,
+      typeof next.dueDate === 'string' ? next.dueDate : undefined,
+    );
+    if (repeat) next.repeat = repeat;
   }
 
   if (data?.status === 'todo' || data?.status === 'in_progress' || data?.status === 'completed') {
@@ -1101,7 +1101,7 @@ function normalizeTodoAgentDecisions(
     const matchedTask = findBestTaskMatch(tasks, titleCandidate, decision?.taskId);
 
     if (type === 'create') {
-      const normalizedItem = applyReasonableTimingToItem(normalizeTask(itemSource), input, now);
+      const normalizedItem = applyReasonableTimingToItem(normalizeTask(itemSource, input), input, now);
       const matchedExisting = findBestTaskMatch(tasks, normalizedItem.title, decision?.taskId);
       if (matchedExisting) {
         next.push({
@@ -1129,7 +1129,7 @@ function normalizeTodoAgentDecisions(
     if (!matchedTask) return;
 
     if (type === 'update') {
-      const changes = normalizeTaskChanges(decision?.changes ?? {});
+      const changes = normalizeTaskChanges(decision?.changes ?? {}, input);
       if (Object.keys(changes).length === 0) return;
       next.push({
         id: `decision-${index}-${matchedTask.id}`,
@@ -1170,7 +1170,7 @@ function normalizeTodoAgentDecisions(
 
   if (next.length === 0 && fallbackItems.length > 0) {
     fallbackItems.forEach((item, index) => {
-      const normalizedItem = normalizeTask(item);
+      const normalizedItem = normalizeTask(item, input);
       const normalizedTitle = normalizeCompareText(normalizedItem.title);
       if (!normalizedTitle || seenCreateTitles.has(normalizedTitle)) return;
       seenCreateTitles.add(normalizedTitle);
@@ -1249,7 +1249,7 @@ export async function POST(req: NextRequest) {
 3) 校正 priority (必须为 0/1/2)、category (只能从 ${CATEGORY_OPTIONS.join(' / ')})、tags。
 4) dueDate 若无或无法解析则设为 null，必须为 ISO 8601 UTC。
 5) subtasks 仅保留 title。
-6) 识别并优化重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。
+6) 识别并优化重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每周一到周六”对应 {type:'weekly', weekdays:[1,2,3,4,5,6]}，“工作日”对应 [1,2,3,4,5]。
 7) **记忆功能**：请务必参考提供的“历史对话上下文”来理解用户的偏好或特定上下文。
 请只返回 JSON：{ "tasks": [{ "id": string, "title": string, "dueDate": string|null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": string, "interval": number, "weekdays": number[], "monthDay": number } | null }] }。不要包含 null/undefined 属性时可省略。`,
           },
@@ -1267,7 +1267,7 @@ export async function POST(req: NextRequest) {
       const rawResult = parseChatContent(organizePayloadJson) as { tasks?: ParsedTask[] };
       // 统一字段并尽量保留原始 id
       const normalizedTasks = Array.isArray(rawResult?.tasks)
-        ? rawResult.tasks.map((task) => normalizeTask(task))
+        ? rawResult.tasks.map((task) => normalizeTask(task, normalizedInput))
         : [];
       const normalizedCategoryTasks = normalizedTasks.map((task, index) => ({
         ...task,
@@ -1347,7 +1347,7 @@ export async function POST(req: NextRequest) {
 20) 除非用户明确说“凌晨/半夜/深夜/夜里/夜间/通宵/熬夜/睡前”或给出 00:00-06:59 的精确时间，否则普通购物、沟通、发送、检查、整理、办公、家务任务禁止推荐 00:00-06:59。时间不明确时优先选择 09:00-21:30 内的可执行时段；购买/取件优先 10:00-20:30，沟通/发送优先 09:30-20:00，晚上场景优先 19:30-21:00。
 21) 如果用户只说“尽快/今天/顺路/有空”，不要随便填当前凌晨或整点；应按当前时间找下一个合理窗口。若当前已太晚，则安排到次日上午或下一个明确可执行时段。
 22) subtasks 仅保留 title。
-23) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。例如“每天”对应 type:'daily'，“每周一”对应 type:'weekly', weekdays:[1]。
+23) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。用户说“每天/每日”必须返回 repeat:{type:'daily'}；说“每周/每星期/周一到周六/工作日/周末”必须返回 repeat:{type:'weekly', weekdays:[...]}；周日=0、周一=1、周六=6，例如“每周一到周六”对应 weekdays:[1,2,3,4,5,6]，“工作日”对应 [1,2,3,4,5]，“周末”对应 [0,6]；说“每月”返回 monthly；说“每隔 3 天/每 3 天”返回 custom interval:3。
 24) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
 25) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
 26) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
@@ -1714,10 +1714,11 @@ if (mode === 'habit-agent') {
 - “国庆前开会” → 最近一个国庆 09:00 的 ISO 时间
 - “下午三点到四点开会” → 取开始时间 15:00
 5) 输出分类 category，只能从以下列表中选择：${CATEGORY_OPTIONS.join(' / ')}。
-6) **重要核心**：请务必结合“历史对话上下文”来补充当前任务中可能缺失的时间或背景信息。
+6) 识别重复逻辑 repeat。用户说“每天/每日”返回 repeat:{type:'daily'}；“每周一到周六”返回 repeat:{type:'weekly', weekdays:[1,2,3,4,5,6]}；“工作日”返回 [1,2,3,4,5]；“周末”返回 [0,6]；“每隔 3 天”返回 {type:'custom', interval:3}。
+7) **重要核心**：请务必结合“历史对话上下文”来补充当前任务中可能缺失的时间或背景信息。
 
 请只输出 JSON，格式如下：
-{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}] }。不要包含 null/undefined 属性时可省略。`,
+{ "title": string, "dueDate": string | null, "priority": 0|1|2, "category": string, "tags": string[], "subtasks": [{"title": string}], "repeat": { "type": "none"|"daily"|"weekly"|"monthly"|"custom", "interval"?: number, "weekdays"?: number[], "monthDay"?: number } | null }。不要包含 null/undefined 属性时可省略。`,
         },
         ...historyMessages,
         { role: 'user', content: normalizedInput },
@@ -1728,7 +1729,7 @@ if (mode === 'habit-agent') {
     const { res: magicRes } = await requestChat(baseUrlList, apiKey, magicPayload);
     const magicPayloadJson = await magicRes.json();
     const rawTask = parseChatContent(magicPayloadJson) as ParsedTask;
-    let taskData = normalizeTask(rawTask);
+    let taskData = normalizeTask(rawTask, normalizedInput);
     const normalizedCategory = CATEGORY_OPTIONS.includes(taskData.category || '')
       ? taskData.category
       : classifyCategory(`${taskData.title} ${normalizedInput}`);
