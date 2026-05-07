@@ -4903,8 +4903,7 @@ const normalizeTimeoutSec = (value: number) => {
   const todayTasksForAgent = openTasksForAgent.filter((task) => isTaskDueToday(task, now));
   const overdueTasksForAgent = openTasksForAgent.filter((task) => isTaskOverdue(task));
   const pendingAgentSuggestions = agentItems.filter((item) => !addedAgentItemIds.has(item.id));
-  const hasAgentComparisonResults = agentGuidance.length > 0
-    || agentUpdateDecisions.length > 0
+  const hasAgentComparisonResults = agentUpdateDecisions.length > 0
     || agentDeleteDecisions.length > 0
     || agentReuseDecisions.length > 0
     || agentBlockedDecisions.length > 0
@@ -6184,16 +6183,6 @@ const normalizeTimeoutSec = (value: number) => {
 
                       {hasAgentComparisonResults && (
                       <div className="order-3 space-y-2 border-t border-[color:var(--ui-border-soft)] pt-2">
-                        {agentGuidance.length > 0 && (
-                          <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-[color:var(--ui-text-primary)] space-y-1">
-                            <div className="font-medium text-[color:var(--ui-text-strong)]">行动拆解建议</div>
-                            <ul className="list-disc list-inside space-y-1">
-                              {agentGuidance.map((tip, idx) => (
-                                <li key={`tip-${idx}`}>{tip}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
                         <div className="flex items-center justify-between">
                           <h4 className="text-xs font-semibold text-[color:var(--ui-text-primary)]">计划对照</h4>
                         </div>
@@ -6550,17 +6539,20 @@ const normalizeTimeoutSec = (value: number) => {
                   )}
                 </div>
 
-                {aiAssistantMode === 'record' && agentItems.length > 0 && (
-                  <div className="mt-3 rounded-2xl border border-blue-400/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.14),rgba(14,165,233,0.07))] p-2.5 shadow-[0_12px_28px_rgba(15,23,42,0.16)]">
+                {aiAssistantMode === 'record' && (agentItems.length > 0 || agentGuidance.length > 0) && (
+                  <div className="mt-3 rounded-2xl border border-blue-300/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(14,165,233,0.05))] p-2.5 shadow-[0_12px_28px_rgba(15,23,42,0.16)]">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">
-                          建议新增
-                          <span className="ml-1 text-[color:var(--ui-text-secondary)]">
-                            {pendingAgentSuggestions.length > 0 ? `${pendingAgentSuggestions.length} 条待确认` : '已处理'}
+                        <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-strong)]">
+                          <span className="rounded-full border border-blue-300/30 bg-blue-500/15 px-2 py-0.5 text-[10px] text-blue-100">下一步</span>
+                          <span>下一步动作</span>
+                          <span className="text-[color:var(--ui-text-secondary)]">
+                            {pendingAgentSuggestions.length > 0 ? `${pendingAgentSuggestions.length} 条可加入` : agentItems.length > 0 ? '已处理' : '可参考'}
                           </span>
                         </div>
-                        <div className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">靠近输入框，先快速加入，细节可以之后再调整</div>
+                        <div className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">
+                          点击“加入任务”后会进入待办，细节可以之后再调
+                        </div>
                       </div>
                       {pendingAgentSuggestions.length > 1 && (
                         <button
@@ -6568,29 +6560,46 @@ const normalizeTimeoutSec = (value: number) => {
                           onClick={handleAddAllAgentItems}
                           className="shrink-0 rounded-full border border-blue-300/35 bg-blue-500/12 px-3 py-1.5 text-[11px] font-medium text-blue-100 transition-colors hover:bg-blue-500/20"
                         >
-                          全部加入
+                          全部加入任务
                         </button>
                       )}
                     </div>
-                    <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                      {agentItems.map((item) => {
-                        const isAdded = addedAgentItemIds.has(item.id);
-                        const reason = createDecisionReasonMap.get(item.id);
-                        const timeReason = item.timeReason?.trim();
-                        const subtasks = (item.subtasks ?? [])
-                          .map((subtask) => subtask.title?.trim())
-                          .filter((title): title is string => Boolean(title));
-                        const hasSubtasks = subtasks.length > 0;
-                        const isSubtasksOpen = expandedAgentSubtaskIds.has(item.id);
-                        return (
-                          <div
-                            key={item.id}
-                            className={`rounded-xl border px-2.5 py-2 transition-colors ${
-                              isAdded
-                                ? 'border-emerald-300/25 bg-emerald-400/10'
-                                : 'border-blue-300/18 bg-[color:var(--ui-card-bg)] hover:border-blue-300/35'
-                            }`}
-                          >
+                    {agentGuidance.length > 0 && (
+                      <div className="mb-2 rounded-xl border border-blue-300/15 bg-blue-500/10 px-2.5 py-2 text-xs text-[color:var(--ui-text-primary)]">
+                        <div className="mb-1.5 flex items-center gap-1.5 font-medium text-[color:var(--ui-text-strong)]">
+                          <CheckCircle2 className="h-3 w-3 text-blue-200" />
+                          <span>判断依据</span>
+                        </div>
+                        <div className="space-y-1">
+                          {agentGuidance.map((tip, idx) => (
+                            <div key={`tip-${idx}`} className="flex gap-1.5 leading-relaxed">
+                              <span className="mt-[0.45em] h-1 w-1 shrink-0 rounded-full bg-blue-200/80" />
+                              <span>{tip}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {agentItems.length > 0 ? (
+                      <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                        {agentItems.map((item) => {
+                          const isAdded = addedAgentItemIds.has(item.id);
+                          const reason = createDecisionReasonMap.get(item.id);
+                          const timeReason = item.timeReason?.trim();
+                          const subtasks = (item.subtasks ?? [])
+                            .map((subtask) => subtask.title?.trim())
+                            .filter((title): title is string => Boolean(title));
+                          const hasSubtasks = subtasks.length > 0;
+                          const isSubtasksOpen = expandedAgentSubtaskIds.has(item.id);
+                          return (
+                            <div
+                              key={item.id}
+                              className={`rounded-xl border px-2.5 py-2 transition-colors ${
+                                isAdded
+                                  ? 'border-emerald-300/25 bg-emerald-400/10'
+                                  : 'border-blue-300/18 bg-[color:var(--ui-card-bg)] hover:border-blue-300/35'
+                              }`}
+                            >
                             <div className="flex items-center gap-2">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5">
@@ -6642,7 +6651,7 @@ const normalizeTimeoutSec = (value: number) => {
                                       : 'border-blue-400/50 bg-blue-500/12 text-blue-100 hover:bg-blue-500/20'
                                   }`}
                                 >
-                                  {isAdded ? '已添加' : '加入'}
+                                  {isAdded ? '已添加' : '加入任务'}
                                 </button>
                                 {isAdded && addedAgentTaskMap[item.id] && (
                                   <button
@@ -6694,10 +6703,15 @@ const normalizeTimeoutSec = (value: number) => {
                                 })}
                               </div>
                             )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-xs text-[color:var(--ui-text-secondary)]">
+                        可以先按上面的判断推进；如果要落成待办，继续让我“生成可加入任务”。
+                      </div>
+                    )}
                   </div>
                 )}
 
