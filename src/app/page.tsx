@@ -7155,6 +7155,25 @@ const normalizeTimeoutSec = (value: number) => {
                     </div>
                   )}
 
+                  {activeFilter === 'completed' && completedTasks > 0 && (
+                    <div className="theme-native-surface flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">已完成任务</div>
+                        <div className="mt-0.5 text-xs text-[color:var(--ui-text-secondary)]">
+                          当前共有 {completedTasks} 项已收尾任务，可以一键清理历史列表。
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowClearCompletedConfirm(true)}
+                        className="shrink-0 rounded-full border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 transition-colors hover:bg-red-500/16 hover:text-red-100"
+                        title="清空所有已完成任务"
+                      >
+                        一键清空
+                      </button>
+                    </div>
+                  )}
+
                   {(taskGroupMode === 'dueDate' || activeFilter === 'inbox' || activeFilter === 'all' || activeFilter === 'today' || activeFilter === 'next7')
                     ? futureAwareGroupedTasks.map((group) => {
                         const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];
