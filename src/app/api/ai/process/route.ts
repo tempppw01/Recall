@@ -320,17 +320,72 @@ function describeAiProcessError(error: unknown) {
   };
 }
 
+const stripJsonMarkdownFence = (value: string) => (
+  value
+    .trim()
+    .replace(/^```(?:json|javascript|js)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+);
+
+const extractBalancedJson = (value: string) => {
+  const text = stripJsonMarkdownFence(value);
+  const start = text.search(/[\[{]/);
+  if (start < 0) return text;
+
+  const opener = text[start];
+  const closer = opener === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === opener) depth += 1;
+    if (char === closer) depth -= 1;
+    if (depth === 0) {
+      return text.slice(start, index + 1);
+    }
+  }
+
+  return text.slice(start);
+};
+
 /** 从 AI 响应中提取并解析 JSON 内容 */
 function parseChatContent(payload: any) {
   const content = payload?.choices?.[0]?.message?.content;
   if (typeof content !== 'string' || !content.trim()) {
     throw new Error('LLM invalid JSON: empty content');
   }
-  try {
-    return JSON.parse(content);
-  } catch (err) {
-    throw new Error(`LLM invalid JSON: ${(err as Error).message}`);
+
+  const candidates = Array.from(new Set([
+    content.trim(),
+    stripJsonMarkdownFence(content),
+    extractBalancedJson(content),
+  ].filter(Boolean)));
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // Continue trying more tolerant candidates below.
+    }
   }
+
+  throw new Error(`LLM invalid JSON: unable to parse structured content from ${content.slice(0, 180)}`);
 }
 
 // ─── 常量与类型定义 ─────────────────────────────────────────
