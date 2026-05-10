@@ -132,12 +132,13 @@ body > * {
 }
 
 
-body.theme-light {
-  color-scheme: light;
-  filter: invert(1) hue-rotate(180deg);
-}
-
+body.theme-light,
 body.theme-light .theme-native-surface {
+  --background: #f4f7fb;
+  --foreground: #172033;
+  --sidebar: #fbfcff;
+  --border: rgba(148, 163, 184, 0.3);
+  --muted: #64748b;
   --ui-surface-0: #f4f7fb;
   --ui-surface-1: #fbfcff;
   --ui-surface-2: #eef3fb;
@@ -164,11 +165,38 @@ body.theme-light .theme-native-surface {
   --btn-ghost-text: #64748b;
   --state-hover-bg: rgba(15, 23, 42, 0.04);
   --state-active-bg: rgba(15, 23, 42, 0.08);
+}
+
+body.theme-light {
+  color-scheme: light;
+  color: var(--foreground);
+  background: var(--background);
+  filter: none;
+}
+
+body.theme-light::before {
+  background:
+    radial-gradient(circle at top left, rgba(var(--theme-grad-start), 0.13), transparent 34%),
+    radial-gradient(circle at top right, rgba(var(--theme-grad-end), 0.10), transparent 28%),
+    radial-gradient(circle at bottom center, rgba(var(--theme-accent), 0.08), transparent 32%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+}
+
+body.theme-light::after {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  opacity: 0.32;
+}
+
+body.theme-light .theme-native-surface {
   box-shadow: none;
 }
 
 body.theme-light .theme-native-root {
-  filter: invert(1) hue-rotate(180deg);
+  color: var(--ui-text-primary);
+  background: var(--ui-surface-0);
+  filter: none;
 }
 
 input,
@@ -994,6 +1022,15 @@ body.theme-light .theme-native-root [class*="bg-[#171717]"] {
   background-color: var(--ui-card-bg) !important;
 }
 
+body.theme-light .theme-native-root [class*="bg-[rgba(255,255,255,0.02)]"],
+body.theme-light .theme-native-root [class*="bg-[rgba(255,255,255,0.025)]"],
+body.theme-light .theme-native-root [class*="bg-[rgba(255,255,255,0.03)]"],
+body.theme-light .theme-native-root [class*="bg-[rgba(255,255,255,0.04)]"],
+body.theme-light .theme-native-root [class*="bg-[rgba(255,255,255,0.06)]"],
+body.theme-light .theme-native-root [class*="bg-[rgba(0,0,0,0.18)]"] {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
 body.theme-light .theme-native-root [class*="border-[#2C2C2C]"],
 body.theme-light .theme-native-root [class*="border-[#333333]"],
 body.theme-light .theme-native-root [class*="border-[#3A3F4B]"],
@@ -1010,7 +1047,13 @@ body.theme-light .theme-native-root [class*="text-[#E8ECF8]"],
 body.theme-light .theme-native-root [class*="text-[#EEF2FF]"],
 body.theme-light .theme-native-root [class*="text-[#DDDDDD]"],
 body.theme-light .theme-native-root [class*="text-[#DCE3F4]"],
-body.theme-light .theme-native-root [class*="text-[#CCCCCC]"] {
+body.theme-light .theme-native-root [class*="text-[#D8DEEF]"],
+body.theme-light .theme-native-root [class*="text-[#C7CFDF]"],
+body.theme-light .theme-native-root [class*="text-[#CCCCCC]"],
+body.theme-light .theme-native-root [class*="text-[#AAAAAA]"],
+body.theme-light .theme-native-root [class*="text-[#AAB3C6]"],
+body.theme-light .theme-native-root [class*="text-[#9aa3b5]"],
+body.theme-light .theme-native-root [class*="text-[#F3F6FF]"] {
   color: var(--ui-text-strong) !important;
 }
 
@@ -1021,8 +1064,50 @@ body.theme-light .theme-native-root [class*="text-[#555555]"],
 body.theme-light .theme-native-root [class*="text-[#444444]"],
 body.theme-light .theme-native-root [class*="text-[#7d8595]"],
 body.theme-light .theme-native-root [class*="text-[#6F788B]"],
-body.theme-light .theme-native-root [class*="text-[#8A93A6]"] {
+body.theme-light .theme-native-root [class*="text-[#8A93A6]"],
+body.theme-light .theme-native-root [class*="text-[#7C8499]"],
+body.theme-light .theme-native-root [class*="text-[#8F9BB3]"],
+body.theme-light .theme-native-root [class*="text-[#697386]"],
+body.theme-light .theme-native-root [class*="text-[#707789]"],
+body.theme-light .theme-native-root [class*="text-[#63708A]"] {
   color: var(--ui-text-muted) !important;
+}
+
+body.theme-light .theme-native-root [class*="text-[#8EA3FF]"],
+body.theme-light .theme-native-root [class*="text-[#E1E8FF]"],
+body.theme-light .theme-native-root [class~="text-blue-100"],
+body.theme-light .theme-native-root [class~="text-blue-200"],
+body.theme-light .theme-native-root [class~="text-blue-300"],
+body.theme-light .theme-native-root [class~="text-sky-100"],
+body.theme-light .theme-native-root [class~="text-sky-200"],
+body.theme-light .theme-native-root [class~="text-cyan-100"],
+body.theme-light .theme-native-root [class~="text-cyan-200"],
+body.theme-light .theme-native-root [class~="text-indigo-100"],
+body.theme-light .theme-native-root [class~="text-indigo-200"],
+body.theme-light .theme-native-root [class~="text-violet-100"],
+body.theme-light .theme-native-root [class~="text-violet-200"] {
+  color: #1d4ed8 !important;
+}
+
+body.theme-light .theme-native-root [class~="text-amber-100"],
+body.theme-light .theme-native-root [class~="text-amber-200"],
+body.theme-light .theme-native-root [class~="text-yellow-100"],
+body.theme-light .theme-native-root [class~="text-yellow-200"] {
+  color: #92400e !important;
+}
+
+body.theme-light .theme-native-root [class~="text-emerald-100"],
+body.theme-light .theme-native-root [class~="text-emerald-200"],
+body.theme-light .theme-native-root [class~="text-green-100"],
+body.theme-light .theme-native-root [class~="text-green-200"] {
+  color: #047857 !important;
+}
+
+body.theme-light .theme-native-root [class~="text-red-100"],
+body.theme-light .theme-native-root [class~="text-red-200"],
+body.theme-light .theme-native-root [class~="text-rose-100"],
+body.theme-light .theme-native-root [class~="text-rose-200"] {
+  color: #b91c1c !important;
 }
 
 .surface-sheen:hover::after {
