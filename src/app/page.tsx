@@ -553,6 +553,55 @@ const AgentThinkingBubble = ({ label, accent = 'cyan' }: { label: string; accent
   );
 };
 
+const renderInlineMarkdown = (text: string, keyPrefix: string) => (
+  text.split(/(\*\*[^*]+?\*\*)/g).map((part, index) => {
+    const match = part.match(/^\*\*([^*]+)\*\*$/);
+    if (match) {
+      return (
+        <strong key={`${keyPrefix}-bold-${index}`} className="font-semibold text-[color:var(--ui-text-strong)]">
+          {match[1]}
+        </strong>
+      );
+    }
+    return <span key={`${keyPrefix}-text-${index}`}>{part.replace(/\*\*/g, '')}</span>;
+  })
+);
+
+const renderAssistantMessageContent = (content: string) => {
+  const lines = content.trim().split(/\r?\n/);
+  return (
+    <div className="space-y-2 break-words [overflow-wrap:anywhere]">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={`assistant-line-${index}`} className="h-1" aria-hidden="true" />;
+        const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+        if (bullet) {
+          return (
+            <div key={`assistant-line-${index}`} className="flex gap-2">
+              <span className="mt-[0.72em] h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50" />
+              <div className="min-w-0 flex-1">{renderInlineMarkdown(bullet[1], `assistant-line-${index}`)}</div>
+            </div>
+          );
+        }
+        const numbered = trimmed.match(/^(\d+[.)])\s+(.+)$/);
+        if (numbered) {
+          return (
+            <div key={`assistant-line-${index}`} className="flex gap-2">
+              <span className="shrink-0 font-semibold text-[color:var(--ui-text-muted)]">{numbered[1]}</span>
+              <div className="min-w-0 flex-1">{renderInlineMarkdown(numbered[2], `assistant-line-${index}`)}</div>
+            </div>
+          );
+        }
+        return (
+          <div key={`assistant-line-${index}`} className="leading-6">
+            {renderInlineMarkdown(trimmed, `assistant-line-${index}`)}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const normalizeLunarDate = (raw?: string) => {
   if (!raw) return '';
   const text = String(raw);
@@ -5363,6 +5412,24 @@ const normalizeTimeoutSec = (value: number) => {
     ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40, false)
     : knowledgeEntries;
   const canSendCasualChat = hasApiKey && !casualChatLoading && Boolean(casualChatInput.trim());
+  const casualKnowledgePreviewQuery = casualChatInput || casualChatMessages.at(-1)?.content || '';
+  const casualKnowledgePreviewEntries = getRelevantKnowledgeEntries(casualKnowledgePreviewQuery, 5, false);
+  const renderCasualKnowledgePreview = () => (
+    <div className="space-y-2">
+      {casualKnowledgePreviewEntries.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-3 py-4 text-xs text-[color:var(--ui-text-muted)]">
+          暂无命中的知识。它仍会按普通 AI 对话回答。
+        </div>
+      ) : (
+        casualKnowledgePreviewEntries.map((entry) => (
+          <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-3 py-2">
+            <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
+            <div className="mt-1 line-clamp-3 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">{entry.content}</div>
+          </div>
+        ))
+      )}
+    </div>
+  );
   const renderKnowledgeReferences = (refs?: KnowledgeReference[]) => {
     const normalizedRefs = normalizeKnowledgeReferences(refs);
     if (normalizedRefs.length === 0) return null;
@@ -6457,13 +6524,17 @@ const normalizeTimeoutSec = (value: number) => {
                               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
                               <div
-                                className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                                className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm break-words [overflow-wrap:anywhere] ${
                                   message.role === 'user'
                                     ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
                                     : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
-                                <div className="whitespace-pre-wrap">{message.content}</div>
+                                {message.role === 'assistant' ? (
+                                  renderAssistantMessageContent(message.content)
+                                ) : (
+                                  <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
+                                )}
                                 {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
                               </div>
                             </div>
@@ -6697,7 +6768,11 @@ const normalizeTimeoutSec = (value: number) => {
                                       : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                   }`}
                                 >
-                                  <div className="whitespace-pre-wrap">{message.content}</div>
+                                  {message.role === 'assistant' ? (
+                                    renderAssistantMessageContent(message.content)
+                                  ) : (
+                                    <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
+                                  )}
                                   {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
                                   {referencedTasks.length > 0 && (
                                     <div className="mt-2 flex flex-wrap gap-2 border-t border-cyan-400/10 pt-2">
@@ -7194,13 +7269,17 @@ const normalizeTimeoutSec = (value: number) => {
                       casualChatMessages.map((message, index) => (
                         <div key={`${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div
-                            className={`max-w-[86%] whitespace-pre-wrap rounded-2xl border px-3 py-2 text-sm leading-6 ${
+                            className={`max-w-[86%] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
                               message.role === 'user'
                                 ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
                                 : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                             }`}
                           >
-                            <div className="whitespace-pre-wrap">{message.content}</div>
+                            {message.role === 'assistant' ? (
+                              renderAssistantMessageContent(message.content)
+                            ) : (
+                              <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
+                            )}
                             {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
                           </div>
                         </div>
@@ -7241,25 +7320,26 @@ const normalizeTimeoutSec = (value: number) => {
                 </div>
               </div>
 
-              <aside className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+              <details className="group rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3 lg:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-1 py-1 text-sm font-semibold text-[color:var(--ui-text-strong)]">
+                  <span className="flex items-center gap-2">
+                    <Library className="h-4 w-4 text-amber-400" />
+                    <span>本次可参考资料</span>
+                    <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                      {casualKnowledgePreviewEntries.length}
+                    </span>
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-[color:var(--ui-icon-muted)] transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-3">{renderCasualKnowledgePreview()}</div>
+              </details>
+
+              <aside className="hidden rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4 lg:block">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
                   <Library className="h-4 w-4 text-amber-400" />
                   <span>本次可参考资料</span>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {getRelevantKnowledgeEntries(casualChatInput || casualChatMessages.at(-1)?.content || '', 5).length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-3 py-4 text-xs text-[color:var(--ui-text-muted)]">
-                      暂无命中的知识。它仍会按普通 AI 对话回答。
-                    </div>
-                  ) : (
-                    getRelevantKnowledgeEntries(casualChatInput || casualChatMessages.at(-1)?.content || '', 5).map((entry) => (
-                      <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-3 py-2">
-                        <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
-                        <div className="mt-1 line-clamp-3 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">{entry.content}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <div className="mt-3">{renderCasualKnowledgePreview()}</div>
               </aside>
             </div>
           ) : activeFilter === 'knowledge' ? (
