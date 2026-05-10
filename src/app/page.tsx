@@ -263,6 +263,46 @@ const inferKnowledgeCategory = (content: string): KnowledgeEntry['category'] => 
   return 'note';
 };
 
+const SENSITIVE_KNOWLEDGE_PATTERN = /(?:密码|密钥|api\s*key|token|验证码|身份证|银行卡|信用卡|手机号|电话号码|门牌|小区|病历|诊断|药物|工资|收入|贷款)/i;
+const LOW_VALUE_KNOWLEDGE_PATTERN = /^(?:好|好的|嗯|啊|哦|ok|OK|继续|继续说|在吗|谢谢|感谢|收到|可以|没事)[。.!！?？\s]*$/;
+
+const normalizeKnowledgeContent = (value: unknown, maxLength = 1200) => {
+  const raw = typeof value === 'string' ? value : '';
+  return raw
+    .trim()
+    .replace(/^(?:用户|该用户|这位用户)[:：]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, maxLength);
+};
+
+const compactKnowledgeSnippet = (value: string, maxLength: number) => {
+  const text = normalizeKnowledgeContent(value, maxLength + 20);
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+};
+
+const buildConversationKnowledgeFallback = (
+  sourceLabel: string,
+  userInput: string,
+  assistantReply: string,
+): Array<Pick<KnowledgeEntry, 'title' | 'content' | 'category'>> => {
+  const input = normalizeKnowledgeContent(userInput, 360);
+  const reply = normalizeKnowledgeContent(assistantReply, 900);
+  const combined = `${input} ${reply}`.trim();
+  if (combined.length < 48) return [];
+  if (LOW_VALUE_KNOWLEDGE_PATTERN.test(input) && reply.length < 160) return [];
+  if (SENSITIVE_KNOWLEDGE_PATTERN.test(combined)) return [];
+
+  const category = inferKnowledgeCategory(combined);
+  const titleSeed = input || reply;
+  const title = `${sourceLabel}摘要：${compactKnowledgeSnippet(titleSeed, 28)}`;
+  const content = normalizeKnowledgeContent(
+    `${sourceLabel}中，用户提到：“${compactKnowledgeSnippet(input || '未记录明确输入', 180)}”。助手回复要点：${compactKnowledgeSnippet(reply, 720)}`,
+    1200,
+  );
+  if (normalizeKnowledgeDedupeKey(content).length < 24) return [];
+  return [{ title, content, category }];
+};
+
 const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
   if (!Array.isArray(value)) return [];
   const nowIso = new Date().toISOString();
@@ -3069,8 +3109,8 @@ const normalizeTimeoutSec = (value: number) => {
           : typeof source?.content === 'string'
             ? source.content
             : '';
-        const content = normalizeAiMemoryContent(rawContent).slice(0, 1200);
-        if (!content) return null;
+        const content = normalizeKnowledgeContent(rawContent, 1200);
+        if (!content || SENSITIVE_KNOWLEDGE_PATTERN.test(content)) return null;
         const category = typeof source === 'string' ? inferKnowledgeCategory(content) : normalizeKnowledgeCategory(source?.category);
         const title = typeof source !== 'string' && typeof source?.title === 'string' && source.title.trim()
           ? source.title.trim().slice(0, 80)
@@ -3084,9 +3124,11 @@ const normalizeTimeoutSec = (value: number) => {
       .slice(0, 6);
   };
 
-  const applyModelKnowledgeUpdates = (updates: unknown, fallbackUpdates?: unknown) => {
+  const applyModelKnowledgeUpdates = (updates: unknown, ...fallbackUpdates: unknown[]) => {
     const normalized = normalizeModelKnowledgeUpdates(updates);
-    const fallback = normalized.length > 0 ? [] : normalizeModelKnowledgeUpdates(fallbackUpdates);
+    const fallback = normalized.length > 0
+      ? []
+      : fallbackUpdates.flatMap((candidate) => normalizeModelKnowledgeUpdates(candidate));
     const incoming = normalized.length > 0 ? normalized : fallback;
     if (incoming.length === 0) return;
 
@@ -3143,8 +3185,8 @@ const normalizeTimeoutSec = (value: number) => {
     });
   };
 
-  const applyModelLearningUpdates = (data: any) => {
-    applyModelKnowledgeUpdates(data?.knowledgeUpdates, data?.memoryUpdates);
+  const applyModelLearningUpdates = (data: any, fallbackUpdates?: unknown) => {
+    applyModelKnowledgeUpdates(data?.knowledgeUpdates, data?.memoryUpdates, fallbackUpdates);
   };
 
   const getLocalRelevantKnowledgeEntries = (query: string, limit = 6, fallbackToRecent = true) => {
@@ -3267,10 +3309,10 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'todo-agent request failed'));
       }
-      applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我先对照了当前计划，已经整理好建议。';
+      applyModelLearningUpdates(data, buildConversationKnowledgeFallback('AI 助手', content, replyText));
       const nextDecisions: AgentDecision[] = Array.isArray(data?.decisions)
         ? data.decisions
             .map((decision: AgentDecision) => {
@@ -3433,8 +3475,8 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'manage-agent request failed'));
       }
-      applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' ? data.reply : '已生成建议。';
+      applyModelLearningUpdates(data, buildConversationKnowledgeFallback('管理助手', content, replyText));
       setManageAgentMessages((prev) => [...prev, {
         role: 'assistant',
         content: replyText,
@@ -3512,10 +3554,10 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'casual-chat request failed'));
       }
-      applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我在，继续说。';
+      applyModelLearningUpdates(data, buildConversationKnowledgeFallback('随便聊聊', content, replyText));
       setCasualChatMessages((prev) => [...prev, {
         role: 'assistant',
         content: replyText,
