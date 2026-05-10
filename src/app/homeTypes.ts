@@ -99,6 +99,16 @@ export type AgentMessage = {
   content: string;
 };
 
+export type KnowledgeEntry = {
+  id: string;
+  title: string;
+  content: string;
+  category: 'preference' | 'task' | 'habit' | 'profile' | 'note';
+  source: 'manual' | 'ai' | 'system';
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type UserMemory = {
   id: string;
   content: string;

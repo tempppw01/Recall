@@ -27,6 +27,7 @@ import type {
   CountdownDisplayMode,
   HabitAgentItem,
   ImageAttachment,
+  KnowledgeEntry,
   ManageAgentFilter,
   ManageAgentMessage,
   StatusFeedback,
@@ -105,6 +106,8 @@ import {
   Pencil,
   Plus,
   Save,
+  Library,
+  MessageCircle,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -149,7 +152,11 @@ const ACTIVE_FILTER_KEY = 'recall_active_filter';
 const QUICK_ACCESS_OPEN_KEY = 'recall_quick_access_open';
 const AGENT_MESSAGES_KEY = 'recall_agent_messages';
 const MANAGE_AGENT_MESSAGES_KEY = 'recall_manage_agent_messages';
+const CASUAL_CHAT_MESSAGES_KEY = 'recall_casual_chat_messages';
 const USER_MEMORIES_KEY = 'recall_user_memories';
+const KNOWLEDGE_BASE_KEY = 'recall_knowledge_base';
+const EMBEDDING_MODEL_KEY = 'recall_embedding_model';
+const RERANK_MODEL_KEY = 'recall_rerank_model';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
@@ -216,6 +223,77 @@ const formatAiRequestError = (error: unknown, fallback: string) => {
   }
   return message;
 };
+
+const KNOWLEDGE_CATEGORY_LABELS: Record<KnowledgeEntry['category'], string> = {
+  preference: '个人偏好',
+  task: '任务经验',
+  habit: '习惯规律',
+  profile: '个人信息',
+  note: '普通资料',
+};
+
+const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
+  if (!Array.isArray(value)) return [];
+  const nowIso = new Date().toISOString();
+  const seen = new Set<string>();
+
+  return value
+    .map((entry) => {
+      const source = entry as Partial<KnowledgeEntry> | null | undefined;
+      const title = typeof source?.title === 'string' ? source.title.trim() : '';
+      const content = typeof source?.content === 'string' ? source.content.trim() : '';
+      if (!title || !content) return null;
+      const category = source?.category === 'preference'
+        || source?.category === 'task'
+        || source?.category === 'habit'
+        || source?.category === 'profile'
+        || source?.category === 'note'
+        ? source.category
+        : 'note';
+      const id = typeof source?.id === 'string' && source.id.trim().length > 0 ? source.id.trim() : createId();
+      if (seen.has(id)) return null;
+      seen.add(id);
+      return {
+        id,
+        title: title.slice(0, 80),
+        content: content.slice(0, 1200),
+        category,
+        source: source?.source === 'ai' || source?.source === 'system' ? source.source : 'manual',
+        createdAt: typeof source?.createdAt === 'string' ? source.createdAt : nowIso,
+        updatedAt: typeof source?.updatedAt === 'string' ? source.updatedAt : nowIso,
+      } satisfies KnowledgeEntry;
+    })
+    .filter((entry): entry is KnowledgeEntry => Boolean(entry))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 200);
+};
+
+const tokenizeKnowledgeText = (text: string) => Array.from(new Set(
+  text
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}\s]/gu, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2),
+));
+
+const scoreKnowledgeEntry = (entry: KnowledgeEntry, query: string) => {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return 0;
+  const haystack = `${entry.title}\n${entry.content}\n${KNOWLEDGE_CATEGORY_LABELS[entry.category]}`.toLowerCase();
+  let score = 0;
+  if (haystack.includes(normalizedQuery)) score += 12;
+  for (const token of tokenizeKnowledgeText(normalizedQuery)) {
+    if (entry.title.toLowerCase().includes(token)) score += 4;
+    if (entry.content.toLowerCase().includes(token)) score += 2;
+  }
+  const updatedMs = new Date(entry.updatedAt).getTime();
+  if (Number.isFinite(updatedMs)) {
+    score += Math.max(0, 2 - (Date.now() - updatedMs) / (1000 * 60 * 60 * 24 * 90));
+  }
+  return score;
+};
+
 const TIMEZONE_OPTIONS = [
   { label: 'UTC-12', offsetMinutes: -720 },
   { label: 'UTC-8 (PST)', offsetMinutes: -480 },
@@ -245,6 +323,8 @@ const FILTER_LABELS: Record<string, string> = {
   countdown: '倒数日',
   habit: '习惯打卡',
   agent: 'AI 助手',
+  chat: '随便聊聊',
+  knowledge: '知识库',
   search: '搜索',
   pomodoro: '番茄时钟',
   category: '列表',
@@ -263,6 +343,8 @@ const ACTIVE_FILTER_VALUES = new Set([
   'countdown',
   'habit',
   'agent',
+  'chat',
+  'knowledge',
   'search',
   'pomodoro',
   'category',
@@ -977,6 +1059,8 @@ export default function Home() {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_BASE_URL);
   const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('\n'));
   const [chatModel, setChatModel] = useState(DEFAULT_MODEL_LIST[0]);
+  const [embeddingModel, setEmbeddingModel] = useState('');
+  const [rerankModel, setRerankModel] = useState('');
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -1226,6 +1310,16 @@ export default function Home() {
   const [manageAgentError, setManageAgentError] = useState<string | null>(null);
   const [manageRecommendations, setManageRecommendations] = useState<Array<{ id: string; title: string; reason?: string; suggestedPriority?: number; suggestedPinned?: boolean; suggestedDuePreset?: 'today' | 'tomorrow' | 'tonight' }>>([]);
   const [manageRecActions, setManageRecActions] = useState<Record<string, { pin?: boolean; priority?: number; dueDate?: string }>>({});
+  const [casualChatMessages, setCasualChatMessages] = useState<AgentMessage[]>([]);
+  const [casualChatInput, setCasualChatInput] = useState('');
+  const [casualChatLoading, setCasualChatLoading] = useState(false);
+  const [casualChatError, setCasualChatError] = useState<string | null>(null);
+  const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([]);
+  const [knowledgeTitleInput, setKnowledgeTitleInput] = useState('');
+  const [knowledgeContentInput, setKnowledgeContentInput] = useState('');
+  const [knowledgeCategoryInput, setKnowledgeCategoryInput] = useState<KnowledgeEntry['category']>('note');
+  const [knowledgeSearchInput, setKnowledgeSearchInput] = useState('');
+  const [editingKnowledgeId, setEditingKnowledgeId] = useState<string | null>(null);
 
   const applyManageActionToTask = (task: Task, action: { pin?: boolean; priority?: number; dueDate?: string }) => {
     const next: Task = { ...task };
@@ -1298,6 +1392,8 @@ export default function Home() {
     apiBaseUrl: string;
     modelListText: string;
     chatModel: string;
+    embeddingModel: string;
+    rerankModel: string;
     fallbackTimeoutSec: number;
     webdavUrl: string;
     webdavPath: string;
@@ -1327,6 +1423,8 @@ export default function Home() {
     localStorage.setItem('recall_api_base_url', next.apiBaseUrl);
     localStorage.setItem('recall_model_list', next.modelListText);
     localStorage.setItem('recall_chat_model', next.chatModel);
+    localStorage.setItem(EMBEDDING_MODEL_KEY, next.embeddingModel);
+    localStorage.setItem(RERANK_MODEL_KEY, next.rerankModel);
     localStorage.setItem('recall_fallback_timeout_sec', String(next.fallbackTimeoutSec));
     localStorage.setItem(WEBDAV_URL_KEY, next.webdavUrl);
     localStorage.setItem(WEBDAV_PATH_KEY, next.webdavPath);
@@ -1539,7 +1637,11 @@ export default function Home() {
             SIDEBAR_COLLAPSED_KEY,
             ACTIVE_FILTER_KEY,
             QUICK_ACCESS_OPEN_KEY,
+            CASUAL_CHAT_MESSAGES_KEY,
             USER_MEMORIES_KEY,
+            KNOWLEDGE_BASE_KEY,
+            EMBEDDING_MODEL_KEY,
+            RERANK_MODEL_KEY,
           ]);
           const preservedEntries = Object.keys(localStorage)
             .filter((key) => keysToPreserve.has(key))
@@ -1557,6 +1659,8 @@ export default function Home() {
       const storedBaseUrl = localStorage.getItem('recall_api_base_url');
       const storedModelList = localStorage.getItem('recall_model_list');
       const storedChatModel = localStorage.getItem('recall_chat_model');
+      const storedEmbeddingModel = localStorage.getItem(EMBEDDING_MODEL_KEY);
+      const storedRerankModel = localStorage.getItem(RERANK_MODEL_KEY);
       const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
       const storedSessionId = localStorage.getItem(DEFAULT_SESSION_ID_KEY);
       const storedWebdavUrl = localStorage.getItem(WEBDAV_URL_KEY);
@@ -1583,6 +1687,8 @@ export default function Home() {
       const storedCalendarSubscription = localStorage.getItem(CALENDAR_SUBSCRIPTION_KEY);
       const storedSyncNamespace = localStorage.getItem(SYNC_NAMESPACE_KEY);
       const storedCalendarCity = localStorage.getItem(CALENDAR_CITY_KEY);
+      const storedCasualChatMessages = localStorage.getItem(CASUAL_CHAT_MESSAGES_KEY);
+      const storedKnowledgeEntries = localStorage.getItem(KNOWLEDGE_BASE_KEY);
       const storedUserMemories = localStorage.getItem(USER_MEMORIES_KEY);
 
       if (storedKey) {
@@ -1609,6 +1715,8 @@ export default function Home() {
       } else if (storedChatModel) {
         setChatModel(storedChatModel);
       }
+      if (storedEmbeddingModel) setEmbeddingModel(storedEmbeddingModel);
+      if (storedRerankModel) setRerankModel(storedRerankModel);
       if (storedFallbackTimeout) {
         const parsed = Number(storedFallbackTimeout);
         if (Number.isFinite(parsed) && parsed > 0) {
@@ -1722,6 +1830,27 @@ export default function Home() {
           console.error('Invalid manage-agent messages cache', error);
         }
       }
+      if (storedCasualChatMessages) {
+        try {
+          const parsed = JSON.parse(storedCasualChatMessages) as AgentMessage[];
+          if (Array.isArray(parsed)) {
+            setCasualChatMessages(
+              parsed
+                .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+                .slice(-nextStoredAiContextLimit),
+            );
+          }
+        } catch (error) {
+          console.error('Invalid casual chat messages cache', error);
+        }
+      }
+      if (storedKnowledgeEntries) {
+        try {
+          setKnowledgeEntries(normalizeKnowledgeEntries(JSON.parse(storedKnowledgeEntries)));
+        } catch (error) {
+          console.error('Invalid knowledge base cache', error);
+        }
+      }
       if (storedUserMemories) {
         try {
           setUserMemories(normalizeUserMemories(JSON.parse(storedUserMemories)));
@@ -1791,6 +1920,17 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-aiContextLimit)));
   }, [manageAgentMessages, aiContextLimit]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(CASUAL_CHAT_MESSAGES_KEY, JSON.stringify(casualChatMessages.slice(-aiContextLimit)));
+  }, [casualChatMessages, aiContextLimit]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !settingsLoaded) return;
+    localStorage.setItem(KNOWLEDGE_BASE_KEY, JSON.stringify(knowledgeEntries.slice(0, 200)));
+    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
+  }, [settingsLoaded, knowledgeEntries]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded) return;
@@ -3142,6 +3282,133 @@ const normalizeTimeoutSec = (value: number) => {
       setManageAgentLoading(false);
     }
   };
+
+  const getRelevantKnowledgeEntries = (query: string, limit = 6) => knowledgeEntries
+    .map((entry) => ({ entry, score: scoreKnowledgeEntry(entry, query) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.entry);
+
+  const handleCasualChatSend = async () => {
+    if (casualChatLoading) return;
+    const content = casualChatInput.trim();
+    if (!content) return;
+
+    const relevantKnowledge = getRelevantKnowledgeEntries(content);
+    setCasualChatInput('');
+    setCasualChatLoading(true);
+    setCasualChatError(null);
+    setCasualChatMessages((prev) => [...prev, { role: 'user', content }]);
+
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'casual-chat',
+          input: content,
+          memories: buildUserMemorySummaryForAgent(),
+          knowledge: relevantKnowledge,
+          chatHistory: casualChatMessages.slice(-aiContextLimit),
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          chatModel: chatModel?.trim() || undefined,
+          embeddingModel: embeddingModel?.trim() || undefined,
+          rerankModel: rerankModel?.trim() || undefined,
+          sessionId,
+          retentionDays: aiRetentionDays,
+          contextLimit: aiContextLimit,
+          redisConfig: {
+            host: redisHost,
+            port: redisPort,
+            db: redisDb,
+            password: redisPassword,
+          },
+        }),
+      });
+      const data = await readAiResponseBody(res);
+      if (!res.ok) {
+        throw new Error(buildAiResponseErrorMessage(res, data, 'casual-chat request failed'));
+      }
+      applyModelMemoryUpdates(data?.memoryUpdates);
+      const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
+        ? data.reply.trim()
+        : '我在，继续说。';
+      setCasualChatMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+    } catch (error) {
+      const message = formatAiRequestError(error, '随便聊聊暂时没有响应，请稍后重试');
+      setCasualChatInput(content);
+      setCasualChatError(message);
+    } finally {
+      setCasualChatLoading(false);
+    }
+  };
+
+  const resetKnowledgeForm = () => {
+    setKnowledgeTitleInput('');
+    setKnowledgeContentInput('');
+    setKnowledgeCategoryInput('note');
+    setEditingKnowledgeId(null);
+  };
+
+  const saveKnowledgeEntry = () => {
+    const title = knowledgeTitleInput.trim();
+    const content = knowledgeContentInput.trim();
+    if (!title || !content) return;
+    const nowIso = new Date().toISOString();
+    if (editingKnowledgeId) {
+      setKnowledgeEntries((prev) => normalizeKnowledgeEntries(prev.map((entry) => (
+        entry.id === editingKnowledgeId
+          ? { ...entry, title, content, category: knowledgeCategoryInput, updatedAt: nowIso }
+          : entry
+      ))));
+      resetKnowledgeForm();
+      return;
+    }
+    setKnowledgeEntries((prev) => normalizeKnowledgeEntries([
+      {
+        id: createId(),
+        title,
+        content,
+        category: knowledgeCategoryInput,
+        source: 'manual',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      },
+      ...prev,
+    ]));
+    resetKnowledgeForm();
+  };
+
+  const startEditKnowledgeEntry = (entry: KnowledgeEntry) => {
+    setEditingKnowledgeId(entry.id);
+    setKnowledgeTitleInput(entry.title);
+    setKnowledgeContentInput(entry.content);
+    setKnowledgeCategoryInput(entry.category);
+  };
+
+  const removeKnowledgeEntry = (entryId: string) => {
+    setKnowledgeEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+    if (editingKnowledgeId === entryId) resetKnowledgeForm();
+  };
+
+  const promoteMemoryToKnowledge = (memory: UserMemory) => {
+    const nowIso = new Date().toISOString();
+    setKnowledgeEntries((prev) => normalizeKnowledgeEntries([
+      {
+        id: createId(),
+        title: memory.content.slice(0, 36),
+        content: memory.content,
+        category: 'preference',
+        source: 'ai',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      },
+      ...prev,
+    ]));
+    pushLog('success', '已写入知识库', memory.content.slice(0, 36));
+  };
   const handleAddAgentItem = (item: AgentItem, decisionId?: string) => {
     if (addedAgentItemIds.has(item.id)) return;
     const task = createTaskFromAgentItem(item);
@@ -3535,6 +3802,8 @@ const normalizeTimeoutSec = (value: number) => {
       apiBaseUrl,
       modelListText,
       chatModel,
+      embeddingModel,
+      rerankModel,
       fallbackTimeoutSec,
       syncNamespace,
       autoSyncEnabled,
@@ -3551,6 +3820,7 @@ const normalizeTimeoutSec = (value: number) => {
       redisDb,
       calendarSubscription,
       userMemories,
+      knowledgeEntries,
     },
     secrets: {
       apiKey,
@@ -3564,6 +3834,8 @@ const normalizeTimeoutSec = (value: number) => {
       nextApiBaseUrl,
       nextModelListText,
       nextChatModel,
+      nextEmbeddingModel,
+      nextRerankModel,
       nextFallback,
       nextAutoSyncEnabled,
       nextAutoSyncInterval,
@@ -3588,6 +3860,8 @@ const normalizeTimeoutSec = (value: number) => {
         apiBaseUrl,
         modelListText,
         chatModel,
+        embeddingModel,
+        rerankModel,
         fallbackTimeoutSec,
         autoSyncEnabled,
         autoSyncInterval,
@@ -3630,8 +3904,13 @@ const normalizeTimeoutSec = (value: number) => {
     setCalendarSubscription(nextCalendarSubscription);
     setSyncNamespace(nextSyncNamespace);
     setAiContextLimit(nextAiContextLimit);
+    setEmbeddingModel(nextEmbeddingModel);
+    setRerankModel(nextRerankModel);
     if (Array.isArray(payload?.settings?.userMemories)) {
       setUserMemories(normalizeUserMemories(payload.settings.userMemories));
+    }
+    if (Array.isArray(payload?.settings?.knowledgeEntries)) {
+      setKnowledgeEntries(normalizeKnowledgeEntries(payload.settings.knowledgeEntries));
     }
 
     persistSettings({
@@ -3639,6 +3918,8 @@ const normalizeTimeoutSec = (value: number) => {
       apiBaseUrl: nextApiBaseUrl,
       modelListText: nextModelListText,
       chatModel: nextChatModel,
+      embeddingModel: nextEmbeddingModel,
+      rerankModel: nextRerankModel,
       fallbackTimeoutSec: nextFallback,
       webdavUrl,
       webdavPath,
@@ -4833,6 +5114,10 @@ const normalizeTimeoutSec = (value: number) => {
     ? '检查'
     : activeFilter === 'items'
     ? '物品管理'
+    : activeFilter === 'chat'
+    ? '随便聊聊'
+    : activeFilter === 'knowledge'
+    ? '知识库'
     : (FILTER_LABELS[activeFilter] ?? '待办');
   const headerSubtitle = activeFilter === 'timeline'
     ? '按时间回顾任务进展，查看完成、未完成和逾期事项'
@@ -4850,6 +5135,10 @@ const normalizeTimeoutSec = (value: number) => {
     ? '记录物品位置、库存状态和补货提醒'
     : activeFilter === 'pomodoro'
     ? '用专注与休息节奏推进当前任务'
+    : activeFilter === 'chat'
+    ? '像正常对话一样聊天，需要时会参考知识库和长期记忆'
+    : activeFilter === 'knowledge'
+    ? '统一管理偏好、习惯、背景信息和做过的事，供所有 AI 功能调用'
     : activeFilter === 'agent'
     ? ''
     : activeFilter === 'completed'
@@ -4859,7 +5148,7 @@ const normalizeTimeoutSec = (value: number) => {
     : activeFilter === 'tag'
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
-  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'review', 'items'].includes(activeFilter);
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'chat', 'knowledge', 'review', 'items'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
@@ -4940,6 +5229,13 @@ const normalizeTimeoutSec = (value: number) => {
   const canSendManageAgentPrompt = hasApiKey
     && !manageAgentLoading
     && (Boolean(manageAgentInput.trim()) || Boolean(manageAgentInputPlaceholder.trim()));
+  const casualChatPlaceholder = hasApiKey
+    ? (knowledgeEntries.length > 0 ? '随便聊聊；如果相关，我会先看知识库' : '随便聊聊，像普通 AI 对话一样')
+    : '请先在设置中填写 AI Key';
+  const visibleKnowledgeEntries = knowledgeSearchInput.trim()
+    ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40)
+    : knowledgeEntries;
+  const canSendCasualChat = hasApiKey && !casualChatLoading && Boolean(casualChatInput.trim());
 
   return (
     <div className="theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
@@ -6842,6 +7138,237 @@ const normalizeTimeoutSec = (value: number) => {
               </div>
             </div>
           </div>
+          ) : activeFilter === 'chat' ? (
+            <div className="theme-native-surface grid min-h-[520px] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
+                      <MessageCircle className="h-4 w-4 text-sky-400" />
+                      <span>随便聊聊</span>
+                    </div>
+                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                      命中知识库时先参考资料；没有相关资料就按普通对话回答。
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                    知识 {knowledgeEntries.length}
+                  </span>
+                </div>
+
+                <div className="flex h-[calc(100dvh-18rem)] min-h-[360px] flex-col">
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                    {!hasApiKey ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettingsFocusTarget(null);
+                          setShowSettings(true);
+                          setIsApiSettingsOpen(true);
+                        }}
+                        className="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 text-left transition-colors hover:border-amber-300/60 hover:bg-amber-500/15"
+                      >
+                        <div className="text-sm font-medium text-amber-200">未检测到 AI Key</div>
+                        <div className="mt-1 text-xs text-amber-100/80">点击前往设置填写 Key 后即可聊天</div>
+                      </button>
+                    ) : casualChatMessages.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-4 py-8 text-center text-sm text-[color:var(--ui-text-muted)]">
+                        可以问任何问题，也可以让它结合你的偏好、习惯和知识库聊。
+                      </div>
+                    ) : (
+                      casualChatMessages.map((message, index) => (
+                        <div key={`${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div
+                            className={`max-w-[86%] whitespace-pre-wrap rounded-2xl border px-3 py-2 text-sm leading-6 ${
+                              message.role === 'user'
+                                ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
+                                : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
+                            }`}
+                          >
+                            {message.content}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    {casualChatLoading && <AgentThinkingBubble label="正在参考知识库并回复…" accent="cyan" />}
+                    {casualChatError && (
+                      <div className="whitespace-pre-wrap rounded-lg bg-red-500/10 p-2 text-xs leading-relaxed text-red-300">
+                        {casualChatError}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={casualChatInput}
+                      onChange={(event) => setCasualChatInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                          event.preventDefault();
+                          handleCasualChatSend();
+                        }
+                      }}
+                      placeholder={casualChatPlaceholder}
+                      disabled={!hasApiKey || casualChatLoading}
+                      className="ui-input min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCasualChatSend}
+                      disabled={!canSendCasualChat}
+                      className="rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50"
+                    >
+                      {casualChatLoading ? '思考中…' : '发送'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
+                  <Library className="h-4 w-4 text-amber-400" />
+                  <span>本次可参考资料</span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {getRelevantKnowledgeEntries(casualChatInput || casualChatMessages.at(-1)?.content || '', 5).length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-3 py-4 text-xs text-[color:var(--ui-text-muted)]">
+                      暂无命中的知识。它仍会按普通 AI 对话回答。
+                    </div>
+                  ) : (
+                    getRelevantKnowledgeEntries(casualChatInput || casualChatMessages.at(-1)?.content || '', 5).map((entry) => (
+                      <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-3 py-2">
+                        <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
+                        <div className="mt-1 line-clamp-3 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">{entry.content}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </aside>
+            </div>
+          ) : activeFilter === 'knowledge' ? (
+            <div className="theme-native-surface grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+              <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
+                  <Library className="h-4 w-4 text-amber-400" />
+                  <span>{editingKnowledgeId ? '编辑知识' : '添加知识'}</span>
+                </div>
+                <div className="mt-4 space-y-3">
+                  <input
+                    type="text"
+                    value={knowledgeTitleInput}
+                    onChange={(event) => setKnowledgeTitleInput(event.target.value)}
+                    placeholder="标题，例如：我的作息偏好"
+                    className="ui-input rounded-2xl px-3 py-2.5 text-sm"
+                  />
+                  <select
+                    value={knowledgeCategoryInput}
+                    onChange={(event) => setKnowledgeCategoryInput(event.target.value as KnowledgeEntry['category'])}
+                    className="ui-select rounded-2xl px-3 py-2.5 text-sm"
+                  >
+                    {Object.entries(KNOWLEDGE_CATEGORY_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={knowledgeContentInput}
+                    onChange={(event) => setKnowledgeContentInput(event.target.value)}
+                    placeholder="写下 AI 之后应该记住、检索或调用的信息"
+                    rows={8}
+                    className="ui-textarea rounded-2xl px-3 py-2.5 text-sm"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={saveKnowledgeEntry}
+                      disabled={!knowledgeTitleInput.trim() || !knowledgeContentInput.trim()}
+                      className="btn btn-md btn-primary rounded-2xl disabled:opacity-50"
+                    >
+                      {editingKnowledgeId ? '保存修改' : '加入知识库'}
+                    </button>
+                    {editingKnowledgeId && (
+                      <button type="button" onClick={resetKnowledgeForm} className="btn btn-md btn-ghost rounded-2xl">
+                        取消
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3">
+                  <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">模型链路</div>
+                  <div className="mt-2 space-y-1 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">
+                    <div>Embedding：{embeddingModel.trim() || '未配置，先用本地相关度'}</div>
+                    <div>Rerank：{rerankModel.trim() || '未配置，先用本地重排序'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">全局知识库</div>
+                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">代办、习惯、偏好、个人信息和做过的事都可以沉淀在这里。</p>
+                  </div>
+                  <input
+                    type="text"
+                    value={knowledgeSearchInput}
+                    onChange={(event) => setKnowledgeSearchInput(event.target.value)}
+                    placeholder="搜索知识"
+                    className="ui-input w-full rounded-2xl px-3 py-2.5 text-sm sm:w-64"
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-2">
+                  {visibleKnowledgeEntries.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-4 py-10 text-center text-sm text-[color:var(--ui-text-muted)]">
+                      还没有知识。可以先把长期偏好、常用约束或做过的事写进来。
+                    </div>
+                  ) : (
+                    visibleKnowledgeEntries.map((entry) => (
+                      <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="truncate text-sm font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
+                              <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                                {KNOWLEDGE_CATEGORY_LABELS[entry.category]}
+                              </span>
+                            </div>
+                            <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[color:var(--ui-text-primary)]">{entry.content}</div>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <button type="button" onClick={() => startEditKnowledgeEntry(entry)} className="rounded-lg border border-[color:var(--ui-border-soft)] p-2 text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button type="button" onClick={() => removeKnowledgeEntry(entry.id)} className="rounded-lg border border-rose-300/25 p-2 text-[color:var(--ui-text-secondary)] hover:bg-rose-400/10 hover:text-rose-400">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {userMemories.length > 0 && (
+                  <div className="mt-5 rounded-2xl border border-cyan-300/15 bg-cyan-500/10 p-3">
+                    <div className="mb-2 text-xs font-semibold text-[color:var(--ui-text-strong)]">可沉淀的长期记忆</div>
+                    <div className="flex flex-wrap gap-2">
+                      {userMemories.slice(0, 8).map((memory) => (
+                        <button
+                          key={memory.id}
+                          type="button"
+                          onClick={() => promoteMemoryToKnowledge(memory)}
+                          className="max-w-full rounded-full border border-cyan-300/25 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-[color:var(--ui-text-primary)] hover:bg-cyan-400/16"
+                        >
+                          写入：{memory.content.slice(0, 24)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : activeFilter === 'items' ? (
             <ItemsPanel
               items={items
@@ -7840,6 +8367,10 @@ const normalizeTimeoutSec = (value: number) => {
         modelFetchError={modelFetchError}
         chatModel={chatModel}
         setChatModel={setChatModel}
+        embeddingModel={embeddingModel}
+        setEmbeddingModel={setEmbeddingModel}
+        rerankModel={rerankModel}
+        setRerankModel={setRerankModel}
         fallbackTimeoutSec={fallbackTimeoutSec}
         setFallbackTimeoutSec={setFallbackTimeoutSec}
         DEFAULT_FALLBACK_TIMEOUT_SEC={DEFAULT_FALLBACK_TIMEOUT_SEC}

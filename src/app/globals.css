@@ -979,6 +979,52 @@ body.theme-light .theme-native-surface input[type='datetime-local']::-webkit-cal
   transition: transform 900ms var(--ease-emphasis), opacity var(--motion-base) var(--ease-standard);
 }
 
+/* Light-mode safety net for legacy hard-coded dark utility classes. */
+body.theme-light .theme-native-root [class*="bg-[#202020]"],
+body.theme-light .theme-native-root [class*="bg-[#1F1F1F]"],
+body.theme-light .theme-native-root [class*="bg-[#1E2128]"],
+body.theme-light .theme-native-root [class*="bg-[#20232B]"],
+body.theme-light .theme-native-root [class*="bg-[#20242C]"],
+body.theme-light .theme-native-root [class*="bg-[#1B1B1B]"],
+body.theme-light .theme-native-root [class*="bg-[#1A2236]"],
+body.theme-light .theme-native-root [class*="bg-[#111827]"],
+body.theme-light .theme-native-root [class*="bg-[#0F172A]"],
+body.theme-light .theme-native-root [class*="bg-[#121212]"],
+body.theme-light .theme-native-root [class*="bg-[#171717]"] {
+  background-color: var(--ui-card-bg) !important;
+}
+
+body.theme-light .theme-native-root [class*="border-[#2C2C2C]"],
+body.theme-light .theme-native-root [class*="border-[#333333]"],
+body.theme-light .theme-native-root [class*="border-[#3A3F4B]"],
+body.theme-light .theme-native-root [class*="border-[#343C4C]"],
+body.theme-light .theme-native-root [class*="border-[#334155]"],
+body.theme-light .theme-native-root [class*="border-[#262626]"] {
+  border-color: var(--ui-border-soft) !important;
+}
+
+body.theme-light .theme-native-root [class*="text-[#EEEEEE]"],
+body.theme-light .theme-native-root [class*="text-[#E2E8F0]"],
+body.theme-light .theme-native-root [class*="text-[#E2E8FF]"],
+body.theme-light .theme-native-root [class*="text-[#E8ECF8]"],
+body.theme-light .theme-native-root [class*="text-[#EEF2FF]"],
+body.theme-light .theme-native-root [class*="text-[#DDDDDD]"],
+body.theme-light .theme-native-root [class*="text-[#DCE3F4]"],
+body.theme-light .theme-native-root [class*="text-[#CCCCCC]"] {
+  color: var(--ui-text-strong) !important;
+}
+
+body.theme-light .theme-native-root [class*="text-[#888888]"],
+body.theme-light .theme-native-root [class*="text-[#777777]"],
+body.theme-light .theme-native-root [class*="text-[#666666]"],
+body.theme-light .theme-native-root [class*="text-[#555555]"],
+body.theme-light .theme-native-root [class*="text-[#444444]"],
+body.theme-light .theme-native-root [class*="text-[#7d8595]"],
+body.theme-light .theme-native-root [class*="text-[#6F788B]"],
+body.theme-light .theme-native-root [class*="text-[#8A93A6]"] {
+  color: var(--ui-text-muted) !important;
+}
+
 .surface-sheen:hover::after {
   transform: translateX(68%);
   opacity: 1;

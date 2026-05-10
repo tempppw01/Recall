@@ -966,6 +966,36 @@ function normalizeTodoAgentMemories(memories: any[], contextLimit: unknown = DEF
     .slice(0, Math.min(30, normalizeAiContextLimit(contextLimit))) as TodoAgentMemorySummary[];
 }
 
+function normalizeKnowledgeContext(knowledge: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT) {
+  return (Array.isArray(knowledge) ? knowledge : [])
+    .map((entry) => {
+      const title = typeof entry?.title === 'string' ? entry.title.trim() : '';
+      const content = typeof entry?.content === 'string' ? entry.content.trim() : '';
+      if (!title || !content) return null;
+      return {
+        id: typeof entry?.id === 'string' && entry.id.trim().length > 0 ? entry.id.trim() : undefined,
+        title: title.slice(0, 100),
+        content: content.slice(0, 1200),
+        category: typeof entry?.category === 'string' ? entry.category.slice(0, 40) : 'note',
+        updatedAt: typeof entry?.updatedAt === 'string' ? entry.updatedAt : undefined,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, Math.min(10, normalizeAiContextLimit(contextLimit)));
+}
+
+function normalizeChatHistory(history: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT) {
+  return (Array.isArray(history) ? history : [])
+    .map((message) => {
+      const role = message?.role === 'assistant' ? 'assistant' : message?.role === 'user' ? 'user' : null;
+      const content = typeof message?.content === 'string' ? message.content.trim() : '';
+      if (!role || !content) return null;
+      return { role, content: content.slice(0, 1200) };
+    })
+    .filter(Boolean)
+    .slice(-Math.min(12, normalizeAiContextLimit(contextLimit))) as Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
 function normalizeAgentMemoryUpdates(updates: unknown): string[] {
   if (!Array.isArray(updates)) return [];
   const seen = new Set<string>();
@@ -1193,7 +1223,7 @@ function normalizeTodoAgentDecisions(
  */
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, tasks, memories, apiKey, apiBaseUrl, chatModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
+    const { input, mode, images, tasks, memories, knowledge, chatHistory, apiKey, apiBaseUrl, chatModel, embeddingModel, rerankModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
     const effectiveContextLimit = normalizeAiContextLimit(contextLimit);
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
@@ -1292,6 +1322,73 @@ export async function POST(req: NextRequest) {
       }, retentionDays, effectiveContextLimit);
 
       return NextResponse.json({ tasks: normalizedCategoryTasks });
+    }
+
+    if (mode === 'casual-chat') {
+      const networkNow = await getNetworkTime();
+      const serverTimeText = formatShanghaiDateTime(networkNow);
+      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : [], effectiveContextLimit);
+      const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], effectiveContextLimit);
+      const incomingChatHistory = normalizeChatHistory(Array.isArray(chatHistory) ? chatHistory : [], effectiveContextLimit);
+
+      const chatPayload = {
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是 Recall 的“随便聊聊”助手。你可以像普通 AI 对话一样自然回答，也可以在相关时参考用户的长期记忆和知识库。
+规则：
+1) 如果知识库没有相关资料，就按普通对话正常回答，不要假装查到了资料。
+2) 如果知识库资料相关，优先参考它，但不要机械复述；资料冲突时说明不确定并以用户当前输入为准。
+3) 可以参考长期记忆理解用户偏好、作息、地点和表达习惯。
+4) 当前时间：${serverTimeText}（中国标准时间，UTC+8）。
+5) 如果当前模型具备联网/搜索能力，可以使用模型能力回答；否则不要编造实时结果。
+6) 输出 JSON：{ "reply": string, "memoryUpdates": string[] }。memoryUpdates 只保存当前用户明确表达、未来多次对话仍有帮助的长期偏好/习惯/背景/约束；不要保存一次性任务、秘密、API Key 或你推断出来的内容。`,
+          },
+          {
+            role: 'system',
+            content: JSON.stringify({
+              retrieval: {
+                embeddingModel: typeof embeddingModel === 'string' ? embeddingModel : '',
+                rerankModel: typeof rerankModel === 'string' ? rerankModel : '',
+                note: '前端已按本地相关度筛出候选知识；如配置了 embedding/rerank 模型，后续可替换为服务端向量检索与重排序。',
+              },
+              userMemories: incomingMemories,
+              knowledge: incomingKnowledge,
+            }),
+          },
+          ...incomingChatHistory,
+          { role: 'user', content: normalizedInput },
+        ],
+        response_format: { type: 'json_object' },
+      };
+
+      const { res: chatRes } = await requestChat(baseUrlList, apiKey, chatPayload);
+      const chatPayloadJson = await chatRes.json();
+      const raw = parseChatContent(chatPayloadJson) as any;
+      const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(raw?.memoryUpdates);
+      const reply = typeof raw?.reply === 'string' && raw.reply.trim().length > 0
+        ? raw.reply.trim()
+        : '我在，继续说。';
+
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'user',
+        content: `[casual-chat] ${normalizedInput}`,
+        timestamp: Date.now(),
+      }, retentionDays, effectiveContextLimit);
+      await appendContextEntry(redisConfig, sessionId, {
+        role: 'assistant',
+        content: reply,
+        timestamp: Date.now(),
+      }, retentionDays, effectiveContextLimit);
+
+      return NextResponse.json({
+        reply,
+        memoryUpdates: normalizedMemoryUpdates,
+        usedKnowledgeCount: incomingKnowledge.length,
+        serverTime: networkNow.toISOString(),
+        serverTimeText,
+      });
     }
 
     if (mode === 'todo-agent') {

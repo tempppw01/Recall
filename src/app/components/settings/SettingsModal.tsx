@@ -27,6 +27,10 @@ type SettingsModalProps = {
   modelFetchError: string | null;
   chatModel: string;
   setChatModel: React.Dispatch<React.SetStateAction<string>>;
+  embeddingModel: string;
+  setEmbeddingModel: React.Dispatch<React.SetStateAction<string>>;
+  rerankModel: string;
+  setRerankModel: React.Dispatch<React.SetStateAction<string>>;
   fallbackTimeoutSec: number;
   setFallbackTimeoutSec: React.Dispatch<React.SetStateAction<number>>;
   DEFAULT_FALLBACK_TIMEOUT_SEC: number;
@@ -96,6 +100,8 @@ type SettingsModalProps = {
     apiBaseUrl: string;
     modelListText: string;
     chatModel: string;
+    embeddingModel: string;
+    rerankModel: string;
     fallbackTimeoutSec: number;
     webdavUrl: string;
     webdavPath: string;
@@ -212,6 +218,10 @@ const SettingsModal = ({
   modelFetchError,
   chatModel,
   setChatModel,
+  embeddingModel,
+  setEmbeddingModel,
+  rerankModel,
+  setRerankModel,
   fallbackTimeoutSec,
   setFallbackTimeoutSec,
   DEFAULT_FALLBACK_TIMEOUT_SEC,
@@ -324,6 +334,8 @@ const SettingsModal = ({
         apiBaseUrl: apiBaseUrl || DEFAULT_BASE_URL,
         modelListText,
         chatModel,
+        embeddingModel,
+        rerankModel,
         fallbackTimeoutSec: normalizedTimeout,
         webdavUrl,
         webdavPath,
@@ -366,6 +378,8 @@ const SettingsModal = ({
     apiBaseUrl,
     modelListText,
     chatModel,
+    embeddingModel,
+    rerankModel,
     fallbackTimeoutSec,
     webdavUrl,
     webdavPath,
@@ -510,6 +524,39 @@ const SettingsModal = ({
                   {modelFetchError && (
                     <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
                   )}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                      知识库嵌入模型
+                    </label>
+                    <input
+                      type="text"
+                      value={embeddingModel}
+                      onChange={(e) => setEmbeddingModel(e.target.value)}
+                      placeholder="例如 text-embedding-3-small"
+                      className={baseInputClassName}
+                    />
+                    <p className="ui-note mt-1 text-[11px] sm:text-xs">
+                      用于后续向量化知识库内容，当前会随设置同步保存。
+                    </p>
+                  </div>
+                  <div>
+                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                      知识库重排序模型
+                    </label>
+                    <input
+                      type="text"
+                      value={rerankModel}
+                      onChange={(e) => setRerankModel(e.target.value)}
+                      placeholder="例如 bge-reranker-v2-m3"
+                      className={baseInputClassName}
+                    />
+                    <p className="ui-note mt-1 text-[11px] sm:text-xs">
+                      用于从候选资料中挑更相关的内容，未配置时使用本地相关度。
+                    </p>
+                  </div>
                 </div>
 
                 <div>

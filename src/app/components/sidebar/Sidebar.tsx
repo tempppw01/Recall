@@ -14,6 +14,8 @@ import {
   History,
   Inbox,
   LayoutGrid,
+  Library,
+  MessageCircle,
   Package2,
   Sun,
   Timer,
@@ -355,6 +357,26 @@ const Sidebar = ({
       accentRgb: '96, 165, 250',
       onClick: () => changeFilter('agent'),
     },
+    {
+      key: 'chat',
+      icon: MessageCircle,
+      label: '随便聊聊',
+      title: '随便聊聊',
+      active: activeFilter === 'chat',
+      iconColor: 'text-sky-400',
+      accentRgb: '14, 165, 233',
+      onClick: () => changeFilter('chat'),
+    },
+    {
+      key: 'knowledge',
+      icon: Library,
+      label: '知识库',
+      title: '知识库',
+      active: activeFilter === 'knowledge',
+      iconColor: 'text-amber-400',
+      accentRgb: '245, 158, 11',
+      onClick: () => changeFilter('knowledge'),
+    },
     ...quickAccessItems,
     ...toolOrder.map((key) => ({
       key,
@@ -490,6 +512,22 @@ const Sidebar = ({
                     active={activeFilter === 'agent'}
                     onClick={() => changeFilter('agent')}
                     accentRgb="96, 165, 250"
+                  />
+                  <SidebarItem
+                    icon={MessageCircle}
+                    label="随便聊聊"
+                    active={activeFilter === 'chat'}
+                    onClick={() => changeFilter('chat')}
+                    iconColor="text-sky-400"
+                    accentRgb="14, 165, 233"
+                  />
+                  <SidebarItem
+                    icon={Library}
+                    label="知识库"
+                    active={activeFilter === 'knowledge'}
+                    onClick={() => changeFilter('knowledge')}
+                    iconColor="text-amber-400"
+                    accentRgb="245, 158, 11"
                   />
                 </div>
 

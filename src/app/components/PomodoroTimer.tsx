@@ -11,13 +11,15 @@ const sortRecords = (records: PomodoroRecord[]) =>
 export default function PomodoroTimer() {
   const { isReady, state, toggleRunning, reset, skip } = usePomodoroState();
   const [records, setRecords] = useState<PomodoroRecord[]>([]);
+  const statePhaseIndex = state?.phaseIndex;
+  const stateIsRunning = state?.isRunning;
 
   useEffect(() => {
     setRecords(sortRecords(pomodoroStore.getAll()));
   }, []);
 
   useEffect(() => {
-    if (!state) return;
+    if (typeof statePhaseIndex === 'undefined') return;
     setRecords((previous) => {
       const next = sortRecords(pomodoroStore.getAll());
       if (previous.length === next.length && previous[0]?.id === next[0]?.id) {
@@ -25,7 +27,7 @@ export default function PomodoroTimer() {
       }
       return next;
     });
-  }, [state?.phaseIndex, state?.isRunning]);
+  }, [statePhaseIndex, stateIsRunning]);
 
   const deleteRecord = (id: string) => {
     if (!confirm('确认删除这条专注记录吗？')) return;
@@ -46,7 +48,7 @@ export default function PomodoroTimer() {
   if (!isReady || !state) {
     return (
       <div className="space-y-6">
-        <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-6 text-center text-sm text-[#777777]">
+        <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-6 text-center text-sm text-[color:var(--ui-text-muted)]">
           正在恢复番茄状态…
         </div>
       </div>
@@ -65,51 +67,51 @@ export default function PomodoroTimer() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-3 text-base font-bold text-[#EEEEEE]">概览</h3>
+        <h3 className="mb-3 text-base font-bold text-[color:var(--ui-text-strong)]">概览</h3>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
-            <div className="mb-1 text-xs text-[#888888]">今日番茄</div>
-            <div className="text-2xl font-semibold text-[#EEEEEE]">{todayCount}</div>
+          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">今日番茄</div>
+            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">{todayCount}</div>
           </div>
-          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
-            <div className="mb-1 text-xs text-[#888888]">今日专注时长</div>
-            <div className="text-2xl font-semibold text-[#EEEEEE]">
-              {todayDuration} <span className="text-sm font-normal text-[#666666]">m</span>
+          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">今日专注时长</div>
+            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">
+              {todayDuration} <span className="text-sm font-normal text-[color:var(--ui-text-muted)]">m</span>
             </div>
           </div>
-          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
-            <div className="mb-1 text-xs text-[#888888]">总番茄</div>
-            <div className="text-2xl font-semibold text-[#EEEEEE]">{totalCount}</div>
+          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">总番茄</div>
+            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">{totalCount}</div>
           </div>
-          <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-4">
-            <div className="mb-1 text-xs text-[#888888]">总专注时长</div>
-            <div className="text-2xl font-semibold text-[#EEEEEE]">
-              {totalDuration} <span className="text-sm font-normal text-[#666666]">m</span>
+          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
+            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">总专注时长</div>
+            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">
+              {totalDuration} <span className="text-sm font-normal text-[color:var(--ui-text-muted)]">m</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-[#2C2C2C] bg-[#202020] p-6">
+      <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-6 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-[#EEEEEE]">番茄时钟</h3>
-            <p className="text-xs text-[#777777]">
+            <h3 className="text-lg font-semibold text-[color:var(--ui-text-strong)]">番茄时钟</h3>
+            <p className="text-xs text-[color:var(--ui-text-muted)]">
               {PHASE_LABELS[state.phase]} · 第 {currentRound}/{totalRounds} 轮
             </p>
           </div>
-          <span className="text-xs text-[#666666]">默认 25/5/15</span>
+          <span className="text-xs text-[color:var(--ui-text-muted)]">默认 25/5/15</span>
         </div>
 
         <div className="mt-6 flex flex-col items-center">
-          <div className="relative flex h-40 w-40 items-center justify-center rounded-full border border-[#2C2C2C]">
+          <div className="relative flex h-40 w-40 items-center justify-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]">
             <div
               className="absolute inset-0 rounded-full"
               style={{
-                background: `conic-gradient(#F87171 ${state.progress * 3.6}deg, #2A2A2A 0deg)`,
+                background: `conic-gradient(rgb(var(--theme-accent)) ${state.progress * 3.6}deg, rgba(148, 163, 184, 0.18) 0deg)`,
               }}
             />
-            <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-[#1A1A1A] text-3xl font-semibold">
+            <div className="relative flex h-32 w-32 items-center justify-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-0)] text-3xl font-semibold text-[color:var(--ui-text-strong)]">
               {formatTime(state.remaining)}
             </div>
           </div>
@@ -127,12 +129,12 @@ export default function PomodoroTimer() {
             </button>
             <button
               onClick={reset}
-              className="flex items-center gap-2 rounded-lg bg-[#2A2A2A] px-4 py-2 text-sm text-[#CCCCCC] transition-colors hover:bg-[#333333] hover:text-white"
+              className="flex items-center gap-2 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-4 py-2 text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
             >
               <RotateCcw className="h-4 w-4" />
               重置
             </button>
-            <button onClick={skip} className="text-xs text-[#888888] hover:text-[#CCCCCC]">
+            <button onClick={skip} className="text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]">
               跳过
             </button>
           </div>
@@ -141,14 +143,14 @@ export default function PomodoroTimer() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-bold text-[#EEEEEE]">专注记录</h3>
-          <div className="text-xs text-[#666666]">专注阶段结束后自动记录</div>
+          <h3 className="text-base font-bold text-[color:var(--ui-text-strong)]">专注记录</h3>
+          <div className="text-xs text-[color:var(--ui-text-muted)]">专注阶段结束后自动记录</div>
         </div>
 
         <div className="space-y-4">
           {Object.entries(recordsByDate).map(([date, dateRecords]) => (
             <div key={date}>
-              <div className="mb-2 text-xs text-[#666666]">{date}</div>
+              <div className="mb-2 text-xs text-[color:var(--ui-text-muted)]">{date}</div>
               <div className="space-y-2">
                 {dateRecords.map((record) => (
                   <div key={record.id} className="group flex items-center justify-between">
@@ -156,16 +158,16 @@ export default function PomodoroTimer() {
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/15 text-red-300">
                         <TimerIcon className="h-4 w-4" />
                       </div>
-                      <div className="text-sm text-[#CCCCCC]">
+                      <div className="text-sm text-[color:var(--ui-text-primary)]">
                         {new Date(record.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} -{' '}
                         {new Date(record.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-[#666666]">{record.durationMinutes}m</span>
+                      <span className="text-sm text-[color:var(--ui-text-muted)]">{record.durationMinutes}m</span>
                       <button
                         onClick={() => deleteRecord(record.id)}
-                        className="text-[#444444] opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                        className="text-[color:var(--ui-text-faint)] opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
                       >
                         <RotateCcw className="h-3 w-3 rotate-45" />
                       </button>
@@ -176,7 +178,7 @@ export default function PomodoroTimer() {
             </div>
           ))}
           {records.length === 0 && (
-            <div className="py-8 text-center text-xs text-[#555555]">暂无专注记录，开始一个番茄钟吧！</div>
+            <div className="py-8 text-center text-xs text-[color:var(--ui-text-muted)]">暂无专注记录，开始一个番茄钟吧！</div>
           )}
         </div>
       </div>
