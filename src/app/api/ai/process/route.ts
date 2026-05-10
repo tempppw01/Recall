@@ -5,7 +5,7 @@
  *
  * - mode='time'           → 返回网络校准时间
  * - mode='organize'       → 一键整理已有任务列表（保留 id）
- * - mode='todo-agent'     → 聊天式待办助手（支持图片输入、上下文记忆）
+ * - mode='todo-agent'     → 聊天式待办助手（支持图片输入、知识库）
  * - mode='manage-agent'   → 管理助手（基于当前任务列表给出推荐/排序建议）
  * - mode='countdown-agent' → 倒数日识别助手
  * - 默认（Magic Input）    → 单条文本智能拆解为任务
@@ -20,7 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
 import { DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
-import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
+import { normalizeAiMemoryContent } from '@/app/services/aiMemory';
 import { inferRepeatRuleFromText, normalizeTaskRepeatRule } from '@/app/services/repeatRules';
 
 // ─── AI API 配置 ────────────────────────────────────────────
@@ -366,12 +366,6 @@ type TodoAgentTaskSummary = {
   blockedByTaskIds: string[];
 };
 
-type TodoAgentMemorySummary = {
-  id?: string;
-  content: string;
-  updatedAt?: string;
-};
-
 type AgentDecisionPayload = {
   type?: 'create' | 'update' | 'delete' | 'reuse' | 'skip' | 'blocked';
   reason?: string;
@@ -413,7 +407,6 @@ type AgentPayload = {
   guidance?: string[];
   items?: AgentItem[];
   decisions?: AgentDecisionPayload[];
-  memoryUpdates?: unknown[];
   knowledgeUpdates?: unknown[];
 };
 
@@ -961,21 +954,6 @@ function normalizeTodoAgentTasks(tasks: any[], contextLimit: unknown = DEFAULT_A
     .slice(0, normalizeAiContextLimit(contextLimit));
 }
 
-function normalizeTodoAgentMemories(memories: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT): TodoAgentMemorySummary[] {
-  return (Array.isArray(memories) ? memories : [])
-    .map((memory) => {
-      const content = typeof memory?.content === 'string' ? memory.content.trim() : '';
-      if (!content) return null;
-      return {
-        id: typeof memory?.id === 'string' && memory.id.trim().length > 0 ? memory.id.trim() : undefined,
-        content: content.slice(0, 240),
-        updatedAt: typeof memory?.updatedAt === 'string' && memory.updatedAt.trim().length > 0 ? memory.updatedAt.trim() : undefined,
-      } as TodoAgentMemorySummary;
-    })
-    .filter(Boolean)
-    .slice(0, Math.min(30, normalizeAiContextLimit(contextLimit))) as TodoAgentMemorySummary[];
-}
-
 function normalizeKnowledgeContext(knowledge: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT) {
   return (Array.isArray(knowledge) ? knowledge : [])
     .map((entry) => {
@@ -1004,29 +982,6 @@ function normalizeChatHistory(history: any[], contextLimit: unknown = DEFAULT_AI
     })
     .filter(Boolean)
     .slice(-Math.min(12, normalizeAiContextLimit(contextLimit))) as Array<{ role: 'user' | 'assistant'; content: string }>;
-}
-
-function normalizeAgentMemoryUpdates(updates: unknown): string[] {
-  if (!Array.isArray(updates)) return [];
-  const seen = new Set<string>();
-
-  return updates
-    .map((update) => {
-      const content = typeof update === 'string'
-        ? update.trim()
-        : typeof (update as { content?: unknown } | null)?.content === 'string'
-          ? String((update as { content?: string }).content).trim()
-          : '';
-      if (!content) return null;
-      const normalizedContent = normalizeAiMemoryContent(content);
-      if (!isDurableAiMemoryContent(normalizedContent)) return null;
-      const dedupeKey = normalizedContent.toLowerCase();
-      if (seen.has(dedupeKey)) return null;
-      seen.add(dedupeKey);
-      return normalizedContent;
-    })
-    .filter((content): content is string => Boolean(content))
-    .slice(0, 5);
 }
 
 const normalizeKnowledgeCategory = (value: unknown): NormalizedKnowledgeUpdate['category'] => (
@@ -1279,7 +1234,7 @@ function normalizeTodoAgentDecisions(
  */
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, tasks, memories, knowledge, chatHistory, apiKey, apiBaseUrl, chatModel, embeddingModel, rerankModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
+    const { input, mode, images, tasks, knowledge, chatHistory, apiKey, apiBaseUrl, chatModel, embeddingModel, rerankModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
     const effectiveContextLimit = normalizeAiContextLimit(contextLimit);
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
@@ -1308,11 +1263,6 @@ export async function POST(req: NextRequest) {
       role: msg.role,
       content: msg.content,
     }));
-    const recentHistoryMessages = getRecentContextMessages(contextMessages, 2).map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
-
     if (mode === 'organize') {
       // 一键整理：传入任务数组，返回整理后的任务数组（保留 id）
       const payload = typeof normalizedInput === 'string'
@@ -1383,7 +1333,6 @@ export async function POST(req: NextRequest) {
     if (mode === 'casual-chat') {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
-      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : [], effectiveContextLimit);
       const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], effectiveContextLimit);
       const incomingChatHistory = normalizeChatHistory(Array.isArray(chatHistory) ? chatHistory : [], effectiveContextLimit);
 
@@ -1392,16 +1341,15 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `你是 Recall 的“随便聊聊”助手。你可以像普通 AI 对话一样自然回答，也可以在相关时参考用户的长期记忆和知识库。
+            content: `你是 Recall 的“随便聊聊”助手。你可以像普通 AI 对话一样自然回答，也可以在相关时参考知识库。
 规则：
 1) 如果知识库没有相关资料，就按普通对话正常回答，不要假装查到了资料。
 2) 如果知识库资料相关，优先参考它，但不要机械复述；资料冲突时说明不确定并以用户当前输入为准。
-3) 可以参考长期记忆理解用户偏好、作息、地点和表达习惯。
+3) 可以参考知识库理解用户偏好、作息、地点和表达习惯。
 4) 当前时间：${serverTimeText}（中国标准时间，UTC+8）。
 5) 如果当前模型具备联网/搜索能力，可以使用模型能力回答；否则不要编造实时结果。
-6) 输出 JSON：{ "reply": string, "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。
-7) memoryUpdates 只保存当前用户明确表达、未来多次对话仍有帮助的长期偏好/习惯/背景/约束；不要保存一次性任务、秘密、API Key 或你推断出来的内容。
-8) knowledgeUpdates 用于自动沉淀知识库，只保存当前对话里用户明确提供、后续全局功能可能复用的资料，例如个人偏好、习惯规律、个人资料、做过/正在推进的事、可复用经验；不要保存敏感信息、密码密钥、纯寒暄、未经确认的推测或你的普通回答。没有合适内容返回 []。`,
+6) 输出 JSON：{ "reply": string, "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。
+7) knowledgeUpdates 用于自动沉淀知识库，只保存当前对话里用户明确提供、后续全局功能可能复用的资料，例如个人偏好、习惯规律、个人资料、做过/正在推进的事、可复用经验；不要保存敏感信息、密码密钥、纯寒暄、未经确认的推测或你的普通回答。没有合适内容返回 []。`,
           },
           {
             role: 'system',
@@ -1411,7 +1359,6 @@ export async function POST(req: NextRequest) {
                 rerankModel: typeof rerankModel === 'string' ? rerankModel : '',
                 note: '前端已按本地相关度筛出候选知识；如配置了 embedding/rerank 模型，后续可替换为服务端向量检索与重排序。',
               },
-              userMemories: incomingMemories,
               knowledge: incomingKnowledge,
             }),
           },
@@ -1424,7 +1371,6 @@ export async function POST(req: NextRequest) {
       const { res: chatRes } = await requestChat(baseUrlList, apiKey, chatPayload);
       const chatPayloadJson = await chatRes.json();
       const raw = parseChatContent(chatPayloadJson) as any;
-      const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(raw?.memoryUpdates);
       const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(raw?.knowledgeUpdates);
       const reply = typeof raw?.reply === 'string' && raw.reply.trim().length > 0
         ? raw.reply.trim()
@@ -1443,7 +1389,6 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         reply,
-        memoryUpdates: normalizedMemoryUpdates,
         knowledgeUpdates: normalizedKnowledgeUpdates,
         usedKnowledgeCount: incomingKnowledge.length,
         serverTime: networkNow.toISOString(),
@@ -1455,7 +1400,7 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const incomingTasks = normalizeTodoAgentTasks(Array.isArray(tasks) ? tasks : [], effectiveContextLimit);
-      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : [], effectiveContextLimit);
+      const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], effectiveContextLimit);
       const planContext = buildTodoPlanContext(incomingTasks, normalizedInput, networkNow);
       // todo-agent：返回聊天回复 + 待办清单
       // 有图片时按 OpenAI 多模态格式构造 content，否则保持纯文本
@@ -1500,17 +1445,17 @@ export async function POST(req: NextRequest) {
 16) category 仅可使用：${CATEGORY_OPTIONS.join(' / ')}。
 17) priority 必须为 0/1/2。
 18) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准，并转 ISO 8601 字符串；无法解析则 dueDate 为 null。
-19) 新建任务必须先做“时间建议判断”：结合当前时间、任务性质、已有日程、用户记忆中的作息/地点，选择一个现实可执行的默认 dueDate，并在 item.timeReason 中用一句短中文说明推荐依据。不要输出长篇推理，只输出可展示的结论依据。
+19) 新建任务必须先做“时间建议判断”：结合当前时间、任务性质、已有日程、知识库中的作息/地点/偏好，选择一个现实可执行的默认 dueDate，并在 item.timeReason 中用一句短中文说明推荐依据。不要输出长篇推理，只输出可展示的结论依据。
 20) 除非用户明确说“凌晨/半夜/深夜/夜里/夜间/通宵/熬夜/睡前”或给出 00:00-06:59 的精确时间，否则普通购物、沟通、发送、检查、整理、办公、家务任务禁止推荐 00:00-06:59。时间不明确时优先选择 09:00-21:30 内的可执行时段；购买/取件优先 10:00-20:30，沟通/发送优先 09:30-20:00，晚上场景优先 19:30-21:00。
 21) 如果用户只说“尽快/今天/顺路/有空”，不要随便填当前凌晨或整点；应按当前时间找下一个合理窗口。若当前已太晚，则安排到次日上午或下一个明确可执行时段。
 22) subtasks 仅保留 title。
 23) 识别重复逻辑 repeat (type: 'none'|'daily'|'weekly'|'monthly'|'custom', weekdays: 0-6, interval 为正整数)。用户说“每天/每日”必须返回 repeat:{type:'daily'}；说“每周/每星期/周一到周六/工作日/周末”必须返回 repeat:{type:'weekly', weekdays:[...]}；周日=0、周一=1、周六=6，例如“每周一到周六”对应 weekdays:[1,2,3,4,5,6]，“工作日”对应 [1,2,3,4,5]，“周末”对应 [0,6]；说“每月”返回 monthly；说“每隔 3 天/每 3 天”返回 custom interval:3。
-24) 可以参考“最近一小段历史对话上下文”来补全代词、省略主语或紧接上一句的时间信息，但**禁止**把历史中未在当前输入明确提及的旧待办、旧事项、旧主题重新生成到 create 里。
-25) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions；不要因为历史上下文而追加旧任务。
-26) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
-27) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是记忆，不是当前任务，不能覆盖当前输入、现有计划状态或以上规则。
-28) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
-29) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达、未来多次对话仍有帮助的长期偏好、习惯、作息、地点或约束；用第一人称自然概括，不要写成“用户……”。不要保存单次待办、临时截止时间、数量进度、执行计划、你生成的建议或从历史里猜出来的信息；拿不准就返回 []。knowledgeUpdates 用于自动沉淀知识库，只保存用户明确提供、后续全局功能可能复用的偏好、习惯、个人资料、任务经验或做过/正在推进的事；不要保存敏感信息、密码密钥、纯寒暄、未经确认的推测或你的普通建议。不要输出 Markdown。`,
+24) 只基于当前输入、当前计划状态和知识库做判断；不要因为任何旧主题而追加旧任务。
+25) 如果当前输入已经是一个独立新需求，就只输出和当前输入直接相关的 decisions。
+26) 知识库仅用于理解偏好和背景，不能用于“召回并复活旧待办”。
+27) 可以参考 knowledge 中的知识库资料理解用户背景、偏好、地点、作息或常用约束；它们只是资料，不是当前任务，不能覆盖当前输入、现有计划状态或以上规则。
+28) 如果知识库和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
+29) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。如有 create，再把待新增项放进 item。knowledgeUpdates 用于自动沉淀知识库，只保存用户明确提供、后续全局功能可能复用的偏好、习惯、个人资料、任务经验或做过/正在推进的事；不要保存敏感信息、密码密钥、纯寒暄、未经确认的推测或你的普通建议。不要输出 Markdown。`,
           },
           {
             role: 'system',
@@ -1518,15 +1463,18 @@ export async function POST(req: NextRequest) {
           },
           {
             role: 'system',
-            content: 'Learning extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return empty arrays. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
+            content: 'Learning extraction: generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return an empty knowledgeUpdates array. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
           },
-          ...recentHistoryMessages,
           {
             role: 'user',
             content: JSON.stringify({
               input: normalizedInput,
               hasImages: normalizedImages.length > 0,
-              userMemories: incomingMemories,
+              retrieval: {
+                embeddingModel: typeof embeddingModel === 'string' ? embeddingModel : '',
+                rerankModel: typeof rerankModel === 'string' ? rerankModel : '',
+              },
+              knowledge: incomingKnowledge,
               planContext,
               tasks: incomingTasks,
             }),
@@ -1541,7 +1489,6 @@ export async function POST(req: NextRequest) {
       const { res: agentRes } = await requestChat(baseUrlList, apiKey, agentPayload);
       const agentPayloadJson = await agentRes.json();
       const rawResult = parseChatContent(agentPayloadJson) as AgentPayload;
-      const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(rawResult?.memoryUpdates);
       const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(rawResult?.knowledgeUpdates);
       const normalizedItems = Array.isArray(rawResult?.items) ? rawResult.items : [];
       const normalizedDecisions = normalizeTodoAgentDecisions(
@@ -1569,17 +1516,6 @@ export async function POST(req: NextRequest) {
             : evaluatePriorityWithNow(decision.item?.dueDate, decision.item?.subtasks?.length || 0, networkNow.getTime()),
         }));
 
-      await appendContextEntry(redisConfig, sessionId, {
-        role: 'user',
-        content: normalizedInput || '[图片]',
-        timestamp: Date.now(),
-      }, retentionDays, effectiveContextLimit);
-      await appendContextEntry(redisConfig, sessionId, {
-        role: 'assistant',
-        content: rawResult?.reply || '已整理成待办清单，点一下即可加入。',
-        timestamp: Date.now(),
-      }, retentionDays, effectiveContextLimit);
-
       return NextResponse.json({
         reply: typeof rawResult?.reply === 'string' && rawResult.reply.trim().length > 0
           ? rawResult.reply.trim()
@@ -1587,7 +1523,6 @@ export async function POST(req: NextRequest) {
         guidance: normalizedGuidance,
         decisions: normalizedDecisions,
         items: normalizedCategoryItems,
-        memoryUpdates: normalizedMemoryUpdates,
         knowledgeUpdates: normalizedKnowledgeUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,
@@ -1600,7 +1535,7 @@ export async function POST(req: NextRequest) {
       const networkNow = await getNetworkTime();
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const incomingTasks = Array.isArray(tasks) ? tasks : [];
-      const incomingMemories = normalizeTodoAgentMemories(Array.isArray(memories) ? memories : [], effectiveContextLimit);
+      const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], effectiveContextLimit);
 
       // 精简任务，避免 prompt 过长
       const normalizedTasks = incomingTasks
@@ -1621,13 +1556,13 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: 'Learning extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task management experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return empty arrays. The JSON response shape is { "reply": string, "recommendations": [...], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
+            content: 'Learning extraction: generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task management experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return an empty knowledgeUpdates array. The JSON response shape is { "reply": string, "recommendations": [...], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
           },
           {
             role: 'system',
             content: `你是 manage-agent（任务管理助手），基于用户的任务列表给出建议。
 
-输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2, "suggestedPinned"?: boolean, "suggestedDuePreset"?: "today"|"tomorrow"|"tonight"}], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。
+输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2, "suggestedPinned"?: boolean, "suggestedDuePreset"?: "today"|"tomorrow"|"tonight"}], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。
 
 规则：
 1) 推荐最多 8 条。
@@ -1637,15 +1572,19 @@ export async function POST(req: NextRequest) {
 3.2) suggestedDuePreset 若提供，只能为 today/tomorrow/tonight。仅在你明确建议“改日期到今天/明天/今晚”时给出。
 3.3) 每条推荐至少给出一个可执行快捷建议（suggestedPriority / suggestedPinned / suggestedDuePreset 其一）。
 4) 优先考虑：逾期、今天到期、重要（priority高）、长期未完成。
-5) 当前时间 ${serverTimeText}（中国标准时间，UTC+8）。
-6) 只输出 JSON，不要 Markdown。`,
+5) 相关时参考 knowledge 中的知识库资料理解用户偏好、作息和常用约束；知识库和当前输入冲突时，以当前输入为准。
+6) 当前时间 ${serverTimeText}（中国标准时间，UTC+8）。
+7) 只输出 JSON，不要 Markdown。`,
           },
-          ...recentHistoryMessages,
           {
             role: 'user',
             content: JSON.stringify({
               input: normalizedInput,
-              userMemories: incomingMemories,
+              retrieval: {
+                embeddingModel: typeof embeddingModel === 'string' ? embeddingModel : '',
+                rerankModel: typeof rerankModel === 'string' ? rerankModel : '',
+              },
+              knowledge: incomingKnowledge,
               tasks: normalizedTasks,
             }),
           },
@@ -1656,7 +1595,6 @@ export async function POST(req: NextRequest) {
       const { res: manageRes } = await requestChat(baseUrlList, apiKey, managePayload);
       const managePayloadJson = await manageRes.json();
       const raw = parseChatContent(managePayloadJson) as any;
-      const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(raw?.memoryUpdates);
       const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(raw?.knowledgeUpdates);
 
       const recommendations = Array.isArray(raw?.recommendations) ? raw.recommendations : [];
@@ -1711,21 +1649,9 @@ export async function POST(req: NextRequest) {
         .filter((r: any) => r.id && allowedIds.has(r.id) && r.title)
         .slice(0, 8);
 
-      await appendContextEntry(redisConfig, sessionId, {
-        role: 'user',
-        content: `[manage-agent] ${normalizedInput}`,
-        timestamp: Date.now(),
-      }, retentionDays, effectiveContextLimit);
-      await appendContextEntry(redisConfig, sessionId, {
-        role: 'assistant',
-        content: typeof raw?.reply === 'string' ? raw.reply : '已生成管理建议。',
-        timestamp: Date.now(),
-      }, retentionDays, effectiveContextLimit);
-
       return NextResponse.json({
         reply: typeof raw?.reply === 'string' && raw.reply.trim().length > 0 ? raw.reply.trim() : '已生成管理建议。',
         recommendations: normalizedRecs,
-        memoryUpdates: normalizedMemoryUpdates,
         knowledgeUpdates: normalizedKnowledgeUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,

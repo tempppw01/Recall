@@ -11,7 +11,7 @@ import { buildExportPayload as buildExportPayloadData, buildSyncPayload as build
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
 import { resolveSyncedSettings } from '@/app/services/syncedSettings';
 import { AI_CONTEXT_LIMIT_OPTIONS, AI_CONTEXT_LIMIT_STORAGE_KEY, DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
-import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
+import { normalizeAiMemoryContent } from '@/app/services/aiMemory';
 import { normalizeTaskRepeatRule } from '@/app/services/repeatRules';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
@@ -34,7 +34,6 @@ import type {
   TaskGroup,
   TaskGroupMode,
   TaskSortMode,
-  UserMemory,
   WeatherCity,
   WeatherForecast,
   FutureTaskBucketKey,
@@ -101,11 +100,7 @@ import {
   Info,
   AlertTriangle,
   XCircle,
-  Eraser,
-  Brain,
   Pencil,
-  Plus,
-  Save,
   Library,
   MessageCircle,
 } from 'lucide-react';
@@ -270,7 +265,8 @@ const inferKnowledgeCategory = (content: string): KnowledgeEntry['category'] => 
 const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
   if (!Array.isArray(value)) return [];
   const nowIso = new Date().toISOString();
-  const seen = new Set<string>();
+  const seenIds = new Set<string>();
+  const seenContent = new Set<string>();
 
   return value
     .map((entry) => {
@@ -280,8 +276,10 @@ const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
       if (!title || !content) return null;
       const category = normalizeKnowledgeCategory(source?.category);
       const id = typeof source?.id === 'string' && source.id.trim().length > 0 ? source.id.trim() : createId();
-      if (seen.has(id)) return null;
-      seen.add(id);
+      const contentKey = normalizeKnowledgeDedupeKey(content);
+      if (seenIds.has(id) || seenContent.has(contentKey)) return null;
+      seenIds.add(id);
+      seenContent.add(contentKey);
       return {
         id,
         title: title.slice(0, 80),
@@ -296,6 +294,52 @@ const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 200);
 };
+
+type LegacyUserMemory = {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const normalizeUserMemories = (raw: unknown): LegacyUserMemory[] => {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  return raw
+    .map((item) => {
+      const candidate = item as Partial<LegacyUserMemory> | null | undefined;
+      const content = normalizeAiMemoryContent(candidate?.content);
+      if (!content) return null;
+      const normalizedContent = content.slice(0, 240);
+      const dedupeKey = normalizedContent.toLowerCase();
+      if (seen.has(dedupeKey)) return null;
+      seen.add(dedupeKey);
+      const nowIso = new Date().toISOString();
+      return {
+        id: typeof candidate?.id === 'string' && candidate.id.trim() ? candidate.id.trim() : createId(),
+        content: normalizedContent,
+        createdAt: typeof candidate?.createdAt === 'string' && candidate.createdAt.trim() ? candidate.createdAt.trim() : nowIso,
+        updatedAt: typeof candidate?.updatedAt === 'string' && candidate.updatedAt.trim() ? candidate.updatedAt.trim() : nowIso,
+      } satisfies LegacyUserMemory;
+    })
+    .filter((memory): memory is LegacyUserMemory => Boolean(memory))
+    .slice(0, 30);
+};
+
+const convertLegacyMemoriesToKnowledgeEntries = (raw: unknown): KnowledgeEntry[] => (
+  normalizeUserMemories(raw).map((memory) => {
+    const category = inferKnowledgeCategory(memory.content);
+    return {
+      id: `legacy-memory-${memory.id}`,
+      title: buildKnowledgeTitle(memory.content, category),
+      content: memory.content,
+      category,
+      source: 'ai',
+      createdAt: memory.createdAt,
+      updatedAt: memory.updatedAt,
+    } satisfies KnowledgeEntry;
+  })
+);
 
 const tokenizeKnowledgeText = (text: string) => Array.from(new Set(
   text
@@ -498,30 +542,6 @@ const getPriorityColor = (priority: number) => {
 };
 
 const getPriorityLabel = (priority: number) => PRIORITY_LABELS[priority] || PRIORITY_LABELS[0];
-
-const normalizeUserMemories = (raw: unknown): UserMemory[] => {
-  if (!Array.isArray(raw)) return [];
-  const seen = new Set<string>();
-  return raw
-    .map((item) => {
-      const candidate = item as Partial<UserMemory> | null | undefined;
-      const content = normalizeAiMemoryContent(candidate?.content);
-      if (!content) return null;
-      const normalizedContent = content.slice(0, 240);
-      const dedupeKey = normalizedContent.toLowerCase();
-      if (seen.has(dedupeKey)) return null;
-      seen.add(dedupeKey);
-      const nowIso = new Date().toISOString();
-      return {
-        id: typeof candidate?.id === 'string' && candidate.id.trim() ? candidate.id.trim() : createId(),
-        content: normalizedContent,
-        createdAt: typeof candidate?.createdAt === 'string' && candidate.createdAt.trim() ? candidate.createdAt.trim() : nowIso,
-        updatedAt: typeof candidate?.updatedAt === 'string' && candidate.updatedAt.trim() ? candidate.updatedAt.trim() : nowIso,
-      } as UserMemory;
-    })
-    .filter(Boolean)
-    .slice(0, 30) as UserMemory[];
-};
 
 const normalizeTaskReferenceText = (value: string) => (
   value
@@ -1319,7 +1339,6 @@ export default function Home() {
   const agentImageInputRef = useRef<HTMLInputElement | null>(null);
   const agentAbortControllerRef = useRef<AbortController | null>(null);
   const agentConversationEndRef = useRef<HTMLDivElement | null>(null);
-  const userMemoryPersistReadyRef = useRef(false);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [agentDecisions, setAgentDecisions] = useState<AgentDecision[]>([]);
   const [appliedAgentDecisionIds, setAppliedAgentDecisionIds] = useState<Set<string>>(new Set());
@@ -1328,11 +1347,6 @@ export default function Home() {
   const [addedAgentTaskMap, setAddedAgentTaskMap] = useState<Record<string, Task>>({});
   const [expandedAgentSubtaskIds, setExpandedAgentSubtaskIds] = useState<Set<string>>(new Set());
   const [agentError, setAgentError] = useState<string | null>(null);
-  const [userMemories, setUserMemories] = useState<UserMemory[]>([]);
-  const [memoryInput, setMemoryInput] = useState('');
-  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
-  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
-  const [editingMemoryContent, setEditingMemoryContent] = useState('');
   const [manageAgentInput, setManageAgentInput] = useState('');
   const [manageAgentMessages, setManageAgentMessages] = useState<ManageAgentMessage[]>([]);
   const [manageAgentLoading, setManageAgentLoading] = useState(false);
@@ -1877,19 +1891,27 @@ export default function Home() {
           console.error('Invalid casual chat messages cache', error);
         }
       }
+      const nextKnowledgeEntries: KnowledgeEntry[] = [];
       if (storedKnowledgeEntries) {
         try {
-          setKnowledgeEntries(normalizeKnowledgeEntries(JSON.parse(storedKnowledgeEntries)));
+          nextKnowledgeEntries.push(...normalizeKnowledgeEntries(JSON.parse(storedKnowledgeEntries)));
         } catch (error) {
           console.error('Invalid knowledge base cache', error);
         }
       }
       if (storedUserMemories) {
         try {
-          setUserMemories(normalizeUserMemories(JSON.parse(storedUserMemories)));
+          const migratedEntries = convertLegacyMemoriesToKnowledgeEntries(JSON.parse(storedUserMemories));
+          nextKnowledgeEntries.push(...migratedEntries);
+          if (migratedEntries.length > 0) {
+            localStorage.removeItem(USER_MEMORIES_KEY);
+          }
         } catch (error) {
-          console.error('Invalid user memories cache', error);
+          console.error('Invalid legacy user memories cache', error);
         }
+      }
+      if (nextKnowledgeEntries.length > 0) {
+        setKnowledgeEntries(normalizeKnowledgeEntries(nextKnowledgeEntries));
       }
 
       refreshTasks();
@@ -1966,16 +1988,6 @@ export default function Home() {
   }, [settingsLoaded, knowledgeEntries]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !settingsLoaded) return;
-    if (!userMemoryPersistReadyRef.current) {
-      userMemoryPersistReadyRef.current = true;
-      return;
-    }
-    localStorage.setItem(USER_MEMORIES_KEY, JSON.stringify(userMemories.slice(0, 30)));
-    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
-  }, [settingsLoaded, userMemories]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!ACTIVE_FILTER_VALUES.has(activeFilter)) return;
     localStorage.setItem(ACTIVE_FILTER_KEY, activeFilter);
@@ -1985,45 +1997,6 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(QUICK_ACCESS_OPEN_KEY, String(isQuickAccessOpen));
   }, [isQuickAccessOpen]);
-
-  const clearCurrentAiContext = () => {
-    if (typeof window !== 'undefined' && !window.confirm('确认清除当前 AI 助手上下文吗？这不会删除任务数据。')) {
-      return;
-    }
-
-    const nextSessionId = createId();
-    setSessionId(nextSessionId);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DEFAULT_SESSION_ID_KEY, nextSessionId);
-    }
-
-    if (aiAssistantMode === 'record') {
-      setAgentMessages([]);
-      setAgentInput('');
-      setAgentImages([]);
-      setAgentItems([]);
-      setAgentGuidance([]);
-      setAddedAgentItemIds(new Set());
-      setAddedAgentTaskMap({});
-      setExpandedAgentSubtaskIds(new Set());
-      setAgentError(null);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(AGENT_MESSAGES_KEY);
-      }
-      pushLog('success', '已清除记录助手上下文');
-      return;
-    }
-
-    setManageAgentMessages([]);
-    setManageAgentInput('');
-    setManageAgentError(null);
-    setManageRecommendations([]);
-    setManageRecActions({});
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(MANAGE_AGENT_MESSAGES_KEY);
-    }
-    pushLog('success', '已清除管理助手上下文');
-  };
 
   // 注意：apiKey 的持久化已移至 persistSettings 函数中统一处理
   // 避免在用户编辑设置时意外丢失密钥
@@ -2959,15 +2932,6 @@ const normalizeTimeoutSec = (value: number) => {
       }));
   };
 
-  const buildUserMemorySummaryForAgent = () => userMemories
-    .filter((memory) => memory.content.trim().length > 0)
-    .slice(0, Math.min(30, aiContextLimit))
-    .map((memory) => ({
-      id: memory.id,
-      content: memory.content,
-      updatedAt: memory.updatedAt,
-    }));
-
   const normalizeAgentScheduleOptions = (options: unknown): AgentScheduleOption[] => {
     if (!Array.isArray(options)) return [];
     const seen = new Set<string>();
@@ -3001,35 +2965,6 @@ const normalizeTimeoutSec = (value: number) => {
     });
 
     return normalized.slice(0, 4);
-  };
-
-  const applyAgentMemoryUpdates = (updates: unknown) => {
-    if (!Array.isArray(updates) || updates.length === 0) return;
-    const nowIso = new Date().toISOString();
-    const incoming = updates
-      .map((update) => {
-        const rawContent = typeof update === 'string'
-          ? update.trim()
-          : typeof (update as { content?: unknown } | null)?.content === 'string'
-            ? String((update as { content?: string }).content).trim()
-            : '';
-        const content = normalizeAiMemoryContent(rawContent);
-        return isDurableAiMemoryContent(content) ? content : '';
-      })
-      .filter(Boolean)
-      .map((content) => ({
-        id: createId(),
-        content,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      }));
-
-    if (incoming.length === 0) return;
-    setUserMemories((prev) => normalizeUserMemories([...incoming, ...prev]));
-  };
-
-  const applyModelMemoryUpdates = (updates: unknown) => {
-    applyAgentMemoryUpdates(updates);
   };
 
   const normalizeModelKnowledgeUpdates = (updates: unknown): Array<Pick<KnowledgeEntry, 'title' | 'content' | 'category'>> => {
@@ -3101,50 +3036,18 @@ const normalizeTimeoutSec = (value: number) => {
   };
 
   const applyModelLearningUpdates = (data: any) => {
-    applyModelMemoryUpdates(data?.memoryUpdates);
     applyModelKnowledgeUpdates(data?.knowledgeUpdates, data?.memoryUpdates);
   };
 
-  const addUserMemory = () => {
-    const content = normalizeAiMemoryContent(memoryInput);
-    if (!content) return;
-    const nowIso = new Date().toISOString();
-    setUserMemories((prev) => normalizeUserMemories([
-      { id: createId(), content, createdAt: nowIso, updatedAt: nowIso },
-      ...prev,
-    ]));
-    setMemoryInput('');
-  };
+  const getRelevantKnowledgeEntries = (query: string, limit = 6, fallbackToRecent = true) => {
+    const relevantEntries = knowledgeEntries
+      .map((entry) => ({ entry, score: scoreKnowledgeEntry(entry, query) }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((item) => item.entry);
 
-  const startEditUserMemory = (memory: UserMemory) => {
-    setEditingMemoryId(memory.id);
-    setEditingMemoryContent(memory.content);
-  };
-
-  const saveUserMemoryEdit = () => {
-    if (!editingMemoryId) return;
-    const content = editingMemoryContent.trim();
-    if (!content) {
-      setEditingMemoryId(null);
-      setEditingMemoryContent('');
-      return;
-    }
-    const nowIso = new Date().toISOString();
-    setUserMemories((prev) => normalizeUserMemories(prev.map((memory) => (
-      memory.id === editingMemoryId
-        ? { ...memory, content, updatedAt: nowIso }
-        : memory
-    ))));
-    setEditingMemoryId(null);
-    setEditingMemoryContent('');
-  };
-
-  const removeUserMemory = (memoryId: string) => {
-    setUserMemories((prev) => prev.filter((memory) => memory.id !== memoryId));
-    if (editingMemoryId === memoryId) {
-      setEditingMemoryId(null);
-      setEditingMemoryContent('');
-    }
+    return relevantEntries.length > 0 || !fallbackToRecent ? relevantEntries : knowledgeEntries.slice(0, limit);
   };
 
   const handleAgentSend = async () => {
@@ -3154,6 +3057,7 @@ const normalizeTimeoutSec = (value: number) => {
     const content = agentInput.trim() || (hasApiKey && imagePayload.length === 0 ? agentInputPlaceholder.trim() : '');
     if (agentLoading || (!content && imagePayload.length === 0)) return;
 
+    const relevantKnowledge = getRelevantKnowledgeEntries(content);
     setAgentInput('');
     setAgentImages([]);
     pushLog('info', 'todo-agent 请求发送', content, { silentFeedback: true });
@@ -3177,12 +3081,13 @@ const normalizeTimeoutSec = (value: number) => {
           input: content,
           images: imagePayload,
           tasks: buildTaskSummaryForTodoAgent(),
-          memories: buildUserMemorySummaryForAgent(),
+          knowledge: relevantKnowledge,
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
+          embeddingModel: embeddingModel?.trim() || undefined,
+          rerankModel: rerankModel?.trim() || undefined,
           sessionId,
-          retentionDays: aiRetentionDays,
           contextLimit: aiContextLimit,
           redisConfig: {
             host: redisHost,
@@ -3323,6 +3228,7 @@ const normalizeTimeoutSec = (value: number) => {
     const content = manageAgentInput.trim() || (hasApiKey ? manageAgentInputPlaceholder.trim() : '');
     if (manageAgentLoading || !content) return;
 
+    const relevantKnowledge = getRelevantKnowledgeEntries(content);
     setManageAgentInput('');
     setManageAgentLoading(true);
     setManageAgentError(null);
@@ -3336,12 +3242,13 @@ const normalizeTimeoutSec = (value: number) => {
           mode: 'manage-agent',
           input: content,
           tasks: buildTaskSummaryForManageAgent(),
-          memories: buildUserMemorySummaryForAgent(),
+          knowledge: relevantKnowledge,
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
+          embeddingModel: embeddingModel?.trim() || undefined,
+          rerankModel: rerankModel?.trim() || undefined,
           sessionId,
-          retentionDays: aiRetentionDays,
           contextLimit: aiContextLimit,
           redisConfig: {
             host: redisHost,
@@ -3389,13 +3296,6 @@ const normalizeTimeoutSec = (value: number) => {
     }
   };
 
-  const getRelevantKnowledgeEntries = (query: string, limit = 6) => knowledgeEntries
-    .map((entry) => ({ entry, score: scoreKnowledgeEntry(entry, query) }))
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((item) => item.entry);
-
   const handleCasualChatSend = async () => {
     if (casualChatLoading) return;
     const content = casualChatInput.trim();
@@ -3414,7 +3314,6 @@ const normalizeTimeoutSec = (value: number) => {
         body: JSON.stringify({
           mode: 'casual-chat',
           input: content,
-          memories: buildUserMemorySummaryForAgent(),
           knowledge: relevantKnowledge,
           chatHistory: casualChatMessages.slice(-aiContextLimit),
           ...(apiKey ? { apiKey } : {}),
@@ -3499,22 +3398,6 @@ const normalizeTimeoutSec = (value: number) => {
     if (editingKnowledgeId === entryId) resetKnowledgeForm();
   };
 
-  const promoteMemoryToKnowledge = (memory: UserMemory) => {
-    const nowIso = new Date().toISOString();
-    setKnowledgeEntries((prev) => normalizeKnowledgeEntries([
-      {
-        id: createId(),
-        title: memory.content.slice(0, 36),
-        content: memory.content,
-        category: 'preference',
-        source: 'ai',
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      },
-      ...prev,
-    ]));
-    pushLog('success', '已写入知识库', memory.content.slice(0, 36));
-  };
   const handleAddAgentItem = (item: AgentItem, decisionId?: string) => {
     if (addedAgentItemIds.has(item.id)) return;
     const task = createTaskFromAgentItem(item);
@@ -3927,7 +3810,6 @@ const normalizeTimeoutSec = (value: number) => {
       redisPort,
       redisDb,
       calendarSubscription,
-      userMemories,
       knowledgeEntries,
     },
     secrets: {
@@ -4016,11 +3898,14 @@ const normalizeTimeoutSec = (value: number) => {
     setAiContextLimit(nextAiContextLimit);
     setEmbeddingModel(nextEmbeddingModel);
     setRerankModel(nextRerankModel);
-    if (Array.isArray(payload?.settings?.userMemories)) {
-      setUserMemories(normalizeUserMemories(payload.settings.userMemories));
-    }
-    if (Array.isArray(payload?.settings?.knowledgeEntries)) {
-      setKnowledgeEntries(normalizeKnowledgeEntries(payload.settings.knowledgeEntries));
+    const syncedKnowledgeEntries = [
+      ...(Array.isArray(payload?.settings?.knowledgeEntries) ? payload.settings.knowledgeEntries : []),
+      ...(Array.isArray(payload?.settings?.userMemories)
+        ? convertLegacyMemoriesToKnowledgeEntries(payload.settings.userMemories)
+        : []),
+    ];
+    if (syncedKnowledgeEntries.length > 0) {
+      setKnowledgeEntries(normalizeKnowledgeEntries(syncedKnowledgeEntries));
     }
 
     persistSettings({
@@ -5247,7 +5132,7 @@ const normalizeTimeoutSec = (value: number) => {
     : activeFilter === 'pomodoro'
     ? '用专注与休息节奏推进当前任务'
     : activeFilter === 'chat'
-    ? '像正常对话一样聊天，需要时会参考知识库和长期记忆'
+    ? '像正常对话一样聊天，需要时会参考知识库'
     : activeFilter === 'knowledge'
     ? '统一管理偏好、习惯、背景信息和做过的事，供所有 AI 功能调用'
     : activeFilter === 'agent'
@@ -5316,8 +5201,8 @@ const normalizeTimeoutSec = (value: number) => {
     pendingAgentSuggestions.length > 0
       ? `把上面的 ${pendingAgentSuggestions.length} 条建议再按时间和优先级细化`
       : '',
-    userMemories.length > 0
-      ? '结合我的长期记忆，帮我调整今天安排'
+    knowledgeEntries.length > 0
+      ? '结合知识库，帮我调整今天安排'
       : '',
     hasCalendarTasks
       ? '结合日历安排，帮我找一个不冲突的执行时间'
@@ -5344,7 +5229,7 @@ const normalizeTimeoutSec = (value: number) => {
     ? (knowledgeEntries.length > 0 ? '随便聊聊；如果相关，我会先看知识库' : '随便聊聊，像普通 AI 对话一样')
     : '请先在设置中填写 AI Key';
   const visibleKnowledgeEntries = knowledgeSearchInput.trim()
-    ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40)
+    ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40, false)
     : knowledgeEntries;
   const canSendCasualChat = hasApiKey && !casualChatLoading && Boolean(casualChatInput.trim());
 
@@ -6043,23 +5928,7 @@ const normalizeTimeoutSec = (value: number) => {
                     <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手</h3>
                       <p className="text-xs text-[#666666] mt-1">一句话识别重要日期，我来帮你记</p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[11px] text-[#555555]">countdown-agent</span>
-                      {redisHost && (
-                        <div className="flex items-center gap-1 text-[10px] text-[#666666]">
-                          <span>记忆:</span>
-                          <select
-                            value={aiRetentionDays}
-                            onChange={(e) => setAiRetentionDays(Number(e.target.value))}
-                            className="ui-input rounded px-1 py-0.5"
-                          >
-                            <option value={1}>1天</option>
-                            <option value={2}>2天</option>
-                            <option value={3}>3天</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
+                    <span className="text-[11px] text-[#555555]">知识库自动沉淀</span>
                   </div>
                   <div className="mt-3 space-y-3">
                     <div className="rounded-xl border border-dashed border-[#333333] bg-[#1B1B1B] px-3 py-2 text-xs text-[#777777]">
@@ -6345,43 +6214,15 @@ const normalizeTimeoutSec = (value: number) => {
                   <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-1.5">
                     <button
                       type="button"
-                      onClick={() => setShowMemoryPanel((prev) => !prev)}
-                      className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-[11px] transition-colors ${
-                        showMemoryPanel
-                          ? 'border-cyan-400/40 bg-cyan-500/10 text-[color:var(--ui-text-strong)]'
-                          : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]'
-                      }`}
-                      title="打开 AI 记忆"
-                      aria-label="打开 AI 记忆"
+                      onClick={() => setActiveFilter('knowledge')}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]"
+                      title="打开知识库"
+                      aria-label="打开知识库"
                     >
-                      <Brain className="h-3.5 w-3.5" />
-                      <span>AI 记忆</span>
-                      <span className="rounded-full bg-cyan-500/12 px-1.5 text-[10px]">{userMemories.length}</span>
+                      <Library className="h-3.5 w-3.5" />
+                      <span>知识库</span>
+                      <span className="rounded-full bg-[rgba(var(--theme-accent),0.12)] px-1.5 text-[10px]">{knowledgeEntries.length}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={clearCurrentAiContext}
-                      className="inline-flex items-center gap-1 rounded-xl border border-[color:var(--ui-border-soft)] px-2 py-1 text-[11px] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)]"
-                      title="清除当前 AI 短期上下文"
-                      aria-label="清除当前 AI 短期上下文"
-                    >
-                      <Eraser className="w-3.5 h-3.5" />
-                      <span>清上下文</span>
-                    </button>
-                    {redisHost && (
-                      <label className="flex items-center gap-1 text-[10px] text-[color:var(--ui-text-muted)]">
-                        <span title="短期上下文用于保留最近几天的 AI 对话，不等同于长期记忆。">短期上下文</span>
-                        <select
-                          value={aiRetentionDays}
-                          onChange={(e) => setAiRetentionDays(Number(e.target.value))}
-                          className="rounded border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-1 py-0.5 text-[color:var(--ui-text-primary)] focus:outline-none"
-                        >
-                          <option value={1}>1天</option>
-                          <option value={2}>2天</option>
-                          <option value={3}>3天</option>
-                        </select>
-                      </label>
-                    )}
                     <div className="flex items-center gap-1">
                       <select
                         value={chatModel}
@@ -6405,119 +6246,6 @@ const normalizeTimeoutSec = (value: number) => {
                     </div>
                   </div>
                 </div>
-
-                {showMemoryPanel && (
-                  <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 text-xs font-medium text-[color:var(--ui-text-strong)]">
-                        <Brain className="h-3.5 w-3.5" />
-                        <span>长期记忆</span>
-                      </div>
-                      <span className="text-[10px] text-[color:var(--ui-text-muted)]">聊天时谨慎参考和更新</span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={memoryInput}
-                        onChange={(event) => setMemoryInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') addUserMemory();
-                        }}
-                        placeholder="输入希望 AI 长期记住的偏好、习惯或约束"
-                        maxLength={240}
-                        className="ui-input min-w-0 flex-1 rounded-lg px-3 py-2 text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={addUserMemory}
-                        disabled={!memoryInput.trim()}
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/35 text-[color:var(--ui-text-strong)] hover:bg-cyan-400/10 disabled:opacity-45"
-                        title="添加记忆"
-                        aria-label="添加记忆"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="mt-3 max-h-32 space-y-2 overflow-y-auto pr-1">
-                      {userMemories.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-cyan-300/20 px-3 py-2 text-xs text-[color:var(--ui-text-muted)]">
-                          暂无长期记忆
-                        </div>
-                      ) : (
-                        userMemories.map((memory) => {
-                          const editing = editingMemoryId === memory.id;
-                          return (
-                            <div key={memory.id} className="rounded-lg border border-cyan-300/15 bg-[color:var(--ui-card-bg)] px-3 py-2">
-                              {editing ? (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={editingMemoryContent}
-                                    onChange={(event) => setEditingMemoryContent(event.target.value)}
-                                    onKeyDown={(event) => {
-                                      if (event.key === 'Enter') saveUserMemoryEdit();
-                                      if (event.key === 'Escape') {
-                                        setEditingMemoryId(null);
-                                        setEditingMemoryContent('');
-                                      }
-                                    }}
-                                    maxLength={240}
-                                    className="ui-input min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={saveUserMemoryEdit}
-                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/30 text-[color:var(--ui-text-strong)] hover:bg-cyan-400/10"
-                                    title="保存记忆"
-                                    aria-label="保存记忆"
-                                  >
-                                    <Save className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingMemoryId(null);
-                                      setEditingMemoryContent('');
-                                    }}
-                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]"
-                                    title="取消编辑"
-                                    aria-label="取消编辑"
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 text-xs leading-5 text-[color:var(--ui-text-primary)]">{memory.content}</div>
-                                  <div className="flex shrink-0 items-center gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => startEditUserMemory(memory)}
-                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-300/20 text-[color:var(--ui-text-secondary)] hover:bg-cyan-400/10 hover:text-[color:var(--ui-text-strong)]"
-                                      title="编辑记忆"
-                                      aria-label="编辑记忆"
-                                    >
-                                      <Pencil className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeUserMemory(memory.id)}
-                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-rose-300/25 text-[color:var(--ui-text-secondary)] hover:bg-rose-400/10 hover:text-rose-400"
-                                      title="删除记忆"
-                                      aria-label="删除记忆"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
                   {aiAssistantMode === 'record' ? (
@@ -7154,7 +6882,7 @@ const normalizeTimeoutSec = (value: number) => {
 
                 <div
                   className="mt-3 flex flex-wrap items-center gap-2"
-                  title="AI 会结合当前任务、时间占用和长期记忆，优先给出可直接选择的安排建议。"
+                  title="AI 会结合当前任务、时间占用和知识库，优先给出可直接选择的安排建议。"
                 >
                   <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
                     <button
@@ -7460,24 +7188,6 @@ const normalizeTimeoutSec = (value: number) => {
                     ))
                   )}
                 </div>
-
-                {userMemories.length > 0 && (
-                  <div className="mt-5 rounded-2xl border border-cyan-300/15 bg-cyan-500/10 p-3">
-                    <div className="mb-2 text-xs font-semibold text-[color:var(--ui-text-strong)]">可沉淀的长期记忆</div>
-                    <div className="flex flex-wrap gap-2">
-                      {userMemories.slice(0, 8).map((memory) => (
-                        <button
-                          key={memory.id}
-                          type="button"
-                          onClick={() => promoteMemoryToKnowledge(memory)}
-                          className="max-w-full rounded-full border border-cyan-300/25 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-[color:var(--ui-text-primary)] hover:bg-cyan-400/16"
-                        >
-                          写入：{memory.content.slice(0, 24)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ) : activeFilter === 'items' ? (

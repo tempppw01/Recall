@@ -637,7 +637,7 @@ const SettingsModal = ({
                           ))}
                         </div>
                         <p className="ui-note mt-1 text-[11px] sm:text-xs">
-                          限制每次发送给 AI 的任务摘要、长期记忆和短期对话数量；越小越快，越大越完整。
+                          限制每次发送给 AI 的任务摘要、知识库候选和最近对话数量；越小越快，越大越完整。
                         </p>
                       </div>
                     </div>
