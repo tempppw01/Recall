@@ -102,6 +102,8 @@ import {
   AlertTriangle,
   XCircle,
   Pencil,
+  Copy,
+  RotateCcw,
   Library,
   MessageCircle,
 } from 'lucide-react';
@@ -1508,6 +1510,7 @@ export default function Home() {
   const [casualChatInput, setCasualChatInput] = useState('');
   const [casualChatLoading, setCasualChatLoading] = useState(false);
   const [casualChatError, setCasualChatError] = useState<string | null>(null);
+  const casualChatConversationEndRef = useRef<HTMLDivElement | null>(null);
   const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([]);
   const [knowledgeTitleInput, setKnowledgeTitleInput] = useState('');
   const [knowledgeContentInput, setKnowledgeContentInput] = useState('');
@@ -2110,6 +2113,11 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(CASUAL_CHAT_MESSAGES_KEY, JSON.stringify(casualChatMessages.slice(-aiContextLimit)));
   }, [casualChatMessages, aiContextLimit]);
+
+  useEffect(() => {
+    if (activeFilter !== 'chat') return;
+    casualChatConversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [activeFilter, casualChatMessages.length, casualChatLoading, casualChatError]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded) return;
@@ -3513,12 +3521,45 @@ const normalizeTimeoutSec = (value: number) => {
     }
   };
 
-  const handleCasualChatSend = async () => {
-    if (casualChatLoading) return;
-    const content = casualChatInput.trim();
-    if (!content) return;
+  const copyCasualChatMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setStatusFeedback({
+        id: createId(),
+        level: 'success',
+        message: '已复制文本',
+        detail: '这条聊天内容已复制到剪贴板。',
+      });
+    } catch (error) {
+      console.error('Failed to copy casual chat message', error);
+      setStatusFeedback({
+        id: createId(),
+        level: 'warning',
+        message: '复制失败',
+        detail: '浏览器暂时不允许访问剪贴板，可以手动选择文本复制。',
+      });
+    }
+  };
 
+  const clearCasualChatContext = () => {
+    setCasualChatMessages([]);
     setCasualChatInput('');
+    setCasualChatError(null);
+    setStatusFeedback({
+      id: createId(),
+      level: 'info',
+      message: '已清空随便聊聊上下文',
+      detail: '知识库不会被删除，后续对话会重新开始。',
+    });
+  };
+
+  const handleCasualChatSend = async (contentOverride?: string, historyOverride?: AgentMessage[]) => {
+    if (casualChatLoading) return;
+    const content = (contentOverride ?? casualChatInput).trim();
+    if (!content) return;
+    const requestHistory = historyOverride ?? casualChatMessages;
+
+    if (typeof contentOverride !== 'string') setCasualChatInput('');
     setCasualChatLoading(true);
     setCasualChatError(null);
     setCasualChatMessages((prev) => [...prev, { role: 'user', content }]);
@@ -3533,7 +3574,7 @@ const normalizeTimeoutSec = (value: number) => {
           mode: 'casual-chat',
           input: content,
           knowledge: relevantKnowledge,
-          chatHistory: casualChatMessages.slice(-aiContextLimit),
+          chatHistory: requestHistory.slice(-aiContextLimit),
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -3570,6 +3611,21 @@ const normalizeTimeoutSec = (value: number) => {
     } finally {
       setCasualChatLoading(false);
     }
+  };
+
+  const retryCasualChatFrom = (assistantIndex: number) => {
+    if (casualChatLoading) return;
+    const userIndex = casualChatMessages
+      .slice(0, assistantIndex)
+      .map((message, index) => ({ message, index }))
+      .reverse()
+      .find((item) => item.message.role === 'user')?.index;
+    if (typeof userIndex !== 'number') return;
+
+    const userContent = casualChatMessages[userIndex]?.content || '';
+    const retainedHistory = casualChatMessages.slice(0, userIndex);
+    setCasualChatMessages(retainedHistory);
+    void handleCasualChatSend(userContent, retainedHistory);
   };
 
   const resetKnowledgeForm = () => {
@@ -7283,9 +7339,21 @@ const normalizeTimeoutSec = (value: number) => {
                       命中知识库时先参考资料；没有相关资料就按普通对话回答。
                     </p>
                   </div>
-                  <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
-                    自动沉淀 · 知识 {knowledgeEntries.length}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                      自动沉淀 · 知识 {knowledgeEntries.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearCasualChatContext}
+                      disabled={casualChatLoading || casualChatMessages.length === 0}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-rose-300/40 hover:bg-rose-400/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-45"
+                      title="清空当前随便聊聊上下文"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>清空上下文</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex h-[calc(100dvh-18rem)] min-h-[360px] flex-col">
@@ -7309,7 +7377,7 @@ const normalizeTimeoutSec = (value: number) => {
                       </div>
                     ) : (
                       casualChatMessages.map((message, index) => (
-                        <div key={`${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div key={`${message.role}-${index}`} className={`group/message flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div
                             className={`max-w-[86%] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
                               message.role === 'user'
@@ -7323,6 +7391,29 @@ const normalizeTimeoutSec = (value: number) => {
                               <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
                             )}
                             {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
+                            <div className={`mt-2 flex items-center gap-1.5 border-t border-[color:var(--ui-border-soft)] pt-1.5 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                              <button
+                                type="button"
+                                onClick={() => copyCasualChatMessage(message.content)}
+                                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                                title="复制这条消息"
+                              >
+                                <Copy className="h-3 w-3" />
+                                <span>复制</span>
+                              </button>
+                              {message.role === 'assistant' && (
+                                <button
+                                  type="button"
+                                  onClick={() => retryCasualChatFrom(index)}
+                                  disabled={casualChatLoading}
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-sky-400/10 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="用上一条用户消息重新生成回复"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  <span>重试</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))
@@ -7333,6 +7424,7 @@ const normalizeTimeoutSec = (value: number) => {
                         {casualChatError}
                       </div>
                     )}
+                    <div ref={casualChatConversationEndRef} aria-hidden="true" />
                   </div>
 
                   <div className="mt-3 flex items-center gap-2">
@@ -7352,7 +7444,7 @@ const normalizeTimeoutSec = (value: number) => {
                     />
                     <button
                       type="button"
-                      onClick={handleCasualChatSend}
+                      onClick={() => handleCasualChatSend()}
                       disabled={!canSendCasualChat}
                       className="rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50"
                     >
