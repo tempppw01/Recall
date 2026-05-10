@@ -282,6 +282,7 @@ const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash-lite';
 
 /** 任务分类选项（AI 输出必须从中选择） */
 const CATEGORY_OPTIONS = ['工作', '生活', '健康', '学习', '家庭', '财务', '社交'];
+const SENSITIVE_KNOWLEDGE_PATTERN = /(?:密码|密钥|api\s*key|token|验证码|身份证|银行卡|信用卡|病历|诊断|药物|工资|收入|贷款)/i;
 
 /** 网络时间校准源（按优先级排列） */
 const TIME_SOURCES = [
@@ -413,6 +414,13 @@ type AgentPayload = {
   items?: AgentItem[];
   decisions?: AgentDecisionPayload[];
   memoryUpdates?: unknown[];
+  knowledgeUpdates?: unknown[];
+};
+
+type NormalizedKnowledgeUpdate = {
+  title: string;
+  content: string;
+  category: 'preference' | 'task' | 'habit' | 'profile' | 'note';
 };
 
 type AgentScheduleOption = {
@@ -426,11 +434,13 @@ type AgentScheduleOption = {
 type CountdownPayload = {
   reply?: string;
   items?: CountdownItem[];
+  knowledgeUpdates?: unknown[];
 };
 
 type HabitAgentPayload = {
   reply?: string;
   items?: HabitAgentItem[];
+  knowledgeUpdates?: unknown[];
 };
 
 const DEFAULT_TASK = {
@@ -1019,6 +1029,52 @@ function normalizeAgentMemoryUpdates(updates: unknown): string[] {
     .slice(0, 5);
 }
 
+const normalizeKnowledgeCategory = (value: unknown): NormalizedKnowledgeUpdate['category'] => (
+  value === 'preference'
+  || value === 'task'
+  || value === 'habit'
+  || value === 'profile'
+  || value === 'note'
+    ? value
+    : 'note'
+);
+
+const inferKnowledgeCategory = (content: string): NormalizedKnowledgeUpdate['category'] => {
+  if (/习惯|每天|每周|打卡|运动|阅读|学习|作息/.test(content)) return 'habit';
+  if (/喜欢|不喜欢|偏好|倾向|优先|避免|默认/.test(content)) return 'preference';
+  if (/我是|我在|我住|我的工作|我的公司|我的岗位|家庭|孩子|宠物/.test(content)) return 'profile';
+  if (/任务|项目|计划|做过|完成|推进|处理/.test(content)) return 'task';
+  return 'note';
+};
+
+function normalizeAgentKnowledgeUpdates(updates: unknown): NormalizedKnowledgeUpdate[] {
+  if (!Array.isArray(updates)) return [];
+  const seen = new Set<string>();
+
+  return updates
+    .map((update) => {
+      const source = update as Partial<NormalizedKnowledgeUpdate> | string | null | undefined;
+      const content = typeof source === 'string'
+        ? normalizeAiMemoryContent(source)
+        : normalizeAiMemoryContent(typeof source?.content === 'string' ? source.content : '');
+      if (content.length < 4 || SENSITIVE_KNOWLEDGE_PATTERN.test(content)) return null;
+      const category = typeof source === 'string' ? inferKnowledgeCategory(content) : normalizeKnowledgeCategory(source?.category);
+      const title = typeof source !== 'string' && typeof source?.title === 'string' && source.title.trim().length > 0
+        ? source.title.trim().slice(0, 80)
+        : content.slice(0, 36);
+      const dedupeKey = content.toLowerCase();
+      if (seen.has(dedupeKey)) return null;
+      seen.add(dedupeKey);
+      return {
+        title,
+        content,
+        category,
+      };
+    })
+    .filter((entry): entry is NormalizedKnowledgeUpdate => Boolean(entry))
+    .slice(0, 6);
+}
+
 function findBestTaskMatch(tasks: TodoAgentTaskSummary[], title: string, taskId?: string) {
   if (taskId) {
     const byId = tasks.find((task) => task.id === taskId);
@@ -1343,7 +1399,9 @@ export async function POST(req: NextRequest) {
 3) 可以参考长期记忆理解用户偏好、作息、地点和表达习惯。
 4) 当前时间：${serverTimeText}（中国标准时间，UTC+8）。
 5) 如果当前模型具备联网/搜索能力，可以使用模型能力回答；否则不要编造实时结果。
-6) 输出 JSON：{ "reply": string, "memoryUpdates": string[] }。memoryUpdates 只保存当前用户明确表达、未来多次对话仍有帮助的长期偏好/习惯/背景/约束；不要保存一次性任务、秘密、API Key 或你推断出来的内容。`,
+6) 输出 JSON：{ "reply": string, "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。
+7) memoryUpdates 只保存当前用户明确表达、未来多次对话仍有帮助的长期偏好/习惯/背景/约束；不要保存一次性任务、秘密、API Key 或你推断出来的内容。
+8) knowledgeUpdates 用于自动沉淀知识库，只保存当前对话里用户明确提供、后续全局功能可能复用的资料，例如个人偏好、习惯规律、个人资料、做过/正在推进的事、可复用经验；不要保存敏感信息、密码密钥、纯寒暄、未经确认的推测或你的普通回答。没有合适内容返回 []。`,
           },
           {
             role: 'system',
@@ -1367,6 +1425,7 @@ export async function POST(req: NextRequest) {
       const chatPayloadJson = await chatRes.json();
       const raw = parseChatContent(chatPayloadJson) as any;
       const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(raw?.memoryUpdates);
+      const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(raw?.knowledgeUpdates);
       const reply = typeof raw?.reply === 'string' && raw.reply.trim().length > 0
         ? raw.reply.trim()
         : '我在，继续说。';
@@ -1385,6 +1444,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         reply,
         memoryUpdates: normalizedMemoryUpdates,
+        knowledgeUpdates: normalizedKnowledgeUpdates,
         usedKnowledgeCount: incomingKnowledge.length,
         serverTime: networkNow.toISOString(),
         serverTimeText,
@@ -1450,7 +1510,7 @@ export async function POST(req: NextRequest) {
 26) 历史上下文仅用于“补充当前句子缺失信息”，不能用于“召回并复活旧待办”。
 27) 可以参考 userMemories 中的长期记忆理解用户背景、偏好、地点、作息或常用约束；它们只是记忆，不是当前任务，不能覆盖当前输入、现有计划状态或以上规则。
 28) 如果记忆和当前输入冲突，以当前输入为准，并在 reason 中简短说明。
-29) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达、未来多次对话仍有帮助的长期偏好、习惯、作息、地点或约束；用第一人称自然概括，不要写成“用户……”。不要保存单次待办、临时截止时间、数量进度、执行计划、你生成的建议或从历史里猜出来的信息；拿不准就返回 []。不要输出 Markdown。`,
+29) 请只输出 JSON，格式：{ "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。如有 create，再把待新增项放进 item。memoryUpdates 只放当前用户输入里明确表达、未来多次对话仍有帮助的长期偏好、习惯、作息、地点或约束；用第一人称自然概括，不要写成“用户……”。不要保存单次待办、临时截止时间、数量进度、执行计划、你生成的建议或从历史里猜出来的信息；拿不准就返回 []。knowledgeUpdates 用于自动沉淀知识库，只保存用户明确提供、后续全局功能可能复用的偏好、习惯、个人资料、任务经验或做过/正在推进的事；不要保存敏感信息、密码密钥、纯寒暄、未经确认的推测或你的普通建议。不要输出 Markdown。`,
           },
           {
             role: 'system',
@@ -1458,7 +1518,7 @@ export async function POST(req: NextRequest) {
           },
           {
             role: 'system',
-            content: 'Long-term memory extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Write each memory in natural first-person Chinese, not as "用户...". Do not store one-off tasks, temporary deadlines, quantities, progress updates, execution plans, assistant suggestions, sensitive secrets, API keys, passwords, or facts inferred only from history. If unsure, return memoryUpdates: []. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[] }.',
+            content: 'Learning extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return empty arrays. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
           },
           ...recentHistoryMessages,
           {
@@ -1482,6 +1542,7 @@ export async function POST(req: NextRequest) {
       const agentPayloadJson = await agentRes.json();
       const rawResult = parseChatContent(agentPayloadJson) as AgentPayload;
       const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(rawResult?.memoryUpdates);
+      const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(rawResult?.knowledgeUpdates);
       const normalizedItems = Array.isArray(rawResult?.items) ? rawResult.items : [];
       const normalizedDecisions = normalizeTodoAgentDecisions(
         Array.isArray(rawResult?.decisions) ? rawResult.decisions : [],
@@ -1527,6 +1588,7 @@ export async function POST(req: NextRequest) {
         decisions: normalizedDecisions,
         items: normalizedCategoryItems,
         memoryUpdates: normalizedMemoryUpdates,
+        knowledgeUpdates: normalizedKnowledgeUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });
@@ -1559,13 +1621,13 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: 'Long-term memory extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Write each memory in natural first-person Chinese, not as "用户...". Do not store one-off tasks, temporary deadlines, quantities, progress updates, execution plans, assistant suggestions, sensitive secrets, API keys, passwords, or facts inferred only from history. If unsure, return memoryUpdates: []. The JSON response shape is { "reply": string, "recommendations": [...], "memoryUpdates": string[] }.',
+            content: 'Learning extraction: generate memoryUpdates only when the current user message clearly contains durable preferences, habits, routines, locations, stable background, or default constraints that will help future chats. Generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task management experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return empty arrays. The JSON response shape is { "reply": string, "recommendations": [...], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
           },
           {
             role: 'system',
             content: `你是 manage-agent（任务管理助手），基于用户的任务列表给出建议。
 
-输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2, "suggestedPinned"?: boolean, "suggestedDuePreset"?: "today"|"tomorrow"|"tonight"}], "memoryUpdates": string[] }。
+输出 JSON：{ "reply": string, "recommendations": [{"id": string, "title": string, "reason": string, "suggestedPriority": 0|1|2, "suggestedPinned"?: boolean, "suggestedDuePreset"?: "today"|"tomorrow"|"tonight"}], "memoryUpdates": string[], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。
 
 规则：
 1) 推荐最多 8 条。
@@ -1595,6 +1657,7 @@ export async function POST(req: NextRequest) {
       const managePayloadJson = await manageRes.json();
       const raw = parseChatContent(managePayloadJson) as any;
       const normalizedMemoryUpdates = normalizeAgentMemoryUpdates(raw?.memoryUpdates);
+      const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(raw?.knowledgeUpdates);
 
       const recommendations = Array.isArray(raw?.recommendations) ? raw.recommendations : [];
       const allowedIds = new Set(normalizedTasks.map((t: any) => t.id));
@@ -1663,6 +1726,7 @@ export async function POST(req: NextRequest) {
         reply: typeof raw?.reply === 'string' && raw.reply.trim().length > 0 ? raw.reply.trim() : '已生成管理建议。',
         recommendations: normalizedRecs,
         memoryUpdates: normalizedMemoryUpdates,
+        knowledgeUpdates: normalizedKnowledgeUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });
@@ -1686,7 +1750,8 @@ if (mode === 'habit-agent') {
 7) priority 必须为 0/1/2。
 8) reason 简短说明拆解意图，例如“先培养可坚持的最小动作”。
 9) **记忆功能**：请结合历史对话上下文补全用户偏好时间和场景。
-10) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "checkInDueDate": string|null, "reason": string, "frequency": string, "category": string, "priority": 0|1|2}] }。不要包含 null/undefined 属性时可省略。`,
+10) knowledgeUpdates 用于自动沉淀知识库，只保存用户明确表达、之后仍可能复用的习惯偏好、训练规律、场景约束或个人背景；不要保存敏感信息、密码密钥、未经确认的推测或普通建议。
+11) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "checkInDueDate": string|null, "reason": string, "frequency": string, "category": string, "priority": 0|1|2}], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。不要包含 null/undefined 属性时可省略。`,
           },
           ...historyMessages,
           { role: 'user', content: normalizedInput },
@@ -1697,6 +1762,7 @@ if (mode === 'habit-agent') {
       const { res: habitRes } = await requestChat(baseUrlList, apiKey, habitPayload);
       const habitPayloadJson = await habitRes.json();
       const rawHabit = parseChatContent(habitPayloadJson) as HabitAgentPayload;
+      const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(rawHabit?.knowledgeUpdates);
       const normalizedItems = Array.isArray(rawHabit?.items)
         ? rawHabit.items.map((item) => normalizeHabitAgentItem(item, networkNow))
         : [];
@@ -1726,6 +1792,7 @@ if (mode === 'habit-agent') {
           ? rawHabit.reply.trim()
           : '已拆解为习惯与检查任务，点击即可加入。',
         items: normalizedCategoryItems,
+        knowledgeUpdates: normalizedKnowledgeUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });
@@ -1745,7 +1812,8 @@ if (mode === 'habit-agent') {
 3) targetDate 必须为 YYYY-MM-DD 格式（不要时间），若无法解析则为 null。
 4) 当前时间为 ${serverTimeText}（中国标准时间，UTC+8），解析中文相对时间请以此为准。
 5) **记忆功能**：请务必结合“历史对话上下文”来补全日期或标题信息。
-6) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}] }。不要包含 null/undefined 属性时可省略。`,
+6) knowledgeUpdates 用于自动沉淀知识库，只保存用户明确表达、之后仍可能复用的重要日期、个人事件或背景资料；不要保存敏感信息、密码密钥、未经确认的推测或普通建议。
+7) 请只输出 JSON，格式：{ "reply": string, "items": [{"title": string, "targetDate": string|null}], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。不要包含 null/undefined 属性时可省略。`,
           },
           ...historyMessages,
           { role: 'user', content: normalizedInput },
@@ -1756,6 +1824,7 @@ if (mode === 'habit-agent') {
       const { res: countdownRes } = await requestChat(baseUrlList, apiKey, countdownPayload);
       const countdownPayloadJson = await countdownRes.json();
       const rawCountdown = parseChatContent(countdownPayloadJson) as CountdownPayload;
+      const normalizedKnowledgeUpdates = normalizeAgentKnowledgeUpdates(rawCountdown?.knowledgeUpdates);
       const normalizedItems = Array.isArray(rawCountdown?.items)
         ? rawCountdown.items.map((item) => normalizeCountdownItem(item))
         : [];
@@ -1776,6 +1845,7 @@ if (mode === 'habit-agent') {
           ? rawCountdown.reply.trim()
           : '已识别倒数日内容，点击即可加入。',
         items: normalizedItems,
+        knowledgeUpdates: normalizedKnowledgeUpdates,
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });

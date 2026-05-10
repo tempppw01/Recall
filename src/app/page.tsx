@@ -232,6 +232,39 @@ const KNOWLEDGE_CATEGORY_LABELS: Record<KnowledgeEntry['category'], string> = {
   note: '普通资料',
 };
 
+const normalizeKnowledgeCategory = (value: unknown): KnowledgeEntry['category'] => (
+  value === 'preference'
+  || value === 'task'
+  || value === 'habit'
+  || value === 'profile'
+  || value === 'note'
+    ? value
+    : 'note'
+);
+
+const normalizeKnowledgeDedupeKey = (value: string) => (
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .slice(0, 360)
+);
+
+const buildKnowledgeTitle = (content: string, category: KnowledgeEntry['category']) => {
+  const trimmed = content.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= 36) return trimmed;
+  const prefix = KNOWLEDGE_CATEGORY_LABELS[category];
+  return `${prefix}：${trimmed.slice(0, 28)}`;
+};
+
+const inferKnowledgeCategory = (content: string): KnowledgeEntry['category'] => {
+  if (/习惯|每天|每周|打卡|运动|阅读|学习|作息/.test(content)) return 'habit';
+  if (/喜欢|不喜欢|偏好|倾向|优先|避免|默认/.test(content)) return 'preference';
+  if (/我是|我在|我住|我的工作|我的公司|我的岗位|家庭|孩子|宠物/.test(content)) return 'profile';
+  if (/任务|项目|计划|做过|完成|推进|处理/.test(content)) return 'task';
+  return 'note';
+};
+
 const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
   if (!Array.isArray(value)) return [];
   const nowIso = new Date().toISOString();
@@ -243,13 +276,7 @@ const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
       const title = typeof source?.title === 'string' ? source.title.trim() : '';
       const content = typeof source?.content === 'string' ? source.content.trim() : '';
       if (!title || !content) return null;
-      const category = source?.category === 'preference'
-        || source?.category === 'task'
-        || source?.category === 'habit'
-        || source?.category === 'profile'
-        || source?.category === 'note'
-        ? source.category
-        : 'note';
+      const category = normalizeKnowledgeCategory(source?.category);
       const id = typeof source?.id === 'string' && source.id.trim().length > 0 ? source.id.trim() : createId();
       if (seen.has(id)) return null;
       seen.add(id);
@@ -2999,6 +3026,79 @@ const normalizeTimeoutSec = (value: number) => {
     applyAgentMemoryUpdates(updates);
   };
 
+  const normalizeModelKnowledgeUpdates = (updates: unknown): Array<Pick<KnowledgeEntry, 'title' | 'content' | 'category'>> => {
+    if (!Array.isArray(updates)) return [];
+    const seen = new Set<string>();
+
+    return updates
+      .map((update) => {
+        const source = update as Partial<KnowledgeEntry> | string | null | undefined;
+        const rawContent = typeof source === 'string'
+          ? source
+          : typeof source?.content === 'string'
+            ? source.content
+            : '';
+        const content = normalizeAiMemoryContent(rawContent).slice(0, 1200);
+        if (!content) return null;
+        const category = typeof source === 'string' ? inferKnowledgeCategory(content) : normalizeKnowledgeCategory(source?.category);
+        const title = typeof source !== 'string' && typeof source?.title === 'string' && source.title.trim()
+          ? source.title.trim().slice(0, 80)
+          : buildKnowledgeTitle(content, category);
+        const dedupeKey = normalizeKnowledgeDedupeKey(content);
+        if (!dedupeKey || seen.has(dedupeKey)) return null;
+        seen.add(dedupeKey);
+        return { title, content, category };
+      })
+      .filter((entry): entry is Pick<KnowledgeEntry, 'title' | 'content' | 'category'> => Boolean(entry))
+      .slice(0, 6);
+  };
+
+  const applyModelKnowledgeUpdates = (updates: unknown, fallbackUpdates?: unknown) => {
+    const normalized = normalizeModelKnowledgeUpdates(updates);
+    const fallback = normalized.length > 0 ? [] : normalizeModelKnowledgeUpdates(fallbackUpdates);
+    const incoming = normalized.length > 0 ? normalized : fallback;
+    if (incoming.length === 0) return;
+
+    const nowIso = new Date().toISOString();
+    const knownKeys = new Set(knowledgeEntries.map((entry) => normalizeKnowledgeDedupeKey(entry.content)));
+    const additions = incoming
+      .filter((entry) => {
+        const key = normalizeKnowledgeDedupeKey(entry.content);
+        if (!key || knownKeys.has(key)) return false;
+        knownKeys.add(key);
+        return true;
+      })
+      .map((entry) => ({
+        id: createId(),
+        title: entry.title,
+        content: entry.content,
+        category: entry.category,
+        source: 'ai' as const,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      }));
+
+    if (additions.length === 0) return;
+
+    setKnowledgeEntries((prev) => {
+      const existingKeys = new Set(prev.map((entry) => normalizeKnowledgeDedupeKey(entry.content)));
+      const dedupedAdditions = additions.filter((entry) => {
+        const key = normalizeKnowledgeDedupeKey(entry.content);
+        if (!key || existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+      return dedupedAdditions.length > 0 ? normalizeKnowledgeEntries([...dedupedAdditions, ...prev]) : prev;
+    });
+
+    pushLog('success', '已自动沉淀知识', `新增 ${additions.length} 条到知识库`, { silentFeedback: true });
+  };
+
+  const applyModelLearningUpdates = (data: any) => {
+    applyModelMemoryUpdates(data?.memoryUpdates);
+    applyModelKnowledgeUpdates(data?.knowledgeUpdates, data?.memoryUpdates);
+  };
+
   const addUserMemory = () => {
     const content = normalizeAiMemoryContent(memoryInput);
     if (!content) return;
@@ -3090,7 +3190,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'todo-agent request failed'));
       }
-      applyModelMemoryUpdates(data?.memoryUpdates);
+      applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我先对照了当前计划，已经整理好建议。';
@@ -3249,7 +3349,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'manage-agent request failed'));
       }
-      applyModelMemoryUpdates(data?.memoryUpdates);
+      applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' ? data.reply : '已生成建议。';
       setManageAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
       const recs = Array.isArray(data?.recommendations) ? data.recommendations : [];
@@ -3331,7 +3431,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'casual-chat request failed'));
       }
-      applyModelMemoryUpdates(data?.memoryUpdates);
+      applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我在，继续说。';
@@ -3621,6 +3721,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'habit-agent request failed'));
       }
+      applyModelLearningUpdates(data);
       const nextItems: HabitAgentItem[] = Array.isArray(data?.items)
         ? data.items.map((item: HabitAgentItem) => ({
             ...item,
@@ -3705,6 +3806,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'countdown-agent request failed'));
       }
+      applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '已识别倒数日内容，点击即可加入。';
@@ -4156,6 +4258,7 @@ const normalizeTimeoutSec = (value: number) => {
       if (!res.ok) {
         throw new Error(buildAiResponseErrorMessage(res, data, 'Request failed'));
       }
+      applyModelLearningUpdates(data);
 
       if (isSearch) {
         // Search mode is deprecated/removed with embedding removal
@@ -7152,7 +7255,7 @@ const normalizeTimeoutSec = (value: number) => {
                     </p>
                   </div>
                   <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
-                    知识 {knowledgeEntries.length}
+                    自动沉淀 · 知识 {knowledgeEntries.length}
                   </span>
                 </div>
 
@@ -7251,7 +7354,7 @@ const normalizeTimeoutSec = (value: number) => {
               <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
                   <Library className="h-4 w-4 text-amber-400" />
-                  <span>{editingKnowledgeId ? '编辑知识' : '添加知识'}</span>
+                  <span>{editingKnowledgeId ? '编辑知识' : '手动补充知识'}</span>
                 </div>
                 <div className="mt-4 space-y-3">
                   <input
@@ -7307,7 +7410,7 @@ const normalizeTimeoutSec = (value: number) => {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">全局知识库</div>
-                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">代办、习惯、偏好、个人信息和做过的事都可以沉淀在这里。</p>
+                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">AI 助手和随便聊聊会自动总结可复用资料；这里也支持手动补充和修正。</p>
                   </div>
                   <input
                     type="text"
@@ -7321,7 +7424,7 @@ const normalizeTimeoutSec = (value: number) => {
                 <div className="mt-4 grid gap-2">
                   {visibleKnowledgeEntries.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-4 py-10 text-center text-sm text-[color:var(--ui-text-muted)]">
-                      还没有知识。可以先把长期偏好、常用约束或做过的事写进来。
+                      还没有知识。继续使用 AI 助手或随便聊聊时，可复用资料会自动沉淀到这里。
                     </div>
                   ) : (
                     visibleKnowledgeEntries.map((entry) => (
