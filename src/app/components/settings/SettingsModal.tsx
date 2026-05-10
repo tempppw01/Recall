@@ -535,7 +535,7 @@ const SettingsModal = ({
                       type="text"
                       value={embeddingModel}
                       onChange={(e) => setEmbeddingModel(e.target.value)}
-                      placeholder="例如 text-embedding-3-small"
+                      placeholder="jina-embeddings-v3"
                       className={baseInputClassName}
                     />
                     <p className="ui-note mt-1 text-[11px] sm:text-xs">
@@ -550,7 +550,7 @@ const SettingsModal = ({
                       type="text"
                       value={rerankModel}
                       onChange={(e) => setRerankModel(e.target.value)}
-                      placeholder="例如 bge-reranker-v2-m3"
+                      placeholder="jina-reranker-v3"
                       className={baseInputClassName}
                     />
                     <p className="ui-note mt-1 text-[11px] sm:text-xs">

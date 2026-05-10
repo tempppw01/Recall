@@ -32,6 +32,8 @@ export type ResolveSyncedSettingsParams = {
     defaultApiBaseUrl: string;
     defaultModelListText: string;
     defaultChatModel: string;
+    defaultEmbeddingModel: string;
+    defaultRerankModel: string;
     defaultFallbackTimeoutSec: number;
     defaultAiContextLimit: number;
     defaultAutoSyncIntervalMin: number;
@@ -46,8 +48,12 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
   const nextApiBaseUrl = settings.apiBaseUrl || defaults.defaultApiBaseUrl;
   const nextModelListText = settings.modelListText || defaults.defaultModelListText;
   const nextChatModel = settings.chatModel || defaults.defaultChatModel;
-  const nextEmbeddingModel = typeof settings.embeddingModel === 'string' ? settings.embeddingModel : current.embeddingModel;
-  const nextRerankModel = typeof settings.rerankModel === 'string' ? settings.rerankModel : current.rerankModel;
+  const nextEmbeddingModel = typeof settings.embeddingModel === 'string' && settings.embeddingModel.trim().length > 0
+    ? settings.embeddingModel
+    : (current.embeddingModel || defaults.defaultEmbeddingModel);
+  const nextRerankModel = typeof settings.rerankModel === 'string' && settings.rerankModel.trim().length > 0
+    ? settings.rerankModel
+    : (current.rerankModel || defaults.defaultRerankModel);
   const nextFallback = Number.isFinite(Number(settings.fallbackTimeoutSec))
     ? Number(settings.fallbackTimeoutSec)
     : defaults.defaultFallbackTimeoutSec;

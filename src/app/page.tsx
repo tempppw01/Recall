@@ -159,6 +159,8 @@ const EMBEDDING_MODEL_KEY = 'recall_embedding_model';
 const RERANK_MODEL_KEY = 'recall_rerank_model';
 const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
 const DEFAULT_SYNC_NAMESPACE = 'recall-default';
+const DEFAULT_EMBEDDING_MODEL = 'jina-embeddings-v3';
+const DEFAULT_RERANK_MODEL = 'jina-reranker-v3';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
 
 type TaskSelectionDragMode = 'select' | 'deselect';
@@ -1086,8 +1088,8 @@ export default function Home() {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_BASE_URL);
   const [modelListText, setModelListText] = useState(DEFAULT_MODEL_LIST.join('\n'));
   const [chatModel, setChatModel] = useState(DEFAULT_MODEL_LIST[0]);
-  const [embeddingModel, setEmbeddingModel] = useState('');
-  const [rerankModel, setRerankModel] = useState('');
+  const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
+  const [rerankModel, setRerankModel] = useState(DEFAULT_RERANK_MODEL);
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -1742,8 +1744,12 @@ export default function Home() {
       } else if (storedChatModel) {
         setChatModel(storedChatModel);
       }
-      if (storedEmbeddingModel) setEmbeddingModel(storedEmbeddingModel);
-      if (storedRerankModel) setRerankModel(storedRerankModel);
+      const nextEmbeddingModel = storedEmbeddingModel?.trim() || DEFAULT_EMBEDDING_MODEL;
+      const nextRerankModel = storedRerankModel?.trim() || DEFAULT_RERANK_MODEL;
+      setEmbeddingModel(nextEmbeddingModel);
+      setRerankModel(nextRerankModel);
+      localStorage.setItem(EMBEDDING_MODEL_KEY, nextEmbeddingModel);
+      localStorage.setItem(RERANK_MODEL_KEY, nextRerankModel);
       if (storedFallbackTimeout) {
         const parsed = Number(storedFallbackTimeout);
         if (Number.isFinite(parsed) && parsed > 0) {
@@ -3987,6 +3993,8 @@ const normalizeTimeoutSec = (value: number) => {
         defaultApiBaseUrl: DEFAULT_BASE_URL,
         defaultModelListText: DEFAULT_MODEL_LIST.join('\n'),
         defaultChatModel: DEFAULT_MODEL_LIST[0],
+        defaultEmbeddingModel: DEFAULT_EMBEDDING_MODEL,
+        defaultRerankModel: DEFAULT_RERANK_MODEL,
         defaultFallbackTimeoutSec: DEFAULT_FALLBACK_TIMEOUT_SEC,
         defaultAiContextLimit: DEFAULT_AI_CONTEXT_LIMIT,
         defaultAutoSyncIntervalMin: DEFAULT_AUTO_SYNC_INTERVAL_MIN,
