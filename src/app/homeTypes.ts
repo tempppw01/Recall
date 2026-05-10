@@ -97,6 +97,11 @@ export type HabitAgentItem = {
 export type AgentMessage = {
   role: 'user' | 'assistant';
   content: string;
+  knowledgeRefs?: KnowledgeReference[];
+};
+
+export type KnowledgeReference = Pick<KnowledgeEntry, 'id' | 'title' | 'content' | 'category'> & {
+  strategy?: string;
 };
 
 export type KnowledgeEntry = {
@@ -119,6 +124,7 @@ export type UserMemory = {
 export type ManageAgentMessage = {
   role: 'user' | 'assistant';
   content: string;
+  knowledgeRefs?: KnowledgeReference[];
 };
 
 export type ImageAttachment = {
@@ -136,4 +142,6 @@ export type StatusFeedback = {
   level: 'info' | 'success' | 'warning' | 'error';
   message: string;
   detail?: string;
+  actionLabel?: string;
+  onAction?: () => void;
 };

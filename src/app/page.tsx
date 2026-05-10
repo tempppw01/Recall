@@ -28,6 +28,7 @@ import type {
   HabitAgentItem,
   ImageAttachment,
   KnowledgeEntry,
+  KnowledgeReference,
   ManageAgentFilter,
   ManageAgentMessage,
   StatusFeedback,
@@ -293,6 +294,63 @@ const normalizeKnowledgeEntries = (value: unknown): KnowledgeEntry[] => {
     .filter((entry): entry is KnowledgeEntry => Boolean(entry))
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 200);
+};
+
+const normalizeKnowledgeReferences = (value: unknown): KnowledgeReference[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+
+  return value
+    .map((entry): KnowledgeReference | null => {
+      const source = entry as Partial<KnowledgeReference> | null | undefined;
+      const id = typeof source?.id === 'string' ? source.id.trim() : '';
+      const title = typeof source?.title === 'string' ? source.title.trim() : '';
+      const content = typeof source?.content === 'string' ? source.content.trim() : '';
+      if (!id || !title || !content || seen.has(id)) return null;
+      seen.add(id);
+      const reference: KnowledgeReference = {
+        id,
+        title: title.slice(0, 80),
+        content: content.slice(0, 360),
+        category: normalizeKnowledgeCategory(source?.category),
+      };
+      if (typeof source?.strategy === 'string') {
+        reference.strategy = source.strategy.slice(0, 40);
+      }
+      return reference;
+    })
+    .filter((entry): entry is KnowledgeReference => Boolean(entry))
+    .slice(0, 6);
+};
+
+const normalizeAgentMessageCache = (raw: unknown): AgentMessage[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((message) => (
+      message
+      && (message.role === 'user' || message.role === 'assistant')
+      && typeof message.content === 'string'
+    ))
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+      knowledgeRefs: normalizeKnowledgeReferences(message.knowledgeRefs),
+    }));
+};
+
+const normalizeManageAgentMessageCache = (raw: unknown): ManageAgentMessage[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((message) => (
+      message
+      && (message.role === 'user' || message.role === 'assistant')
+      && typeof message.content === 'string'
+    ))
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+      knowledgeRefs: normalizeKnowledgeReferences(message.knowledgeRefs),
+    }));
 };
 
 type LegacyUserMemory = {
@@ -1322,7 +1380,11 @@ export default function Home() {
   const [statusFeedback, setStatusFeedback] = useState<StatusFeedback | null>(null);
   useEffect(() => {
     if (!statusFeedback) return;
-    const timeoutMs = statusFeedback.level === 'error' || statusFeedback.level === 'warning' ? 6400 : 4200;
+    const timeoutMs = statusFeedback.actionLabel
+      ? 10000
+      : statusFeedback.level === 'error' || statusFeedback.level === 'warning'
+        ? 6400
+        : 4200;
     const timer = window.setTimeout(() => {
       setStatusFeedback((prev) => (prev?.id === statusFeedback.id ? null : prev));
     }, timeoutMs);
@@ -1849,14 +1911,7 @@ export default function Home() {
       const storedAgentMessages = localStorage.getItem(AGENT_MESSAGES_KEY);
       if (storedAgentMessages) {
         try {
-          const parsed = JSON.parse(storedAgentMessages) as AgentMessage[];
-          if (Array.isArray(parsed)) {
-            setAgentMessages(
-              parsed
-                .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-                .slice(-nextStoredAiContextLimit),
-            );
-          }
+          setAgentMessages(normalizeAgentMessageCache(JSON.parse(storedAgentMessages)).slice(-nextStoredAiContextLimit));
         } catch (error) {
           console.error('Invalid agent messages cache', error);
         }
@@ -1865,28 +1920,14 @@ export default function Home() {
       const storedManageAgentMessages = localStorage.getItem(MANAGE_AGENT_MESSAGES_KEY);
       if (storedManageAgentMessages) {
         try {
-          const parsed = JSON.parse(storedManageAgentMessages) as ManageAgentMessage[];
-          if (Array.isArray(parsed)) {
-            setManageAgentMessages(
-              parsed
-                .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-                .slice(-nextStoredAiContextLimit),
-            );
-          }
+          setManageAgentMessages(normalizeManageAgentMessageCache(JSON.parse(storedManageAgentMessages)).slice(-nextStoredAiContextLimit));
         } catch (error) {
           console.error('Invalid manage-agent messages cache', error);
         }
       }
       if (storedCasualChatMessages) {
         try {
-          const parsed = JSON.parse(storedCasualChatMessages) as AgentMessage[];
-          if (Array.isArray(parsed)) {
-            setCasualChatMessages(
-              parsed
-                .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-                .slice(-nextStoredAiContextLimit),
-            );
-          }
+          setCasualChatMessages(normalizeAgentMessageCache(JSON.parse(storedCasualChatMessages)).slice(-nextStoredAiContextLimit));
         } catch (error) {
           console.error('Invalid casual chat messages cache', error);
         }
@@ -3032,14 +3073,32 @@ const normalizeTimeoutSec = (value: number) => {
       return dedupedAdditions.length > 0 ? normalizeKnowledgeEntries([...dedupedAdditions, ...prev]) : prev;
     });
 
+    const additionIds = new Set(additions.map((entry) => entry.id));
+    const noticeId = createId();
     pushLog('success', '已自动沉淀知识', `新增 ${additions.length} 条到知识库`, { silentFeedback: true });
+    setStatusFeedback({
+      id: noticeId,
+      level: 'success',
+      message: '已自动沉淀知识',
+      detail: `新增 ${additions.length} 条到知识库，可在 10 秒内撤销。`,
+      actionLabel: '撤销',
+      onAction: () => {
+        setKnowledgeEntries((prev) => prev.filter((entry) => !additionIds.has(entry.id)));
+        setStatusFeedback({
+          id: createId(),
+          level: 'info',
+          message: '已撤销知识沉淀',
+          detail: `已移除 ${additions.length} 条刚新增的知识。`,
+        });
+      },
+    });
   };
 
   const applyModelLearningUpdates = (data: any) => {
     applyModelKnowledgeUpdates(data?.knowledgeUpdates, data?.memoryUpdates);
   };
 
-  const getRelevantKnowledgeEntries = (query: string, limit = 6, fallbackToRecent = true) => {
+  const getLocalRelevantKnowledgeEntries = (query: string, limit = 6, fallbackToRecent = true) => {
     const relevantEntries = knowledgeEntries
       .map((entry) => ({ entry, score: scoreKnowledgeEntry(entry, query) }))
       .filter((item) => item.score > 0)
@@ -3050,6 +3109,63 @@ const normalizeTimeoutSec = (value: number) => {
     return relevantEntries.length > 0 || !fallbackToRecent ? relevantEntries : knowledgeEntries.slice(0, limit);
   };
 
+  const getRelevantKnowledgeEntries = getLocalRelevantKnowledgeEntries;
+
+  const buildKnowledgeReferences = (entries: KnowledgeEntry[], strategy?: string): KnowledgeReference[] => (
+    entries.map((entry) => ({
+      id: entry.id,
+      title: entry.title,
+      content: entry.content,
+      category: entry.category,
+      strategy,
+    })).slice(0, 6)
+  );
+
+  const retrieveKnowledgeEntries = async (query: string, limit = 6, fallbackToRecent = true) => {
+    const localEntries = getLocalRelevantKnowledgeEntries(query, limit, fallbackToRecent);
+    if (!query.trim() || knowledgeEntries.length === 0 || (!embeddingModel.trim() && !rerankModel.trim())) {
+      return { entries: localEntries, strategy: 'local' };
+    }
+
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'knowledge-retrieve',
+          input: query,
+          knowledge: knowledgeEntries.slice(0, 200),
+          ...(apiKey ? { apiKey } : {}),
+          apiBaseUrl: apiBaseUrl?.trim() || undefined,
+          embeddingModel: embeddingModel?.trim() || undefined,
+          rerankModel: rerankModel?.trim() || undefined,
+          contextLimit: limit,
+        }),
+      });
+      if (!res.ok) throw new Error(`knowledge retrieve failed: ${res.status}`);
+      const data = await readAiResponseBody(res);
+      const ids = Array.isArray(data?.knowledge)
+        ? data.knowledge
+            .map((entry: any) => (typeof entry?.id === 'string' ? entry.id : ''))
+            .filter(Boolean)
+        : [];
+      const selected = ids
+        .map((id: string) => knowledgeEntries.find((entry) => entry.id === id))
+        .filter((entry: KnowledgeEntry | undefined): entry is KnowledgeEntry => Boolean(entry))
+        .slice(0, limit);
+      if (selected.length > 0) {
+        return {
+          entries: selected,
+          strategy: typeof data?.strategy === 'string' ? data.strategy : 'model',
+        };
+      }
+    } catch (error) {
+      console.warn('Knowledge retrieval fallback:', error);
+    }
+
+    return { entries: localEntries, strategy: 'local-fallback' };
+  };
+
   const handleAgentSend = async () => {
     if (agentLoading) return;
     const imagePayload = agentImages.map((image) => image.dataUrl);
@@ -3057,7 +3173,6 @@ const normalizeTimeoutSec = (value: number) => {
     const content = agentInput.trim() || (hasApiKey && imagePayload.length === 0 ? agentInputPlaceholder.trim() : '');
     if (agentLoading || (!content && imagePayload.length === 0)) return;
 
-    const relevantKnowledge = getRelevantKnowledgeEntries(content);
     setAgentInput('');
     setAgentImages([]);
     pushLog('info', 'todo-agent 请求发送', content, { silentFeedback: true });
@@ -3072,6 +3187,8 @@ const normalizeTimeoutSec = (value: number) => {
 
     try {
       setAgentError(null);
+      const knowledgeRetrieval = await retrieveKnowledgeEntries(content);
+      const relevantKnowledge = knowledgeRetrieval.entries;
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3149,7 +3266,11 @@ const normalizeTimeoutSec = (value: number) => {
             .filter((tip: string) => tip.length > 0)
             .slice(0, 4)
         : [];
-      setAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+      setAgentMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: replyText,
+        knowledgeRefs: buildKnowledgeReferences(relevantKnowledge, knowledgeRetrieval.strategy),
+      }]);
       setAgentDecisions(nextDecisions);
       setAgentItems(nextItems);
       setAgentGuidance(nextGuidance);
@@ -3228,13 +3349,14 @@ const normalizeTimeoutSec = (value: number) => {
     const content = manageAgentInput.trim() || (hasApiKey ? manageAgentInputPlaceholder.trim() : '');
     if (manageAgentLoading || !content) return;
 
-    const relevantKnowledge = getRelevantKnowledgeEntries(content);
     setManageAgentInput('');
     setManageAgentLoading(true);
     setManageAgentError(null);
     setManageAgentMessages((prev) => [...prev, { role: 'user', content }]);
 
     try {
+      const knowledgeRetrieval = await retrieveKnowledgeEntries(content);
+      const relevantKnowledge = knowledgeRetrieval.entries;
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3264,7 +3386,11 @@ const normalizeTimeoutSec = (value: number) => {
       }
       applyModelLearningUpdates(data);
       const replyText = typeof data?.reply === 'string' ? data.reply : '已生成建议。';
-      setManageAgentMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+      setManageAgentMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: replyText,
+        knowledgeRefs: buildKnowledgeReferences(relevantKnowledge, knowledgeRetrieval.strategy),
+      }]);
       const recs = Array.isArray(data?.recommendations) ? data.recommendations : [];
       setManageRecommendations(
         recs.map((r: any) => {
@@ -3301,13 +3427,14 @@ const normalizeTimeoutSec = (value: number) => {
     const content = casualChatInput.trim();
     if (!content) return;
 
-    const relevantKnowledge = getRelevantKnowledgeEntries(content);
     setCasualChatInput('');
     setCasualChatLoading(true);
     setCasualChatError(null);
     setCasualChatMessages((prev) => [...prev, { role: 'user', content }]);
 
     try {
+      const knowledgeRetrieval = await retrieveKnowledgeEntries(content);
+      const relevantKnowledge = knowledgeRetrieval.entries;
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3340,7 +3467,11 @@ const normalizeTimeoutSec = (value: number) => {
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我在，继续说。';
-      setCasualChatMessages((prev) => [...prev, { role: 'assistant', content: replyText }]);
+      setCasualChatMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: replyText,
+        knowledgeRefs: buildKnowledgeReferences(relevantKnowledge, knowledgeRetrieval.strategy),
+      }]);
     } catch (error) {
       const message = formatAiRequestError(error, '随便聊聊暂时没有响应，请稍后重试');
       setCasualChatInput(content);
@@ -5232,6 +5363,40 @@ const normalizeTimeoutSec = (value: number) => {
     ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40, false)
     : knowledgeEntries;
   const canSendCasualChat = hasApiKey && !casualChatLoading && Boolean(casualChatInput.trim());
+  const renderKnowledgeReferences = (refs?: KnowledgeReference[]) => {
+    const normalizedRefs = normalizeKnowledgeReferences(refs);
+    if (normalizedRefs.length === 0) return null;
+    const strategyLabel = normalizedRefs[0]?.strategy?.includes('rerank')
+      ? '重排序'
+      : normalizedRefs[0]?.strategy?.includes('embedding')
+        ? '语义检索'
+        : '本地检索';
+
+    return (
+      <div className="mt-2 border-t border-cyan-400/10 pt-2">
+        <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-muted)]">
+          已提供给 AI 参考 · {strategyLabel} · {normalizedRefs.length} 条
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {normalizedRefs.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => {
+                setKnowledgeSearchInput(entry.title);
+                setActiveFilter('knowledge');
+              }}
+              className="max-w-full rounded-full border border-cyan-300/25 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-[color:var(--ui-text-primary)] transition-colors hover:bg-cyan-400/16 hover:text-[color:var(--ui-text-strong)]"
+              title={entry.content}
+            >
+              <span className="mr-1 text-[color:var(--ui-text-muted)]">{KNOWLEDGE_CATEGORY_LABELS[entry.category]}</span>
+              <span className="inline-block max-w-[14rem] truncate align-bottom">{entry.title}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
@@ -5267,6 +5432,15 @@ const normalizeTimeoutSec = (value: number) => {
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {statusFeedback.actionLabel && statusFeedback.onAction && (
+                  <button
+                    type="button"
+                    onClick={statusFeedback.onAction}
+                    className="ui-chip text-[11px] rounded-md px-2 py-1 ui-state-hover ui-state-press"
+                  >
+                    {statusFeedback.actionLabel}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowLogs(true)}
@@ -6289,7 +6463,8 @@ const normalizeTimeoutSec = (value: number) => {
                                     : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
-                                {message.content}
+                                <div className="whitespace-pre-wrap">{message.content}</div>
+                                {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
                               </div>
                             </div>
                           ))}
@@ -6523,6 +6698,7 @@ const normalizeTimeoutSec = (value: number) => {
                                   }`}
                                 >
                                   <div className="whitespace-pre-wrap">{message.content}</div>
+                                  {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
                                   {referencedTasks.length > 0 && (
                                     <div className="mt-2 flex flex-wrap gap-2 border-t border-cyan-400/10 pt-2">
                                       {referencedTasks.map((task) => (
@@ -7024,7 +7200,8 @@ const normalizeTimeoutSec = (value: number) => {
                                 : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                             }`}
                           >
-                            {message.content}
+                            <div className="whitespace-pre-wrap">{message.content}</div>
+                            {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
                           </div>
                         </div>
                       ))

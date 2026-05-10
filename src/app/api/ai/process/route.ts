@@ -42,6 +42,20 @@ const buildChatCompletionsUrl = (base: string) => {
   return `${trimmed}/v1/chat/completions`;
 };
 
+const buildEmbeddingsUrl = (base: string) => {
+  const trimmed = base.replace(/\/$/, '');
+  if (trimmed.endsWith('/embeddings')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/embeddings`;
+  return `${trimmed}/v1/embeddings`;
+};
+
+const buildRerankUrl = (base: string) => {
+  const trimmed = base.replace(/\/$/, '');
+  if (trimmed.endsWith('/rerank')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/rerank`;
+  return `${trimmed}/v1/rerank`;
+};
+
 /** 构建 API 端点列表（用户指定的优先，然后是默认备用） */
 const resolveBaseUrlList = (primary?: string) => {
   const list = [primary, ...DEFAULT_BASE_URLS].filter(Boolean) as string[];
@@ -224,6 +238,50 @@ async function requestChat(baseUrls: string[], apiKey: string | undefined, paylo
     }
   }
   throw new Error(`Chat completion failed: ${errors.join(' | ') || 'all endpoints failed'}`);
+}
+
+async function requestEmbeddings(baseUrls: string[], apiKey: string | undefined, payload: any) {
+  const errors: string[] = [];
+  for (const base of baseUrls) {
+    const url = process.env.OPENAI_EMBEDDINGS_URL || buildEmbeddingsUrl(base);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) return { res, url };
+      errors.push(`${url} -> ${res.status} ${await res.text()}`);
+    } catch (err) {
+      errors.push(`${url} -> ${(err as Error).message}`);
+    }
+  }
+  throw new Error(`Embeddings failed: ${errors.join(' | ') || 'all endpoints failed'}`);
+}
+
+async function requestRerank(baseUrls: string[], apiKey: string | undefined, payload: any) {
+  const errors: string[] = [];
+  for (const base of baseUrls) {
+    const url = process.env.JINA_RERANK_URL || process.env.OPENAI_RERANK_URL || buildRerankUrl(base);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey || process.env.OPENAI_API_KEY || 'sk-placeholder'}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) return { res, url };
+      errors.push(`${url} -> ${res.status} ${await res.text()}`);
+    } catch (err) {
+      errors.push(`${url} -> ${(err as Error).message}`);
+    }
+  }
+  throw new Error(`Rerank failed: ${errors.join(' | ') || 'all endpoints failed'}`);
 }
 
 /** 将 AI 处理异常转换为前端可展示、可排查的错误信息 */
@@ -954,7 +1012,7 @@ function normalizeTodoAgentTasks(tasks: any[], contextLimit: unknown = DEFAULT_A
     .slice(0, normalizeAiContextLimit(contextLimit));
 }
 
-function normalizeKnowledgeContext(knowledge: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT) {
+function normalizeKnowledgeContext(knowledge: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT, maxEntries = 10) {
   return (Array.isArray(knowledge) ? knowledge : [])
     .map((entry) => {
       const title = typeof entry?.title === 'string' ? entry.title.trim() : '';
@@ -969,7 +1027,30 @@ function normalizeKnowledgeContext(knowledge: any[], contextLimit: unknown = DEF
       };
     })
     .filter(Boolean)
-    .slice(0, Math.min(10, normalizeAiContextLimit(contextLimit)));
+    .slice(0, Math.min(maxEntries, Math.max(1, normalizeAiContextLimit(contextLimit) * 20)));
+}
+
+function cosineSimilarity(a: number[], b: number[]) {
+  const length = Math.min(a.length, b.length);
+  if (length === 0) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let index = 0; index < length; index += 1) {
+    const av = Number(a[index]) || 0;
+    const bv = Number(b[index]) || 0;
+    dot += av * bv;
+    normA += av * av;
+    normB += bv * bv;
+  }
+  if (normA <= 0 || normB <= 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function normalizeEmbeddingVector(value: unknown): number[] {
+  return Array.isArray(value)
+    ? value.map((item) => Number(item)).filter((item) => Number.isFinite(item))
+    : [];
 }
 
 function normalizeChatHistory(history: any[], contextLimit: unknown = DEFAULT_AI_CONTEXT_LIMIT) {
@@ -1263,6 +1344,69 @@ export async function POST(req: NextRequest) {
       role: msg.role,
       content: msg.content,
     }));
+
+    if (mode === 'knowledge-retrieve') {
+      const limit = Math.max(1, Math.min(12, effectiveContextLimit));
+      const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], 10, 200);
+      if (incomingKnowledge.length === 0) {
+        return NextResponse.json({ knowledge: [], strategy: 'empty' });
+      }
+
+      const documents = incomingKnowledge.map((entry: any) => `${entry.title}\n${entry.content}`);
+      const resolvedRerankModel = typeof rerankModel === 'string' && rerankModel.trim() ? rerankModel.trim() : '';
+      const resolvedEmbeddingModel = typeof embeddingModel === 'string' && embeddingModel.trim() ? embeddingModel.trim() : '';
+
+      if (resolvedRerankModel) {
+        try {
+          const { res: rerankRes } = await requestRerank(baseUrlList, apiKey, {
+            model: resolvedRerankModel,
+            query: normalizedInput,
+            documents,
+            top_n: limit,
+          });
+          const rerankJson = await rerankRes.json();
+          const ranked = Array.isArray(rerankJson?.results)
+            ? rerankJson.results
+                .map((item: any) => {
+                  const index = Number.isFinite(Number(item?.index)) ? Number(item.index) : -1;
+                  return index >= 0 && incomingKnowledge[index]
+                    ? { ...incomingKnowledge[index], relevanceScore: Number(item?.relevance_score ?? item?.score ?? 0) || 0 }
+                    : null;
+                })
+                .filter(Boolean)
+                .slice(0, limit)
+            : [];
+          if (ranked.length > 0) {
+            return NextResponse.json({ knowledge: ranked, strategy: 'rerank' });
+          }
+        } catch (error) {
+          console.warn('Knowledge rerank failed, trying embeddings:', error);
+        }
+      }
+
+      if (resolvedEmbeddingModel) {
+        const { res: embeddingRes } = await requestEmbeddings(baseUrlList, apiKey, {
+          model: resolvedEmbeddingModel,
+          input: [normalizedInput, ...documents],
+        });
+        const embeddingJson = await embeddingRes.json();
+        const vectors = Array.isArray(embeddingJson?.data)
+          ? embeddingJson.data.map((item: any) => normalizeEmbeddingVector(item?.embedding))
+          : [];
+        const queryVector = vectors[0] || [];
+        const ranked = incomingKnowledge
+          .map((entry: any, index: number) => ({
+            ...entry,
+            relevanceScore: cosineSimilarity(queryVector, vectors[index + 1] || []),
+          }))
+          .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore)
+          .slice(0, limit);
+        return NextResponse.json({ knowledge: ranked, strategy: 'embedding' });
+      }
+
+      return NextResponse.json({ knowledge: incomingKnowledge.slice(0, limit), strategy: 'local' });
+    }
+
     if (mode === 'organize') {
       // 一键整理：传入任务数组，返回整理后的任务数组（保留 id）
       const payload = typeof normalizedInput === 'string'
