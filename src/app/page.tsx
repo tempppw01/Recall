@@ -1510,6 +1510,8 @@ export default function Home() {
   const [casualChatInput, setCasualChatInput] = useState('');
   const [casualChatLoading, setCasualChatLoading] = useState(false);
   const [casualChatError, setCasualChatError] = useState<string | null>(null);
+  const casualChatAbortControllerRef = useRef<AbortController | null>(null);
+  const casualChatQueuedSendRef = useRef<{ content: string; history: AgentMessage[] } | null>(null);
   const casualChatConversationEndRef = useRef<HTMLDivElement | null>(null);
   const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([]);
   const [knowledgeTitleInput, setKnowledgeTitleInput] = useState('');
@@ -3542,6 +3544,7 @@ const normalizeTimeoutSec = (value: number) => {
   };
 
   const clearCasualChatContext = () => {
+    casualChatQueuedSendRef.current = null;
     setCasualChatMessages([]);
     setCasualChatInput('');
     setCasualChatError(null);
@@ -3553,16 +3556,22 @@ const normalizeTimeoutSec = (value: number) => {
     });
   };
 
-  const handleCasualChatSend = async (contentOverride?: string, historyOverride?: AgentMessage[]) => {
-    if (casualChatLoading) return;
-    const content = (contentOverride ?? casualChatInput).trim();
-    if (!content) return;
-    const requestHistory = historyOverride ?? casualChatMessages;
+  const handleCancelCasualChatSend = (nextRequest?: { content: string; history: AgentMessage[] }) => {
+    casualChatQueuedSendRef.current = nextRequest ?? null;
+    const controller = casualChatAbortControllerRef.current;
+    if (!controller) return;
+    controller.abort();
+    casualChatAbortControllerRef.current = null;
+  };
 
-    if (typeof contentOverride !== 'string') setCasualChatInput('');
+  const runCasualChatSend = async (content: string, requestHistory: AgentMessage[]) => {
+    setCasualChatInput('');
     setCasualChatLoading(true);
     setCasualChatError(null);
     setCasualChatMessages((prev) => [...prev, { role: 'user', content }]);
+
+    const controller = new AbortController();
+    casualChatAbortControllerRef.current = controller;
 
     try {
       const knowledgeRetrieval = await retrieveKnowledgeEntries(content);
@@ -3570,6 +3579,7 @@ const normalizeTimeoutSec = (value: number) => {
       const res = await fetch('/api/ai/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           mode: 'casual-chat',
           input: content,
@@ -3605,12 +3615,43 @@ const normalizeTimeoutSec = (value: number) => {
         knowledgeRefs: buildKnowledgeReferences(relevantKnowledge, knowledgeRetrieval.strategy),
       }]);
     } catch (error) {
+      if ((error as any)?.name === 'AbortError') {
+        if (!casualChatQueuedSendRef.current) {
+          pushLog('info', '随便聊聊已停止', '已取消本次回答，你可以继续追问或换个说法', { silentFeedback: true });
+        }
+        return;
+      }
       const message = formatAiRequestError(error, '随便聊聊暂时没有响应，请稍后重试');
       setCasualChatInput(content);
       setCasualChatError(message);
     } finally {
+      if (casualChatAbortControllerRef.current === controller) {
+        casualChatAbortControllerRef.current = null;
+      }
       setCasualChatLoading(false);
+      const queuedRequest = casualChatQueuedSendRef.current;
+      if (queuedRequest) {
+        casualChatQueuedSendRef.current = null;
+        void runCasualChatSend(queuedRequest.content, queuedRequest.history);
+      }
     }
+  };
+
+  const handleCasualChatSend = (contentOverride?: string, historyOverride?: AgentMessage[]) => {
+    const content = (contentOverride ?? casualChatInput).trim();
+    const requestHistory = historyOverride ?? casualChatMessages;
+
+    if (casualChatLoading) {
+      if (!content) {
+        handleCancelCasualChatSend();
+      } else {
+        handleCancelCasualChatSend({ content, history: requestHistory });
+      }
+      return;
+    }
+
+    if (!content) return;
+    void runCasualChatSend(content, requestHistory);
   };
 
   const retryCasualChatFrom = (assistantIndex: number) => {
@@ -5509,7 +5550,10 @@ const normalizeTimeoutSec = (value: number) => {
   const visibleKnowledgeEntries = knowledgeSearchInput.trim()
     ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40, false)
     : knowledgeEntries;
-  const canSendCasualChat = hasApiKey && !casualChatLoading && Boolean(casualChatInput.trim());
+  const canSendCasualChat = hasApiKey && (casualChatLoading || Boolean(casualChatInput.trim()));
+  const casualChatActionLabel = casualChatLoading
+    ? (casualChatInput.trim() ? '发送打断' : '中断')
+    : '发送';
   const casualKnowledgePreviewQuery = casualChatInput || casualChatMessages.at(-1)?.content || '';
   const casualKnowledgePreviewEntries = getRelevantKnowledgeEntries(casualKnowledgePreviewQuery, 5, false);
   const renderCasualKnowledgePreview = () => (
@@ -7439,16 +7483,20 @@ const normalizeTimeoutSec = (value: number) => {
                         }
                       }}
                       placeholder={casualChatPlaceholder}
-                      disabled={!hasApiKey || casualChatLoading}
+                      disabled={!hasApiKey}
                       className="ui-input min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm"
                     />
                     <button
                       type="button"
                       onClick={() => handleCasualChatSend()}
                       disabled={!canSendCasualChat}
-                      className="rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50"
+                      className={`rounded-2xl px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50 ${
+                        casualChatLoading
+                          ? 'bg-gradient-to-r from-amber-500 to-rose-500'
+                          : 'bg-gradient-to-r from-sky-500 to-blue-600'
+                      }`}
                     >
-                      {casualChatLoading ? '思考中…' : '发送'}
+                      {casualChatActionLabel}
                     </button>
                   </div>
                 </div>
