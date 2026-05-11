@@ -5586,22 +5586,14 @@ const normalizeTimeoutSec = (value: number) => {
         <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-muted)]">
           已提供给 AI 参考 · {strategyLabel} · {normalizedRefs.length} 条
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {normalizedRefs.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              onClick={() => {
-                setKnowledgeSearchInput(entry.title);
-                setActiveFilter('knowledge');
-              }}
-              className="max-w-full rounded-full border border-cyan-300/25 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-[color:var(--ui-text-primary)] transition-colors hover:bg-cyan-400/16 hover:text-[color:var(--ui-text-strong)]"
-              title={entry.content}
-            >
-              <span className="mr-1 text-[color:var(--ui-text-muted)]">{KNOWLEDGE_CATEGORY_LABELS[entry.category]}</span>
-              <span className="inline-block max-w-[14rem] truncate align-bottom">{entry.title}</span>
-            </button>
-          ))}
+        <div className="mt-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveFilter('knowledge')}
+            className="inline-flex items-center rounded-full border border-cyan-300/18 bg-cyan-400/8 px-2 py-0.5 text-[10px] text-cyan-200 transition-colors hover:bg-cyan-400/14 hover:text-cyan-100"
+          >
+            查看
+          </button>
         </div>
       </div>
     );
