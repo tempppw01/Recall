@@ -5595,7 +5595,9 @@ const normalizeTimeoutSec = (value: number) => {
     : activeFilter === 'knowledge'
     ? '统一管理偏好、习惯、背景信息和做过的事，供所有 AI 功能调用'
     : activeFilter === 'agent'
-    ? ''
+    ? (aiAssistantMode === 'record'
+      ? '先说目标或想法，我会帮你整理、拆解并推进下一步'
+      : '直接基于当前待办给出最值得推进的下一步')
     : activeFilter === 'completed'
     ? '查看已经完成的事项，顺手清理历史任务'
     : activeFilter === 'category'
@@ -5603,6 +5605,7 @@ const normalizeTimeoutSec = (value: number) => {
     : activeFilter === 'tag'
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
+  const isFixedPanelView = activeFilter === 'agent' || activeFilter === 'chat';
   const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'chat', 'knowledge', 'review', 'items'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
@@ -5879,7 +5882,7 @@ const normalizeTimeoutSec = (value: number) => {
         onPointerDownCapture={handleTaskSelectionPointerDownCapture}
         onClickCapture={handleTaskSelectionClickCapture}
         className={`theme-native-surface relative flex flex-1 flex-col min-w-0 ${
-          activeFilter === 'quadrant'
+          activeFilter === 'quadrant' || isFixedPanelView
             ? 'overflow-hidden overscroll-none'
             : 'overflow-y-auto mobile-scroll'
         } bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
@@ -5892,6 +5895,7 @@ const normalizeTimeoutSec = (value: number) => {
         <PageTopBar
           activeFilter={activeFilter}
           headerTitle={headerTitle}
+          headerSubtitle={headerSubtitle}
           isListView={isListView}
           isBatchMode={isBatchMode}
           completedTasks={completedTasks}
@@ -5942,19 +5946,19 @@ const normalizeTimeoutSec = (value: number) => {
         )}
 
         <div className={`relative flex-1 w-full max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10 ${
-          activeFilter === 'agent'
+          isFixedPanelView
             ? 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4'
             : isListView
               ? 'pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-28'
-            : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'
+              : 'pb-[calc(2.25rem+env(safe-area-inset-bottom))] sm:pb-10'
         } ${
-          activeFilter === 'agent'
+          isFixedPanelView
             ? 'pt-2 sm:pt-3'
             : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'items'].includes(activeFilter)
               ? 'pt-5 sm:pt-6'
               : 'pt-4 sm:pt-5'
         } ${
-          activeFilter === 'quadrant' ? 'min-h-0 overflow-hidden flex flex-col' : ''
+          activeFilter === 'quadrant' || isFixedPanelView ? 'min-h-0 overflow-hidden flex flex-col' : ''
         }`}>
           {activeFilter === 'calendar' ? (
             <div className={`${calendarView === 'day' ? 'gap-3 sm:gap-4' : 'stack-gap'} flex flex-col`}>
@@ -6877,11 +6881,10 @@ const normalizeTimeoutSec = (value: number) => {
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
-            <div className="theme-native-surface h-[calc(100dvh-8rem)] min-h-[420px]">
-              <div className="h-full rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(135deg,rgba(var(--theme-grad-start),0.14),rgba(var(--theme-grad-end),0.07),rgba(var(--theme-accent),0.10))] p-[1px] shadow-[0_18px_48px_rgba(15,23,42,0.10)]">
-                <div className="h-full rounded-[27px] p-4 flex flex-col bg-[linear-gradient(180deg,var(--ui-surface-1),var(--ui-surface-0))] shadow-[0_0_0_1px_rgba(59,130,246,0.05)]">
+            <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
+              <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
                 <div className="flex justify-end">
-                  <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-1.5">
+                  <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(10,14,22,0.56)] px-2.5 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl">
                     <button
                       type="button"
                       onClick={() => setActiveFilter('knowledge')}
@@ -6927,7 +6930,8 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
                 </div>
 
-                <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[28px] bg-[linear-gradient(180deg,rgba(15,23,42,0.14),rgba(15,23,42,0.03))] px-1 py-1.5 pr-1 sm:px-2">
                   {aiAssistantMode === 'record' ? (
                     <>
                       <div className="order-2 space-y-2">
@@ -6963,7 +6967,7 @@ const normalizeTimeoutSec = (value: number) => {
                               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
                               <div
-                                className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm break-words [overflow-wrap:anywhere] ${
+                                className={`w-fit max-w-[min(100%,42rem)] rounded-2xl px-3 py-2 text-sm break-words [overflow-wrap:anywhere] ${
                                   message.role === 'user'
                                     ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
                                     : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
@@ -7115,12 +7119,7 @@ const normalizeTimeoutSec = (value: number) => {
                     </>
                   ) : (
                     <>
-                      <div className="rounded-lg border border-[rgba(var(--theme-accent),0.16)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-[11px] text-[color:var(--ui-text-primary)]">
-                        管理助手可以读取你当前的任务列表，并给出优先级/推荐/下一步建议。
-                      </div>
-
-
-                      <div className="mt-2 inline-flex flex-wrap gap-2">
+                      <div className="inline-flex flex-wrap gap-2">
 
                         <button
 
@@ -7545,7 +7544,7 @@ const normalizeTimeoutSec = (value: number) => {
                 )}
 
                 {aiAssistantMode === 'record' && agentImages.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(10,14,22,0.5)] px-3 py-2.5 backdrop-blur-xl">
                     {agentImages.map((image) => (
                       <div
                         key={image.id}
@@ -7569,9 +7568,10 @@ const normalizeTimeoutSec = (value: number) => {
                     ))}
                   </div>
                 )}
+                  </div>
 
                 <div
-                  className="mt-3 flex flex-wrap items-center gap-2"
+                  className="flex shrink-0 flex-wrap items-center gap-2 rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[rgba(8,12,20,0.72)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4"
                   title="AI 会结合当前任务、时间占用和知识库，优先给出可直接选择的安排建议。"
                 >
                   <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
@@ -7614,13 +7614,13 @@ const normalizeTimeoutSec = (value: number) => {
                           }
                         }}
                         placeholder={agentInputPlaceholder}
-                        className="min-w-[min(14rem,100%)] flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
+                        className="min-w-[min(14rem,100%)] flex-1 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
                         disabled={!hasApiKey || agentLoading}
                       />
                       <button
                         type="button"
                         onClick={() => agentImageInputRef.current?.click()}
-                        className="rounded-lg border border-[color:var(--ui-border-soft)] p-2 text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50"
+                        className="rounded-2xl border border-[color:var(--ui-border-soft)] p-2.5 text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50"
                         title="上传图片"
                         disabled={!hasApiKey || agentLoading}
                       >
@@ -7629,7 +7629,7 @@ const normalizeTimeoutSec = (value: number) => {
                       <button
                         onClick={agentLoading ? handleCancelAgentSend : handleAgentSend}
                         disabled={agentLoading ? false : !canSendAgentPrompt}
-                        className={`px-3 py-2 text-sm text-white rounded-lg disabled:opacity-50 ${
+                        className={`rounded-2xl px-4 py-3 text-sm text-white disabled:opacity-50 ${
                           agentLoading
                             ? 'bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400'
                             : 'bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500'
@@ -7651,13 +7651,13 @@ const normalizeTimeoutSec = (value: number) => {
                           }
                         }}
                         placeholder={manageAgentInputPlaceholder}
-                        className="min-w-[min(14rem,100%)] flex-1 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
+                        className="min-w-[min(14rem,100%)] flex-1 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-3 text-sm leading-6 text-[color:var(--ui-text-primary)] focus:border-violet-400 focus:outline-none disabled:opacity-60"
                         disabled={!hasApiKey || manageAgentLoading}
                       />
                       <button
                         onClick={handleManageAgentSend}
                         disabled={!canSendManageAgentPrompt}
-                        className="px-3 py-2 text-sm bg-gradient-to-r from-violet-600 to-blue-600 text-white rounded-lg hover:from-violet-500 hover:to-blue-500 disabled:opacity-50"
+                        className="rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-3 text-sm text-white hover:from-violet-500 hover:to-blue-500 disabled:opacity-50"
                       >
                         {manageAgentLoading ? '分析中…' : '发送'}
                       </button>
@@ -7666,21 +7666,15 @@ const normalizeTimeoutSec = (value: number) => {
                 </div>
               </div>
             </div>
-          </div>
           ) : activeFilter === 'chat' ? (
-            <div className="theme-native-surface grid min-h-[520px] gap-4">
-              <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
-                      <MessageCircle className="h-4 w-4 text-sky-400" />
-                      <span>随便聊聊</span>
-                    </div>
-                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
-                      命中知识库时先参考资料；没有相关资料就按普通对话回答。
-                    </p>
+            <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
+              <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2.5 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(10,14,22,0.48)] px-3 py-2.5 backdrop-blur-xl">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
+                    <MessageCircle className="h-3.5 w-3.5 shrink-0 text-sky-400" />
+                    <span className="truncate">普通对话为主，相关时自动参考知识库。</span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
                     <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
                       自动沉淀 · 知识 {knowledgeEntries.length}
                     </span>
@@ -7697,8 +7691,8 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
                 </div>
 
-                <div className="flex h-[calc(100dvh-18rem)] min-h-[360px] flex-col">
-                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-[28px] bg-[linear-gradient(180deg,rgba(15,23,42,0.14),rgba(15,23,42,0.03))] px-1 py-1.5 sm:px-2">
                     {!hasApiKey ? (
                       <button
                         type="button"
@@ -7720,7 +7714,7 @@ const normalizeTimeoutSec = (value: number) => {
                       casualChatMessages.map((message, index) => (
                         <div key={`${message.role}-${index}`} className={`group/message flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div
-                            className={`max-w-[86%] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
+                            className={`w-fit max-w-[min(100%,42rem)] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
                               message.role === 'user'
                                 ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
                                 : message.variant === 'error'
@@ -7767,7 +7761,7 @@ const normalizeTimeoutSec = (value: number) => {
                     <div ref={casualChatConversationEndRef} aria-hidden="true" />
                   </div>
 
-                  <div className="mt-3 space-y-2">
+                  <div className="shrink-0 space-y-2 rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[rgba(8,12,20,0.72)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4">
                     <div className="flex items-center justify-between gap-2 px-1">
                       <div className="min-w-0 flex items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
                         <Library className="h-3.5 w-3.5 shrink-0 text-amber-400" />
