@@ -12,6 +12,7 @@
 
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
+import { filterOutOnboardingTasks } from '@/lib/onboardingTasks';
 
 // ─── 类型定义 ───────────────────────────────────────────────
 
@@ -317,8 +318,8 @@ const mergeSyncPayload = (
   incomingMeta?: SyncMeta | null,
 ) => {
   // 规范化并合并三类列表数据
-  const currentTasks = ensureUpdatedAt(normalizeList(resolvePayloadItems(existingPayload, 'tasks')));
-  const incomingTasks = ensureUpdatedAt(normalizeList(resolvePayloadItems(incomingPayload, 'tasks')));
+  const currentTasks = ensureUpdatedAt(filterOutOnboardingTasks(normalizeList(resolvePayloadItems(existingPayload, 'tasks'))));
+  const incomingTasks = ensureUpdatedAt(filterOutOnboardingTasks(normalizeList(resolvePayloadItems(incomingPayload, 'tasks'))));
   const currentHabits = ensureUpdatedAt(normalizeList(resolvePayloadItems(existingPayload, 'habits')));
   const incomingHabits = ensureUpdatedAt(normalizeList(resolvePayloadItems(incomingPayload, 'habits')));
   const currentCountdowns = ensureUpdatedAt(normalizeList(resolvePayloadItems(existingPayload, 'countdowns')));

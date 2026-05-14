@@ -16,6 +16,7 @@ import { normalizeTaskRepeatRule } from '@/app/services/repeatRules';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
+import { DEFAULT_ONBOARDING_TASK_TITLES, filterOutOnboardingTasks } from '@/lib/onboardingTasks';
 import type {
   AgentDecision,
   AgentItem,
@@ -2098,13 +2099,7 @@ export default function Home() {
         const existingTasks = taskStore.getAll();
         if (seeded || existingTasks.length > 0) return;
         const now = new Date();
-        const seedTitles = [
-          '欢迎使用 Recall：先点左侧切换到「今日」看看',
-          '试试输入：明天下午 3 点提醒我开会',
-          '给任务加上 #标签 或 @列表，快速分类',
-          '完成后点小圆圈 ✅，感受一下流程',
-        ];
-        const seededTasks: Task[] = seedTitles.map((title, index) => {
+        const seededTasks: Task[] = DEFAULT_ONBOARDING_TASK_TITLES.map((title, index) => {
           const category = classifyCategory(title);
           return {
             id: createId(),
@@ -2123,7 +2118,7 @@ export default function Home() {
             updatedAt: now.toISOString(),
           };
         });
-        seededTasks.forEach((task) => taskStore.add(task));
+        taskStore.replaceAll(seededTasks);
         localStorage.setItem(DEFAULT_TASK_SEED_KEY, 'true');
         refreshTasks();
       };
@@ -2188,6 +2183,8 @@ export default function Home() {
     pgPassword,
     pushLog,
     taskStore,
+    sanitizeTasks: filterOutOnboardingTasks,
+    filterTaskUploadItems: filterOutOnboardingTasks,
     habitStore,
     countdownStore,
     itemStore,
@@ -4141,7 +4138,7 @@ const normalizeTimeoutSec = (value: number) => {
 
   const buildSyncPayload = () => buildSyncPayloadData({
     appVersion: APP_VERSION,
-    tasks: taskStore.getAll(),
+    tasks: filterOutOnboardingTasks(taskStore.getAll()),
     habits: habitStore.getAll(),
     countdowns: countdownStore.getAll(),
     items: itemStore.getAll(),
@@ -4338,7 +4335,7 @@ const normalizeTimeoutSec = (value: number) => {
   };
 
   const applyImportedData = (payload: any, mode: 'merge' | 'overwrite' = importMode) => {
-    const tasksImport = ensureUpdatedAt(normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks));
+    const tasksImport = ensureUpdatedAt(filterOutOnboardingTasks(normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks)));
     const habitsImport = ensureUpdatedAt(normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits));
     const countdownsImport = ensureUpdatedAt(normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns));
     const itemsImport = ensureUpdatedAt(normalizeImportList<Item>(payload?.data?.items ?? payload?.items));

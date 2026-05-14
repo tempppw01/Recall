@@ -16,6 +16,8 @@ type UsePgBootstrapSyncParams<
   pgDatabase: string;
   pgUsername: string;
   pgPassword: string;
+  sanitizeTasks?: (items: TTask[]) => TTask[];
+  filterTaskUploadItems?: (items: TTask[]) => TTask[];
   pushLog: (level: 'info' | 'success' | 'warning' | 'error', title: string, detail?: string) => void;
   taskStore: {
     getAll: () => TTask[];
@@ -76,6 +78,8 @@ export function usePgBootstrapSync<
     pgDatabase,
     pgUsername,
     pgPassword,
+    sanitizeTasks,
+    filterTaskUploadItems,
     pushLog,
     taskStore,
     habitStore,
@@ -183,14 +187,16 @@ export function usePgBootstrapSync<
           fetchAllPages<TItem>('/api/items'),
         ]);
 
+        const sanitizedRemoteTasks = sanitizeTasks ? sanitizeTasks(remoteTasks) : remoteTasks;
         const localTasks = taskStore.getAll();
-        if (remoteTasks.length === 0 && localTasks.length > 0) {
+        const uploadableLocalTasks = filterTaskUploadItems ? filterTaskUploadItems(localTasks) : localTasks;
+        if (sanitizedRemoteTasks.length === 0 && uploadableLocalTasks.length > 0) {
           pushLogRef.current('info', 'PG database is empty', 'Uploading local task data...');
-          uploadLocalCollection('/api/tasks', localTasks)
+          uploadLocalCollection('/api/tasks', uploadableLocalTasks)
             .then(() => pushLogRef.current('success', 'Local tasks synced to PG'))
             .catch((error) => pushLogRef.current('error', 'Task upload failed', String(error)));
         } else {
-          const { merged, hasChange } = mergeData(localTasks, remoteTasks);
+          const { merged, hasChange } = mergeData(localTasks, sanitizedRemoteTasks);
           if (hasChange || localTasks.length !== merged.length) {
             taskStore.replaceAll(merged);
             setTasksRef.current(merged);
@@ -232,5 +238,5 @@ export function usePgBootstrapSync<
     };
 
     void loadFromPg();
-  }, [enabled, pgHost, pgPort, pgDatabase, pgUsername, pgPassword, taskStore, habitStore, countdownStore, itemStore]);
+  }, [enabled, pgHost, pgPort, pgDatabase, pgUsername, pgPassword, sanitizeTasks, filterTaskUploadItems, taskStore, habitStore, countdownStore, itemStore]);
 }
