@@ -30,6 +30,12 @@
   --ui-card-bg: rgba(148, 163, 184, 0.045);
   --ui-card-hover-bg: rgba(148, 163, 184, 0.082);
   --ui-input-bg: rgba(7, 11, 18, 0.76);
+  --ui-conversation-strip-bg: rgba(10, 14, 22, 0.56);
+  --ui-conversation-strip-soft-bg: rgba(10, 14, 22, 0.5);
+  --ui-conversation-scroll-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0.03));
+  --ui-conversation-composer-bg: rgba(8, 12, 20, 0.72);
+  --ui-conversation-reference-pill-bg: rgba(15, 23, 42, 0.42);
+  --ui-conversation-reference-popover-bg: rgba(15, 23, 42, 0.92);
   --ui-text-strong: #f7f9ff;
   --ui-text-primary: #dce6f7;
   --ui-text-secondary: #9aa8bf;
@@ -151,6 +157,12 @@ body.theme-light .theme-native-surface {
   --ui-card-bg: rgba(255, 255, 255, 0.68);
   --ui-card-hover-bg: rgba(255, 255, 255, 0.88);
   --ui-input-bg: rgba(255, 255, 255, 0.92);
+  --ui-conversation-strip-bg: rgba(255, 255, 255, 0.84);
+  --ui-conversation-strip-soft-bg: rgba(255, 255, 255, 0.9);
+  --ui-conversation-scroll-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 255, 0.84));
+  --ui-conversation-composer-bg: rgba(255, 255, 255, 0.95);
+  --ui-conversation-reference-pill-bg: rgba(255, 255, 255, 0.88);
+  --ui-conversation-reference-popover-bg: rgba(255, 255, 255, 0.98);
   --ui-text-strong: #172033;
   --ui-text-primary: #334155;
   --ui-text-secondary: #64748b;
@@ -433,6 +445,30 @@ body.theme-light .topbar-shell {
     0 18px 54px rgba(0, 0, 0, 0.28),
     0 0 0 1px rgba(var(--theme-accent), 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+.conversation-inline-surface {
+  background: var(--ui-conversation-strip-bg);
+}
+
+.conversation-inline-surface-soft {
+  background: var(--ui-conversation-strip-soft-bg);
+}
+
+.conversation-scroll-surface {
+  background: var(--ui-conversation-scroll-bg);
+}
+
+.conversation-composer-surface {
+  background: var(--ui-conversation-composer-bg);
+}
+
+.conversation-reference-pill {
+  background: var(--ui-conversation-reference-pill-bg);
+}
+
+.conversation-reference-popover {
+  background: var(--ui-conversation-reference-popover-bg);
 }
 
 .glass-panel-soft {

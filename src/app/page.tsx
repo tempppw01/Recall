@@ -5729,7 +5729,7 @@ const normalizeTimeoutSec = (value: number) => {
         </div>
       ) : (
         casualKnowledgePreviewEntries.map((entry) => (
-          <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(15,23,42,0.78)] px-3 py-2.5 backdrop-blur">
+          <div key={entry.id} className="conversation-inline-surface-soft rounded-2xl border border-[color:var(--ui-border-soft)] px-3 py-2.5 backdrop-blur">
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
                 {KNOWLEDGE_CATEGORY_LABELS[entry.category]}
@@ -6884,7 +6884,7 @@ const normalizeTimeoutSec = (value: number) => {
             <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
               <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
                 <div className="flex justify-end">
-                  <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(10,14,22,0.56)] px-2.5 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+                  <div className="conversation-inline-surface flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl">
                     <button
                       type="button"
                       onClick={() => setActiveFilter('knowledge')}
@@ -6931,7 +6931,7 @@ const normalizeTimeoutSec = (value: number) => {
                 </div>
 
                 <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[28px] bg-[linear-gradient(180deg,rgba(15,23,42,0.14),rgba(15,23,42,0.03))] px-1 py-1.5 pr-1 sm:px-2">
+                  <div className="conversation-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[28px] px-1 py-1.5 pr-1 sm:px-2">
                   {aiAssistantMode === 'record' ? (
                     <>
                       <div className="order-2 space-y-2">
@@ -7544,7 +7544,7 @@ const normalizeTimeoutSec = (value: number) => {
                 )}
 
                 {aiAssistantMode === 'record' && agentImages.length > 0 && (
-                  <div className="flex flex-wrap gap-2 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(10,14,22,0.5)] px-3 py-2.5 backdrop-blur-xl">
+                  <div className="conversation-inline-surface-soft flex flex-wrap gap-2 rounded-[24px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 backdrop-blur-xl">
                     {agentImages.map((image) => (
                       <div
                         key={image.id}
@@ -7571,7 +7571,7 @@ const normalizeTimeoutSec = (value: number) => {
                   </div>
 
                 <div
-                  className="flex shrink-0 flex-wrap items-center gap-2 rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[rgba(8,12,20,0.72)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4"
+                  className="conversation-composer-surface flex shrink-0 flex-wrap items-center gap-2 rounded-[26px] border border-[color:var(--ui-border-soft)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4"
                   title="AI 会结合当前任务、时间占用和知识库，优先给出可直接选择的安排建议。"
                 >
                   <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
@@ -7669,7 +7669,7 @@ const normalizeTimeoutSec = (value: number) => {
           ) : activeFilter === 'chat' ? (
             <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
               <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2.5 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(10,14,22,0.48)] px-3 py-2.5 backdrop-blur-xl">
+                <div className="conversation-inline-surface flex flex-wrap items-center gap-2.5 rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 backdrop-blur-xl">
                   <div className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
                     <MessageCircle className="h-3.5 w-3.5 shrink-0 text-sky-400" />
                     <span className="truncate">普通对话为主，相关时自动参考知识库。</span>
@@ -7692,7 +7692,7 @@ const normalizeTimeoutSec = (value: number) => {
                 </div>
 
                 <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-[28px] bg-[linear-gradient(180deg,rgba(15,23,42,0.14),rgba(15,23,42,0.03))] px-1 py-1.5 sm:px-2">
+                  <div className="conversation-scroll-surface min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-[28px] px-1 py-1.5 sm:px-2">
                     {!hasApiKey ? (
                       <button
                         type="button"
@@ -7761,7 +7761,7 @@ const normalizeTimeoutSec = (value: number) => {
                     <div ref={casualChatConversationEndRef} aria-hidden="true" />
                   </div>
 
-                  <div className="shrink-0 space-y-2 rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[rgba(8,12,20,0.72)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4">
+                  <div className="conversation-composer-surface shrink-0 space-y-2 rounded-[26px] border border-[color:var(--ui-border-soft)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4">
                     <div className="flex items-center justify-between gap-2 px-1">
                       <div className="min-w-0 flex items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
                         <Library className="h-3.5 w-3.5 shrink-0 text-amber-400" />
@@ -7772,11 +7772,11 @@ const normalizeTimeoutSec = (value: number) => {
                       </div>
                       {casualKnowledgePreviewEntries.length > 0 && (
                         <details className="group relative shrink-0">
-                          <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(15,23,42,0.42)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]">
+                          <summary className="conversation-reference-pill flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]">
                             <span>参考 {casualKnowledgePreviewEntries.length}</span>
                             <ChevronDown className="h-3.5 w-3.5 text-[color:var(--ui-icon-muted)] transition-transform group-open:rotate-180" />
                           </summary>
-                          <div className="absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-[min(24rem,calc(100vw-2.5rem))] rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(15,23,42,0.92)] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                          <div className="conversation-reference-popover absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-[min(24rem,calc(100vw-2.5rem))] rounded-[22px] border border-[color:var(--ui-border-soft)] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.28)] backdrop-blur-xl">
                             <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-strong)]">
                               <Library className="h-3.5 w-3.5 text-amber-400" />
                               <span>本次可参考资料</span>
