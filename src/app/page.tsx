@@ -1406,7 +1406,6 @@ export default function Home() {
   const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isListsOpen, setIsListsOpen] = useState(true);
-  const [expandedQuadrants, setExpandedQuadrants] = useState<Record<string, boolean>>({});
   const [lastRemovedTask, setLastRemovedTask] = useState<Task | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
@@ -4769,13 +4768,6 @@ const normalizeTimeoutSec = (value: number) => {
     });
   };
 
-  const toggleQuadrantExpanded = (quadrantKey: string) => {
-    setExpandedQuadrants((prev) => ({
-      ...prev,
-      [quadrantKey]: !prev[quadrantKey],
-    }));
-  };
-
   const commitEditingTitle = (task: Task, fallbackTitle?: string) => {
     const title = editingTaskTitle.trim() || (fallbackTitle ?? '').trim();
     if (!title) {
@@ -5228,8 +5220,6 @@ const normalizeTimeoutSec = (value: number) => {
   const quadrantTaskCount = quadrantSourceTasks.length;
   const quadrantImportantCount = quadrantGroups[0].items.length + quadrantGroups[1].items.length;
   const quadrantUrgentCount = quadrantGroups[0].items.length + quadrantGroups[2].items.length;
-  const quadrantFocusGroup = [...quadrantGroups].sort((a, b) => b.items.length - a.items.length)[0];
-
   const moveTaskToQuadrant = (taskId: string, quadrantKey: string) => {
     const target = taskStore.getAll().find((task) => task.id === taskId);
     if (!target) return;
@@ -6443,38 +6433,30 @@ const normalizeTimeoutSec = (value: number) => {
             />
           ) : activeFilter === 'quadrant' ? (
             <div className="stack-gap flex h-full min-h-0 flex-col pb-2 sm:pb-4">
-              <div className="glass-panel motion-enter shrink-0 rounded-[28px] border-[color:var(--ui-border-strong)] p-4 sm:p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
-                      <span>未完成任务 {quadrantTaskCount} 项</span>
-                      <span>重要任务 {quadrantImportantCount} 项</span>
-                      <span>紧急任务 {quadrantUrgentCount} 项</span>
-                    </div>
-                    <div className="mt-2 text-xs text-[#7d8595]">
-                      {quadrantTaskCount > 0
-                        ? `当前最拥挤的是「${quadrantFocusGroup?.title ?? '四象限'}」，共 ${quadrantFocusGroup?.items.length ?? 0} 项，适合优先清一波。`
-                        : '四个象限都很干净，新的任务会按优先级和截止时间自动落位。'}
-                    </div>
-                  </div>
-                  <div className="glass-panel-soft rounded-[22px] border-[color:var(--ui-border-soft)] px-3 py-2 text-[11px] leading-5 text-[#9AA3B7] lg:max-w-[420px]">
-                    拖动任务即可微调象限；重要看优先级，紧急看是否逾期或 24 小时内到期，不改变原有业务规则。
-                  </div>
-                </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2 px-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[11px] text-[#AAB3C6]">
+                  未完成
+                  <span className="text-[#F3F6FF]">{quadrantTaskCount}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(16,185,129,0.2)] bg-[rgba(16,185,129,0.08)] px-2.5 py-1 text-[11px] text-emerald-200">
+                  重要
+                  <span className="text-[#F3F6FF]">{quadrantImportantCount}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(248,113,113,0.2)] bg-[rgba(248,113,113,0.08)] px-2.5 py-1 text-[11px] text-rose-200">
+                  紧急
+                  <span className="text-[#F3F6FF]">{quadrantUrgentCount}</span>
+                </span>
+                <span className="text-[11px] text-[#7d8595] sm:ml-auto">拖动任务可调整象限</span>
               </div>
 
-              <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-3 min-[520px]:grid-cols-2 min-[520px]:grid-rows-2 sm:gap-4">
+              <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-2.5 min-[520px]:grid-cols-2 min-[520px]:grid-rows-2 sm:gap-3">
                 {quadrantGroups.map((group) => {
-                  const isExpanded = expandedQuadrants[group.key] ?? false;
-                  const shouldCollapse = false;
-                  const visibleItems = group.items;
-                  const hiddenCount = 0;
                   const isDragTarget = dragOverQuadrantKey === group.key;
 
                   return (
                     <div
                       key={group.key}
-                      className={`glass-panel motion-enter flex min-h-0 flex-col gap-3 rounded-[30px] border p-4 sm:p-4 transition-[border-color,box-shadow,transform,background-color] duration-[var(--motion-base)] ${
+                      className={`glass-panel motion-enter flex min-h-0 flex-col gap-2 rounded-[26px] border p-3 sm:p-3.5 transition-[border-color,box-shadow,transform,background-color] duration-[var(--motion-base)] ${
                         isDragTarget
                           ? 'border-[rgba(var(--theme-accent),0.6)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.24),0_22px_44px_rgba(0,0,0,0.28)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(24,24,24,0.76))]'
                           : 'border-[color:var(--ui-border-strong)] hover:border-[rgba(var(--theme-accent),0.24)]'
@@ -6501,44 +6483,31 @@ const normalizeTimeoutSec = (value: number) => {
                         if (taskId) moveTaskToQuadrant(taskId, group.key);
                       }}
                     >
-                      <div className="flex shrink-0 items-start justify-between gap-3">
+                      <div className="flex shrink-0 items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2.5">
-                            <h3 className="text-sm font-semibold text-[#F3F6FF]">{group.title}</h3>
-                            <span className={`rounded-full border px-2 py-1 text-[10px] ${group.tone}`}>{group.items.length} 项</span>
+                          <div className="flex items-center gap-2">
+                            <h3 className="truncate text-sm font-semibold text-[#F3F6FF]">{group.title}</h3>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] ${group.tone}`}>{group.items.length}</span>
                           </div>
-                          <p className="mt-1 line-clamp-1 text-[11px] text-[#9AA3B7]">{group.description}</p>
-                          <p className="mt-1 hidden text-[11px] text-[#6F788B] sm:block">{isDragTarget ? '松手即可把任务放到这里' : group.summary}</p>
+                          {isDragTarget ? (
+                            <p className="mt-1 text-[10px] text-[#DCE6FF]">松手后会按当前象限规则自动调整</p>
+                          ) : null}
                         </div>
-                        {shouldCollapse && (
-                          <button
-                            type="button"
-                            onClick={() => toggleQuadrantExpanded(group.key)}
-                            className="inline-flex items-center gap-1 text-[11px] text-[#AAB3C6] px-2.5 py-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] hover:text-[#F3F6FF] hover:border-[rgba(var(--theme-accent),0.28)]"
-                          >
-                            {isExpanded ? '收起长列表' : `展开剩余 ${hiddenCount} 项`}
-                            {isExpanded ? (
-                              <ChevronUp className="w-3 h-3" />
-                            ) : (
-                              <ChevronDown className="w-3 h-3" />
-                            )}
-                          </button>
-                        )}
                       </div>
 
-                      <div className="glass-panel-soft flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-[24px] border border-[color:var(--ui-border-soft)] p-3 space-y-2.5 transition-[border-color,background-color] duration-[var(--motion-base)]">
-                        {visibleItems.length === 0 ? (
-                          <div className={`flex min-h-full items-center justify-center rounded-[20px] border border-dashed px-4 py-8 text-center text-xs ${
+                      <div className="flex-1 min-h-0 space-y-2 overflow-y-auto overscroll-contain pr-1">
+                        {group.items.length === 0 ? (
+                          <div className={`flex min-h-full items-center justify-center rounded-[18px] px-3 py-6 text-center text-[11px] ${
                             isDragTarget
-                              ? 'border-[rgba(var(--theme-accent),0.45)] bg-[rgba(var(--theme-accent),0.08)] text-[#DCE6FF]'
-                              : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7d8595]'
+                              ? 'border border-dashed border-[rgba(var(--theme-accent),0.45)] bg-[rgba(var(--theme-accent),0.08)] text-[#DCE6FF]'
+                              : 'text-[#7d8595]'
                           }`}>
                             {isDragTarget
-                              ? '把任务放到这里，它会按当前象限规则自动更新优先级 / 截止时间。'
-                              : '这里暂时没有任务，适合先把同类事项拖进来再一起处理。'}
+                              ? '拖到这里即可归入当前象限'
+                              : '暂无任务'}
                           </div>
                         ) : (
-                          visibleItems.map((task) => (
+                          group.items.map((task) => (
                             <TaskItem
                               key={task.id}
                               task={task}
@@ -6568,12 +6537,6 @@ const normalizeTimeoutSec = (value: number) => {
                               helpers={taskItemHelpers}
                             />
                           ))
-                        )}
-                        {shouldCollapse && !isExpanded && hiddenCount > 0 && (
-                          <div className="text-[11px] text-[#7d8595] px-1">已先展示前 {visibleItems.length} 项，剩余 {hiddenCount} 项可展开查看。</div>
-                        )}
-                        {shouldCollapse && isExpanded && hiddenCount > 0 && (
-                          <div className="text-[11px] text-[#7d8595] px-1">当前已展开完整列表，处理完后可以收起，保持四象限更清爽。</div>
                         )}
                       </div>
                     </div>
