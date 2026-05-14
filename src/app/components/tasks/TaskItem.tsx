@@ -474,7 +474,7 @@ const TaskItem = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2.5">
-              <div className="flex items-start gap-2 min-w-0 flex-1 flex-wrap">
+              <div className="flex min-w-0 flex-1 items-start gap-2">
                 {hasSubtasks && (
                   <button
                     type="button"
@@ -493,32 +493,36 @@ const TaskItem = ({
                     <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
                   </button>
                 )}
-                {task.pinned && (
-                  <span className="text-[10px] text-yellow-200 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full shrink-0">置顶</span>
-                )}
-                {onTitleClick ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onTitleClick?.();
-                    }}
-                    className={`text-left text-[13px] font-medium leading-snug min-w-0 ${
-                      task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
-                    }`}
-                    title="点击编辑标题"
-                  >
-                    {task.title}
-                  </button>
-                ) : (
-                  <p
-                    className={`text-[13px] font-medium leading-snug min-w-0 ${
-                      task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
-                    }`}
-                  >
-                    {task.title}
-                  </p>
-                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-start gap-2">
+                    {task.pinned && (
+                      <span className="mt-0.5 shrink-0 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] text-yellow-200">置顶</span>
+                    )}
+                    {onTitleClick ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onTitleClick?.();
+                        }}
+                        className={`min-w-0 flex-1 text-left text-[13px] font-medium leading-snug ${
+                          task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
+                        }`}
+                        title="点击编辑标题"
+                      >
+                        {task.title}
+                      </button>
+                    ) : (
+                      <p
+                        className={`min-w-0 flex-1 text-[13px] font-medium leading-snug ${
+                          task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
+                        }`}
+                      >
+                        {task.title}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {dueCountdown && (

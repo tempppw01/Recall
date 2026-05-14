@@ -102,6 +102,8 @@ import {
   AlertTriangle,
   XCircle,
   Pencil,
+  Plus,
+  MoreHorizontal,
   Copy,
   RotateCcw,
   Library,
@@ -765,6 +767,12 @@ const TASK_GROUP_OPTIONS: { value: TaskGroupMode; label: string }[] = [
   { value: 'dueDate', label: '按日期' },
 ];
 
+const QUADRANT_SORT_OPTIONS: { value: TaskSortMode; label: string }[] = [
+  { value: 'dueDate', label: '时间' },
+  { value: 'priority', label: '优先级' },
+  { value: 'createdAt', label: '创建时间' },
+];
+
 const NO_CATEGORY_LABEL = '未分类';
 const NO_DUE_DATE_LABEL = '未设日期';
 
@@ -1264,6 +1272,11 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState('agent'); // inbox, today, next7, completed, calendar, agent
   const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
   const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('dueDate');
+  const [quadrantSortModes, setQuadrantSortModes] = useState<Record<string, TaskSortMode>>({});
+  const [quadrantComposerKey, setQuadrantComposerKey] = useState<string | null>(null);
+  const [quadrantDrafts, setQuadrantDrafts] = useState<Record<string, string>>({});
+  const [quadrantMenuOpenKey, setQuadrantMenuOpenKey] = useState<string | null>(null);
+  const quadrantMenuRef = useRef<HTMLDivElement | null>(null);
   const [webdavUrl, setWebdavUrl] = useState(DEFAULT_WEBDAV_URL);
   const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
   const [webdavUsername, setWebdavUsername] = useState('');
@@ -1273,6 +1286,22 @@ export default function Home() {
   const [pgDatabase, setPgDatabase] = useState('');
   const [pgUsername, setPgUsername] = useState('');
   const [pgPassword, setPgPassword] = useState('');
+
+  useEffect(() => {
+    if (!quadrantMenuOpenKey) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (quadrantMenuRef.current && target && !quadrantMenuRef.current.contains(target)) {
+        setQuadrantMenuOpenKey(null);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [quadrantMenuOpenKey]);
 
   const resolveActionableDetail = (
     level: 'info' | 'success' | 'warning' | 'error',
@@ -5220,10 +5249,7 @@ const normalizeTimeoutSec = (value: number) => {
   const quadrantTaskCount = quadrantSourceTasks.length;
   const quadrantImportantCount = quadrantGroups[0].items.length + quadrantGroups[1].items.length;
   const quadrantUrgentCount = quadrantGroups[0].items.length + quadrantGroups[2].items.length;
-  const moveTaskToQuadrant = (taskId: string, quadrantKey: string) => {
-    const target = taskStore.getAll().find((task) => task.id === taskId);
-    if (!target) return;
-
+  const applyQuadrantRulesToTask = (target: Task, quadrantKey: string) => {
     const nextPriority = quadrantKey === 'important-urgent' || quadrantKey === 'important-not-urgent' ? 2 : 0;
     const timezoneOffset = target.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET;
     let nextDueDate = target.dueDate;
@@ -5238,13 +5264,51 @@ const normalizeTimeoutSec = (value: number) => {
       }
     }
 
-    updateTask({
+    return {
       ...target,
       priority: nextPriority,
       dueDate: nextDueDate,
       timezoneOffset,
       updatedAt: new Date().toISOString(),
-    });
+    };
+  };
+
+  const moveTaskToQuadrant = (taskId: string, quadrantKey: string) => {
+    const target = taskStore.getAll().find((task) => task.id === taskId);
+    if (!target) return;
+    updateTask(applyQuadrantRulesToTask(target, quadrantKey));
+  };
+
+  const createQuadrantTask = async (quadrantKey: string) => {
+    const raw = quadrantDrafts[quadrantKey]?.trim();
+    if (!raw) return;
+
+    const now = new Date();
+    const parsed = parseLocalTaskInput(raw, now);
+    const task: Task = applyQuadrantRulesToTask({
+      id: createId(),
+      title: parsed.title,
+      dueDate: parsed.dueDate,
+      timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
+      priority: typeof parsed.priority === 'number'
+        ? parsed.priority
+        : evaluatePriority(parsed.dueDate, 0, now.getTime()),
+      category: classifyCategory(raw),
+      status: 'todo',
+      tags: parsed.tags,
+      pinned: false,
+      subtasks: [],
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    }, quadrantKey);
+
+    taskStore.add(task);
+    refreshTasks();
+    syncToPg('tasks', 'POST', task);
+    setSelectedTask(task);
+    setQuadrantDrafts((prev) => ({ ...prev, [quadrantKey]: '' }));
+    setQuadrantComposerKey(null);
+    setQuadrantMenuOpenKey(null);
   };
 
   const calendarSourceTasks = showCompletedInCalendar
@@ -6451,12 +6515,17 @@ const normalizeTimeoutSec = (value: number) => {
 
               <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-2.5 min-[520px]:grid-cols-2 min-[520px]:grid-rows-2 sm:gap-3">
                 {quadrantGroups.map((group) => {
+                  const currentSortMode = quadrantSortModes[group.key] ?? 'dueDate';
+                  const currentSortLabel = QUADRANT_SORT_OPTIONS.find((option) => option.value === currentSortMode)?.label ?? '时间';
+                  const sortedItems = sortTasks(group.items, currentSortMode);
                   const isDragTarget = dragOverQuadrantKey === group.key;
+                  const isMenuOpen = quadrantMenuOpenKey === group.key;
+                  const isComposerOpen = quadrantComposerKey === group.key;
 
                   return (
                     <div
                       key={group.key}
-                      className={`glass-panel motion-enter flex min-h-0 flex-col gap-2 rounded-[26px] border p-3 sm:p-3.5 transition-[border-color,box-shadow,transform,background-color] duration-[var(--motion-base)] ${
+                      className={`glass-panel group/quadrant motion-enter relative flex min-h-0 flex-col gap-2 rounded-[26px] border p-3 sm:p-3.5 transition-[border-color,box-shadow,transform,background-color] duration-[var(--motion-base)] ${
                         isDragTarget
                           ? 'border-[rgba(var(--theme-accent),0.6)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.24),0_22px_44px_rgba(0,0,0,0.28)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(24,24,24,0.76))]'
                           : 'border-[color:var(--ui-border-strong)] hover:border-[rgba(var(--theme-accent),0.24)]'
@@ -6493,10 +6562,130 @@ const normalizeTimeoutSec = (value: number) => {
                             <p className="mt-1 text-[10px] text-[#DCE6FF]">松手后会按当前象限规则自动调整</p>
                           ) : null}
                         </div>
+                        <div
+                          ref={isMenuOpen ? quadrantMenuRef : null}
+                          className={`relative shrink-0 transition-opacity duration-[var(--motion-base)] ${
+                            isMenuOpen || isComposerOpen
+                              ? 'opacity-100'
+                              : 'pointer-events-none opacity-0 group-hover/quadrant:pointer-events-auto group-hover/quadrant:opacity-100 group-focus-within/quadrant:pointer-events-auto group-focus-within/quadrant:opacity-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuadrantMenuOpenKey(null);
+                                setQuadrantComposerKey((prev) => (prev === group.key ? null : group.key));
+                              }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.3)] hover:text-[color:var(--ui-text-strong)]"
+                              aria-label={`在${group.title}中快速新建任务`}
+                              title={`在${group.title}中快速新建任务`}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuadrantComposerKey(null);
+                                setQuadrantMenuOpenKey((prev) => (prev === group.key ? null : group.key));
+                              }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.3)] hover:text-[color:var(--ui-text-strong)]"
+                              aria-label={`${group.title}高级操作`}
+                              title={`${group.title}高级操作`}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {isMenuOpen && (
+                            <div className="absolute right-0 top-full z-30 mt-2 w-[220px] overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2 shadow-[0_22px_48px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setQuadrantMenuOpenKey(null);
+                                  setQuadrantComposerKey(group.key);
+                                }}
+                                className="flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[var(--state-hover-bg)]"
+                              >
+                                <span>快速新建</span>
+                                <span className="text-[10px] text-[color:var(--ui-text-muted)]">+</span>
+                              </button>
+                              <div className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">
+                                排序
+                              </div>
+                              {QUADRANT_SORT_OPTIONS.map((option) => (
+                                <button
+                                  key={`${group.key}-${option.value}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setQuadrantSortModes((prev) => ({ ...prev, [group.key]: option.value }));
+                                    setQuadrantMenuOpenKey(null);
+                                  }}
+                                  className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm transition-colors ${
+                                    currentSortMode === option.value
+                                      ? 'bg-[rgba(var(--theme-accent),0.12)] text-[color:var(--ui-text-strong)]'
+                                      : 'text-[color:var(--ui-text-primary)] hover:bg-[var(--state-hover-bg)]'
+                                  }`}
+                                >
+                                  <span>{option.label}</span>
+                                  {currentSortMode === option.value ? (
+                                    <span className="text-[10px] text-[rgba(var(--theme-accent),0.95)]">当前</span>
+                                  ) : null}
+                                </button>
+                              ))}
+                              <div className="px-3 pt-2 text-[10px] text-[color:var(--ui-text-muted)]">
+                                当前：{currentSortLabel}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
+                      {isComposerOpen && (
+                        <form
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            createQuadrantTask(group.key);
+                          }}
+                          className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] p-2.5 shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
+                        >
+                          <input
+                            type="text"
+                            value={quadrantDrafts[group.key] ?? ''}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setQuadrantDrafts((prev) => ({ ...prev, [group.key]: value }));
+                            }}
+                            placeholder={`直接在「${group.title}」中新增任务`}
+                            autoFocus
+                            className="ui-input w-full rounded-2xl px-3 py-2.5 text-sm"
+                          />
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-[color:var(--ui-text-muted)]">回车后直接进入当前象限</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setQuadrantComposerKey(null);
+                                  setQuadrantDrafts((prev) => ({ ...prev, [group.key]: '' }));
+                                }}
+                                className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]"
+                              >
+                                取消
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={!quadrantDrafts[group.key]?.trim()}
+                                className="rounded-full border border-[rgba(var(--theme-accent),0.34)] bg-[rgba(var(--theme-accent),0.16)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-strong)] transition-colors hover:border-[rgba(var(--theme-accent),0.48)] hover:bg-[rgba(var(--theme-accent),0.22)] disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                添加
+                              </button>
+                            </div>
+                          </div>
+                        </form>
+                      )}
+
                       <div className="flex-1 min-h-0 space-y-2 overflow-y-auto overscroll-contain pr-1">
-                        {group.items.length === 0 ? (
+                        {sortedItems.length === 0 ? (
                           <div className={`flex min-h-full items-center justify-center rounded-[18px] px-3 py-6 text-center text-[11px] ${
                             isDragTarget
                               ? 'border border-dashed border-[rgba(var(--theme-accent),0.45)] bg-[rgba(var(--theme-accent),0.08)] text-[#DCE6FF]'
@@ -6507,7 +6696,7 @@ const normalizeTimeoutSec = (value: number) => {
                               : '暂无任务'}
                           </div>
                         ) : (
-                          group.items.map((task) => (
+                          sortedItems.map((task) => (
                             <TaskItem
                               key={task.id}
                               task={task}
