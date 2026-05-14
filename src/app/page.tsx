@@ -11,7 +11,7 @@ import { buildExportPayload as buildExportPayloadData, buildSyncPayload as build
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
 import { resolveSyncedSettings } from '@/app/services/syncedSettings';
 import { AI_CONTEXT_LIMIT_OPTIONS, AI_CONTEXT_LIMIT_STORAGE_KEY, DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
-import { normalizeAiMemoryContent } from '@/app/services/aiMemory';
+import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
 import { normalizeTaskRepeatRule } from '@/app/services/repeatRules';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
@@ -273,6 +273,18 @@ const inferKnowledgeCategory = (content: string): KnowledgeEntry['category'] => 
 const SENSITIVE_KNOWLEDGE_PATTERN = /(?:密码|密钥|api\s*key|token|验证码|身份证|银行卡|信用卡|手机号|电话号码|门牌|小区|病历|诊断|药物|工资|收入|贷款)/i;
 const LOW_VALUE_KNOWLEDGE_PATTERN = /^(?:好|好的|嗯|啊|哦|ok|OK|继续|继续说|在吗|谢谢|感谢|收到|可以|没事)[。.!！?？\s]*$/;
 
+const CONVERSATION_KNOWLEDGE_QUESTION_PATTERN = /(?:[?？]|\u4ec0\u4e48|\u600e\u4e48|\u5982\u4f55|\u4e3a\u4ec0\u4e48|\u8c01|\u54ea|\u591a\u5c11|\u591a\u4e45|\u51e0\u70b9|\u662f\u4e0d\u662f|\u662f\u5426|\u53ef\u4ee5\u5417|\u80fd\u4e0d\u80fd|\u544a\u8bc9\u6211|\u89e3\u91ca\u4e00\u4e0b|\u4ecb\u7ecd\u4e00\u4e0b)/u;
+const DURABLE_CONVERSATION_KNOWLEDGE_PATTERN = /(?:\u559c\u6b22|\u4e0d\u559c\u6b22|\u504f\u597d|\u4e60\u60ef|\u901a\u5e38|\u4e00\u822c|\u9ed8\u8ba4|\u503e\u5411|\u4f18\u5148|\u907f\u514d|\u5e0c\u671b|\u957f\u671f|\u7ecf\u5e38|\u4e00\u76f4|\u4f4f\u5728|\u5de5\u4f5c|\u516c\u53f8|\u5c97\u4f4d|\u884c\u4e1a|\u901a\u52e4|\u4f5c\u606f|\u5b69\u5b50|\u5ba0\u7269|\u5bb6\u91cc|\u9879\u76ee|\u4e1a\u52a1)/u;
+const PROFILE_STATEMENT_PATTERN = /^(?:\u6211|\u6211\u7684|\u6211\u5bb6|\u672c\u4eba)(?:.{0,24})(?:\u4f4f|\u5728|\u505a|\u4ece\u4e8b|\u8d1f\u8d23|\u5de5\u4f5c|\u516c\u53f8|\u5c97\u4f4d|\u884c\u4e1a|\u5b69\u5b50|\u5973\u513f|\u513f\u5b50|\u5ba0\u7269|\u901a\u52e4|\u4f5c\u606f)/u;
+const TASK_EXPERIENCE_PATTERN = /(?:\u8d1f\u8d23|\u63a8\u8fdb|\u590d\u76d8|\u7ecf\u9a8c|\u6d41\u7a0b|\u65b9\u6848|\u8fd0\u8425|\u7ef4\u62a4|\u9879\u76ee|\u5ba2\u6237|\u4e1a\u52a1|\u5185\u5bb9|\u53d1\u5e03|\u5236\u4f5c)/u;
+const STRUCTURED_KNOWLEDGE_PREFIX: Record<KnowledgeEntry['category'], string> = {
+  preference: '\u504f\u597d',
+  task: '\u4efb\u52a1\u7ecf\u9a8c',
+  habit: '\u4e60\u60ef\u4e0e\u89c4\u5f8b',
+  profile: '\u80cc\u666f\u8d44\u6599',
+  note: '\u53ef\u590d\u7528\u4fe1\u606f',
+};
+
 const normalizeKnowledgeContent = (value: unknown, maxLength = 1200) => {
   const raw = typeof value === 'string' ? value : '';
   return raw
@@ -282,31 +294,57 @@ const normalizeKnowledgeContent = (value: unknown, maxLength = 1200) => {
     .slice(0, maxLength);
 };
 
-const compactKnowledgeSnippet = (value: string, maxLength: number) => {
-  const text = normalizeKnowledgeContent(value, maxLength + 20);
-  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+const buildStructuredKnowledgeContent = (
+  value: string,
+  category: KnowledgeEntry['category'],
+) => {
+  const normalized = normalizeKnowledgeContent(value, 320)
+    .replace(/^[“"'`]+|[”"'`]+$/gu, '')
+    .replace(/[。；;，,]+$/u, '');
+  if (!normalized) return '';
+  const prefix = STRUCTURED_KNOWLEDGE_PREFIX[category];
+  return normalizeKnowledgeContent(
+    normalized.startsWith(`${prefix}：`) ? normalized : `${prefix}：${normalized}`,
+    360,
+  );
+};
+
+const shouldPersistConversationKnowledge = (
+  sourceLabel: string,
+  input: string,
+  category: KnowledgeEntry['category'],
+) => {
+  if (input.length < 12) return false;
+  if (LOW_VALUE_KNOWLEDGE_PATTERN.test(input)) return false;
+  if (SENSITIVE_KNOWLEDGE_PATTERN.test(input)) return false;
+
+  const looksLikeQuestion = CONVERSATION_KNOWLEDGE_QUESTION_PATTERN.test(input);
+  const looksLikeTaskExperience = TASK_EXPERIENCE_PATTERN.test(input);
+  const hasDurableSignal = isDurableAiMemoryContent(input)
+    || DURABLE_CONVERSATION_KNOWLEDGE_PATTERN.test(input)
+    || PROFILE_STATEMENT_PATTERN.test(input)
+    || looksLikeTaskExperience;
+
+  if (!hasDurableSignal) return false;
+  if (sourceLabel === '\u968f\u4fbf\u804a\u804a' && looksLikeQuestion) return false;
+  if (category === 'note' && !looksLikeTaskExperience && !isDurableAiMemoryContent(input)) return false;
+  return true;
 };
 
 const buildConversationKnowledgeFallback = (
   sourceLabel: string,
   userInput: string,
-  assistantReply: string,
+  _assistantReply: string,
 ): Array<Pick<KnowledgeEntry, 'title' | 'content' | 'category'>> => {
   const input = normalizeKnowledgeContent(userInput, 360);
-  const reply = normalizeKnowledgeContent(assistantReply, 900);
-  const combined = `${input} ${reply}`.trim();
-  if (combined.length < 48) return [];
-  if (LOW_VALUE_KNOWLEDGE_PATTERN.test(input) && reply.length < 160) return [];
-  if (SENSITIVE_KNOWLEDGE_PATTERN.test(combined)) return [];
+  const category = inferKnowledgeCategory(input);
+  if (!shouldPersistConversationKnowledge(sourceLabel, input, category)) return [];
 
-  const category = inferKnowledgeCategory(combined);
-  const titleSeed = input || reply;
-  const title = `${sourceLabel}摘要：${compactKnowledgeSnippet(titleSeed, 28)}`;
-  const content = normalizeKnowledgeContent(
-    `${sourceLabel}中，用户提到：“${compactKnowledgeSnippet(input || '未记录明确输入', 180)}”。助手回复要点：${compactKnowledgeSnippet(reply, 720)}`,
-    1200,
-  );
-  if (normalizeKnowledgeDedupeKey(content).length < 24) return [];
+  const content = buildStructuredKnowledgeContent(input, category);
+  if (!content) return [];
+  const titleSeed = content.replace(/^[^：]+：\s*/u, '');
+  const title = buildKnowledgeTitle(titleSeed, category);
+  if (normalizeKnowledgeDedupeKey(content).length < 16) return [];
   return [{ title, content, category }];
 };
 

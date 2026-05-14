@@ -20,7 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Redis from 'ioredis';
 import { DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
-import { normalizeAiMemoryContent } from '@/app/services/aiMemory';
+import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
 import { inferRepeatRuleFromText, normalizeTaskRepeatRule } from '@/app/services/repeatRules';
 
 // ─── AI API 配置 ────────────────────────────────────────────
@@ -1138,6 +1138,61 @@ const inferKnowledgeCategory = (content: string): NormalizedKnowledgeUpdate['cat
   return 'note';
 };
 
+const KNOWLEDGE_CATEGORY_LABELS: Record<NormalizedKnowledgeUpdate['category'], string> = {
+  preference: '\u4e2a\u4eba\u504f\u597d',
+  task: '\u4efb\u52a1\u7ecf\u9a8c',
+  habit: '\u4e60\u60ef\u89c4\u5f8b',
+  profile: '\u4e2a\u4eba\u8d44\u6599',
+  note: '\u53ef\u590d\u7528\u4fe1\u606f',
+};
+
+const TRANSCRIPT_STYLE_TITLE_PATTERN = /(?:\u968f\u4fbf\u804a\u804a|\u0041\u0049\s*\u52a9\u624b|\u7ba1\u7406\u52a9\u624b).{0,8}\u6458\u8981|(?:\u5bf9\u8bdd|\u804a\u5929).{0,8}\u6458\u8981|summary/i;
+const TRANSCRIPT_STYLE_CONTENT_PATTERN = /(?:\u7528\u6237\u63d0\u5230|\u7528\u6237\u8bf4|\u7528\u6237\u8868\u793a|\u5728\u5bf9\u8bdd\u4e2d|\u52a9\u624b\u56de\u590d\u8981\u70b9|\u52a9\u624b\u56de\u7b54|\u52a9\u624b\u8868\u793a)/u;
+const KNOWLEDGE_QUESTION_PATTERN = /(?:[?？]|\u4ec0\u4e48|\u600e\u4e48|\u5982\u4f55|\u4e3a\u4ec0\u4e48|\u8c01|\u54ea|\u591a\u5c11|\u591a\u4e45|\u51e0\u70b9|\u662f\u4e0d\u662f|\u662f\u5426|\u53ef\u4ee5\u5417|\u80fd\u4e0d\u80fd|\u544a\u8bc9\u6211|\u89e3\u91ca\u4e00\u4e0b|\u4ecb\u7ecd\u4e00\u4e0b)/u;
+const KNOWLEDGE_REUSABLE_SIGNAL_PATTERN = /(?:\u559c\u6b22|\u4e0d\u559c\u6b22|\u504f\u597d|\u4e60\u60ef|\u901a\u5e38|\u4e00\u822c|\u9ed8\u8ba4|\u503e\u5411|\u4f18\u5148|\u907f\u514d|\u5e0c\u671b|\u957f\u671f|\u7ecf\u5e38|\u4e00\u76f4|\u4f4f\u5728|\u5de5\u4f5c|\u516c\u53f8|\u5c97\u4f4d|\u884c\u4e1a|\u901a\u52e4|\u4f5c\u606f|\u5b69\u5b50|\u5ba0\u7269|\u5bb6\u91cc|\u9879\u76ee|\u4e1a\u52a1)/u;
+const KNOWLEDGE_PROFILE_STATEMENT_PATTERN = /^(?:\u6211|\u6211\u7684|\u6211\u5bb6|\u672c\u4eba)(?:.{0,24})(?:\u4f4f|\u5728|\u505a|\u4ece\u4e8b|\u8d1f\u8d23|\u5de5\u4f5c|\u516c\u53f8|\u5c97\u4f4d|\u884c\u4e1a|\u5b69\u5b50|\u5973\u513f|\u513f\u5b50|\u5ba0\u7269|\u901a\u52e4|\u4f5c\u606f)/u;
+const KNOWLEDGE_TASK_EXPERIENCE_PATTERN = /(?:\u8d1f\u8d23|\u63a8\u8fdb|\u590d\u76d8|\u7ecf\u9a8c|\u6d41\u7a0b|\u65b9\u6848|\u8fd0\u8425|\u7ef4\u62a4|\u9879\u76ee|\u5ba2\u6237|\u4e1a\u52a1|\u5185\u5bb9|\u53d1\u5e03|\u5236\u4f5c)/u;
+
+const buildKnowledgeTitle = (content: string, category: NormalizedKnowledgeUpdate['category']) => {
+  const trimmed = content.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= 36) return trimmed;
+  return `${KNOWLEDGE_CATEGORY_LABELS[category]}：${trimmed.slice(0, 28)}`;
+};
+
+const extractTranscriptKnowledgeCandidate = (value: string) => {
+  const quoted = value.match(/(?:\u7528\u6237\u63d0\u5230|\u7528\u6237\u8bf4|\u7528\u6237\u8868\u793a)[:：]?[“"]([^”"\n]{4,220})/u);
+  if (quoted?.[1]) return normalizeAiMemoryContent(quoted[1]);
+
+  const inline = value.match(/(?:\u7528\u6237\u63d0\u5230|\u7528\u6237\u8bf4|\u7528\u6237\u8868\u793a|\u5728\u5bf9\u8bdd\u4e2d)[:：]?\s*([^。；;]+)(?:[。；;]|$)/u);
+  if (inline?.[1]) return normalizeAiMemoryContent(inline[1]);
+
+  return normalizeAiMemoryContent(
+    value
+      .replace(/(?:\u52a9\u624b\u56de\u590d\u8981\u70b9|\u52a9\u624b\u56de\u7b54|\u52a9\u624b\u8868\u793a).*/u, '')
+      .replace(TRANSCRIPT_STYLE_CONTENT_PATTERN, '')
+      .replace(/[“”"'`]/gu, ''),
+  );
+};
+
+const shouldPersistKnowledgeUpdate = (
+  content: string,
+  category: NormalizedKnowledgeUpdate['category'],
+) => {
+  if (content.length < 4 || SENSITIVE_KNOWLEDGE_PATTERN.test(content)) return false;
+
+  const looksLikeQuestion = KNOWLEDGE_QUESTION_PATTERN.test(content);
+  const looksLikeTaskExperience = KNOWLEDGE_TASK_EXPERIENCE_PATTERN.test(content);
+  const hasDurableSignal = isDurableAiMemoryContent(content)
+    || KNOWLEDGE_REUSABLE_SIGNAL_PATTERN.test(content)
+    || KNOWLEDGE_PROFILE_STATEMENT_PATTERN.test(content)
+    || looksLikeTaskExperience;
+
+  if (!hasDurableSignal) return false;
+  if (looksLikeQuestion) return false;
+  if (category === 'note' && !looksLikeTaskExperience && !isDurableAiMemoryContent(content)) return false;
+  return true;
+};
+
 function normalizeAgentKnowledgeUpdates(updates: unknown): NormalizedKnowledgeUpdate[] {
   if (!Array.isArray(updates)) return [];
   const seen = new Set<string>();
@@ -1145,14 +1200,30 @@ function normalizeAgentKnowledgeUpdates(updates: unknown): NormalizedKnowledgeUp
   return updates
     .map((update) => {
       const source = update as Partial<NormalizedKnowledgeUpdate> | string | null | undefined;
-      const content = typeof source === 'string'
-        ? normalizeAiMemoryContent(source)
-        : normalizeAiMemoryContent(typeof source?.content === 'string' ? source.content : '');
-      if (content.length < 4 || SENSITIVE_KNOWLEDGE_PATTERN.test(content)) return null;
-      const category = typeof source === 'string' ? inferKnowledgeCategory(content) : normalizeKnowledgeCategory(source?.category);
-      const title = typeof source !== 'string' && typeof source?.title === 'string' && source.title.trim().length > 0
+      const rawContent = typeof source === 'string'
+        ? source
+        : typeof source?.content === 'string'
+          ? source.content
+          : '';
+      const initialContent = normalizeAiMemoryContent(rawContent);
+      const normalizedTitle = typeof source !== 'string' && typeof source?.title === 'string'
         ? source.title.trim().slice(0, 80)
-        : content.slice(0, 36);
+        : '';
+      const transcriptCandidate = TRANSCRIPT_STYLE_CONTENT_PATTERN.test(initialContent)
+        ? extractTranscriptKnowledgeCandidate(initialContent)
+        : initialContent;
+      const category = typeof source === 'string'
+        ? inferKnowledgeCategory(transcriptCandidate)
+        : normalizeKnowledgeCategory(source?.category);
+      const content = TRANSCRIPT_STYLE_CONTENT_PATTERN.test(initialContent)
+        ? normalizeAiMemoryContent(`${KNOWLEDGE_CATEGORY_LABELS[category]}：${transcriptCandidate}`)
+        : transcriptCandidate;
+      if (!shouldPersistKnowledgeUpdate(content, category)) return null;
+      const title = normalizedTitle
+        && !TRANSCRIPT_STYLE_TITLE_PATTERN.test(normalizedTitle)
+        && !KNOWLEDGE_QUESTION_PATTERN.test(normalizedTitle)
+          ? normalizedTitle
+          : buildKnowledgeTitle(content.replace(/^[^：]+：\s*/u, ''), category);
       const dedupeKey = content.toLowerCase();
       if (seen.has(dedupeKey)) return null;
       seen.add(dedupeKey);
@@ -1549,6 +1620,10 @@ export async function POST(req: NextRequest) {
 5) 如果当前模型具备联网/搜索能力，可以使用模型能力回答；否则不要编造实时结果。
 6) 输出 JSON：{ "reply": string, "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }。
 7) knowledgeUpdates 用于自动沉淀知识库，只保存当前对话里用户明确提供、后续全局功能可能复用的资料，例如个人偏好、习惯规律、个人资料、做过/正在推进的事、可复用经验；不要保存敏感信息、密码密钥、纯寒暄、未经确认的推测或你的普通回答。没有合适内容返回 []。`,
+          },
+          {
+            role: 'system',
+            content: 'For knowledgeUpdates, save only durable user knowledge that will help future sessions. Never output transcript-style summaries, direct quotes, or formats like "the user said" / "the assistant replied". Do not store temporary Q&A about news, people, events, or general facts. Rewrite reusable knowledge into a concise organized summary. If the conversation does not contain durable memory-like information, return an empty knowledgeUpdates array.',
           },
           {
             role: 'system',
