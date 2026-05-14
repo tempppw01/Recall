@@ -83,6 +83,7 @@ import TaskQuickActions from '@/app/components/tasks/TaskQuickActions';
 import PageTopBar from '@/app/components/home/PageTopBar';
 import AmbientBackdrop from '@/app/components/home/AmbientBackdrop';
 import ListComposerPanel from '@/app/components/home/ListComposerPanel';
+import ModelSelect from '@/app/components/models/ModelSelect';
 import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
@@ -6827,10 +6828,20 @@ const normalizeTimeoutSec = (value: number) => {
                       <span className="rounded-full bg-[rgba(var(--theme-accent),0.12)] px-1.5 text-[10px]">{knowledgeEntries.length}</span>
                     </button>
                     <div className="flex items-center gap-1">
+                      <ModelSelect
+                        models={parseModelList(modelListText)}
+                        value={chatModel}
+                        onChange={setChatModel}
+                        onOpen={fetchModelList}
+                        title="切换模型"
+                        size="sm"
+                        align="right"
+                        buttonClassName="w-[120px] truncate rounded border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-primary)] focus:outline-none"
+                      />
                       <select
                         value={chatModel}
                         onChange={(e) => setChatModel(e.target.value)}
-                        className="max-w-[120px] truncate rounded border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-primary)] focus:outline-none"
+                        className="hidden"
                         title="切换模型"
                       >
                         {parseModelList(modelListText).map((model) => (

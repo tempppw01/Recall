@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import ModelSelect from '@/app/components/models/ModelSelect';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
 
@@ -503,7 +504,16 @@ const SettingsModal = ({
                       {isFetchingModels ? '拉取中...' : hasApiKey ? '拉取模型列表' : '填写密钥后可拉取'}
                     </button>
                   </div>
-                  <select
+                  <ModelSelect
+                    models={availableModels}
+                    value={chatModel}
+                    onChange={setChatModel}
+                    onOpen={handleModelSelectFocus}
+                    ariaLabel="Chat model"
+                    title="Chat model"
+                    buttonClassName={baseInputClassName}
+                  />
+                  <select hidden
                     value={chatModel}
                     onChange={(e) => setChatModel(e.target.value)}
                     onFocus={handleModelSelectFocus}
