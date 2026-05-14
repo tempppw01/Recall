@@ -1587,6 +1587,7 @@ export default function Home() {
     : '09:00';
 
   const selectedTaskPhoneNumbers = selectedTask ? extractPhoneNumbers(selectedTask.title) : [];
+  const shouldShowTaskDetail = Boolean(selectedTask && activeFilter !== 'quadrant');
   const taskItemHelpers = {
     getTimezoneOffset,
     formatZonedDateTime,
@@ -1599,6 +1600,12 @@ export default function Home() {
     formatRepeatLabel,
     isTaskOverdue,
   };
+
+  useEffect(() => {
+    if (activeFilter === 'quadrant' && selectedTask) {
+      setSelectedTask(null);
+    }
+  }, [activeFilter, selectedTask]);
 
   const {
     themeMode,
@@ -5305,7 +5312,6 @@ const normalizeTimeoutSec = (value: number) => {
     taskStore.add(task);
     refreshTasks();
     syncToPg('tasks', 'POST', task);
-    setSelectedTask(task);
     setQuadrantDrafts((prev) => ({ ...prev, [quadrantKey]: '' }));
     setQuadrantComposerKey(null);
     setQuadrantMenuOpenKey(null);
@@ -5768,7 +5774,7 @@ const normalizeTimeoutSec = (value: number) => {
             ? 'overflow-hidden overscroll-none'
             : 'overflow-y-auto mobile-scroll'
         } bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
-          selectedTask ? 'sm:pr-[340px] md:pr-[360px] lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
+          shouldShowTaskDetail ? 'sm:pr-[340px] md:pr-[360px] lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
         } ${
           isTaskSelectionDragging ? 'select-none cursor-default' : ''
         }`}
@@ -6700,8 +6706,6 @@ const normalizeTimeoutSec = (value: number) => {
                             <TaskItem
                               key={task.id}
                               task={task}
-                              selected={selectedTask?.id === task.id}
-                              onClick={() => setSelectedTask(task)}
                               onToggle={toggleStatus}
                               onDelete={removeTask}
                               onToggleSubtask={toggleSubtask}
@@ -8254,7 +8258,7 @@ const normalizeTimeoutSec = (value: number) => {
       </section>
 
       {/* 3. Detail Sidebar (Right) */}
-      {selectedTask && (
+      {shouldShowTaskDetail && selectedTask && (
         <>
           <button
             type="button"

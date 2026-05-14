@@ -156,6 +156,7 @@ const TaskItem = ({
   const maxOffset = 84;
   const timezoneOffset = getTimezoneOffset(task);
   const canDrag = Boolean(onDragStart) && dragEnabled && !multiSelectEnabled;
+  const isCardClickable = Boolean(onClick) || Boolean(multiSelectEnabled);
   const subtaskTotal = task.subtasks?.length ?? 0;
   const completedSubtasks = subtaskTotal
     ? (task.subtasks ?? []).filter((subtask: Subtask) => subtask.completed).length
@@ -416,7 +417,9 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative overflow-visible p-2.5 pl-3.5 sm:p-3 sm:pl-4 rounded-[20px] cursor-pointer motion-card motion-press ui-state-hover ui-state-press border ${
+        className={`group relative overflow-visible rounded-[20px] p-2.5 pl-3.5 motion-card motion-press ui-state-hover ui-state-press border sm:p-3 sm:pl-4 ${
+          isCardClickable ? 'cursor-pointer' : 'cursor-default'
+        } ${
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
