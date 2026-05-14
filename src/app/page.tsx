@@ -420,6 +420,7 @@ const normalizeAgentMessageCache = (raw: unknown): AgentMessage[] => {
       role: message.role,
       content: message.content,
       knowledgeRefs: normalizeKnowledgeReferences(message.knowledgeRefs),
+      variant: message.variant === 'error' ? 'error' : undefined,
     }));
 };
 
@@ -1586,7 +1587,6 @@ export default function Home() {
   const [casualChatMessages, setCasualChatMessages] = useState<AgentMessage[]>([]);
   const [casualChatInput, setCasualChatInput] = useState('');
   const [casualChatLoading, setCasualChatLoading] = useState(false);
-  const [casualChatError, setCasualChatError] = useState<string | null>(null);
   const casualChatAbortControllerRef = useRef<AbortController | null>(null);
   const casualChatQueuedSendRef = useRef<{ content: string; history: AgentMessage[] } | null>(null);
   const casualChatConversationEndRef = useRef<HTMLDivElement | null>(null);
@@ -2191,7 +2191,7 @@ export default function Home() {
   useEffect(() => {
     if (activeFilter !== 'chat') return;
     casualChatConversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [activeFilter, casualChatMessages.length, casualChatLoading, casualChatError]);
+  }, [activeFilter, casualChatMessages.length, casualChatLoading]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded) return;
@@ -3621,7 +3621,6 @@ const normalizeTimeoutSec = (value: number) => {
     casualChatQueuedSendRef.current = null;
     setCasualChatMessages([]);
     setCasualChatInput('');
-    setCasualChatError(null);
     setStatusFeedback({
       id: createId(),
       level: 'info',
@@ -3641,7 +3640,6 @@ const normalizeTimeoutSec = (value: number) => {
   const runCasualChatSend = async (content: string, requestHistory: AgentMessage[]) => {
     setCasualChatInput('');
     setCasualChatLoading(true);
-    setCasualChatError(null);
     setCasualChatMessages((prev) => [...prev, { role: 'user', content }]);
 
     const controller = new AbortController();
@@ -3696,8 +3694,11 @@ const normalizeTimeoutSec = (value: number) => {
         return;
       }
       const message = formatAiRequestError(error, '随便聊聊暂时没有响应，请稍后重试');
-      setCasualChatInput(content);
-      setCasualChatError(message);
+      setCasualChatMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: message,
+        variant: 'error',
+      }]);
     } finally {
       if (casualChatAbortControllerRef.current === controller) {
         casualChatAbortControllerRef.current = null;
@@ -7722,15 +7723,19 @@ const normalizeTimeoutSec = (value: number) => {
                             className={`max-w-[86%] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
                               message.role === 'user'
                                 ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
-                                : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
+                                : message.variant === 'error'
+                                  ? 'border-red-400/30 bg-red-500/10 text-red-200'
+                                  : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                             }`}
                           >
                             {message.role === 'assistant' ? (
-                              renderAssistantMessageContent(message.content)
+                              message.variant === 'error'
+                                ? <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
+                                : renderAssistantMessageContent(message.content)
                             ) : (
                               <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
                             )}
-                            {message.role === 'assistant' && renderKnowledgeReferences(message.knowledgeRefs)}
+                            {message.role === 'assistant' && message.variant !== 'error' && renderKnowledgeReferences(message.knowledgeRefs)}
                             <div className={`mt-2 flex items-center gap-1.5 border-t border-[color:var(--ui-border-soft)] pt-1.5 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                               <button
                                 type="button"
@@ -7759,11 +7764,6 @@ const normalizeTimeoutSec = (value: number) => {
                       ))
                     )}
                     {casualChatLoading && <AgentThinkingBubble label="正在参考知识库并回复…" accent="cyan" />}
-                    {casualChatError && (
-                      <div className="whitespace-pre-wrap rounded-lg bg-red-500/10 p-2 text-xs leading-relaxed text-red-300">
-                        {casualChatError}
-                      </div>
-                    )}
                     <div ref={casualChatConversationEndRef} aria-hidden="true" />
                   </div>
 

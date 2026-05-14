@@ -98,6 +98,7 @@ export type AgentMessage = {
   role: 'user' | 'assistant';
   content: string;
   knowledgeRefs?: KnowledgeReference[];
+  variant?: 'error';
 };
 
 export type KnowledgeReference = Pick<KnowledgeEntry, 'id' | 'title' | 'content' | 'category'> & {
