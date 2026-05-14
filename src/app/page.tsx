@@ -5848,7 +5848,7 @@ const normalizeTimeoutSec = (value: number) => {
           activeFilter === 'quadrant' ? 'min-h-0 overflow-hidden flex flex-col' : ''
         }`}>
           {activeFilter === 'calendar' ? (
-            <div className="stack-gap flex flex-col">
+            <div className={`${calendarView === 'day' ? 'gap-3 sm:gap-4' : 'stack-gap'} flex flex-col`}>
               <CalendarTopPanel
                 calendarView={calendarView}
                 showCompletedInCalendar={showCompletedInCalendar}

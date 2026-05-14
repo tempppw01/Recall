@@ -57,7 +57,13 @@ const SidebarItem = ({
   >
     <div className="flex items-center gap-2.5 min-w-0">
       <div className={`relative flex h-7 w-7 items-center justify-center rounded-xl border transition-all ${active ? 'border-[rgba(var(--sidebar-item-accent),0.28)] bg-[rgba(var(--sidebar-item-accent),0.12)]' : 'border-[color:var(--ui-border-soft)]/70 bg-[color:var(--ui-card-bg)]/60 group-hover/sidebar-item:border-[color:var(--ui-border-strong)] group-hover/sidebar-item:bg-[color:var(--ui-card-hover-bg)]'}`}>
-        <Icon className={`w-3.5 h-3.5 ${iconColor || ''}`} />
+        <Icon
+          className={`w-3.5 h-3.5 transition-colors ${
+            active
+              ? iconColor || 'text-[color:var(--ui-text-strong)]'
+              : 'text-[color:var(--ui-text-faint)] group-hover/sidebar-item:text-[color:var(--ui-text-secondary)]'
+          }`}
+        />
         {badge > 0 && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-medium text-white bg-red-500 rounded-full">
             {badge > 99 ? '99+' : badge}

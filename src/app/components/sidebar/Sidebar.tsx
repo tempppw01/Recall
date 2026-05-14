@@ -17,6 +17,7 @@ import {
   Library,
   MessageCircle,
   Package2,
+  Smile,
   Sun,
   Timer,
   X,
@@ -435,8 +436,8 @@ const Sidebar = ({
           <div className="relative z-10 hidden h-full flex-col sm:flex">
             <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-3">
               <div className="flex justify-center">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.08)] text-[12px] font-semibold tracking-[-0.03em] text-[color:var(--ui-text-strong)]">
-                  R
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(var(--theme-accent),0.16)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.14),rgba(var(--theme-grad-end),0.08))] text-[color:var(--ui-text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                  <Smile className="h-[18px] w-[18px]" />
                 </div>
               </div>
             </div>
@@ -461,7 +462,7 @@ const Sidebar = ({
                     type="button"
                     onClick={item.onClick}
                     style={sidebarAccentStyle(item.accentRgb)}
-                    className={`mx-2 flex w-[calc(100%-1rem)] justify-center rounded-2xl border px-0 py-2.5 transition-all ${
+                    className={`group/rail mx-2 flex w-[calc(100%-1rem)] justify-center rounded-2xl border px-0 py-2.5 transition-all ${
                       item.active
                         ? 'border-[rgba(var(--sidebar-item-accent),0.3)] bg-[rgba(var(--sidebar-item-accent),0.12)] text-[color:var(--ui-text-strong)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]'
                         : 'border-transparent bg-transparent text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
@@ -469,7 +470,13 @@ const Sidebar = ({
                     title={item.title ?? item.label}
                     aria-label={item.title ?? item.label}
                   >
-                    <Icon className={`h-5 w-5 ${item.iconColor ?? ''}`} />
+                    <Icon
+                      className={`h-5 w-5 transition-colors ${
+                        item.active
+                          ? item.iconColor ?? 'text-[color:var(--ui-text-strong)]'
+                          : 'text-[color:var(--ui-text-faint)] group-hover/rail:text-[color:var(--ui-text-secondary)]'
+                      }`}
+                    />
                   </button>
                 );
               })}
@@ -622,7 +629,13 @@ const Sidebar = ({
                                         ? 'border-[rgba(var(--sidebar-item-accent),0.28)] bg-[rgba(var(--sidebar-item-accent),0.12)]'
                                         : 'border-[color:var(--ui-border-soft)]/70 bg-[color:var(--ui-card-bg)]/60 group-hover/sidebar-tool:border-[color:var(--ui-border-strong)] group-hover/sidebar-tool:bg-[color:var(--ui-card-hover-bg)]'
                                     }`}>
-                                      <Icon className={`h-3.5 w-3.5 ${item.iconColor ?? ''}`} />
+                                      <Icon
+                                        className={`h-3.5 w-3.5 transition-colors ${
+                                          item.active
+                                            ? item.iconColor ?? 'text-[color:var(--ui-text-strong)]'
+                                            : 'text-[color:var(--ui-text-faint)] group-hover/sidebar-tool:text-[color:var(--ui-text-secondary)]'
+                                        }`}
+                                      />
                                     </div>
 
                                     <div className="min-w-0 flex-1">

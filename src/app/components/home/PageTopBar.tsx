@@ -4,7 +4,7 @@ const iconButtonClassName =
   'btn btn-ghost motion-card surface-sheen h-9 w-9 rounded-xl border-[color:var(--ui-border-soft)] p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
 const actionButtonClassName = 'btn btn-secondary btn-sm motion-card surface-sheen h-8 shrink-0 rounded-xl border px-2.5 text-[11px] sm:h-9';
 const utilityGroupClassName =
-  'flex shrink-0 items-center gap-1 rounded-xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1 py-0.5 sm:ml-1';
+  'flex shrink-0 items-center gap-1 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1 py-0.5 sm:ml-1';
 
 type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -51,7 +51,7 @@ export default function PageTopBar({
 }: PageTopBarProps) {
   return (
     <header className="theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
-      <div className="topbar-panel mx-2 mt-2 px-3 py-2.5 sm:mx-4 sm:px-4 sm:py-2.5 lg:mx-6 lg:px-5">
+      <div className="topbar-panel topbar-ribbon mx-1.5 mt-1.5 px-2.5 py-2 sm:mx-3 sm:px-3.5 sm:py-2 lg:mx-5 lg:px-4">
         <div className="flex min-h-9 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex w-full min-w-0 items-center gap-2.5 sm:flex-1 sm:gap-3">
             <button

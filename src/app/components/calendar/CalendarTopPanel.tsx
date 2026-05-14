@@ -76,6 +76,7 @@ export default function CalendarTopPanel({
   const showCitySearch = !hasSelectedCity || isEditingCity;
   const showCityDropdown =
     showCitySearch && (isSearchingWeatherCity || weatherCities.length > 0 || Boolean(weatherCitySearchMessage));
+  const isDayView = calendarView === 'day';
 
   useEffect(() => {
     if (hasSelectedCity) {
@@ -84,13 +85,13 @@ export default function CalendarTopPanel({
   }, [hasSelectedCity, cityLabel]);
 
   return (
-    <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className={`calendar-top-panel glass-panel ${isDayView ? 'rounded-[24px] p-3.5 sm:p-4 space-y-3.5' : 'rounded-[26px] p-4 sm:p-4.5 space-y-4'}`}>
+      <div className={`flex flex-wrap items-center justify-between ${isDayView ? 'gap-3' : 'gap-4'}`}>
         <div className="flex items-center gap-2 text-xs flex-wrap">
           {(['month', 'week', 'day', 'agenda'] as const).map((view) => (
             <button
               key={view}
-              className={`px-3.5 py-1.5 rounded-xl border transition-all ${
+              className={`rounded-xl border transition-all ${isDayView ? 'px-3 py-1.5' : 'px-3.5 py-1.5'} ${
                 calendarView === view
                   ? 'bg-blue-500/20 border-blue-400/60 text-white shadow-[0_8px_24px_rgba(59,130,246,0.14)]'
                   : 'border-[#3A3F4B]/50 text-[#9A9A9A] hover:text-white hover:border-[#555D6D] hover:bg-[#23262E]'
@@ -102,7 +103,7 @@ export default function CalendarTopPanel({
           ))}
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap justify-end">
+        <div className={`flex items-center flex-wrap justify-end ${isDayView ? 'gap-2' : 'gap-2.5'}`}>
           <button
             onClick={onToggleCompleted}
             className="px-3 py-1.5 rounded-xl border text-[11px] transition-all border-[#3A3F4B]/50 text-[#9A9A9A] hover:text-white hover:border-[#555D6D] hover:bg-[#23262E]"
@@ -122,10 +123,10 @@ export default function CalendarTopPanel({
         </div>
       </div>
 
-      <div className={showCitySearch ? 'grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid gap-4'}>
+      <div className={showCitySearch ? `grid ${isDayView ? 'gap-3' : 'gap-4'} lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]` : `grid ${isDayView ? 'gap-3' : 'gap-4'}`}>
         {showCitySearch && (
           <div className="relative">
-            <div className="glass-panel-soft flex items-center gap-2 px-3.5 py-3 rounded-2xl">
+            <div className={`glass-panel-soft flex items-center gap-2 rounded-2xl ${isDayView ? 'px-3 py-2.5' : 'px-3.5 py-3'}`}>
               <Search className="w-4 h-4 text-[#7A7A7A]" />
               <input
                 value={calendarCityInput}
@@ -187,10 +188,10 @@ export default function CalendarTopPanel({
           </div>
         )}
 
-        <div className="glass-panel-soft rounded-2xl px-4 py-3.5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`glass-panel-soft rounded-2xl flex flex-col items-start sm:flex-row sm:items-center sm:justify-between ${isDayView ? 'gap-2.5 px-3.5 py-3' : 'gap-3 px-4 py-3.5'}`}>
           <div className="min-w-0">
             <div className="text-[11px] text-[#6E6E6E]">天气预报（{selectedCalendarLabel}）</div>
-            <div className="mt-1.5 flex items-start gap-2 text-sm text-[#DDDDDD]">
+            <div className={`flex items-start gap-2 text-sm text-[#DDDDDD] ${isDayView ? 'mt-1' : 'mt-1.5'}`}>
               <MapPin className="w-3.5 h-3.5 text-blue-300" />
               <span className="break-words">{cityLabel}</span>
             </div>
