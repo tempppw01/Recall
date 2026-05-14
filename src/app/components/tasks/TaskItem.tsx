@@ -9,6 +9,7 @@ import {
   Copy,
   Flag,
   Pin,
+  Pencil,
   Trash2,
   Bell,
   Sunrise,
@@ -96,6 +97,7 @@ export type TaskItemProps = {
   onQuickSetDuePreset?: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => void;
   dragLabel?: string;
   dragTitle?: string;
+  showInlineQuickActions?: boolean;
   helpers: TaskItemHelpers;
 };
 
@@ -124,6 +126,7 @@ const TaskItem = ({
   dragLabel = '拖动排序',
   dragTitle = '拖动排序',
   dragEnabled = true,
+  showInlineQuickActions = false,
   helpers,
 }: TaskItemProps) => {
   const {
@@ -568,7 +571,13 @@ const TaskItem = ({
             </div>
 
             <div
-              className="pointer-events-none absolute left-11 right-3 top-[calc(100%-0.35rem)] z-30 hidden flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2 opacity-0 shadow-[0_18px_38px_rgba(0,0,0,0.22)] backdrop-blur-xl"
+              className={
+                showInlineQuickActions
+                  ? `mt-2 hidden flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2 shadow-[0_18px_38px_rgba(0,0,0,0.18)] backdrop-blur-xl group-hover:flex group-focus-within:flex ${
+                      isDueEditorOpen ? '!flex' : ''
+                    }`
+                  : 'pointer-events-none absolute left-11 right-3 top-[calc(100%-0.35rem)] z-30 hidden flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-2 opacity-0 shadow-[0_18px_38px_rgba(0,0,0,0.22)] backdrop-blur-xl'
+              }
               onClick={(event) => event.stopPropagation()}
               onMouseDown={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
@@ -720,6 +729,23 @@ const TaskItem = ({
                     ))}
                   </>
                 )}
+                {onTogglePinned && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onTogglePinned(task);
+                    }}
+                    className={`h-5 min-w-9 rounded-full border px-1.5 text-[10px] transition-colors ${
+                      task.pinned
+                        ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200'
+                        : 'border-[var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
+                    }`}
+                    title={task.pinned ? '取消置顶' : '设为置顶'}
+                  >
+                    {task.pinned ? '已置顶' : '置顶'}
+                  </button>
+                )}
                 {onQuickSetDuePreset && (
                   <>
                     <button
@@ -814,6 +840,19 @@ const TaskItem = ({
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
             onClick={(event) => event.stopPropagation()}
           >
+            {onTitleClick && (
+              <button
+                type="button"
+                onClick={() => {
+                  closeContextMenu();
+                  onTitleClick?.();
+                }}
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-[color:var(--ui-text-primary)] hover:bg-[var(--state-hover-bg)]"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>编辑标题</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

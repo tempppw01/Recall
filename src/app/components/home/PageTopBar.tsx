@@ -11,7 +11,6 @@ type ThemePreference = 'system' | 'light' | 'dark';
 type PageTopBarProps = {
   activeFilter: string;
   headerTitle: string;
-  headerSubtitle?: string;
   isListView: boolean;
   isBatchMode: boolean;
   completedTasks: number;
@@ -36,7 +35,6 @@ const getThemeToggleLabel = (themePreference: ThemePreference) => {
 export default function PageTopBar({
   activeFilter,
   headerTitle,
-  headerSubtitle,
   isListView,
   isBatchMode,
   completedTasks,
@@ -58,7 +56,7 @@ export default function PageTopBar({
           <div className="flex w-full min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
             <button
               onClick={onOpenSidebar}
-              className={`-ml-1 min-h-11 min-w-11 shrink-0 bg-[color:var(--ui-card-bg)] shadow-[0_8px_20px_rgba(0,0,0,0.14)] lg:hidden sm:min-h-10 sm:min-w-10 ${iconButtonClassName}`}
+              className={`-ml-1 min-h-11 min-w-11 shrink-0 bg-[color:var(--ui-card-bg)] shadow-[0_8px_20px_rgba(0,0,0,0.14)] sm:hidden ${iconButtonClassName}`}
               aria-label="打开导航"
               title="打开导航"
             >
@@ -72,9 +70,6 @@ export default function PageTopBar({
                 {activeFilter === 'habit' && <Flame className="h-5 w-5 shrink-0 text-orange-400" />}
                 <span className="truncate">{headerTitle}</span>
               </h2>
-              {headerSubtitle && (
-                <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">{headerSubtitle}</p>
-              )}
             </div>
           </div>
 

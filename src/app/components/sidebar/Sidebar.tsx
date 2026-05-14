@@ -116,7 +116,7 @@ const Sidebar = ({
   const [isDragging, setIsDragging] = useState(false);
   const [toolOrder, setToolOrder] = useState<ToolItemKey[]>(DEFAULT_TOOL_ORDER);
   const [draggingToolKey, setDraggingToolKey] = useState<ToolItemKey | null>(null);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const sidebarRef = useRef<HTMLElement>(null);
 
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
@@ -146,12 +146,12 @@ const Sidebar = ({
   }, [isDragging, setSidebarWidth]);
 
   useEffect(() => {
-    const checkDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024);
+    const syncViewportWidth = () => {
+      setViewportWidth(window.innerWidth);
     };
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-    return () => window.removeEventListener('resize', checkDesktop);
+    syncViewportWidth();
+    window.addEventListener('resize', syncViewportWidth);
+    return () => window.removeEventListener('resize', syncViewportWidth);
   }, []);
 
   useEffect(() => {
@@ -187,11 +187,17 @@ const Sidebar = ({
     });
   }, [draggingToolKey]);
 
+  const isMobile = viewportWidth > 0 ? viewportWidth < 640 : true;
+  const isRailLayout = viewportWidth >= 640 && viewportWidth < 1024;
+  const isDesktopExpanded = viewportWidth >= 1024;
+
   const changeFilter = useCallback((nextFilter: string, refresher?: () => void) => {
     setActiveFilter(nextFilter);
     refresher?.();
-    setIsSidebarOpen(false);
-  }, [setActiveFilter, setIsSidebarOpen]);
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [isMobile, setActiveFilter, setIsSidebarOpen]);
 
   const activeTaskCount = useMemo(
     () => tasks.filter((task) => task.status !== 'completed').length,
@@ -404,8 +410,8 @@ const Sidebar = ({
     },
   ];
 
-  const pcWidth = isSidebarCollapsed ? COLLAPSED_WIDTH : sidebarWidth;
-  const toolGridColumnsClass = isDesktop && pcWidth >= 340 ? 'grid-cols-3' : 'grid-cols-2';
+  const resolvedSidebarWidth = isRailLayout ? COLLAPSED_WIDTH : isDesktopExpanded ? sidebarWidth : undefined;
+  const toolGridColumnsClass = isDesktopExpanded && sidebarWidth >= 340 ? 'grid-cols-3' : 'grid-cols-2';
 
   return (
     <>
@@ -415,19 +421,26 @@ const Sidebar = ({
           theme-native-surface sidebar-shell fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden
           border-r border-[color:var(--ui-border-soft)] bg-[var(--ui-surface-1)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.18)]
           ${isSidebarOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-full opacity-0 pointer-events-none'}
-          lg:relative lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto lg:shadow-none
+          sm:relative sm:translate-x-0 sm:opacity-100 sm:pointer-events-auto sm:shadow-none
         `}
         style={{
-          width: isDesktop ? `${pcWidth}px` : '74vw',
-          maxWidth: isDesktop ? `${pcWidth}px` : '280px',
+          width: resolvedSidebarWidth ? `${resolvedSidebarWidth}px` : '74vw',
+          maxWidth: resolvedSidebarWidth ? `${resolvedSidebarWidth}px` : '280px',
           transition: isDragging ? 'none' : 'width var(--motion-base) var(--ease-standard), transform var(--motion-slow) var(--ease-emphasis)',
         }}
       >
         <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[rgba(var(--theme-accent),0.26)] to-transparent opacity-45" />
         <div className="pointer-events-none absolute -left-16 top-14 h-44 w-44 rounded-full bg-[rgba(var(--theme-accent),0.045)] blur-3xl" />
-        {isSidebarCollapsed ? (
-          <div className="relative z-10 hidden h-full flex-col lg:flex">
-            <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-2.5">
+        {isRailLayout ? (
+          <div className="relative z-10 hidden h-full flex-col sm:flex">
+            <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-3">
+              <div className="flex justify-center">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.08)] text-[12px] font-semibold tracking-[-0.03em] text-[color:var(--ui-text-strong)]">
+                  R
+                </div>
+              </div>
+            </div>
+            <div className="hidden border-b border-[color:var(--ui-border-soft)] px-2 py-2.5">
               <button
                 type="button"
                 onClick={() => setIsSidebarCollapsed(false)}
@@ -483,7 +496,7 @@ const Sidebar = ({
                     <button
                       type="button"
                       onClick={() => setIsSidebarOpen(false)}
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] shadow-[0_8px_20px_rgba(0,0,0,0.14)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] active:scale-95 lg:hidden"
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] shadow-[0_8px_20px_rgba(0,0,0,0.14)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] active:scale-95 sm:hidden"
                       title="关闭菜单"
                       aria-label="关闭菜单"
                     >
@@ -493,7 +506,7 @@ const Sidebar = ({
                     <button
                       type="button"
                       onClick={() => setIsSidebarCollapsed(true)}
-                      className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-transparent text-[color:var(--ui-text-muted)] transition-colors hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:flex"
+                      className="hidden"
                       title="折叠侧边栏"
                       aria-label="折叠侧边栏"
                     >
@@ -598,11 +611,11 @@ const Sidebar = ({
                                     } ${draggingToolKey === key ? 'opacity-60' : ''}`}
                                     title={item.label}
                                     aria-label={item.label}
-                                    draggable={isDesktop}
-                                    onDragStart={isDesktop ? () => setDraggingToolKey(key) : undefined}
-                                    onDragOver={isDesktop ? (event) => event.preventDefault() : undefined}
-                                    onDrop={isDesktop ? () => handleToolDrop(key) : undefined}
-                                    onDragEnd={isDesktop ? () => setDraggingToolKey(null) : undefined}
+                                    draggable={isDesktopExpanded}
+                                    onDragStart={isDesktopExpanded ? () => setDraggingToolKey(key) : undefined}
+                                    onDragOver={isDesktopExpanded ? (event) => event.preventDefault() : undefined}
+                                    onDrop={isDesktopExpanded ? () => handleToolDrop(key) : undefined}
+                                    onDragEnd={isDesktopExpanded ? () => setDraggingToolKey(null) : undefined}
                                   >
                                     <div className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border transition-all ${
                                       item.active
@@ -627,7 +640,7 @@ const Sidebar = ({
                                         {item.count > 99 ? '99+' : item.count}
                                       </span>
                                     ) : null}
-                                    {isDesktop ? <GripVertical className="absolute bottom-1.5 right-1.5 h-3.5 w-3.5 text-[color:var(--ui-text-faint)] opacity-0 transition-opacity group-hover/sidebar-tool:opacity-100" /> : null}
+                                    {isDesktopExpanded ? <GripVertical className="absolute bottom-1.5 right-1.5 h-3.5 w-3.5 text-[color:var(--ui-text-faint)] opacity-0 transition-opacity group-hover/sidebar-tool:opacity-100" /> : null}
                                   </button>
                                 );
                               })}
@@ -644,7 +657,7 @@ const Sidebar = ({
           </>
         )}
 
-        {!isSidebarCollapsed && (
+        {isDesktopExpanded && (
           <div
             className="group absolute right-0 top-0 hidden h-full w-1 cursor-col-resize lg:flex"
             onMouseDown={handleMouseDown}

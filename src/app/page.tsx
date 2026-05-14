@@ -5725,7 +5725,7 @@ const normalizeTimeoutSec = (value: number) => {
         <button
           type="button"
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 z-30 bg-black/42 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-30 bg-black/42 backdrop-blur-[2px] sm:hidden"
           aria-label="关闭菜单"
           title="关闭菜单"
         />
@@ -5783,7 +5783,6 @@ const normalizeTimeoutSec = (value: number) => {
         <PageTopBar
           activeFilter={activeFilter}
           headerTitle={headerTitle}
-          headerSubtitle={headerSubtitle}
           isListView={isListView}
           isBatchMode={isBatchMode}
           completedTasks={completedTasks}
@@ -6703,32 +6702,61 @@ const normalizeTimeoutSec = (value: number) => {
                           </div>
                         ) : (
                           sortedItems.map((task) => (
-                            <TaskItem
-                              key={task.id}
-                              task={task}
-                              onToggle={toggleStatus}
-                              onDelete={removeTask}
-                              onToggleSubtask={toggleSubtask}
-                              onUpdateDueDate={updateTaskDueDate}
-                              onCopyTitle={copyTaskTitle}
-                              onCopyContent={copyTaskContent}
-                              onTogglePinned={toggleTaskPinned}
-                              onQuickSetPriority={quickSetPriority}
-                              onQuickSetDuePreset={quickSetDuePreset}
-                              onDragStart={() => {
-                                setDraggingTaskId(task.id);
-                                setDragOverQuadrantKey(null);
-                              }}
-                              onDragEnd={() => {
-                                setDraggingTaskId(null);
-                                setDragOverQuadrantKey(null);
-                              }}
-                              dragEnabled
-                              multiSelectEnabled={isBatchMode}
-                              isChecked={selectedTaskIds.has(task.id)}
-                              onToggleSelect={toggleTaskSelected}
-                              helpers={taskItemHelpers}
-                            />
+                            <div key={task.id} className="space-y-1">
+                              {editingTaskId === task.id ? (
+                                <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5">
+                                  <input
+                                    value={editingTaskTitle}
+                                    onChange={(e) => setEditingTaskTitle(e.target.value)}
+                                    onBlur={() => commitEditingTitle(task, task.title)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        commitEditingTitle(task, task.title);
+                                      }
+                                      if (e.key === 'Escape') {
+                                        setEditingTaskId(null);
+                                        setEditingTaskTitle('');
+                                      }
+                                    }}
+                                    autoFocus
+                                    className="flex-1 bg-transparent text-sm text-[color:var(--ui-text-primary)] outline-none"
+                                    placeholder="编辑任务标题"
+                                  />
+                                </div>
+                              ) : (
+                                <TaskItem
+                                  task={task}
+                                  onToggle={toggleStatus}
+                                  onDelete={removeTask}
+                                  onToggleSubtask={toggleSubtask}
+                                  onUpdateDueDate={updateTaskDueDate}
+                                  onCopyTitle={copyTaskTitle}
+                                  onCopyContent={copyTaskContent}
+                                  onTogglePinned={toggleTaskPinned}
+                                  onQuickSetPriority={quickSetPriority}
+                                  onQuickSetDuePreset={quickSetDuePreset}
+                                  onDragStart={() => {
+                                    setDraggingTaskId(task.id);
+                                    setDragOverQuadrantKey(null);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggingTaskId(null);
+                                    setDragOverQuadrantKey(null);
+                                  }}
+                                  dragEnabled
+                                  showInlineQuickActions
+                                  onTitleClick={() => {
+                                    setEditingTaskId(task.id);
+                                    setEditingTaskTitle(task.title);
+                                  }}
+                                  multiSelectEnabled={isBatchMode}
+                                  isChecked={selectedTaskIds.has(task.id)}
+                                  onToggleSelect={toggleTaskSelected}
+                                  helpers={taskItemHelpers}
+                                />
+                              )}
+                            </div>
                           ))
                         )}
                       </div>
@@ -7912,17 +7940,17 @@ const normalizeTimeoutSec = (value: number) => {
             />
           ) : activeFilter === 'habit' ? (
             <div className="space-y-5 sm:space-y-6">
-              <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[11px] text-[#666666]">
+              <div className="rounded-[26px] border border-[#2C2C2C] bg-[linear-gradient(180deg,rgba(32,32,32,0.98),rgba(23,23,23,0.98))] px-4 py-3.5 shadow-[0_16px_42px_rgba(0,0,0,0.18)] sm:px-5 sm:py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-[10px] text-[#6F7F98]">
                     {hasApiKey ? '有 AI 时自动拆解，无 AI 时直接创建习惯' : '当前按直接创建模式工作'}
                   </div>
                   <div className="text-[11px] text-[#555555]">今天 {getTodayKey().slice(5)}</div>
                 </div>
 
-                <div className="mt-3 rounded-xl border border-[#2E3750] bg-[#1A2236] p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-xs text-[#8FA1C8]">
+                <div className="mt-2.5 rounded-[20px] border border-[#2E3750] bg-[#141B2A] p-2.5 space-y-2.5 sm:p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[11px] text-[#8FA1C8]">
                       同一个输入框：有 AI 就拆解，无 AI 自动创建
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-200">
@@ -7930,7 +7958,7 @@ const normalizeTimeoutSec = (value: number) => {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <input
                       type="text"
                       value={habitAgentInput}
@@ -7942,20 +7970,20 @@ const normalizeTimeoutSec = (value: number) => {
                         }
                       }}
                       placeholder={hasApiKey ? '例如：我想学习英语' : '例如：学英语（将直接创建习惯）'}
-                      className="flex-1 bg-[#111827] border border-[#334155] rounded-lg px-3 py-2 text-sm text-[#E2E8FF] focus:outline-none focus:border-blue-400 disabled:opacity-60"
+                      className="flex-1 rounded-xl border border-[#334155] bg-[#0F172A] px-3 py-2.5 text-sm text-[#E2E8FF] focus:outline-none focus:border-blue-400 disabled:opacity-60"
                       disabled={habitAgentLoading}
                     />
                     <button
                       onClick={handleHabitAgentSend}
                       disabled={!habitAgentInput.trim() || habitAgentLoading}
-                      className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50"
+                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
                     >
                       {habitAgentLoading ? '拆解中…' : hasApiKey ? 'AI 拆解' : '创建习惯'}
                     </button>
                   </div>
 
                   {habitAgentError && (
-                    <div className="whitespace-pre-wrap text-xs leading-relaxed text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                    <div className="whitespace-pre-wrap rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-300">
                       {habitAgentError}
                     </div>
                   )}
@@ -7965,11 +7993,11 @@ const normalizeTimeoutSec = (value: number) => {
                       {habitAgentItems.map((item) => {
                         const isAdded = addedHabitAgentItemIds.has(item.id);
                         return (
-                          <div key={item.id} className="rounded-lg border border-[#334155] bg-[#0F172A] p-3">
+                          <div key={item.id} className="rounded-[18px] border border-[#334155] bg-[#0F172A] px-3 py-2.5">
                             <div className="flex items-start justify-between gap-3">
-                              <div>
+                              <div className="min-w-0">
                                 <div className="text-sm text-[#E2E8F0] font-medium">{item.title}</div>
-                                <div className="text-xs text-[#94A3B8] mt-1">
+                                <div className="mt-1 text-[11px] text-[#94A3B8]">
                                   {item.frequency ? `频率：${item.frequency} · ` : ''}
                                   {item.checkInDueDate ? `检查时间：${formatZonedDateTime(item.checkInDueDate, DEFAULT_TIMEZONE_OFFSET)}` : '检查时间：今晚 20:00'}
                                 </div>
@@ -7978,7 +8006,7 @@ const normalizeTimeoutSec = (value: number) => {
                               <button
                                 onClick={() => handleAddHabitAgentItem(item)}
                                 disabled={isAdded}
-                                className={`text-xs px-3 py-1 rounded border transition-colors ${
+                                className={`shrink-0 rounded-full border px-3 py-1 text-[11px] transition-colors ${
                                   isAdded
                                     ? 'border-[#374151] text-[#6B7280]'
                                     : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'

@@ -107,9 +107,9 @@ export default function ItemsPanel({
   };
 
   return (
-    <div className="theme-native-surface space-y-5 sm:space-y-6">
+    <div className="theme-native-surface space-y-5 pb-24 sm:space-y-6 sm:pb-28">
       <div className="glass-panel rounded-[30px] border-[color:var(--ui-border-strong)] px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4">
           <div className="min-w-0">
             <div className="ui-kicker">物品管理</div>
             <h2 className="ui-title mt-1 text-xl font-semibold tracking-[-0.03em]">物品台账</h2>
@@ -131,7 +131,7 @@ export default function ItemsPanel({
           <button
             type="button"
             onClick={openNewItemForm}
-            className="btn btn-primary btn-md w-full rounded-2xl sm:w-auto"
+            className="hidden"
             aria-label="新增物品"
           >
             <Plus className="h-4 w-4" />
@@ -284,9 +284,29 @@ export default function ItemsPanel({
         </>
       )}
 
+      {!isItemFormOpen && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[45] flex justify-center px-4">
+          <button
+            type="button"
+            onClick={openNewItemForm}
+            className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-strong)] shadow-[0_18px_40px_rgba(15,23,42,0.28)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-[rgba(var(--theme-accent),0.4)] hover:bg-[color:var(--ui-card-hover-bg)]"
+            aria-label="鏂板鐗╁搧"
+            title="鏂板鐗╁搧"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+        </div>
+      )}
+
       {isItemFormOpen && (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-[color:var(--ui-overlay-bg)] px-3 pb-3 pt-14 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="theme-native-surface motion-modal w-full max-w-2xl overflow-hidden rounded-[30px] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-modal-bg)] shadow-[0_28px_80px_rgba(0,0,0,0.36)]">
+        <div
+          className="fixed inset-0 z-[70] flex items-end justify-center bg-[color:var(--ui-overlay-bg)] px-3 pb-3 pt-14 backdrop-blur-sm sm:items-center sm:p-6"
+          onClick={closeItemForm}
+        >
+          <div
+            className="theme-native-surface motion-modal w-full max-w-lg overflow-hidden rounded-[30px] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-modal-bg)] shadow-[0_28px_80px_rgba(0,0,0,0.36)]"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="bg-[color:var(--ui-modal-bg)] flex items-start justify-between gap-4 border-b border-[color:var(--ui-border-soft)] px-5 py-4 sm:px-6">
               <div className="min-w-0">
                 <div className="ui-kicker">{editingItemId ? '编辑物品' : '新增物品'}</div>
@@ -303,7 +323,7 @@ export default function ItemsPanel({
               </button>
             </div>
 
-            <div className="max-h-[min(72vh,620px)] space-y-4 overflow-y-auto bg-[color:var(--ui-modal-bg)] px-5 py-5 sm:px-6">
+            <div className="max-h-[min(70vh,560px)] space-y-4 overflow-y-auto bg-[color:var(--ui-modal-bg)] px-5 py-5 sm:px-6">
               <div>
                 <label className="ui-field-label mb-2 block text-[11px] sm:text-xs">物品名称</label>
                 <input
