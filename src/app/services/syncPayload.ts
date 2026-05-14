@@ -4,10 +4,12 @@ export function buildExportPayload(params: {
   habits: any[];
   countdowns: any[];
   items: any[];
+  knowledgeEntries: any[];
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
   deletedItems: Record<string, string>;
+  deletedKnowledgeEntries: Record<string, string>;
 }) {
   const {
     appVersion,
@@ -15,10 +17,12 @@ export function buildExportPayload(params: {
     habits,
     countdowns,
     items,
+    knowledgeEntries,
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
     deletedItems,
+    deletedKnowledgeEntries,
   } = params;
 
   return {
@@ -29,12 +33,14 @@ export function buildExportPayload(params: {
       habits,
       countdowns,
       items,
+      knowledgeEntries,
     },
     deletions: {
       tasks: deletedTasks,
       countdowns: deletedCountdowns,
       habits: deletedHabits,
       items: deletedItems,
+      knowledgeEntries: deletedKnowledgeEntries,
     },
   };
 }
@@ -45,10 +51,12 @@ export function buildSyncPayload(params: {
   habits: any[];
   countdowns: any[];
   items: any[];
+  knowledgeEntries: any[];
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
   deletedItems: Record<string, string>;
+  deletedKnowledgeEntries: Record<string, string>;
   settings: Record<string, any>;
   secrets: Record<string, any>;
 }) {
@@ -58,10 +66,12 @@ export function buildSyncPayload(params: {
     habits,
     countdowns,
     items,
+    knowledgeEntries,
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
     deletedItems,
+    deletedKnowledgeEntries,
     settings,
     secrets,
   } = params;
@@ -74,12 +84,14 @@ export function buildSyncPayload(params: {
       habits,
       countdowns,
       items,
+      knowledgeEntries,
     },
     deletions: {
       tasks: deletedTasks,
       countdowns: deletedCountdowns,
       habits: deletedHabits,
       items: deletedItems,
+      knowledgeEntries: deletedKnowledgeEntries,
     },
     settings,
     secrets,

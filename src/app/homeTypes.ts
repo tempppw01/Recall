@@ -1,4 +1,4 @@
-import type { Task, TaskRepeatRule } from '@/lib/store';
+import type { KnowledgeEntry as StoreKnowledgeEntry, Task, TaskRepeatRule } from '@/lib/store';
 
 export type WeatherCity = {
   id: string;
@@ -104,15 +104,7 @@ export type KnowledgeReference = Pick<KnowledgeEntry, 'id' | 'title' | 'content'
   strategy?: string;
 };
 
-export type KnowledgeEntry = {
-  id: string;
-  title: string;
-  content: string;
-  category: 'preference' | 'task' | 'habit' | 'profile' | 'note';
-  source: 'manual' | 'ai' | 'system';
-  createdAt: string;
-  updatedAt: string;
-};
+export type KnowledgeEntry = StoreKnowledgeEntry;
 
 export type UserMemory = {
   id: string;

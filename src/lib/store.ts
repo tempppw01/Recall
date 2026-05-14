@@ -127,10 +127,26 @@ export interface PomodoroRecord {
   durationMinutes: number;
 }
 
+export interface KnowledgeEntry {
+  id: string;
+  title: string;
+  content: string;
+  category: 'preference' | 'task' | 'habit' | 'profile' | 'note';
+  source: 'manual' | 'ai' | 'system';
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── localStorage Key 定义 ──────────────────────────────────
 
 /** 各数据类型在 localStorage 中的存储键 */
-type StoreKey = 'recall_tasks' | 'recall_habits' | 'recall_countdowns' | 'recall_items' | 'recall_pomodoro_records';
+type StoreKey =
+  | 'recall_tasks'
+  | 'recall_habits'
+  | 'recall_countdowns'
+  | 'recall_items'
+  | 'recall_pomodoro_records'
+  | 'recall_knowledge_base';
 
 /** 记录最后一次本地数据变更的时间戳，用于同步冲突判断 */
 const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
@@ -283,3 +299,4 @@ export const itemStore = createStore<Item>('recall_items', '/api/items');
 
 /** 番茄钟 Store，仅本地存储（无远端同步） */
 export const pomodoroStore = createStore<PomodoroRecord>('recall_pomodoro_records');
+export const knowledgeStore = createStore<KnowledgeEntry>('recall_knowledge_base');

@@ -33,6 +33,7 @@ type SyncConflictSummary = {
   habits: number;
   countdowns: number;
   items: number;
+  knowledgeEntries: number;
   settings: boolean;
   secrets: boolean;
 };
@@ -263,6 +264,12 @@ const filterByDeletions = (items: any[], deletedMap: Record<string, string>) => 
 const resolvePayloadItems = (payload: any, key: string) =>
   payload?.data?.[key] ?? payload?.[key];
 
+const resolveKnowledgePayloadItems = (payload: any) =>
+  payload?.data?.knowledgeEntries
+  ?? payload?.knowledgeEntries
+  ?? payload?.settings?.knowledgeEntries
+  ?? [];
+
 /** 比较两个时间戳，返回较晚的那个 */
 const pickLatestTimestamp = (a?: string, b?: string) => {
   const aMs = a ? new Date(a).getTime() : 0;
@@ -318,11 +325,14 @@ const mergeSyncPayload = (
   const incomingCountdowns = ensureUpdatedAt(normalizeList(resolvePayloadItems(incomingPayload, 'countdowns')));
   const currentItems = ensureUpdatedAt(normalizeList(resolvePayloadItems(existingPayload, 'items')));
   const incomingItems = ensureUpdatedAt(normalizeList(resolvePayloadItems(incomingPayload, 'items')));
+  const currentKnowledgeEntries = ensureUpdatedAt(normalizeList(resolveKnowledgePayloadItems(existingPayload)));
+  const incomingKnowledgeEntries = ensureUpdatedAt(normalizeList(resolveKnowledgePayloadItems(incomingPayload)));
 
   const mergedTasks = mergeById(currentTasks, incomingTasks);
   const mergedHabits = mergeById(currentHabits, incomingHabits);
   const mergedCountdowns = mergeById(currentCountdowns, incomingCountdowns);
   const mergedItems = mergeById(currentItems, incomingItems);
+  const mergedKnowledgeEntries = mergeById(currentKnowledgeEntries, incomingKnowledgeEntries);
 
   // 合并任务删除记录，并过滤已删除任务
   const existingDeletedTasks = normalizeDeletedMap(
@@ -358,13 +368,39 @@ const mergeSyncPayload = (
     filterByDeletions(mergedItems, mergedDeletedItems);
 
   // settings / secrets 根据 lastLocalChange 决定优先方
+  const existingDeletedHabits = normalizeDeletedMap(
+    existingPayload?.deletions?.habits ?? existingPayload?.deletedHabits,
+  );
+  const incomingDeletedHabits = normalizeDeletedMap(
+    incomingPayload?.deletions?.habits ?? incomingPayload?.deletedHabits,
+  );
+  const mergedDeletedHabits = mergeDeletedMap(existingDeletedHabits, incomingDeletedHabits);
+  const { filtered: filteredHabits, nextDeleted: nextDeletedHabits } =
+    filterByDeletions(mergedHabits, mergedDeletedHabits);
+
+  const existingDeletedKnowledgeEntries = normalizeDeletedMap(
+    existingPayload?.deletions?.knowledgeEntries ?? existingPayload?.deletedKnowledgeEntries,
+  );
+  const incomingDeletedKnowledgeEntries = normalizeDeletedMap(
+    incomingPayload?.deletions?.knowledgeEntries ?? incomingPayload?.deletedKnowledgeEntries,
+  );
+  const mergedDeletedKnowledgeEntries = mergeDeletedMap(existingDeletedKnowledgeEntries, incomingDeletedKnowledgeEntries);
+  const { filtered: filteredKnowledgeEntries, nextDeleted: nextDeletedKnowledgeEntries } =
+    filterByDeletions(mergedKnowledgeEntries, mergedDeletedKnowledgeEntries);
+
   const incomingWins = Boolean(
     pickLatestTimestamp(existingMeta?.lastLocalChange, incomingMeta?.lastLocalChange) ===
       incomingMeta?.lastLocalChange,
   );
-  const mergedSettings = incomingWins
+  const mergedSettingsBase = incomingWins
     ? (incomingPayload?.settings ?? existingPayload?.settings)
     : (existingPayload?.settings ?? incomingPayload?.settings);
+  const mergedSettings = mergedSettingsBase
+    ? {
+      ...mergedSettingsBase,
+      knowledgeEntries: filteredKnowledgeEntries,
+    }
+    : undefined;
   const mergedSecrets = incomingWins
     ? (incomingPayload?.secrets ?? existingPayload?.secrets)
     : (existingPayload?.secrets ?? incomingPayload?.secrets);
@@ -374,6 +410,7 @@ const mergeSyncPayload = (
     habits: countConflictsById(currentHabits, incomingHabits),
     countdowns: countConflictsById(currentCountdowns, incomingCountdowns),
     items: countConflictsById(currentItems, incomingItems),
+    knowledgeEntries: countConflictsById(currentKnowledgeEntries, incomingKnowledgeEntries),
     settings: Boolean(existingPayload?.settings && incomingPayload?.settings && !incomingWins),
     secrets: Boolean(existingPayload?.secrets && incomingPayload?.secrets && !incomingWins),
   };
@@ -384,14 +421,17 @@ const mergeSyncPayload = (
       exportedAt: new Date().toISOString(),
       data: {
         tasks: filteredTasks,
-        habits: mergedHabits,
+        habits: filteredHabits,
         countdowns: filteredCountdowns,
         items: filteredItems,
+        knowledgeEntries: filteredKnowledgeEntries,
       },
       deletions: {
         tasks: nextDeletedTasks,
+        habits: nextDeletedHabits,
         countdowns: nextDeletedCountdowns,
         items: nextDeletedItems,
+        knowledgeEntries: nextDeletedKnowledgeEntries,
       },
       settings: mergedSettings,
       secrets: mergedSecrets,

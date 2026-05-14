@@ -71,7 +71,7 @@ import {
   readImageAsDataUrl,
   sortTasks,
 } from '@/app/homeUtils';
-import { taskStore, habitStore, countdownStore, itemStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
+import { taskStore, habitStore, countdownStore, itemStore, knowledgeStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
 import PomodoroAudioController from '@/app/components/PomodoroAudioController';
@@ -144,6 +144,7 @@ const DELETED_TASKS_KEY = 'recall_deleted_tasks';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const DELETED_HABITS_KEY = 'recall_deleted_habits';
 const DELETED_ITEMS_KEY = 'recall_deleted_items';
+const DELETED_KNOWLEDGE_ENTRIES_KEY = 'recall_deleted_knowledge_entries';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
 const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
@@ -1365,6 +1366,16 @@ export default function Home() {
     setItems(filtered);
   }, []);
 
+  const refreshKnowledge = useCallback(() => {
+    const all = normalizeKnowledgeEntries(knowledgeStore.getAll());
+    const deletedMap = readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY);
+    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
+    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
+      persistDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY, nextDeleted);
+    }
+    setKnowledgeEntries(normalizeKnowledgeEntries(filtered));
+  }, []);
+
   const { syncToPg } = usePgMirrorSync({
     enabled: Boolean(pgHost),
     config: {
@@ -1872,6 +1883,7 @@ export default function Home() {
             CASUAL_CHAT_MESSAGES_KEY,
             USER_MEMORIES_KEY,
             KNOWLEDGE_BASE_KEY,
+            DELETED_KNOWLEDGE_ENTRIES_KEY,
             EMBEDDING_MODEL_KEY,
             RERANK_MODEL_KEY,
           ]);
@@ -1920,7 +1932,6 @@ export default function Home() {
       const storedSyncNamespace = localStorage.getItem(SYNC_NAMESPACE_KEY);
       const storedCalendarCity = localStorage.getItem(CALENDAR_CITY_KEY);
       const storedCasualChatMessages = localStorage.getItem(CASUAL_CHAT_MESSAGES_KEY);
-      const storedKnowledgeEntries = localStorage.getItem(KNOWLEDGE_BASE_KEY);
       const storedUserMemories = localStorage.getItem(USER_MEMORIES_KEY);
 
       if (storedKey) {
@@ -2059,14 +2070,7 @@ export default function Home() {
           console.error('Invalid casual chat messages cache', error);
         }
       }
-      const nextKnowledgeEntries: KnowledgeEntry[] = [];
-      if (storedKnowledgeEntries) {
-        try {
-          nextKnowledgeEntries.push(...normalizeKnowledgeEntries(JSON.parse(storedKnowledgeEntries)));
-        } catch (error) {
-          console.error('Invalid knowledge base cache', error);
-        }
-      }
+      const nextKnowledgeEntries: KnowledgeEntry[] = [...normalizeKnowledgeEntries(knowledgeStore.getAll())];
       if (storedUserMemories) {
         try {
           const migratedEntries = convertLegacyMemoriesToKnowledgeEntries(JSON.parse(storedUserMemories));
@@ -2079,8 +2083,9 @@ export default function Home() {
         }
       }
       if (nextKnowledgeEntries.length > 0) {
-        setKnowledgeEntries(normalizeKnowledgeEntries(nextKnowledgeEntries));
+        knowledgeStore.replaceAll(normalizeKnowledgeEntries(nextKnowledgeEntries));
       }
+      refreshKnowledge();
 
       refreshTasks();
       refreshHabits();
@@ -2127,7 +2132,7 @@ export default function Home() {
 
       setSettingsLoaded(true);
     }
-  }, [refreshItems, refreshTasks]);
+  }, [refreshItems, refreshKnowledge, refreshTasks]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2156,8 +2161,7 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded) return;
-    localStorage.setItem(KNOWLEDGE_BASE_KEY, JSON.stringify(knowledgeEntries.slice(0, 200)));
-    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
+    knowledgeStore.replaceAll(knowledgeEntries.slice(0, 200));
   }, [settingsLoaded, knowledgeEntries]);
 
   useEffect(() => {
@@ -3217,6 +3221,7 @@ const normalizeTimeoutSec = (value: number) => {
       detail: `新增 ${additions.length} 条到知识库，可在 10 秒内撤销。`,
       actionLabel: '撤销',
       onAction: () => {
+        additionIds.forEach((id) => markDeleted(DELETED_KNOWLEDGE_ENTRIES_KEY, id));
         setKnowledgeEntries((prev) => prev.filter((entry) => !additionIds.has(entry.id)));
         setStatusFeedback({
           id: createId(),
@@ -3746,6 +3751,7 @@ const normalizeTimeoutSec = (value: number) => {
   };
 
   const removeKnowledgeEntry = (entryId: string) => {
+    markDeleted(DELETED_KNOWLEDGE_ENTRIES_KEY, entryId);
     setKnowledgeEntries((prev) => prev.filter((entry) => entry.id !== entryId));
     if (editingKnowledgeId === entryId) resetKnowledgeForm();
   };
@@ -4125,10 +4131,12 @@ const normalizeTimeoutSec = (value: number) => {
     habits: habitStore.getAll(),
     countdowns: countdownStore.getAll(),
     items: itemStore.getAll(),
+    knowledgeEntries,
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
     deletedItems: readDeletedMap(DELETED_ITEMS_KEY),
+    deletedKnowledgeEntries: readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY),
   });
 
   const buildSyncPayload = () => buildSyncPayloadData({
@@ -4137,10 +4145,12 @@ const normalizeTimeoutSec = (value: number) => {
     habits: habitStore.getAll(),
     countdowns: countdownStore.getAll(),
     items: itemStore.getAll(),
+    knowledgeEntries,
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
     deletedItems: readDeletedMap(DELETED_ITEMS_KEY),
+    deletedKnowledgeEntries: readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY),
     settings: {
       apiBaseUrl,
       modelListText,
@@ -4250,12 +4260,15 @@ const normalizeTimeoutSec = (value: number) => {
     setAiContextLimit(nextAiContextLimit);
     setEmbeddingModel(nextEmbeddingModel);
     setRerankModel(nextRerankModel);
-    const syncedKnowledgeEntries = [
-      ...(Array.isArray(payload?.settings?.knowledgeEntries) ? payload.settings.knowledgeEntries : []),
-      ...(Array.isArray(payload?.settings?.userMemories)
-        ? convertLegacyMemoriesToKnowledgeEntries(payload.settings.userMemories)
-        : []),
-    ];
+    const hasStructuredKnowledgePayload = Array.isArray(payload?.data?.knowledgeEntries) || Array.isArray(payload?.knowledgeEntries);
+    const syncedKnowledgeEntries = hasStructuredKnowledgePayload
+      ? []
+      : [
+        ...(Array.isArray(payload?.settings?.knowledgeEntries) ? payload.settings.knowledgeEntries : []),
+        ...(Array.isArray(payload?.settings?.userMemories)
+          ? convertLegacyMemoriesToKnowledgeEntries(payload.settings.userMemories)
+          : []),
+      ];
     if (syncedKnowledgeEntries.length > 0) {
       setKnowledgeEntries(normalizeKnowledgeEntries(syncedKnowledgeEntries));
     }
@@ -4329,10 +4342,26 @@ const normalizeTimeoutSec = (value: number) => {
     const habitsImport = ensureUpdatedAt(normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits));
     const countdownsImport = ensureUpdatedAt(normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns));
     const itemsImport = ensureUpdatedAt(normalizeImportList<Item>(payload?.data?.items ?? payload?.items));
+    const hasKnowledgePayload =
+      Array.isArray(payload?.data?.knowledgeEntries)
+      || Array.isArray(payload?.knowledgeEntries)
+      || Array.isArray(payload?.settings?.knowledgeEntries)
+      || Array.isArray(payload?.settings?.userMemories)
+      || Boolean(payload?.deletions && Object.prototype.hasOwnProperty.call(payload.deletions, 'knowledgeEntries'))
+      || Boolean(payload && Object.prototype.hasOwnProperty.call(payload, 'deletedKnowledgeEntries'));
+    const knowledgeImport = ensureUpdatedAt(normalizeKnowledgeEntries([
+      ...(Array.isArray(payload?.data?.knowledgeEntries) ? payload.data.knowledgeEntries : []),
+      ...(Array.isArray(payload?.knowledgeEntries) ? payload.knowledgeEntries : []),
+      ...(Array.isArray(payload?.settings?.knowledgeEntries) ? payload.settings.knowledgeEntries : []),
+      ...(Array.isArray(payload?.settings?.userMemories)
+        ? convertLegacyMemoriesToKnowledgeEntries(payload.settings.userMemories)
+        : []),
+    ]));
     const currentTasks = ensureUpdatedAt(taskStore.getAll());
     const currentHabits = ensureUpdatedAt(habitStore.getAll());
     const currentCountdowns = ensureUpdatedAt(countdownStore.getAll());
     const currentItems = ensureUpdatedAt(itemStore.getAll());
+    const currentKnowledgeEntries = ensureUpdatedAt(normalizeKnowledgeEntries(knowledgeStore.getAll()));
 
     const nextTasks = mode === 'overwrite'
       ? tasksImport
@@ -4346,6 +4375,11 @@ const normalizeTimeoutSec = (value: number) => {
     const nextItems = mode === 'overwrite'
       ? itemsImport
       : mergeById(currentItems, itemsImport);
+    const nextKnowledgeEntries = !hasKnowledgePayload
+      ? currentKnowledgeEntries
+      : mode === 'overwrite'
+        ? knowledgeImport
+        : mergeById(currentKnowledgeEntries, knowledgeImport);
 
     // Deletions: Tasks
     const localDeletedTasks = readDeletedMap(DELETED_TASKS_KEY);
@@ -4383,20 +4417,31 @@ const normalizeTimeoutSec = (value: number) => {
     const { filtered: filteredItems, nextDeleted: nextDeletedItems } =
       filterByDeletions(nextItems, mergedDeletedItems);
 
+    const localDeletedKnowledgeEntries = readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY);
+    const incomingDeletedKnowledgeEntries = hasKnowledgePayload
+      ? normalizeDeletedMap(payload?.deletions?.knowledgeEntries ?? payload?.deletedKnowledgeEntries)
+      : {};
+    const mergedDeletedKnowledgeEntries = mergeDeletedMap(localDeletedKnowledgeEntries, incomingDeletedKnowledgeEntries);
+    const { filtered: filteredKnowledgeEntries, nextDeleted: nextDeletedKnowledgeEntries } =
+      filterByDeletions(nextKnowledgeEntries, mergedDeletedKnowledgeEntries);
+
     taskStore.replaceAll(filteredTasks);
     habitStore.replaceAll(filteredHabits);
     countdownStore.replaceAll(filteredCountdowns);
     itemStore.replaceAll(filteredItems);
+    knowledgeStore.replaceAll(filteredKnowledgeEntries);
     
     persistDeletedMap(DELETED_TASKS_KEY, nextDeletedTasks);
     persistDeletedMap(DELETED_COUNTDOWNS_KEY, nextDeletedCountdowns);
     persistDeletedMap(DELETED_HABITS_KEY, nextDeletedHabits);
     persistDeletedMap(DELETED_ITEMS_KEY, nextDeletedItems);
+    persistDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY, nextDeletedKnowledgeEntries);
 
     setTasks(filteredTasks);
     setHabits(filteredHabits);
     setCountdowns(filteredCountdowns);
     setItems(filteredItems);
+    setKnowledgeEntries(filteredKnowledgeEntries);
 
     const nextCategories = Array.from(new Set(filteredTasks.map((task) => task.category).filter(Boolean))) as string[];
     const nextTags = Array.from(new Set(filteredTasks.flatMap((task) => task.tags || [])));
