@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
+  BarChart3,
   Calendar,
   CheckCircle2,
   CheckSquare,
@@ -61,6 +62,7 @@ type ToolItemKey =
   | 'calendar'
   | 'timeline'
   | 'review'
+  | 'stats'
   | 'quadrant'
   | 'countdown'
   | 'habit'
@@ -86,7 +88,7 @@ const sidebarAccentStyle = (accentRgb?: string) => ({
 }) as React.CSSProperties;
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
-const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'stats', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -260,6 +262,15 @@ const Sidebar = ({
       iconColor: 'text-sky-400',
       accentRgb: '14, 165, 233',
     },
+    stats: {
+      icon: BarChart3,
+      label: '统计',
+      count: 0,
+      active: activeFilter === 'stats',
+      onClick: () => changeFilter('stats'),
+      iconColor: 'text-indigo-300',
+      accentRgb: '129, 140, 248',
+    },
     quadrant: {
       icon: LayoutGrid,
       label: '四象限',
@@ -392,10 +403,10 @@ const Sidebar = ({
     })),
   ];
 
-  const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
+const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
     {
       title: '执行',
-      keys: ['todo', 'calendar', 'timeline', 'review', 'quadrant'],
+      keys: ['todo', 'calendar', 'timeline', 'review', 'stats', 'quadrant'],
     },
     {
       title: '节律',

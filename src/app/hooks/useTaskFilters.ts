@@ -11,6 +11,7 @@ export type ActiveFilter =
   | 'countdown'
   | 'habit'
   | 'pomodoro'
+  | 'stats'
   | 'agent'
   | 'completed'
   | 'category'

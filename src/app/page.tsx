@@ -72,7 +72,7 @@ import {
   readImageAsDataUrl,
   sortTasks,
 } from '@/app/homeUtils';
-import { taskStore, habitStore, countdownStore, itemStore, knowledgeStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
+import { taskStore, habitStore, countdownStore, itemStore, knowledgeStore, pomodoroStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
 import PomodoroAudioController from '@/app/components/PomodoroAudioController';
@@ -89,6 +89,7 @@ import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
 import ReviewPanel from '@/app/components/review/ReviewPanel';
 import ItemsPanel from '@/app/components/items/ItemsPanel';
+import StatsPanel from '@/app/components/stats/StatsPanel';
 import LogsModal from '@/app/components/logs/LogsModal';
 import AboutModal from '@/app/components/about/AboutModal';
 import CountdownFormModal from '@/app/components/countdown/CountdownFormModal';
@@ -552,6 +553,7 @@ const FILTER_LABELS: Record<string, string> = {
   completed: '已完成',
   review: '检查',
   items: '物品管理',
+  stats: '统计',
 };
 const ACTIVE_FILTER_VALUES = new Set([
   'todo',
@@ -572,6 +574,7 @@ const ACTIVE_FILTER_VALUES = new Set([
   'completed',
   'review',
   'items',
+  'stats',
   'timeline',
 ]);
 const WEEKDAY_MAP: Record<string, number> = {
@@ -5559,7 +5562,7 @@ const normalizeTimeoutSec = (value: number) => {
   const handleMonthChange = (offset: number) => {
     setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1));
   };
-  const headerTitle = activeFilter === 'category'
+const headerTitle = activeFilter === 'category'
     ? (activeCategory ?? FILTER_LABELS.category)
     : activeFilter === 'tag'
     ? (activeTag ? `#${activeTag}` : FILTER_LABELS.tag)
@@ -5569,6 +5572,8 @@ const normalizeTimeoutSec = (value: number) => {
     ? '检查'
     : activeFilter === 'items'
     ? '物品管理'
+    : activeFilter === 'stats'
+    ? '统计'
     : activeFilter === 'chat'
     ? '随便聊聊'
     : activeFilter === 'knowledge'
@@ -5588,6 +5593,8 @@ const normalizeTimeoutSec = (value: number) => {
     ? '追踪长期习惯，把重复的小事慢慢养成'
     : activeFilter === 'items'
     ? '记录物品位置、库存状态和补货提醒'
+    : activeFilter === 'stats'
+    ? '把任务、专注和习惯放在一个视角里，先看趋势，再决定下一步怎么推进'
     : activeFilter === 'pomodoro'
     ? '用专注与休息节奏推进当前任务'
     : activeFilter === 'chat'
@@ -5606,7 +5613,7 @@ const normalizeTimeoutSec = (value: number) => {
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
   const isFixedPanelView = activeFilter === 'agent' || activeFilter === 'chat';
-  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'chat', 'knowledge', 'review', 'items'].includes(activeFilter);
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'chat', 'knowledge', 'review', 'items', 'stats'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
@@ -5954,7 +5961,7 @@ const normalizeTimeoutSec = (value: number) => {
         } ${
           isFixedPanelView
             ? 'pt-2 sm:pt-3'
-            : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'items'].includes(activeFilter)
+            : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'items', 'stats'].includes(activeFilter)
               ? 'pt-5 sm:pt-6'
               : 'pt-4 sm:pt-5'
         } ${
@@ -6612,6 +6619,12 @@ const normalizeTimeoutSec = (value: number) => {
               formatZonedDateTime={formatZonedDateTime}
               formatZonedDate={formatZonedDate}
               isTaskOverdue={isTaskOverdue}
+            />
+          ) : activeFilter === 'stats' ? (
+            <StatsPanel
+              tasks={tasks}
+              habits={habits}
+              pomodoroRecords={pomodoroStore.getAll()}
             />
           ) : activeFilter === 'quadrant' ? (
             <div className="stack-gap flex h-full min-h-0 flex-col pb-2 sm:pb-4">
