@@ -31,6 +31,24 @@ const MODEL_PROVIDER_ICON_RULES: ModelProviderIconRule[] = [
     matchers: ['deepseek'],
     iconUrl: 'https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/deepseek-color.png',
   },
+  {
+    key: 'gemini',
+    label: 'Gemini',
+    matchers: ['gemini'],
+    iconUrl: 'https://storage.googleapis.com/gweb-uniblog-publish-prod/images/Gemini_SparkIcon_.max-1440x810.png',
+  },
+  {
+    key: 'grok',
+    label: 'Grok',
+    matchers: ['grok', 'xai'],
+    iconUrl: 'https://organizationalphysics.com/wp-content/uploads/2025/05/grok-logo.png',
+  },
+  {
+    key: 'gpt',
+    label: 'GPT',
+    matchers: ['gpt', 'chatgpt', 'openai'],
+    iconUrl: 'https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/codex-color.png',
+  },
 ];
 
 const resolveModelProvider = (model: string) => {

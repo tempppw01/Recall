@@ -5683,9 +5683,6 @@ const normalizeTimeoutSec = (value: number) => {
   const canSendManageAgentPrompt = hasApiKey
     && !manageAgentLoading
     && (Boolean(manageAgentInput.trim()) || Boolean(manageAgentInputPlaceholder.trim()));
-  const casualChatPlaceholder = hasApiKey
-    ? (knowledgeEntries.length > 0 ? '随便聊聊；如果相关，我会先看知识库' : '随便聊聊，像普通 AI 对话一样')
-    : '请先在设置中填写 AI Key';
   const visibleKnowledgeEntries = knowledgeSearchInput.trim()
     ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40, false)
     : knowledgeEntries;
@@ -5695,17 +5692,47 @@ const normalizeTimeoutSec = (value: number) => {
     : '发送';
   const casualKnowledgePreviewQuery = casualChatInput || casualChatMessages.at(-1)?.content || '';
   const casualKnowledgePreviewEntries = getRelevantKnowledgeEntries(casualKnowledgePreviewQuery, 5, false);
+  const casualKnowledgePreviewSummary = (() => {
+    if (casualKnowledgePreviewEntries.length === 0) return '';
+    const labels = casualKnowledgePreviewEntries
+      .slice(0, 2)
+      .map((entry) => {
+        const seed = (entry.title || entry.content).trim().replace(/^[^：:]{2,10}[：:]\s*/u, '');
+        if (!seed) return '';
+        return seed.length > 14 ? `${seed.slice(0, 14)}...` : seed;
+      })
+      .filter(Boolean);
+    const base = labels.join('、');
+    if (!base) return `已保存 ${casualKnowledgePreviewEntries.length} 条资料`;
+    const summary = casualKnowledgePreviewEntries.length > labels.length
+      ? `${base} 等 ${casualKnowledgePreviewEntries.length} 条资料`
+      : base;
+    return summary.length > 34 ? `${summary.slice(0, 34)}...` : summary;
+  })();
+  const casualKnowledgeInlineText = casualKnowledgePreviewSummary
+    ? casualKnowledgePreviewSummary
+    : '暂无命中的资料，本轮会按普通对话回答。';
+  const casualChatPlaceholder = hasApiKey
+    ? (casualKnowledgePreviewSummary
+      ? `可参考：${casualKnowledgePreviewSummary}`
+      : (knowledgeEntries.length > 0 ? '继续聊聊，我会按需要参考记忆' : '随便聊聊，像普通 AI 对话一样'))
+    : '请先在设置中填写 AI Key';
   const renderCasualKnowledgePreview = () => (
     <div className="space-y-2">
       {casualKnowledgePreviewEntries.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-3 py-4 text-xs text-[color:var(--ui-text-muted)]">
+        <div className="px-1 py-1 text-[11px] leading-5 text-[color:var(--ui-text-muted)]">
           暂无命中的知识。它仍会按普通 AI 对话回答。
         </div>
       ) : (
         casualKnowledgePreviewEntries.map((entry) => (
-          <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-3 py-2">
-            <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
-            <div className="mt-1 line-clamp-3 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">{entry.content}</div>
+          <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(15,23,42,0.78)] px-3 py-2.5 backdrop-blur">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                {KNOWLEDGE_CATEGORY_LABELS[entry.category]}
+              </span>
+              <div className="min-w-0 text-xs font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
+            </div>
+            <div className="mt-1.5 line-clamp-2 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">{entry.content}</div>
           </div>
         ))
       )}
@@ -7640,7 +7667,7 @@ const normalizeTimeoutSec = (value: number) => {
             </div>
           </div>
           ) : activeFilter === 'chat' ? (
-            <div className="theme-native-surface grid min-h-[520px] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="theme-native-surface grid min-h-[520px] gap-4">
               <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
@@ -7740,58 +7767,62 @@ const normalizeTimeoutSec = (value: number) => {
                     <div ref={casualChatConversationEndRef} aria-hidden="true" />
                   </div>
 
-                  <div className="mt-3 flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={casualChatInput}
-                      onChange={(event) => setCasualChatInput(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                          event.preventDefault();
-                          handleCasualChatSend();
-                        }
-                      }}
-                      placeholder={casualChatPlaceholder}
-                      disabled={!hasApiKey}
-                      className="ui-input min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleCasualChatSend()}
-                      disabled={!canSendCasualChat}
-                      className={`rounded-2xl px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50 ${
-                        casualChatLoading
-                          ? 'bg-gradient-to-r from-amber-500 to-rose-500'
-                          : 'bg-gradient-to-r from-sky-500 to-blue-600'
-                      }`}
-                    >
-                      {casualChatActionLabel}
-                    </button>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <div className="min-w-0 flex items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
+                        <Library className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                        <span className="shrink-0 rounded-full border border-[rgba(250,204,21,0.24)] bg-[rgba(250,204,21,0.08)] px-2 py-0.5 text-[10px] text-amber-200">
+                          AI 摘要
+                        </span>
+                        <span className="truncate">{casualKnowledgeInlineText}</span>
+                      </div>
+                      {casualKnowledgePreviewEntries.length > 0 && (
+                        <details className="group relative shrink-0">
+                          <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(15,23,42,0.42)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]">
+                            <span>参考 {casualKnowledgePreviewEntries.length}</span>
+                            <ChevronDown className="h-3.5 w-3.5 text-[color:var(--ui-icon-muted)] transition-transform group-open:rotate-180" />
+                          </summary>
+                          <div className="absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-[min(24rem,calc(100vw-2.5rem))] rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(15,23,42,0.92)] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-strong)]">
+                              <Library className="h-3.5 w-3.5 text-amber-400" />
+                              <span>本次可参考资料</span>
+                            </div>
+                            {renderCasualKnowledgePreview()}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={casualChatInput}
+                        onChange={(event) => setCasualChatInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                            event.preventDefault();
+                            handleCasualChatSend();
+                          }
+                        }}
+                        placeholder={casualChatPlaceholder}
+                        disabled={!hasApiKey}
+                        className="ui-input min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleCasualChatSend()}
+                        disabled={!canSendCasualChat}
+                        className={`rounded-2xl px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50 ${
+                          casualChatLoading
+                            ? 'bg-gradient-to-r from-amber-500 to-rose-500'
+                            : 'bg-gradient-to-r from-sky-500 to-blue-600'
+                        }`}
+                      >
+                        {casualChatActionLabel}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              <details className="group rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3 lg:hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-1 py-1 text-sm font-semibold text-[color:var(--ui-text-strong)]">
-                  <span className="flex items-center gap-2">
-                    <Library className="h-4 w-4 text-amber-400" />
-                    <span>本次可参考资料</span>
-                    <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
-                      {casualKnowledgePreviewEntries.length}
-                    </span>
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-[color:var(--ui-icon-muted)] transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="mt-3">{renderCasualKnowledgePreview()}</div>
-              </details>
-
-              <aside className="hidden rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4 lg:block">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
-                  <Library className="h-4 w-4 text-amber-400" />
-                  <span>本次可参考资料</span>
-                </div>
-                <div className="mt-3">{renderCasualKnowledgePreview()}</div>
-              </aside>
             </div>
           ) : activeFilter === 'knowledge' ? (
             <div className="theme-native-surface grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
