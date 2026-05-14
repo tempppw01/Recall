@@ -660,321 +660,213 @@ export default function ReviewPanel(props: ReviewPanelProps) {
     if (focusTask) moveFocusSmartly(focusTask.id);
   };
 
+  const reviewOverviewCards = reviewMode === 'time'
+    ? [
+        { key: 'overdue', label: '需立刻检查', value: reviewCounts.overdue, icon: Clock3, tone: 'text-red-200 bg-red-500/10 border-red-500/20' },
+        { key: 'today', label: '今天要过', value: reviewCounts.today, icon: Eye, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
+        { key: 'upcoming', label: '未来 7 天', value: reviewCounts.upcoming, icon: Layers3, tone: 'text-blue-200 bg-blue-500/10 border-blue-500/20' },
+        { key: 'all', label: '待检查总数', value: reviewCounts.all, icon: CheckCircle2, tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20' },
+      ]
+    : [
+        { key: 'all', label: '待检查总数', value: categoryCounts.all, icon: CheckCircle2, tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20' },
+        { key: 'groups', label: '列表数量', value: categoryCounts.categoryGroups, icon: FolderKanban, tone: 'text-sky-200 bg-sky-500/10 border-sky-500/20' },
+        { key: 'uncategorized', label: '未分类任务', value: categoryCounts.uncategorized, icon: Rows, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
+        { key: 'largest', label: '最大列表堆积', value: categoryCounts.largestGroup, icon: Layers3, tone: 'text-violet-200 bg-violet-500/10 border-violet-500/20' },
+      ];
+
+  const activeGroupOptions = reviewMode === 'time' ? timeGroupMeta : categoryGroupMeta;
+
   return (
-    <div className="stack-gap flex flex-col gap-5 px-3 pb-4 sm:gap-6 sm:px-6 sm:pb-6 xl:gap-7">
-      <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)] lg:items-start">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">Review / 检查</div>
-              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(0,0,0,0.18)] px-2.5 py-1 text-[10px] text-[#7d8595]">
-                0.0.4 工作流增强轮
-              </span>
-            </div>
-            <div className="mt-2 text-xs leading-6 text-[#7d8595]">
-              不只按时间扫一遍，也可以按列表重新过一轮；本轮会记录处理类型、支持批量动作，并在组切换时给出明确反馈。
-            </div>
-          </div>
-
-          <div className="glass-panel-soft rounded-[24px] border-[color:var(--ui-border-soft)] p-3.5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">先看这里</div>
-                <div className="mt-2 space-y-2 text-sm text-[#DCE3F4]">
-                  <div>1. {currentGroupSummary}</div>
-                  <div>2. 当前焦点：{focusTask ? focusTask.title : '本组暂时没有任务'}</div>
-                  <div>3. 下一步：{nextStepTitle}</div>
+    <div className="stack-gap flex flex-col gap-4 px-3 pb-4 sm:gap-5 sm:px-6 sm:pb-6 xl:gap-6">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_320px] xl:items-start">
+        <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-sm font-semibold tracking-tight text-[color:var(--ui-text-strong)]">Review / 检查</div>
+                  <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 py-1 text-[10px] text-[color:var(--ui-text-muted)]">
+                    0.0.4 工作流增强轮
+                  </span>
+                </div>
+                <div className="mt-2 text-xs leading-6 text-[color:var(--ui-text-secondary)]">
+                  先选检查视角，再选当前要扫的组，系统会自动把你带到这一组最该先处理的任务。
                 </div>
               </div>
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-right">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-emerald-200">今天已检查</div>
-                <div className="mt-1 text-lg font-semibold tracking-tight text-[#F3F6FF]">{dismissedTodayCount}</div>
+
+              <div className="rounded-[24px] border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.08)] px-4 py-3 xl:max-w-[320px]">
+                <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">现在先做</div>
+                <div className="mt-2 text-base font-semibold leading-6 text-[color:var(--ui-text-strong)]">
+                  {focusTask ? focusTask.title : '先选一个分组开始'}
+                </div>
+                <div className="mt-2 text-sm text-[color:var(--ui-text-primary)]">{currentGroupSummary}</div>
+                <div className="mt-1.5 text-xs leading-5 text-[color:var(--ui-text-secondary)]">{nextStepDescription}</div>
               </div>
             </div>
-            <div className="mt-3 text-xs leading-5 text-[#7d8595]">{nextStepDescription}</div>
-            {dismissedTodayCount > 0 ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[20px] border border-emerald-500/20 bg-emerald-500/6 px-3 py-2.5">
-                <ListChecks className="h-4 w-4 text-emerald-200" />
-                <div className="min-w-0 flex-1 text-xs text-emerald-100">
-                  今日已移出检查流 {dismissedTodayCount} 项，可在右侧“今天已检查”区直接恢复。
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {(reviewMode === 'time'
-          ? [
-              { key: 'overdue', label: '需立刻检查', value: reviewCounts.overdue, icon: Clock3, tone: 'text-red-200 bg-red-500/10 border-red-500/20' },
-              { key: 'today', label: '今天要过', value: reviewCounts.today, icon: Eye, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
-              { key: 'upcoming', label: '未来 7 天', value: reviewCounts.upcoming, icon: Layers3, tone: 'text-blue-200 bg-blue-500/10 border-blue-500/20' },
-              { key: 'all', label: '待检查总数', value: reviewCounts.all, icon: CheckCircle2, tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20' },
-            ]
-          : [
-              { key: 'all', label: '待检查总数', value: categoryCounts.all, icon: CheckCircle2, tone: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/20' },
-              { key: 'groups', label: '列表数量', value: categoryCounts.categoryGroups, icon: FolderKanban, tone: 'text-sky-200 bg-sky-500/10 border-sky-500/20' },
-              { key: 'uncategorized', label: '未分类任务', value: categoryCounts.uncategorized, icon: Rows, tone: 'text-amber-200 bg-amber-500/10 border-amber-500/20' },
-              { key: 'largest', label: '最大列表堆积', value: categoryCounts.largestGroup, icon: Layers3, tone: 'text-violet-200 bg-violet-500/10 border-violet-500/20' },
-            ]).map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.key} className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-                <div className="flex items-start justify-between gap-3">
+            <div className="glass-panel-soft rounded-[26px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <div className="space-y-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">启动顺序</div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { key: 'view', label: '1. 选视角', value: reviewMode === 'time' ? '按时间' : '按列表' },
+                      { key: 'group', label: '2. 选当前组', value: currentGroupMeta?.label ?? '待选择' },
+                      { key: 'focus', label: '3. 处理当前项', value: focusTask ? focusStepText : '当前组已清空' },
+                    ].map((item) => (
+                      <div key={item.key} className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-2.5">
+                        <div className="text-[11px] text-[color:var(--ui-text-muted)]">{item.label}</div>
+                        <div className="mt-1 text-sm font-medium text-[color:var(--ui-text-strong)]">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-3.5 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[color:var(--ui-text-primary)]">
+                      <span>{focusStepText}</span>
+                      <span>本组 {reviewList.length} 项</span>
+                      <span>剩余 {remainingCount} 项</span>
+                    </div>
+                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
+                      <div
+                        className="h-full rounded-full bg-[linear-gradient(90deg,rgba(92,123,250,0.9),rgba(110,231,255,0.85))] transition-all duration-300"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">{item.label}</div>
-                    <div className="mt-2 text-2xl font-semibold tracking-tight text-[#F3F6FF]">{item.value}</div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">第 1 步：先选视角</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {([
+                        { key: 'time', label: '按时间检查', icon: Clock3 },
+                        { key: 'category', label: '按列表检查', icon: FolderKanban },
+                      ] as const).map((item) => {
+                        const Icon = item.icon;
+                        const active = reviewMode === item.key;
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => setReviewMode(item.key)}
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs motion-card motion-press ui-state-hover ui-state-press ${
+                              active
+                                ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                                : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]'
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className={`rounded-2xl border px-2.5 py-2 ${item.tone}`}>
-                    <Icon className="h-4 w-4" />
+
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">第 2 步：再选当前组</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {activeGroupOptions.map((item) => {
+                        const active = reviewMode === 'time'
+                          ? activeBucket === item.key
+                          : activeCategoryBucket === item.key;
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => {
+                              if (reviewMode === 'time') {
+                                setActiveBucket(item.key as ReviewBucketKey);
+                              } else {
+                                setActiveCategoryBucket(item.key);
+                              }
+                            }}
+                            className={`rounded-full border px-3 py-2 text-xs motion-card motion-press ui-state-hover ui-state-press ${
+                              active
+                                ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                                : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]'
+                            }`}
+                          >
+                            {item.label}
+                            <span className="ml-1.5 text-[10px] opacity-80">{item.count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
-            );
-          })}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)]">
-        <div className="glass-panel-soft motion-enter space-y-4 rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-          <div className="space-y-1">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 1 步：选择检查视角</div>
-            <div className="text-xs text-[#7d8595]">先决定按时间扫，还是按列表逐组检查；下面再选当前这一组。</div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {([
-              { key: 'time', label: '按时间检查', icon: Clock3 },
-              { key: 'category', label: '按列表检查', icon: FolderKanban },
-            ] as const).map((item) => {
-              const Icon = item.icon;
-              const active = reviewMode === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setReviewMode(item.key)}
-                  className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
-                    active
-                      ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                      : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690]'
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-2">
-              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 2 步：选择当前要扫的组</div>
-              <div className="flex flex-wrap items-center gap-2">
-                {(reviewMode === 'time' ? timeGroupMeta : categoryGroupMeta).map((item) => {
-                  const active = reviewMode === 'time'
-                    ? activeBucket === item.key
-                    : activeCategoryBucket === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => {
-                        if (reviewMode === 'time') {
-                          setActiveBucket(item.key as ReviewBucketKey);
-                        } else {
-                          setActiveCategoryBucket(item.key);
-                        }
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
-                        active
-                          ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                          : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690]'
-                      }`}
-                    >
-                      {item.label}
-                      <span className="ml-1.5 text-[10px] opacity-80">{item.count}</span>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
-            <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3.5 py-3 text-[11px] leading-5 text-[#7d8595] xl:max-w-[280px]">
-              <div className="text-[#DCE3F4]">{currentGroupSummary}</div>
-              <div className="mt-1.5">当前展示：{reviewList.length} 项</div>
+
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {reviewOverviewCards.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.key} className="glass-panel-soft rounded-[22px] border-[color:var(--ui-border-soft)] px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">{item.label}</div>
+                        <div className="mt-1.5 text-xl font-semibold tracking-tight text-[color:var(--ui-text-strong)]">{item.value}</div>
+                      </div>
+                      <div className={`rounded-2xl border px-2.5 py-2 ${item.tone}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
         <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">今天已检查</div>
-              <div className="mt-2 text-sm text-[#DCE3F4]">已暂时移出检查流 {dismissedTodayCount} 项</div>
-              <div className="mt-1 text-xs leading-5 text-[#7d8595]">这里可以看具体任务、逐项恢复，也可以一键全部恢复到今天。</div>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">当前节奏</div>
+                <div className="mt-2 text-sm text-[color:var(--ui-text-strong)]">{currentGroupSummary}</div>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-right">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-emerald-200">今天已检查</div>
+                <div className="mt-1 text-lg font-semibold tracking-tight text-[color:var(--ui-text-strong)]">{dismissedTodayCount}</div>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowReviewedTodayList((prev) => !prev)}
-              className="btn btn-ghost btn-sm rounded-2xl"
-            >
-              <ListChecks className="h-4 w-4" />
-              {showReviewedTodayList ? '收起列表' : '查看列表'}
-            </button>
-          </div>
 
-          {dismissedTodayCount > 0 ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={restoreAllReviewedToday}
-                className="btn btn-secondary btn-sm rounded-2xl"
-              >
-                <RotateCcw className="h-4 w-4" />
-                全部恢复到今天
-              </button>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1 text-[11px] text-emerald-100">
-                明天会自动重新出现在检查流里
-              </span>
-            </div>
-          ) : null}
-
-          {showReviewedTodayList ? (
-            <div className="mt-3 space-y-2">
-              {reviewedTodayTasks.length === 0 ? (
-                <div className="rounded-[20px] border border-dashed border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-5 text-xs text-[#7d8595]">
-                  目前还没有被标记为“今天已检查”的任务。
+            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">下一步提醒</div>
+              <div className="mt-2 text-sm text-[color:var(--ui-text-strong)]">{nextStepTitle}</div>
+              <div className="mt-1.5 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
+                {reviewMode === 'time'
+                  ? (focusTask
+                      ? '先处理当前更紧急的同组任务；本组清空后会自动提示下一组。'
+                      : '这组已经清空了，可以直接切到下一组继续。')
+                  : categorySummaryText}
+              </div>
+              {nextAvailableGroupMeta ? (
+                <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-primary)]">
+                  <ChevronRight className="h-3.5 w-3.5 text-[color:var(--ui-text-muted)]" />
+                  下一组候选：{nextAvailableGroupMeta.label}
                 </div>
-              ) : reviewedTodayTasks.map((task) => (
-                <div key={task.id} className="glass-panel-soft rounded-[20px] border-[color:var(--ui-border-soft)] px-3 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-[#F3F6FF] break-words">{task.title}</div>
-                      <div className="mt-1 text-[11px] text-[#7d8595]">{getCategoryLabel(task)}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => restoreTaskToToday(task)}
-                      className="btn btn-secondary btn-sm rounded-2xl shrink-0"
-                    >
-                      <Undo2 className="h-4 w-4" />
-                      恢复
-                    </button>
-                  </div>
-                </div>
-              ))}
+              ) : null}
             </div>
-          ) : null}
-        </div>
-      </div>
 
-      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-center">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 3 步：确认当前焦点与进度</div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
-              <span>当前：{focusStepText}</span>
-              <span>本组共 {reviewList.length} 项</span>
-              <span>剩余 {remainingCount} 项</span>
-            </div>
-            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
-              <div
-                className="h-full rounded-full bg-[linear-gradient(90deg,rgba(92,123,250,0.9),rgba(110,231,255,0.85))] transition-all duration-300"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
-          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">当前组提示</div>
-            <div className="mt-2 text-sm text-[#DCE3F4]">{currentGroupSummary}</div>
-            <div className="mt-2 text-xs leading-5 text-[#7d8595]">
-              {reviewMode === 'time'
-                ? (focusTask
-                    ? '优先继续当前更紧急的同组任务；如果本组清空，会明确提示切换到下一组。'
-                    : '这一组已经扫完了，可以切去下一组继续。')
-                : categorySummaryText}
-            </div>
-            {nextAvailableGroupMeta ? (
-              <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-[11px] text-[#DCE3F4]">
-                <ChevronRight className="h-3.5 w-3.5 text-[#7d8595]" />
-                下一组候选：{nextAvailableGroupMeta.label}
+            {dismissedTodayCount > 0 ? (
+              <div className="rounded-[22px] border border-emerald-500/20 bg-emerald-500/8 px-4 py-3">
+                <div className="text-xs leading-5 text-emerald-100">
+                  今天已经移出检查流 {dismissedTodayCount} 项，需要时可以在下方一键恢复。
+                </div>
+                <button
+                  type="button"
+                  onClick={restoreAllReviewedToday}
+                  className="btn btn-secondary btn-sm mt-3 rounded-2xl"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  全部恢复到今天
+                </button>
               </div>
             ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">第 3.5 步：检查总结</div>
-            <div className="mt-2 text-sm text-[#DCE3F4]">当前这一轮已经做了哪些类型的处理，一眼能看清。</div>
-            <div className="mt-1 text-xs text-[#7d8595]">完成、改期、今天已检查、回到原任务，都会记到这里。</div>
-          </div>
-          <div className="rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-xs text-[#7d8595]">
-            本轮累计 {actionLog.length} 次处理
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {(Object.keys(resultTypeMeta) as ReviewResultType[]).map((type) => {
-            const meta = resultTypeMeta[type];
-            const Icon = meta.icon;
-            return (
-              <div key={type} className="glass-panel-soft rounded-[22px] border-[color:var(--ui-border-soft)] p-3.5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">{meta.label}</div>
-                    <div className="mt-2 text-2xl font-semibold tracking-tight text-[#F3F6FF]">{actionCounts[type]}</div>
-                  </div>
-                  <div className={`rounded-2xl border px-2.5 py-2 ${meta.tone}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
-          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">处理类型</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(Object.keys(resultTypeMeta) as ReviewResultType[]).map((type) => {
-                const meta = resultTypeMeta[type];
-                const Icon = meta.icon;
-                return (
-                  <div key={type} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${meta.tone}`}>
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{meta.shortLabel}</span>
-                    <span className="opacity-80">{actionCounts[type]}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">最近处理</div>
-            <div className="mt-3 space-y-2">
-              {recentActions.length === 0 ? (
-                <div className="text-xs text-[#7d8595]">还没开始处理时，这里会显示本轮最新几次动作。</div>
-              ) : recentActions.map((item) => {
-                const meta = resultTypeMeta[item.type];
-                const Icon = meta.icon;
-                return (
-                  <div key={item.id} className="flex items-start gap-3 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
-                    <div className={`mt-0.5 rounded-xl border px-2 py-1 ${meta.tone}`}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-[#F3F6FF] break-words">{item.taskTitle}</div>
-                      <div className="mt-1 text-[11px] text-[#7d8595]">{meta.label} · {item.groupLabel}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       </div>
@@ -1065,7 +957,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         <div className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 xl:sticky xl:top-4">
           <div className="space-y-3">
             <div>
-              <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">第 4 步：左右对照处理当前焦点</div>
+              <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">当前焦点与处理动作</div>
               <div className="mt-1 text-xs text-[#7d8595]">
                 {reviewMode === 'time'
                   ? '左边看任务原始信息，右边直接做决定；今天看过一次的任务，可以直接标成“今天已检查”，当天不再重复出现。'
@@ -1305,6 +1197,108 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+        <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">今天已检查</div>
+              <div className="mt-2 text-sm text-[#DCE3F4]">已暂时移出检查流 {dismissedTodayCount} 项</div>
+              <div className="mt-1 text-xs leading-5 text-[#7d8595]">默认收起来，需要时再展开恢复，避免首屏被次级信息占满。</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowReviewedTodayList((prev) => !prev)}
+              className="btn btn-ghost btn-sm rounded-2xl"
+            >
+              <ListChecks className="h-4 w-4" />
+              {showReviewedTodayList ? '收起列表' : '展开列表'}
+            </button>
+          </div>
+
+          {showReviewedTodayList ? (
+            <div className="mt-3 space-y-2">
+              {reviewedTodayTasks.length === 0 ? (
+                <div className="rounded-[20px] border border-dashed border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-5 text-xs text-[#7d8595]">
+                  目前还没有被标记为“今天已检查”的任务。
+                </div>
+              ) : reviewedTodayTasks.map((task) => (
+                <div key={task.id} className="glass-panel-soft rounded-[20px] border-[color:var(--ui-border-soft)] px-3 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-[#F3F6FF] break-words">{task.title}</div>
+                      <div className="mt-1 text-[11px] text-[#7d8595]">{getCategoryLabel(task)}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => restoreTaskToToday(task)}
+                      className="btn btn-secondary btn-sm rounded-2xl shrink-0"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      恢复
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <details className="glass-panel-soft motion-enter group rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
+          <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">本轮记录</div>
+              <div className="mt-2 text-sm text-[#DCE3F4]">累计 {actionLog.length} 次处理，默认折叠，避免干扰先处理当前项。</div>
+            </div>
+            <div className="inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 text-[11px] text-[#DCE3F4]">
+              <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+              展开
+            </div>
+          </summary>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">处理类型</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(Object.keys(resultTypeMeta) as ReviewResultType[]).map((type) => {
+                  const meta = resultTypeMeta[type];
+                  const Icon = meta.icon;
+                  return (
+                    <div key={type} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${meta.tone}`}>
+                      <Icon className="h-3.5 w-3.5" />
+                      <span>{meta.shortLabel}</span>
+                      <span className="opacity-80">{actionCounts[type]}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#AAB3C6]">最近处理</div>
+              <div className="mt-3 space-y-2">
+                {recentActions.length === 0 ? (
+                  <div className="text-xs text-[#7d8595]">还没开始处理时，这里会显示本轮最新几次动作。</div>
+                ) : recentActions.map((item) => {
+                  const meta = resultTypeMeta[item.type];
+                  const Icon = meta.icon;
+                  return (
+                    <div key={item.id} className="flex items-start gap-3 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
+                      <div className={`mt-0.5 rounded-xl border px-2 py-1 ${meta.tone}`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-[#F3F6FF] break-words">{item.taskTitle}</div>
+                        <div className="mt-1 text-[11px] text-[#7d8595]">{meta.label} · {item.groupLabel}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   );
