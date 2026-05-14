@@ -750,8 +750,6 @@ const formatRepeatLabel = (rule?: TaskRepeatRule) => {
   }
 };
 
-const QUADRANT_COLLAPSE_LIMIT = 6;
-
 const TASK_SORT_OPTIONS: { value: TaskSortMode; label: string }[] = [
   { value: 'priority', label: '优先级' },
   { value: 'dueDate', label: '截止日期' },
@@ -5711,7 +5709,11 @@ const normalizeTimeoutSec = (value: number) => {
       <section
         onPointerDownCapture={handleTaskSelectionPointerDownCapture}
         onClickCapture={handleTaskSelectionClickCapture}
-        className={`theme-native-surface relative flex flex-1 flex-col min-w-0 overflow-y-auto mobile-scroll bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
+        className={`theme-native-surface relative flex flex-1 flex-col min-w-0 ${
+          activeFilter === 'quadrant'
+            ? 'overflow-hidden overscroll-none'
+            : 'overflow-y-auto mobile-scroll'
+        } bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
           selectedTask ? 'sm:pr-[340px] md:pr-[360px] lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
         } ${
           isTaskSelectionDragging ? 'select-none cursor-default' : ''
@@ -5783,6 +5785,8 @@ const normalizeTimeoutSec = (value: number) => {
             : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'items'].includes(activeFilter)
               ? 'pt-5 sm:pt-6'
               : 'pt-4 sm:pt-5'
+        } ${
+          activeFilter === 'quadrant' ? 'min-h-0 overflow-hidden flex flex-col' : ''
         }`}>
           {activeFilter === 'calendar' ? (
             <div className="stack-gap flex flex-col">
@@ -6438,8 +6442,8 @@ const normalizeTimeoutSec = (value: number) => {
               isTaskOverdue={isTaskOverdue}
             />
           ) : activeFilter === 'quadrant' ? (
-            <div className="stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
-              <div className="glass-panel motion-enter rounded-[28px] border-[color:var(--ui-border-strong)] p-4 sm:p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+            <div className="stack-gap flex h-full min-h-0 flex-col pb-2 sm:pb-4">
+              <div className="glass-panel motion-enter shrink-0 rounded-[28px] border-[color:var(--ui-border-strong)] p-4 sm:p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#DCE3F4]">
@@ -6459,20 +6463,18 @@ const normalizeTimeoutSec = (value: number) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-3 min-[520px]:grid-cols-2 min-[520px]:grid-rows-2 sm:gap-4">
                 {quadrantGroups.map((group) => {
                   const isExpanded = expandedQuadrants[group.key] ?? false;
-                  const shouldCollapse = group.items.length > QUADRANT_COLLAPSE_LIMIT;
-                  const visibleItems = shouldCollapse && !isExpanded
-                    ? group.items.slice(0, QUADRANT_COLLAPSE_LIMIT)
-                    : group.items;
-                  const hiddenCount = group.items.length - visibleItems.length;
+                  const shouldCollapse = false;
+                  const visibleItems = group.items;
+                  const hiddenCount = 0;
                   const isDragTarget = dragOverQuadrantKey === group.key;
 
                   return (
                     <div
                       key={group.key}
-                      className={`glass-panel motion-enter rounded-[30px] border p-4 sm:p-4 flex flex-col gap-3 transition-[border-color,box-shadow,transform,background-color] duration-[var(--motion-base)] ${
+                      className={`glass-panel motion-enter flex min-h-0 flex-col gap-3 rounded-[30px] border p-4 sm:p-4 transition-[border-color,box-shadow,transform,background-color] duration-[var(--motion-base)] ${
                         isDragTarget
                           ? 'border-[rgba(var(--theme-accent),0.6)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.24),0_22px_44px_rgba(0,0,0,0.28)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(24,24,24,0.76))]'
                           : 'border-[color:var(--ui-border-strong)] hover:border-[rgba(var(--theme-accent),0.24)]'
@@ -6499,14 +6501,14 @@ const normalizeTimeoutSec = (value: number) => {
                         if (taskId) moveTaskToQuadrant(taskId, group.key);
                       }}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex shrink-0 items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2.5">
                             <h3 className="text-sm font-semibold text-[#F3F6FF]">{group.title}</h3>
                             <span className={`rounded-full border px-2 py-1 text-[10px] ${group.tone}`}>{group.items.length} 项</span>
                           </div>
-                          <p className="mt-1 text-xs text-[#9AA3B7]">{group.description}</p>
-                          <p className="mt-1 text-[11px] text-[#6F788B]">{isDragTarget ? '松手即可把任务放到这里' : group.summary}</p>
+                          <p className="mt-1 line-clamp-1 text-[11px] text-[#9AA3B7]">{group.description}</p>
+                          <p className="mt-1 hidden text-[11px] text-[#6F788B] sm:block">{isDragTarget ? '松手即可把任务放到这里' : group.summary}</p>
                         </div>
                         {shouldCollapse && (
                           <button
@@ -6524,9 +6526,9 @@ const normalizeTimeoutSec = (value: number) => {
                         )}
                       </div>
 
-                      <div className="glass-panel-soft rounded-[24px] border border-[color:var(--ui-border-soft)] p-3 space-y-2.5 min-h-[172px] transition-[border-color,background-color] duration-[var(--motion-base)]">
+                      <div className="glass-panel-soft flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-[24px] border border-[color:var(--ui-border-soft)] p-3 space-y-2.5 transition-[border-color,background-color] duration-[var(--motion-base)]">
                         {visibleItems.length === 0 ? (
-                          <div className={`rounded-[20px] border border-dashed px-4 py-8 text-center text-xs ${
+                          <div className={`flex min-h-full items-center justify-center rounded-[20px] border border-dashed px-4 py-8 text-center text-xs ${
                             isDragTarget
                               ? 'border-[rgba(var(--theme-accent),0.45)] bg-[rgba(var(--theme-accent),0.08)] text-[#DCE6FF]'
                               : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7d8595]'
