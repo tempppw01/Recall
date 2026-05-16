@@ -119,6 +119,7 @@ const Sidebar = ({
   const [isDragging, setIsDragging] = useState(false);
   const [toolOrder, setToolOrder] = useState<ToolItemKey[]>(DEFAULT_TOOL_ORDER);
   const [draggingToolKey, setDraggingToolKey] = useState<ToolItemKey | null>(null);
+  const [hoveredRailIndex, setHoveredRailIndex] = useState<number | null>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
   const sidebarRef = useRef<HTMLElement>(null);
 
@@ -424,6 +425,57 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
 
   const resolvedSidebarWidth = isRailLayout ? COLLAPSED_WIDTH : isDesktopExpanded ? sidebarWidth : undefined;
   const toolGridColumnsClass = isDesktopExpanded && sidebarWidth >= 340 ? 'grid-cols-3' : 'grid-cols-2';
+  const getRailDockMetrics = useCallback((index: number, active: boolean) => {
+    const baseScale = active ? 1.06 : 0.9;
+    const baseIconScale = active ? 1.08 : 0.94;
+    const baseTranslateX = active ? 2 : 0;
+    const baseOpacity = active ? 1 : 0.82;
+
+    if (hoveredRailIndex === null) {
+      return {
+        scale: baseScale,
+        iconScale: baseIconScale,
+        translateX: baseTranslateX,
+        opacity: baseOpacity,
+      };
+    }
+
+    const distance = Math.abs(hoveredRailIndex - index);
+
+    if (distance === 0) {
+      return {
+        scale: Math.max(baseScale, 1.18),
+        iconScale: Math.max(baseIconScale, 1.14),
+        translateX: 4,
+        opacity: 1,
+      };
+    }
+
+    if (distance === 1) {
+      return {
+        scale: Math.max(baseScale, 1.04),
+        iconScale: Math.max(baseIconScale, 1.05),
+        translateX: 2,
+        opacity: active ? 1 : 0.96,
+      };
+    }
+
+    if (distance === 2) {
+      return {
+        scale: Math.max(baseScale, 0.97),
+        iconScale: Math.max(baseIconScale, 0.99),
+        translateX: 1,
+        opacity: active ? 0.98 : 0.88,
+      };
+    }
+
+    return {
+      scale: baseScale,
+      iconScale: baseIconScale,
+      translateX: baseTranslateX,
+      opacity: baseOpacity,
+    };
+  }, [hoveredRailIndex]);
 
   return (
     <>
@@ -464,30 +516,65 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
               </button>
             </div>
 
-            <nav className="flex-1 space-y-1.5 overflow-y-auto py-3">
-              {collapsedRailItems.map((item) => {
+            <nav
+              className="flex-1 space-y-1 overflow-y-auto py-3"
+              onMouseLeave={() => setHoveredRailIndex(null)}
+            >
+              {collapsedRailItems.map((item, index) => {
                 const Icon = item.icon;
+                const dock = getRailDockMetrics(index, item.active);
+                const isHovered = hoveredRailIndex === index;
                 return (
                   <button
                     key={item.key}
                     type="button"
                     onClick={item.onClick}
-                    style={sidebarAccentStyle(item.accentRgb)}
-                    className={`group/rail mx-2 flex w-[calc(100%-1rem)] justify-center rounded-2xl border px-0 py-2.5 transition-all ${
-                      item.active
-                        ? 'border-[rgba(var(--sidebar-item-accent),0.3)] bg-[rgba(var(--sidebar-item-accent),0.12)] text-[color:var(--ui-text-strong)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]'
-                        : 'border-transparent bg-transparent text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
-                    }`}
+                    onMouseEnter={() => setHoveredRailIndex(index)}
+                    onFocus={() => setHoveredRailIndex(index)}
+                    onBlur={() => setHoveredRailIndex(null)}
+                    aria-current={item.active ? 'page' : undefined}
+                    className="group/rail relative mx-1.5 flex h-[54px] w-[calc(100%-0.75rem)] items-center justify-center rounded-[18px] transition-[transform,opacity] duration-[var(--motion-base)]"
+                    style={{
+                      ...sidebarAccentStyle(item.accentRgb),
+                      opacity: dock.opacity,
+                    }}
                     title={item.title ?? item.label}
                     aria-label={item.title ?? item.label}
                   >
-                    <Icon
-                      className={`h-5 w-5 transition-colors ${
+                    {item.active ? (
+                      <span className="absolute left-1 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-[rgba(var(--sidebar-item-accent),0.82)] shadow-[0_0_18px_rgba(var(--sidebar-item-accent),0.35)]" />
+                    ) : null}
+                    <span
+                      className={`relative flex h-10 w-10 items-center justify-center rounded-[16px] border will-change-transform transition-[transform,border-color,background-color,box-shadow] duration-[var(--motion-slow)] ${
                         item.active
-                          ? item.iconColor ?? 'text-[color:var(--ui-text-strong)]'
-                          : 'text-[color:var(--ui-text-faint)] group-hover/rail:text-[color:var(--ui-text-secondary)]'
+                          ? 'border-[rgba(var(--sidebar-item-accent),0.34)] bg-[linear-gradient(180deg,rgba(var(--sidebar-item-accent),0.18),rgba(var(--sidebar-item-accent),0.08))] shadow-[0_16px_28px_rgba(0,0,0,0.18)]'
+                          : isHovered
+                            ? 'border-[rgba(var(--sidebar-item-accent),0.24)] bg-[rgba(255,255,255,0.06)] shadow-[0_14px_26px_rgba(0,0,0,0.16)]'
+                            : 'border-[color:var(--ui-border-soft)]/65 bg-[color:var(--ui-card-bg)]/68 shadow-[0_10px_18px_rgba(0,0,0,0.10)]'
                       }`}
-                    />
+                      style={{
+                        transform: `translate3d(${dock.translateX}px, 0, 0) scale(${dock.scale})`,
+                      }}
+                    >
+                      <span
+                        className="pointer-events-none absolute inset-0 rounded-[16px] bg-[radial-gradient(circle_at_50%_18%,rgba(var(--sidebar-item-accent),0.18),transparent_70%)] opacity-0 transition-opacity duration-[var(--motion-base)]"
+                        style={{ opacity: item.active || isHovered ? 1 : 0 }}
+                      />
+                      <span
+                        className="relative inline-flex items-center justify-center transition-transform duration-[var(--motion-base)]"
+                        style={{ transform: `scale(${dock.iconScale})` }}
+                      >
+                        <Icon
+                          className={`h-5 w-5 transition-colors duration-[var(--motion-base)] ${
+                            item.active
+                              ? item.iconColor ?? 'text-[color:var(--ui-text-strong)]'
+                              : isHovered
+                                ? item.iconColor ?? 'text-[color:var(--ui-text-strong)]'
+                                : 'text-[color:var(--ui-text-faint)]'
+                          }`}
+                        />
+                      </span>
+                    </span>
                   </button>
                 );
               })}

@@ -8180,8 +8180,11 @@ const headerTitle = activeFilter === 'category'
                         <div className="mt-1 text-xs text-amber-100/80">点击前往设置填写 Key 后即可聊天</div>
                       </button>
                     ) : casualChatMessages.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-4 py-8 text-center text-sm text-[color:var(--ui-text-muted)]">
-                        可以问任何问题，也可以让它结合你的偏好、习惯和知识库聊。
+                      <div className="flex justify-center px-3 pb-1 pt-3 sm:px-4">
+                        <div className="inline-flex max-w-[34rem] items-start gap-2 text-center text-[13px] leading-6 text-[color:var(--ui-text-muted)]">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400/80 shadow-[0_0_16px_rgba(56,189,248,0.26)]" />
+                          <p>可以问任何问题，也可以让它结合你的偏好、习惯和知识库聊。</p>
+                        </div>
                       </div>
                     ) : (
                       casualChatMessages.map((message, index) => (
