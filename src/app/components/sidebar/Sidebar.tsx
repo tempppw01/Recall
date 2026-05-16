@@ -16,7 +16,6 @@ import {
   Inbox,
   LayoutGrid,
   Library,
-  MessageCircle,
   Package2,
   Settings,
   Smile,
@@ -408,21 +407,11 @@ const Sidebar = ({
       icon: Command,
       label: 'AI 助手',
       title: 'AI 助手',
-      active: activeFilter === 'agent',
+      active: activeFilter === 'agent' || activeFilter === 'chat',
       count: agentItems.length,
       iconColor: 'text-blue-400',
       accentRgb: '96, 165, 250',
       onClick: () => changeFilter('agent'),
-    },
-    {
-      key: 'chat',
-      icon: MessageCircle,
-      label: '随便聊聊',
-      title: '随便聊聊',
-      active: activeFilter === 'chat',
-      iconColor: 'text-sky-400',
-      accentRgb: '14, 165, 233',
-      onClick: () => changeFilter('chat'),
     },
     {
       key: 'knowledge',
@@ -746,17 +735,9 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
                     icon={Command}
                     label="AI 助手"
                     count={agentItems.length}
-                    active={activeFilter === 'agent'}
+                    active={activeFilter === 'agent' || activeFilter === 'chat'}
                     onClick={() => changeFilter('agent')}
                     accentRgb="96, 165, 250"
-                  />
-                  <SidebarItem
-                    icon={MessageCircle}
-                    label="随便聊聊"
-                    active={activeFilter === 'chat'}
-                    onClick={() => changeFilter('chat')}
-                    iconColor="text-sky-400"
-                    accentRgb="14, 165, 233"
                   />
                   <SidebarItem
                     icon={Library}

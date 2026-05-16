@@ -544,7 +544,6 @@ const FILTER_LABELS: Record<string, string> = {
   countdown: '倒数日',
   habit: '习惯打卡',
   agent: 'AI 助手',
-  chat: '随便聊聊',
   knowledge: '知识库',
   search: '搜索',
   pomodoro: '番茄时钟',
@@ -565,7 +564,6 @@ const ACTIVE_FILTER_VALUES = new Set([
   'countdown',
   'habit',
   'agent',
-  'chat',
   'knowledge',
   'search',
   'pomodoro',
@@ -2105,7 +2103,11 @@ export default function Home() {
       }
 
       const storedActiveFilter = localStorage.getItem(ACTIVE_FILTER_KEY);
-      if (storedActiveFilter && ACTIVE_FILTER_VALUES.has(storedActiveFilter)) {
+      if (storedActiveFilter === 'chat') {
+        setActiveFilter('agent');
+        setAiAssistantMode('chat');
+        localStorage.setItem(ACTIVE_FILTER_KEY, 'agent');
+      } else if (storedActiveFilter && ACTIVE_FILTER_VALUES.has(storedActiveFilter)) {
         setActiveFilter(storedActiveFilter);
       }
       const storedQuickAccessOpen = localStorage.getItem(QUICK_ACCESS_OPEN_KEY);
@@ -2205,6 +2207,12 @@ export default function Home() {
   }, [activeFilter, aiAssistantMode, agentMessages.length, agentLoading, agentError]);
 
   useEffect(() => {
+    if (activeFilter !== 'chat') return;
+    setActiveFilter('agent');
+    setAiAssistantMode('chat');
+  }, [activeFilter]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(MANAGE_AGENT_MESSAGES_KEY, JSON.stringify(manageAgentMessages.slice(-aiContextLimit)));
   }, [manageAgentMessages, aiContextLimit]);
@@ -2215,9 +2223,9 @@ export default function Home() {
   }, [casualChatMessages, aiContextLimit]);
 
   useEffect(() => {
-    if (activeFilter !== 'chat') return;
+    if (activeFilter !== 'agent' || aiAssistantMode !== 'chat') return;
     casualChatConversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [activeFilter, casualChatMessages.length, casualChatLoading]);
+  }, [activeFilter, aiAssistantMode, casualChatMessages.length, casualChatLoading]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded) return;
@@ -3651,7 +3659,7 @@ const normalizeTimeoutSec = (value: number) => {
     setStatusFeedback({
       id: createId(),
       level: 'info',
-      message: '已清空随便聊聊上下文',
+      message: '已清空聊天上下文',
       detail: '知识库不会被删除，后续对话会重新开始。',
     });
   };
@@ -3707,7 +3715,7 @@ const normalizeTimeoutSec = (value: number) => {
       const replyText = typeof data?.reply === 'string' && data.reply.trim().length > 0
         ? data.reply.trim()
         : '我在，继续说。';
-      applyModelLearningUpdates(data, buildConversationKnowledgeFallback('随便聊聊', content, replyText));
+      applyModelLearningUpdates(data, buildConversationKnowledgeFallback('AI 助手聊天', content, replyText));
       setCasualChatMessages((prev) => [...prev, {
         role: 'assistant',
         content: replyText,
@@ -3716,11 +3724,11 @@ const normalizeTimeoutSec = (value: number) => {
     } catch (error) {
       if ((error as any)?.name === 'AbortError') {
         if (!casualChatQueuedSendRef.current) {
-          pushLog('info', '随便聊聊已停止', '已取消本次回答，你可以继续追问或换个说法', { silentFeedback: true });
+          pushLog('info', '聊天已停止', '已取消本次回答，你可以继续追问或换个说法', { silentFeedback: true });
         }
         return;
       }
-      const message = formatAiRequestError(error, '随便聊聊暂时没有响应，请稍后重试');
+      const message = formatAiRequestError(error, 'AI 助手聊天暂时没有响应，请稍后重试');
       setCasualChatMessages((prev) => [...prev, {
         role: 'assistant',
         content: message,
@@ -5750,8 +5758,6 @@ const headerTitle = activeFilter === 'category'
     ? '物品管理'
     : activeFilter === 'stats'
     ? '统计'
-    : activeFilter === 'chat'
-    ? '随便聊聊'
     : activeFilter === 'knowledge'
     ? '知识库'
     : (FILTER_LABELS[activeFilter] ?? '待办');
@@ -5773,14 +5779,14 @@ const headerTitle = activeFilter === 'category'
     ? '把任务、专注和习惯放在一个视角里，先看趋势，再决定下一步怎么推进'
     : activeFilter === 'pomodoro'
     ? '用专注与休息节奏推进当前任务'
-    : activeFilter === 'chat'
-    ? '像正常对话一样聊天，需要时会参考知识库'
     : activeFilter === 'knowledge'
     ? '统一管理偏好、习惯、背景信息和做过的事，供所有 AI 功能调用'
     : activeFilter === 'agent'
     ? (aiAssistantMode === 'record'
       ? '先说目标或想法，我会帮你整理、拆解并推进下一步'
-      : '直接基于当前待办给出最值得推进的下一步')
+      : aiAssistantMode === 'manage'
+        ? '直接基于当前待办给出最值得推进的下一步'
+        : '自然聊天、追问或发散，需要时会参考记忆和知识库')
     : activeFilter === 'completed'
     ? '查看已经完成的事项，顺手清理历史任务'
     : activeFilter === 'category'
@@ -5788,8 +5794,8 @@ const headerTitle = activeFilter === 'category'
     : activeFilter === 'tag'
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
-  const isFixedPanelView = activeFilter === 'agent' || activeFilter === 'chat';
-  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'chat', 'knowledge', 'review', 'items', 'stats'].includes(activeFilter);
+  const isFixedPanelView = activeFilter === 'agent';
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'knowledge', 'review', 'items', 'stats'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
@@ -5902,7 +5908,7 @@ const headerTitle = activeFilter === 'category'
   const casualChatPlaceholder = hasApiKey
     ? (casualKnowledgePreviewSummary
       ? `可参考：${casualKnowledgePreviewSummary}`
-      : (knowledgeEntries.length > 0 ? '继续聊聊，我会按需要参考记忆' : '随便聊聊，像普通 AI 对话一样'))
+      : (knowledgeEntries.length > 0 ? '继续聊聊，我会按需要参考记忆' : '直接聊天、追问或发散'))
     : '请先在设置中填写 AI Key';
   const renderCasualKnowledgePreview = () => (
     <div className="space-y-2">
@@ -7365,6 +7371,18 @@ const headerTitle = activeFilter === 'category'
                       <span>知识库</span>
                       <span className="rounded-full bg-[rgba(var(--theme-accent),0.12)] px-1.5 text-[10px]">{knowledgeEntries.length}</span>
                     </button>
+                    {aiAssistantMode === 'chat' && (
+                      <button
+                        type="button"
+                        onClick={clearCasualChatContext}
+                        disabled={casualChatLoading || casualChatMessages.length === 0}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-rose-300/40 hover:bg-rose-400/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-45"
+                        title="清空当前聊天上下文"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>清空</span>
+                      </button>
+                    )}
                     <div className="flex items-center">
                       <ModelSelect
                         models={parseModelList(modelListText)}
@@ -7578,7 +7596,7 @@ const headerTitle = activeFilter === 'category'
                       </div>
                       )}
                     </>
-                  ) : (
+                  ) : aiAssistantMode === 'manage' ? (
                     <>
                       <div className="inline-flex flex-wrap gap-2">
 
@@ -7821,6 +7839,74 @@ const headerTitle = activeFilter === 'category'
                         </div>
                       )}
                     </>
+                  ) : (
+                    <div className="space-y-2">
+                      {!hasApiKey ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSettingsFocusTarget(null);
+                            setShowSettings(true);
+                            setIsApiSettingsOpen(true);
+                          }}
+                          className="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 text-left transition-colors hover:border-amber-300/60 hover:bg-amber-500/15"
+                        >
+                          <div className="text-sm font-medium text-amber-200">未检测到 AI Key，点击前往设置</div>
+                        </button>
+                      ) : casualChatMessages.length === 0 ? (
+                        <div className="px-1 pt-1 text-xs text-[color:var(--ui-text-muted)]">
+                          直接开始聊就行。
+                        </div>
+                      ) : (
+                        casualChatMessages.map((message, index) => (
+                          <div key={`${message.role}-${index}`} className={`group/message flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                              className={`w-fit max-w-[min(100%,42rem)] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
+                                message.role === 'user'
+                                  ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
+                                  : message.variant === 'error'
+                                    ? 'border-red-400/30 bg-red-500/10 text-red-200'
+                                    : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
+                              }`}
+                            >
+                              {message.role === 'assistant' ? (
+                                message.variant === 'error'
+                                  ? <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
+                                  : renderAssistantMessageContent(message.content)
+                              ) : (
+                                <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
+                              )}
+                              {message.role === 'assistant' && message.variant !== 'error' && renderKnowledgeReferences(message.knowledgeRefs)}
+                              <div className={`mt-2 flex items-center gap-1.5 border-t border-[color:var(--ui-border-soft)] pt-1.5 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => copyCasualChatMessage(message.content)}
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                                  title="复制这条消息"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                  <span>复制</span>
+                                </button>
+                                {message.role === 'assistant' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => retryCasualChatFrom(index)}
+                                    disabled={casualChatLoading}
+                                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-sky-400/10 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                    title="用上一条用户消息重新生成回复"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>重试</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      {casualChatLoading && <AgentThinkingBubble label="正在参考知识库并回复…" accent="cyan" />}
+                      <div ref={casualChatConversationEndRef} aria-hidden="true" />
+                    </div>
                   )}
                 </div>
 
@@ -8051,6 +8137,13 @@ const headerTitle = activeFilter === 'category'
                   <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
                     <button
                       type="button"
+                      onClick={() => setAiAssistantMode('chat')}
+                      className={`h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors ${aiAssistantMode === 'chat' ? 'bg-sky-600 text-white shadow-[0_6px_14px_rgba(14,165,233,0.18)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
+                    >
+                      聊天
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setAiAssistantMode('record')}
                       className={`h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors ${aiAssistantMode === 'record' ? 'bg-blue-600 text-white shadow-[0_6px_14px_rgba(37,99,235,0.18)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
                     >
@@ -8112,7 +8205,7 @@ const headerTitle = activeFilter === 'category'
                         {agentLoading ? '停止整理' : '发送'}
                       </button>
                     </>
-                  ) : (
+                  ) : aiAssistantMode === 'manage' ? (
                     <>
                       <input
                         type="text"
@@ -8136,147 +8229,55 @@ const headerTitle = activeFilter === 'category'
                         {manageAgentLoading ? '分析中…' : '发送'}
                       </button>
                     </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : activeFilter === 'chat' ? (
-            <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
-              <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
-                <div className="conversation-inline-surface flex flex-wrap items-center justify-end gap-2 rounded-[18px] border border-[color:var(--ui-border-soft)] px-2.5 py-1.5 backdrop-blur-xl">
-                  <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
-                      知识 {knowledgeEntries.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={clearCasualChatContext}
-                      disabled={casualChatLoading || casualChatMessages.length === 0}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-rose-300/40 hover:bg-rose-400/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-45"
-                      title="清空当前随便聊聊上下文"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      <span>清空上下文</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-                  <div className="conversation-scroll-surface min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-[28px] px-1 py-1.5 sm:px-2">
-                    {!hasApiKey ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSettingsFocusTarget(null);
-                          setShowSettings(true);
-                          setIsApiSettingsOpen(true);
-                        }}
-                        className="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 text-left transition-colors hover:border-amber-300/60 hover:bg-amber-500/15"
-                      >
-                        <div className="text-sm font-medium text-amber-200">未检测到 AI Key，点击前往设置</div>
-                      </button>
-                    ) : casualChatMessages.length === 0 ? (
-                      <div className="px-1 pt-1 text-xs text-[color:var(--ui-text-muted)]">
-                        直接开始聊就行。
-                      </div>
-                    ) : (
-                      casualChatMessages.map((message, index) => (
-                        <div key={`${message.role}-${index}`} className={`group/message flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div
-                            className={`w-fit max-w-[min(100%,42rem)] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
-                              message.role === 'user'
-                                ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
-                                : message.variant === 'error'
-                                  ? 'border-red-400/30 bg-red-500/10 text-red-200'
-                                  : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
-                            }`}
-                          >
-                            {message.role === 'assistant' ? (
-                              message.variant === 'error'
-                                ? <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
-                                : renderAssistantMessageContent(message.content)
-                            ) : (
-                              <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
-                            )}
-                            {message.role === 'assistant' && message.variant !== 'error' && renderKnowledgeReferences(message.knowledgeRefs)}
-                            <div className={`mt-2 flex items-center gap-1.5 border-t border-[color:var(--ui-border-soft)] pt-1.5 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                              <button
-                                type="button"
-                                onClick={() => copyCasualChatMessage(message.content)}
-                                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
-                                title="复制这条消息"
-                              >
-                                <Copy className="h-3 w-3" />
-                                <span>复制</span>
-                              </button>
-                              {message.role === 'assistant' && (
-                                <button
-                                  type="button"
-                                  onClick={() => retryCasualChatFrom(index)}
-                                  disabled={casualChatLoading}
-                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] transition-colors hover:bg-sky-400/10 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-50"
-                                  title="用上一条用户消息重新生成回复"
-                                >
-                                  <RotateCcw className="h-3 w-3" />
-                                  <span>重试</span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                  ) : (
+                    <div className="min-w-[min(16rem,100%)] flex-1 space-y-2">
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="min-w-0 flex items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
+                          <Library className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                          <span className="truncate">{casualKnowledgeInlineText}</span>
                         </div>
-                      ))
-                    )}
-                    {casualChatLoading && <AgentThinkingBubble label="正在参考知识库并回复…" accent="cyan" />}
-                    <div ref={casualChatConversationEndRef} aria-hidden="true" />
-                  </div>
-
-                  <div className="conversation-composer-surface shrink-0 space-y-2 rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.10)] backdrop-blur-2xl sm:px-3.5">
-                    <div className="flex items-center justify-between gap-2 px-1">
-                      <div className="min-w-0 flex items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
-                        <Library className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                        <span className="truncate">{casualKnowledgeInlineText}</span>
+                        {casualKnowledgePreviewEntries.length > 0 && (
+                          <details className="group relative shrink-0">
+                            <summary className="conversation-reference-pill flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]">
+                              <span>资料 {casualKnowledgePreviewEntries.length}</span>
+                              <ChevronDown className="h-3.5 w-3.5 text-[color:var(--ui-icon-muted)] transition-transform group-open:rotate-180" />
+                            </summary>
+                            <div className="conversation-reference-popover absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-[min(24rem,calc(100vw-2.5rem))] rounded-[22px] border border-[color:var(--ui-border-soft)] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                              {renderCasualKnowledgePreview()}
+                            </div>
+                          </details>
+                        )}
                       </div>
-                      {casualKnowledgePreviewEntries.length > 0 && (
-                        <details className="group relative shrink-0">
-                          <summary className="conversation-reference-pill flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]">
-                            <span>资料 {casualKnowledgePreviewEntries.length}</span>
-                            <ChevronDown className="h-3.5 w-3.5 text-[color:var(--ui-icon-muted)] transition-transform group-open:rotate-180" />
-                          </summary>
-                          <div className="conversation-reference-popover absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-[min(24rem,calc(100vw-2.5rem))] rounded-[22px] border border-[color:var(--ui-border-soft)] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.28)] backdrop-blur-xl">
-                            {renderCasualKnowledgePreview()}
-                          </div>
-                        </details>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={casualChatInput}
+                          onChange={(event) => setCasualChatInput(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                              event.preventDefault();
+                              handleCasualChatSend();
+                            }
+                          }}
+                          placeholder={casualChatPlaceholder}
+                          disabled={!hasApiKey}
+                          className="ui-input min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleCasualChatSend()}
+                          disabled={!canSendCasualChat}
+                          className={`rounded-2xl px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50 ${
+                            casualChatLoading
+                              ? 'bg-gradient-to-r from-amber-500 to-rose-500'
+                              : 'bg-gradient-to-r from-sky-500 to-blue-600'
+                          }`}
+                        >
+                          {casualChatActionLabel}
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={casualChatInput}
-                        onChange={(event) => setCasualChatInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                            event.preventDefault();
-                            handleCasualChatSend();
-                          }
-                        }}
-                        placeholder={casualChatPlaceholder}
-                        disabled={!hasApiKey}
-                        className="ui-input min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleCasualChatSend()}
-                        disabled={!canSendCasualChat}
-                        className={`rounded-2xl px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:opacity-50 ${
-                          casualChatLoading
-                            ? 'bg-gradient-to-r from-amber-500 to-rose-500'
-                            : 'bg-gradient-to-r from-sky-500 to-blue-600'
-                        }`}
-                      >
-                        {casualChatActionLabel}
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -8341,7 +8342,7 @@ const headerTitle = activeFilter === 'category'
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">全局知识库</div>
-                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">AI 助手和随便聊聊会自动总结可复用资料；这里也支持手动补充和修正。</p>
+                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">AI 助手会自动总结可复用资料；这里也支持手动补充和修正。</p>
                   </div>
                   <input
                     type="text"
@@ -8355,7 +8356,7 @@ const headerTitle = activeFilter === 'category'
                 <div className="mt-4 grid gap-2">
                   {visibleKnowledgeEntries.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-4 py-10 text-center text-sm text-[color:var(--ui-text-muted)]">
-                      还没有知识。继续使用 AI 助手或随便聊聊时，可复用资料会自动沉淀到这里。
+                      还没有知识。继续使用 AI 助手时，可复用资料会自动沉淀到这里。
                     </div>
                   ) : (
                     visibleKnowledgeEntries.map((entry) => (

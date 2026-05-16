@@ -127,7 +127,7 @@ export type ImageAttachment = {
 };
 
 export type CountdownDisplayMode = 'days' | 'date';
-export type AiAssistantMode = 'record' | 'manage';
+export type AiAssistantMode = 'chat' | 'record' | 'manage';
 export type ManageAgentFilter = 'all' | 'todo' | 'today' | 'overdue';
 
 export type StatusFeedback = {
