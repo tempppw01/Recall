@@ -86,6 +86,10 @@ import ListComposerPanel from '@/app/components/home/ListComposerPanel';
 import ModelSelect from '@/app/components/models/ModelSelect';
 import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
+import CalendarYearView from '@/app/components/calendar/CalendarYearView';
+import CalendarScheduleGrid from '@/app/components/calendar/CalendarScheduleGrid';
+import CalendarAgendaView from '@/app/components/calendar/CalendarAgendaView';
+import type { CalendarViewMode } from '@/app/components/calendar/calendarTypes';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
 import ReviewPanel from '@/app/components/review/ReviewPanel';
 import ItemsPanel from '@/app/components/items/ItemsPanel';
@@ -1492,7 +1496,7 @@ export default function Home() {
   const [isListsOpen, setIsListsOpen] = useState(true);
   const [lastRemovedTask, setLastRemovedTask] = useState<Task | null>(null);
   const [showAbout, setShowAbout] = useState(false);
-  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('day');
+  const [calendarView, setCalendarView] = useState<CalendarViewMode>('day');
   const [showCompletedInCalendar, setShowCompletedInCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -2319,15 +2323,16 @@ export default function Home() {
   }, [tasks, notificationSupported, pushLog]);
 
   useEffect(() => {
-    if (calendarView === 'week') {
-      const start = getWeekStart(new Date());
+    if (calendarView === 'week' || calendarView === 'multiWeek') {
+      const anchorKey = selectedCalendarDate || formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
+      const start = getWeekStart(parseDateKey(anchorKey));
       setWeekStart(start);
       setWeekDays(buildWeekDays(start));
       setWeekLabel(buildWeekLabel(start));
     }
     setWeatherCities([]);
     setIsSearchingWeatherCity(false);
-  }, [calendarView]);
+  }, [calendarView, selectedCalendarDate]);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -5116,12 +5121,23 @@ const normalizeTimeoutSec = (value: number) => {
     setDragOverTaskId(null);
   };
 
+  const focusCalendarDate = (dateKey: string) => {
+    setSelectedCalendarDate(dateKey);
+    const nextDate = parseDateKey(dateKey);
+    setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+    const nextWeekStart = getWeekStart(nextDate);
+    setWeekStart(nextWeekStart);
+    setWeekDays(buildWeekDays(nextWeekStart));
+    setWeekLabel(buildWeekLabel(nextWeekStart));
+  };
+
   const handleWeekChange = (offset: number) => {
     const nextStart = addDays(weekStart, offset * 7);
     setWeekStart(nextStart);
     setWeekDays(buildWeekDays(nextStart));
     setWeekLabel(buildWeekLabel(nextStart));
-    setSelectedCalendarDate(null);
+    setSelectedCalendarDate(formatDateKey(nextStart));
+    setCalendarMonth(new Date(nextStart.getFullYear(), nextStart.getMonth(), 1));
   };
 
   const reorderTasks = (sourceId: string, targetId: string) => {
@@ -5516,6 +5532,93 @@ const normalizeTimeoutSec = (value: number) => {
     { length: visibleEndHour - visibleStartHour + 1 },
     (_, idx) => visibleStartHour + idx,
   );
+  const calendarWeekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+  const calendarTrailingCount = (7 - ((leadingEmpty + daysInMonth) % 7 || 7)) % 7;
+  const calendarMonthGridStart = addDays(monthStart, -leadingEmpty);
+  const calendarMonthCells = Array.from({ length: leadingEmpty + daysInMonth + calendarTrailingCount }, (_, index) => {
+    const date = addDays(calendarMonthGridStart, index);
+    return {
+      dateKey: formatDateKey(date),
+      dayLabel: String(date.getDate()),
+      inCurrentMonth: date.getMonth() === calendarMonth.getMonth(),
+    };
+  });
+  const weekDateKeys = weekDays.map((day) => day.dateKey);
+  const multiDayDateKeys = Array.from(
+    { length: 3 },
+    (_, index) => formatDateKey(addDays(selectedCalendarDateObject, index)),
+  );
+  const multiWeekCalendarCells = Array.from({ length: 14 }, (_, index) => {
+    const date = addDays(weekStart, index);
+    return {
+      dateKey: formatDateKey(date),
+      dayLabel: String(date.getDate()),
+      inCurrentMonth: date.getMonth() === calendarMonth.getMonth(),
+    };
+  });
+  const agendaDateKeys = Array.from(
+    { length: 7 },
+    (_, index) => formatDateKey(addDays(selectedCalendarDateObject, index)),
+  );
+
+  const getCalendarRangeHourWindow = (dateKeys: string[]) => {
+    const hours = dateKeys.flatMap((dateKey) => (
+      (tasksByDate[dateKey] || [])
+        .filter((task) => Boolean(task.dueDate))
+        .map((task) => getZonedDate(task.dueDate as string, getTimezoneOffset(task)).getUTCHours())
+    ));
+
+    let rangeStart = hours.length > 0 ? Math.max(0, Math.min(...hours) - 1) : 8;
+    let rangeEnd = hours.length > 0 ? Math.min(23, Math.max(...hours) + 1) : 22;
+
+    if (dateKeys.includes(nowKey)) {
+      rangeStart = Math.min(rangeStart, Math.max(0, nowHour - 1));
+      rangeEnd = Math.max(rangeEnd, Math.min(23, nowHour + 1));
+    }
+
+    const minimumHours = 8;
+    if (rangeEnd - rangeStart + 1 < minimumHours) {
+      const deficit = minimumHours - (rangeEnd - rangeStart + 1);
+      const expandBefore = Math.floor(deficit / 2);
+      const expandAfter = deficit - expandBefore;
+      rangeStart = Math.max(0, rangeStart - expandBefore);
+      rangeEnd = Math.min(23, rangeEnd + expandAfter);
+      if (rangeEnd - rangeStart + 1 < minimumHours) {
+        if (rangeStart === 0) {
+          rangeEnd = Math.min(23, minimumHours - 1);
+        } else if (rangeEnd === 23) {
+          rangeStart = Math.max(0, 24 - minimumHours);
+        }
+      }
+    }
+
+    return { start: rangeStart, end: rangeEnd };
+  };
+
+  const weekHourWindow = getCalendarRangeHourWindow(weekDateKeys);
+  const multiDayHourWindow = getCalendarRangeHourWindow(multiDayDateKeys);
+  const multiDayEndLabel = formatDateKey(addDays(selectedCalendarDateObject, multiDayDateKeys.length - 1));
+  const multiWeekEndLabel = formatDateKey(addDays(weekStart, multiWeekCalendarCells.length - 1));
+  const calendarPeriodLabel = calendarView === 'year'
+    ? `${calendarMonth.getFullYear()}年`
+    : calendarView === 'month'
+      ? `${calendarMonth.getFullYear()}年${calendarMonth.getMonth() + 1}月`
+      : calendarView === 'week'
+        ? weekLabel
+        : calendarView === 'multiWeek'
+          ? `${weekLabel} 起 · 2 周`
+          : calendarView === 'multiDay'
+            ? `${selectedCalendarLabel} - ${multiDayEndLabel}`
+            : calendarView === 'agenda'
+              ? `${selectedCalendarLabel} 起 · 7 天`
+              : selectedCalendarLabel;
+  const calendarFocusLabel = calendarView === 'year'
+    ? selectedCalendarLabel
+    : calendarView === 'month'
+      ? `${selectedCalendarLabel} · 月内任务`
+      : calendarView === 'multiWeek'
+        ? `${weekLabel} - ${multiWeekEndLabel}`
+        : selectedCalendarLabel;
 
   const getCalendarDropTimeText = (event: ReactDragEvent<HTMLDivElement>, hour: number) => {
     const rowRect = event.currentTarget.getBoundingClientRect();
@@ -5577,6 +5680,60 @@ const normalizeTimeoutSec = (value: number) => {
     .sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime());
   const handleMonthChange = (offset: number) => {
     setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1));
+  };
+  const shiftCalendarSelection = (offsetDays: number) => {
+    const nextDate = addDays(selectedCalendarDateObject, offsetDays);
+    focusCalendarDate(formatDateKey(nextDate));
+  };
+  const handleCalendarToday = () => {
+    focusCalendarDate(todayKey);
+  };
+  const handleCalendarNavigate = (offset: number) => {
+    if (calendarView === 'year') {
+      const nextYearStart = new Date(calendarMonth.getFullYear() + offset, 0, 1);
+      setCalendarMonth(nextYearStart);
+      return;
+    }
+    if (calendarView === 'month') {
+      handleMonthChange(offset);
+      return;
+    }
+    if (calendarView === 'week') {
+      handleWeekChange(offset);
+      return;
+    }
+    if (calendarView === 'multiWeek') {
+      handleWeekChange(offset * 2);
+      return;
+    }
+    if (calendarView === 'multiDay') {
+      shiftCalendarSelection(offset * multiDayDateKeys.length);
+      return;
+    }
+    if (calendarView === 'agenda') {
+      shiftCalendarSelection(offset * agendaDateKeys.length);
+      return;
+    }
+    shiftCalendarSelection(offset);
+  };
+  const handleCalendarViewChange = (view: CalendarViewMode) => {
+    setCalendarView(view);
+    setWeatherCities([]);
+    setWeatherCitySearchMessage('');
+    setWeatherLocateError('');
+
+    const focusKey = selectedCalendarDate || todayKey;
+    const focusDate = parseDateKey(focusKey);
+    setCalendarMonth(new Date(focusDate.getFullYear(), focusDate.getMonth(), 1));
+    if (view === 'week' || view === 'multiWeek') {
+      const nextStart = getWeekStart(focusDate);
+      setWeekStart(nextStart);
+      setWeekDays(buildWeekDays(nextStart));
+      setWeekLabel(buildWeekLabel(nextStart));
+    }
+    if (view === 'day' || view === 'agenda' || view === 'multiDay') {
+      setSelectedCalendarDate(focusKey);
+    }
   };
 const headerTitle = activeFilter === 'category'
     ? (activeCategory ?? FILTER_LABELS.category)
@@ -5988,6 +6145,8 @@ const headerTitle = activeFilter === 'category'
           activeFilter === 'quadrant' || isFixedPanelView ? 'min-h-0 overflow-hidden flex flex-col' : ''
         }`}>
           {activeFilter === 'calendar' ? (
+            <>
+              {/*
             <div className="flex flex-col gap-3 sm:gap-4">
               <CalendarTopPanel
                 calendarView={calendarView}
@@ -6408,6 +6567,274 @@ const headerTitle = activeFilter === 'category'
                 </>
               )}
             </div>
+              */}
+              <div className="flex min-h-0 flex-col gap-4">
+                <CalendarTopPanel
+                  calendarView={calendarView}
+                  periodLabel={calendarPeriodLabel}
+                  focusLabel={calendarFocusLabel}
+                  showCompletedInCalendar={showCompletedInCalendar}
+                  calendarCityInput={calendarCityInput}
+                  isSearchingWeatherCity={isSearchingWeatherCity}
+                  weatherCities={weatherCities}
+                  weatherCitySearchMessage={weatherCitySearchMessage}
+                  hasSelectedCity={Boolean(calendarCity)}
+                  cityLabel={calendarCity ? [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ') : '请先搜索并选择城市'}
+                  weatherLoading={weatherLoading}
+                  weatherSummaryLabel={calendarCity ? (weatherForecast?.weatherText || weatherSummary.label) : '请先选择城市'}
+                  weatherTemperatureText={calendarCity && typeof weatherForecast?.tempMin === 'number' && typeof weatherForecast?.tempMax === 'number' ? `${Math.round(weatherForecast.tempMin)}° ~ ${Math.round(weatherForecast.tempMax)}°` : '--'}
+                  weatherHintText={weatherForecastHint}
+                  weatherIcon={<SelectedWeatherIcon className="h-5 w-5 text-blue-300" />}
+                  onViewChange={handleCalendarViewChange}
+                  onPrevious={() => handleCalendarNavigate(-1)}
+                  onToday={handleCalendarToday}
+                  onNext={() => handleCalendarNavigate(1)}
+                  onToggleCompleted={() => setShowCompletedInCalendar((prev) => !prev)}
+                  locateErrorMessage={weatherLocateError}
+                  onLocateCity={handleLocateWeatherCity}
+                  onRetryLocate={handleLocateWeatherCity}
+                  onCityInputFocus={() => {
+                    const keyword = calendarCityInput.trim();
+                    if (keyword.length < 2) {
+                      setWeatherCities([]);
+                      setWeatherCitySearchMessage('');
+                      setIsSearchingWeatherCity(false);
+                    }
+                  }}
+                  onCityInputBlur={() => {
+                    const normalizeCityText = (value: string) =>
+                      value
+                        .toLowerCase()
+                        .replace(/\s+/g, '')
+                        .replace(/[·,，。\-_]/g, '');
+
+                    const keyword = calendarCityInput.trim();
+                    const selectedLabel = calendarCity
+                      ? [calendarCity.name, calendarCity.admin1, calendarCity.country]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : '';
+
+                    if (
+                      keyword.length < 2 ||
+                      (selectedLabel && normalizeCityText(keyword) === normalizeCityText(selectedLabel))
+                    ) {
+                      setWeatherCities([]);
+                      setWeatherCitySearchMessage('');
+                      setIsSearchingWeatherCity(false);
+                    }
+                  }}
+                  onCityInputChange={(value) => {
+                    setCalendarCityInput(value);
+                    if (calendarCity) {
+                      const normalizeCityText = (text: string) =>
+                        text
+                          .toLowerCase()
+                          .replace(/\s+/g, '')
+                          .replace(/[·,，。\-_]/g, '');
+
+                      const selectedLabel = [calendarCity.name, calendarCity.admin1, calendarCity.country].filter(Boolean).join(' · ');
+                      if (normalizeCityText(value.trim()) !== normalizeCityText(selectedLabel)) {
+                        setCalendarCity(null);
+                        setWeatherForecast(null);
+                        setWeatherLoading(false);
+                        setWeatherForecastHint('');
+                        setWeatherCities([]);
+                        setWeatherCitySearchMessage('');
+                        setIsSearchingWeatherCity(false);
+                      }
+                    }
+                  }}
+                  onSelectCity={(city) => {
+                    setCalendarCity(city);
+                    setCalendarCityInput([city.name, city.admin1, city.country].filter(Boolean).join(' · '));
+                    setWeatherForecast(null);
+                    setWeatherLoading(true);
+                    setWeatherForecastHint('');
+                    setWeatherLocateError('');
+                    setWeatherCities([]);
+                    setWeatherCitySearchMessage('');
+                  }}
+                />
+
+                {calendarView === 'year' ? (
+                  <CalendarYearView
+                    year={calendarMonth.getFullYear()}
+                    tasksByDate={tasksByDate}
+                    selectedDateKey={effectiveCalendarDate}
+                    todayKey={todayKey}
+                    onSelectDate={focusCalendarDate}
+                  />
+                ) : calendarView === 'week' ? (
+                  <CalendarScheduleGrid
+                    dateKeys={weekDateKeys}
+                    tasksByDate={tasksByDate}
+                    todayKey={todayKey}
+                    calendarNotes={calendarNotes}
+                    visibleStartHour={weekHourWindow.start}
+                    visibleEndHour={weekHourWindow.end}
+                    onSelectDate={focusCalendarDate}
+                    onSelectTask={setSelectedTask}
+                  />
+                ) : calendarView === 'multiDay' ? (
+                  <CalendarScheduleGrid
+                    dateKeys={multiDayDateKeys}
+                    tasksByDate={tasksByDate}
+                    todayKey={todayKey}
+                    calendarNotes={calendarNotes}
+                    visibleStartHour={multiDayHourWindow.start}
+                    visibleEndHour={multiDayHourWindow.end}
+                    onSelectDate={focusCalendarDate}
+                    onSelectTask={setSelectedTask}
+                  />
+                ) : calendarView === 'multiWeek' ? (
+                  <CalendarMonthGrid
+                    cells={multiWeekCalendarCells}
+                    weekdayLabels={calendarWeekdayLabels}
+                    selectedDateKey={effectiveCalendarDate}
+                    todayKey={todayKey}
+                    calendarNotes={calendarNotes}
+                    tasksByDate={tasksByDate}
+                    onSelectDate={focusCalendarDate}
+                    dense
+                    maxEventsPerDay={3}
+                  />
+                ) : calendarView === 'agenda' ? (
+                  <CalendarAgendaView
+                    dateKeys={agendaDateKeys}
+                    tasksByDate={tasksByDate}
+                    calendarNotes={calendarNotes}
+                    onSelectTask={setSelectedTask}
+                  />
+                ) : calendarView === 'day' ? (
+                  <div className="glass-panel rounded-[28px] p-4 sm:p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold text-[#DDDDDD]">{selectedCalendarLabel}</div>
+                      {calendarNotes[effectiveCalendarDate] && (
+                        <span className="text-[11px] text-blue-300">
+                          {calendarNotes[effectiveCalendarDate]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#666666]">
+                      <span>显示时段：{pad2(visibleStartHour)}:00 - {pad2(Math.min(23, visibleEndHour + 1))}:00</span>
+                      <span className="text-blue-300/80">拖拽任务到时间线上，可按 15 分钟调整</span>
+                    </div>
+                    <div className="max-h-[62vh] overflow-y-auto pr-1 rounded-[24px]">
+                      <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
+                        <div className="flex flex-col text-[10px] text-[#666666]">
+                          {dayVisibleHours.map((hour) => (
+                            <div
+                              key={hour}
+                              className="h-9 flex items-start justify-end pr-2 border-b border-[#3A3F4B]/45 last:border-b-0"
+                            >
+                              {String(hour).padStart(2, '0')}:00
+                            </div>
+                          ))}
+                        </div>
+                        {dayTasks.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center min-h-[12rem] text-[#444444]">
+                            <Calendar className="w-12 h-12 mb-3 opacity-20" />
+                            <p className="text-sm">这一天还没有任务</p>
+                          </div>
+                        ) : (
+                          <div className="relative border border-[#3A3F4B]/45 rounded-[24px] overflow-hidden bg-[#1E2128]/78">
+                            {showNowLine && nowLineTop >= 0 && nowLineTop <= dayVisibleHours.length * dayRowHeight && (
+                              <div
+                                className="absolute left-0 right-0 z-10 pointer-events-none"
+                                style={{ top: `${nowLineTop}px` }}
+                              >
+                                <div className="relative flex items-center">
+                                  <span className="absolute -left-2.5 -top-2.5 w-3 h-3 rounded-full bg-red-400 shadow" />
+                                  <div className="h-[2px] w-full bg-red-400/80" />
+                                  <span className="ml-2 rounded bg-[var(--ui-surface-0)] px-1.5 py-0.5 text-[10px] text-red-300">
+                                    {nowLabel}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            {dayVisibleHours.map((hour) => {
+                              const hourTasks = dayTasksByHour[hour] || [];
+                              const isCalendarDropTarget = calendarDropTarget?.hour === hour;
+                              return (
+                                <div
+                                  key={hour}
+                                  onDragOver={(event) => handleCalendarTimeDragOver(event, hour)}
+                                  onDrop={(event) => handleCalendarTimeDrop(event, hour)}
+                                  onDragLeave={(event) => {
+                                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                      setCalendarDropTarget((prev) => (prev?.hour === hour ? null : prev));
+                                    }
+                                  }}
+                                  className={`relative min-h-[36px] border-b px-2.5 py-1.5 transition-colors last:border-b-0 ${
+                                    isCalendarDropTarget
+                                      ? 'border-blue-400/45 bg-blue-500/12'
+                                      : 'border-[#3A3F4B]/45'
+                                  }`}
+                                >
+                                  {isCalendarDropTarget && (
+                                    <div className="pointer-events-none absolute right-3 top-1 z-20 rounded-full border border-blue-300/40 bg-blue-500/18 px-2 py-0.5 text-[10px] font-medium text-blue-100 shadow-[0_8px_18px_rgba(37,99,235,0.22)]">
+                                      改到 {calendarDropTarget.timeText}
+                                    </div>
+                                  )}
+                                  {hourTasks.length === 0 ? (
+                                    <div className={`text-[10px] ${isCalendarDropTarget ? 'text-blue-200/70' : 'text-[#333333]'}`}>
+                                      {isCalendarDropTarget ? '松开即可调整到这个时间' : '\u00A0'}
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {hourTasks.map((task) => (
+                                        <TaskItem
+                                          key={task.id}
+                                          task={task}
+                                          selected={selectedTask?.id === task.id}
+                                          onClick={() => setSelectedTask(task)}
+                                          onToggle={toggleStatus}
+                                          onDelete={removeTask}
+                                          onToggleSubtask={toggleSubtask}
+                                          onUpdateDueDate={updateTaskDueDate}
+                                          onCopyTitle={copyTaskTitle}
+                                          onCopyContent={copyTaskContent}
+                                          onTogglePinned={toggleTaskPinned}
+                                          onQuickSetPriority={quickSetPriority}
+                                          onQuickSetDuePreset={quickSetDuePreset}
+                                          onDragStart={handleCalendarTaskDragStart}
+                                          isDragging={calendarDraggingTaskId === task.id}
+                                          onDragEnd={resetCalendarTaskDrag}
+                                          dragEnabled={!isBatchMode}
+                                          dragLabel="调整时间"
+                                          dragTitle="拖到时间线调整时间"
+                                          multiSelectEnabled={isBatchMode}
+                                          isChecked={selectedTaskIds.has(task.id)}
+                                          onToggleSelect={toggleTaskSelected}
+                                          helpers={taskItemHelpers}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <CalendarMonthGrid
+                    cells={calendarMonthCells}
+                    weekdayLabels={calendarWeekdayLabels}
+                    selectedDateKey={effectiveCalendarDate}
+                    todayKey={todayKey}
+                    calendarNotes={calendarNotes}
+                    tasksByDate={tasksByDate}
+                    onSelectDate={focusCalendarDate}
+                    maxEventsPerDay={4}
+                    showNotesInActiveWeekOnly
+                  />
+                )}
+              </div>
+            </>
           ) : activeFilter === 'countdown' ? (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
               <div className="space-y-4">

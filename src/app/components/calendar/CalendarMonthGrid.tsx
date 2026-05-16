@@ -1,112 +1,155 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Task } from '@/lib/store';
+import { formatZonedTime, getTimezoneOffset } from '@/app/homeUtils';
+import { getCalendarTaskTone } from '@/app/components/calendar/calendarTheme';
+
+export type CalendarGridCell = {
+  dateKey: string | null;
+  dayLabel?: string;
+  inCurrentMonth?: boolean;
+};
 
 type CalendarMonthGridProps = {
-  monthLabel: string;
+  cells: CalendarGridCell[];
   weekdayLabels: string[];
-  calendarDays: (number | null)[];
-  effectiveCalendarDate: string;
+  selectedDateKey: string;
   todayKey: string;
   calendarNotes: Record<string, string>;
-  tasksByDate: Record<string, { id: string }[]>;
-  onMonthChange: (offset: number) => void;
+  tasksByDate: Record<string, Task[]>;
   onSelectDate: (dateKey: string) => void;
+  maxEventsPerDay?: number;
+  dense?: boolean;
+  showNotesInActiveWeekOnly?: boolean;
 };
 
 export default function CalendarMonthGrid({
-  monthLabel,
+  cells,
   weekdayLabels,
-  calendarDays,
-  effectiveCalendarDate,
+  selectedDateKey,
   todayKey,
   calendarNotes,
   tasksByDate,
-  onMonthChange,
   onSelectDate,
+  maxEventsPerDay = 3,
+  dense = false,
+  showNotesInActiveWeekOnly = false,
 }: CalendarMonthGridProps) {
-  const anchorDateKey = effectiveCalendarDate.startsWith(monthLabel)
-    ? effectiveCalendarDate
-    : todayKey.startsWith(monthLabel)
-      ? todayKey
-      : `${monthLabel}-01`;
-  const anchorDay = Number(anchorDateKey.slice(-2));
-  const anchorIndex = calendarDays.findIndex((day) => day === anchorDay);
+  const anchorDateKey = selectedDateKey || todayKey;
+  const anchorIndex = cells.findIndex((cell) => cell.dateKey === anchorDateKey);
   const activeWeekIndex = anchorIndex >= 0 ? Math.floor(anchorIndex / 7) : -1;
 
   return (
-    <div className="glass-panel rounded-[28px] p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => onMonthChange(-1)}
-          className="rounded-xl p-2 text-[#888888] transition-colors hover:bg-[#23262E]"
-          title="上一个月"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <div className="text-sm font-semibold text-[#E5E5E5]">{monthLabel}</div>
-        <button
-          type="button"
-          onClick={() => onMonthChange(1)}
-          className="rounded-xl p-2 text-[#888888] transition-colors hover:bg-[#23262E]"
-          title="下一个月"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="mb-2.5 grid grid-cols-7 px-1 text-xs text-[#727272]">
+    <div className="overflow-x-auto rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/92 shadow-[0_24px_60px_rgba(0,0,0,0.16)]">
+      <div className={`grid min-w-[920px] grid-cols-7 ${dense ? '' : ''}`}>
         {weekdayLabels.map((label) => (
-          <div key={label} className="text-center">
+          <div
+            key={label}
+            className="border-b border-r border-[color:var(--ui-border-soft)] px-3 py-3 text-center text-[12px] text-[color:var(--ui-text-secondary)] last:border-r-0"
+          >
             {label}
           </div>
         ))}
-      </div>
 
-      <div className="grid grid-cols-7 gap-2 text-sm">
-        {calendarDays.map((day, idx) => {
-          if (!day) {
-            return <div key={`empty-${idx}`} className="h-14 sm:h-[3.6rem]" />;
+        {cells.map((cell, index) => {
+          if (!cell.dateKey) {
+            return (
+              <div
+                key={`empty-${index}`}
+                className={`border-b border-r border-[color:var(--ui-border-soft)] last:border-r-0 ${
+                  dense ? 'min-h-[8rem]' : 'min-h-[9.75rem]'
+                } bg-[color:var(--ui-surface-0)]/36`}
+              />
+            );
           }
 
-          const dateKey = `${monthLabel}-${String(day).padStart(2, '0')}`;
-          const note = calendarNotes[dateKey];
-          const isToday = dateKey === todayKey;
-          const isSelected = dateKey === effectiveCalendarDate;
-          const hasTasks = (tasksByDate[dateKey] || []).length > 0;
-          const shouldShowNote = Boolean(note) && Math.floor(idx / 7) === activeWeekIndex;
+          const tasks = [...(tasksByDate[cell.dateKey] || [])].sort((left, right) => {
+            const leftTime = left.dueDate ? new Date(left.dueDate).getTime() : 0;
+            const rightTime = right.dueDate ? new Date(right.dueDate).getTime() : 0;
+            return leftTime - rightTime;
+          });
+          const overflowCount = Math.max(0, tasks.length - maxEventsPerDay);
+          const note = calendarNotes[cell.dateKey];
+          const weekIndex = Math.floor(index / 7);
+          const showNote = note && (!showNotesInActiveWeekOnly || activeWeekIndex === weekIndex);
+          const isToday = cell.dateKey === todayKey;
+          const isSelected = cell.dateKey === selectedDateKey;
+          const isOutside = cell.inCurrentMonth === false;
 
           return (
             <button
-              key={dateKey}
+              key={cell.dateKey}
               type="button"
-              onClick={() => onSelectDate(dateKey)}
-              className={`relative flex h-14 flex-col items-center justify-center rounded-2xl border text-xs transition-all sm:h-[3.6rem] ${
+              onClick={() => onSelectDate(cell.dateKey as string)}
+              className={`flex flex-col border-b border-r border-[color:var(--ui-border-soft)] px-3 py-2.5 text-left transition-colors last:border-r-0 ${
+                dense ? 'min-h-[8rem]' : 'min-h-[9.75rem]'
+              } ${
                 isSelected
-                  ? 'border-blue-300/80 bg-blue-600 text-white shadow-[0_14px_34px_rgba(59,130,246,0.30)]'
+                  ? 'bg-[rgba(var(--theme-accent),0.12)]'
                   : isToday
-                    ? 'border-blue-400/80 bg-blue-500 text-white shadow-[0_12px_30px_rgba(59,130,246,0.26)] hover:border-blue-200 hover:bg-blue-400'
-                    : 'border-[#3A3F4B]/45 bg-[#1E2128]/78 text-[#D0D0D0] hover:border-[#555D6D] hover:bg-white/[0.05]'
-              } ${isToday ? 'ring-2 ring-inset ring-blue-100/20' : ''}`}
+                    ? 'bg-[rgba(var(--theme-accent),0.08)]'
+                    : 'bg-[color:var(--ui-surface-0)]/74 hover:bg-[color:var(--ui-hover-bg)]'
+              }`}
             >
-              <span className={`leading-none ${isToday ? 'font-semibold text-white' : 'font-medium'}`}>{day}</span>
-              {shouldShowNote && (
-                <span
-                  className={`absolute left-1.5 top-1.5 max-w-[72%] truncate text-[8px] leading-none ${
-                    isToday ? 'text-blue-50/90' : 'text-blue-300'
-                  }`}
-                >
-                  {note}
-                </span>
-              )}
-              <span
-                className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ${
-                  hasTasks
-                    ? isToday
-                      ? 'bg-white shadow-[0_0_12px_rgba(255,255,255,0.55)]'
-                      : 'bg-blue-400 shadow-[0_0_12px_rgba(96,165,250,0.65)]'
-                    : 'bg-transparent'
-                }`}
-              />
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className={`text-[13px] font-semibold ${
+                    isSelected
+                      ? 'text-[rgba(var(--theme-accent),0.98)]'
+                      : isToday
+                        ? 'text-[color:var(--ui-text-strong)]'
+                        : isOutside
+                          ? 'text-[color:var(--ui-text-dim)]'
+                          : 'text-[color:var(--ui-text-strong)]'
+                  }`}>
+                    {cell.dayLabel ?? cell.dateKey.slice(-2).replace(/^0/, '')}
+                  </div>
+                  {showNote && (
+                    <div className="mt-1 max-w-full truncate text-[10px] text-emerald-300/90">
+                      {note}
+                    </div>
+                  )}
+                </div>
+                {isToday && (
+                  <span className="rounded-full border border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.16)] px-2 py-0.5 text-[10px] text-[rgba(var(--theme-accent),0.94)]">
+                    今天
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2 space-y-1.5">
+                {tasks.slice(0, maxEventsPerDay).map((task) => {
+                  const tone = getCalendarTaskTone(task);
+                  const timeText = task.dueDate ? formatZonedTime(task.dueDate, getTimezoneOffset(task)) : '';
+                  return (
+                    <div
+                      key={task.id}
+                      className="rounded-[12px] border px-2.5 py-1.5"
+                      style={{
+                        background: tone.background,
+                        borderColor: tone.border,
+                        color: tone.text,
+                        boxShadow: tone.shadow,
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ background: tone.dot }}
+                        />
+                        <span className="truncate text-[11px] font-medium">{task.title}</span>
+                      </div>
+                      {timeText && (
+                        <div className="mt-1 text-[10px] opacity-85">{timeText}</div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {overflowCount > 0 && (
+                  <div className="pl-1 text-[11px] text-[color:var(--ui-text-secondary)]">
+                    +{overflowCount} 项安排
+                  </div>
+                )}
+              </div>
             </button>
           );
         })}

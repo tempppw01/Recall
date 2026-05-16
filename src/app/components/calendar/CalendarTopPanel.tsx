@@ -1,27 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Crosshair, MapPin, Search } from 'lucide-react';
-
-type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
-
-type WeatherCity = {
-  id: string;
-  name: string;
-  admin1?: string;
-  country?: string;
-  latitude: number;
-  longitude: number;
-  timezone?: string;
-};
+import { ChevronLeft, ChevronRight, Crosshair, MapPin, Search } from 'lucide-react';
+import type { WeatherCity } from '@/app/homeTypes';
+import { CALENDAR_VIEW_OPTIONS, type CalendarViewMode } from '@/app/components/calendar/calendarTypes';
 
 type CalendarTopPanelProps = {
   calendarView: CalendarViewMode;
+  periodLabel: string;
+  focusLabel: string;
   showCompletedInCalendar: boolean;
   calendarCityInput: string;
   isSearchingWeatherCity: boolean;
   weatherCities: WeatherCity[];
   weatherCitySearchMessage?: string;
   hasSelectedCity: boolean;
-  selectedCalendarLabel: string;
   cityLabel: string;
   weatherLoading: boolean;
   weatherSummaryLabel: string;
@@ -29,6 +20,9 @@ type CalendarTopPanelProps = {
   weatherHintText?: string;
   weatherIcon: ReactNode;
   onViewChange: (view: CalendarViewMode) => void;
+  onPrevious: () => void;
+  onToday: () => void;
+  onNext: () => void;
   onToggleCompleted: () => void;
   onCityInputChange: (value: string) => void;
   onCityInputFocus?: () => void;
@@ -40,45 +34,16 @@ type CalendarTopPanelProps = {
   onSelectCity: (city: WeatherCity) => void;
 };
 
-const VIEW_OPTIONS: CalendarViewMode[] = ['day', 'week', 'month', 'agenda'];
-
-const getViewLabel = (view: CalendarViewMode) => {
-  switch (view) {
-    case 'day':
-      return '日视图';
-    case 'week':
-      return '周视图';
-    case 'month':
-      return '月视图';
-    case 'agenda':
-    default:
-      return '日程视图';
-  }
-};
-
-const getViewHint = (view: CalendarViewMode) => {
-  switch (view) {
-    case 'month':
-      return '按月总览';
-    case 'week':
-      return '按周聚焦';
-    case 'day':
-      return '当日任务';
-    case 'agenda':
-    default:
-      return '近期日程';
-  }
-};
-
 export default function CalendarTopPanel({
   calendarView,
+  periodLabel,
+  focusLabel,
   showCompletedInCalendar,
   calendarCityInput,
   isSearchingWeatherCity,
   weatherCities,
   weatherCitySearchMessage,
   hasSelectedCity,
-  selectedCalendarLabel,
   cityLabel,
   weatherLoading,
   weatherSummaryLabel,
@@ -86,6 +51,9 @@ export default function CalendarTopPanel({
   weatherHintText,
   weatherIcon,
   onViewChange,
+  onPrevious,
+  onToday,
+  onNext,
   onToggleCompleted,
   onCityInputChange,
   onCityInputFocus,
@@ -100,7 +68,6 @@ export default function CalendarTopPanel({
   const showCitySearch = !hasSelectedCity || isEditingCity;
   const showCityDropdown =
     showCitySearch && (isSearchingWeatherCity || weatherCities.length > 0 || Boolean(weatherCitySearchMessage));
-  const isDayView = calendarView === 'day';
 
   useEffect(() => {
     if (hasSelectedCity) {
@@ -109,85 +76,105 @@ export default function CalendarTopPanel({
   }, [hasSelectedCity, cityLabel]);
 
   return (
-    <div
-      className={`calendar-top-panel glass-panel ${
-        isDayView ? 'rounded-[24px] p-3 sm:p-4 space-y-3' : 'rounded-[24px] p-3.5 sm:p-4 space-y-3.5'
-      }`}
-    >
-      <div className={`flex flex-col xl:flex-row xl:items-center xl:justify-between ${isDayView ? 'gap-2.5' : 'gap-3'}`}>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {VIEW_OPTIONS.map((view) => (
+    <div className="calendar-top-panel sticky top-0 z-20 -mx-1 border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(18,18,22,0.88))] px-1 pb-3 pt-1 backdrop-blur-xl">
+      <div className="space-y-3 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.16)] sm:px-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.28em] text-[color:var(--ui-text-muted)]">Calendar</div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">{periodLabel}</h2>
+              <span className="truncate text-sm text-[color:var(--ui-text-secondary)]">焦点：{focusLabel}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              key={view}
               type="button"
-              onClick={() => onViewChange(view)}
-              className={`rounded-xl border transition-all ${
-                isDayView ? 'px-3 py-1.5' : 'px-3.5 py-1.5'
-              } ${
-                calendarView === view
-                  ? 'border-blue-400/60 bg-blue-500/20 text-white shadow-[0_8px_24px_rgba(59,130,246,0.14)]'
-                  : 'border-[#3A3F4B]/50 text-[#9A9A9A] hover:border-[#555D6D] hover:bg-[#23262E] hover:text-white'
+              onClick={onToggleCompleted}
+              className={`rounded-full border px-3 py-1.5 text-[12px] transition-colors ${
+                showCompletedInCalendar
+                  ? 'border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.15)] text-[rgba(var(--theme-accent),0.96)]'
+                  : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-hover-bg)]'
               }`}
             >
-              {getViewLabel(view)}
+              {showCompletedInCalendar ? '已显示完成项' : '隐藏完成项'}
+            </button>
+            <div className="inline-flex items-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/90 p-1">
+              <button type="button" onClick={onPrevious} className="rounded-full p-2 text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]" aria-label="上一段">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={onToday} className="rounded-full px-4 py-2 text-sm font-medium text-[color:var(--ui-text-strong)] transition-colors hover:bg-[color:var(--ui-hover-bg)]">
+                今天
+              </button>
+              <button type="button" onClick={onNext} className="rounded-full p-2 text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]" aria-label="下一段">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {CALENDAR_VIEW_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onViewChange(option.value)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                calendarView === option.value
+                  ? 'border-[rgba(var(--theme-accent),0.4)] bg-[rgba(var(--theme-accent),0.16)] text-[color:var(--ui-text-strong)] shadow-[0_10px_24px_rgba(37,99,235,0.16)]'
+                  : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
+              }`}
+            >
+              <span className="hidden sm:inline">{option.label}</span>
+              <span className="sm:hidden">{option.shortLabel}</span>
             </button>
           ))}
         </div>
 
-        <div className={`flex flex-wrap items-center justify-start xl:justify-end ${isDayView ? 'gap-2' : 'gap-2.5'}`}>
-          <button
-            type="button"
-            onClick={onToggleCompleted}
-            title={showCompletedInCalendar ? '隐藏已完成任务' : '显示已完成任务'}
-            className="rounded-xl border border-[#3A3F4B]/50 px-3 py-1.5 text-[11px] text-[#9A9A9A] transition-all hover:border-[#555D6D] hover:bg-[#23262E] hover:text-white"
-          >
-            {showCompletedInCalendar ? '隐藏已完成' : '显示已完成'}
-          </button>
-          <div className="text-[11px] text-[#666666]">{getViewHint(calendarView)}</div>
-        </div>
-      </div>
-
-      <div className={showCitySearch ? `grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(15rem,0.9fr)]` : 'grid gap-3'}>
-        {showCitySearch && (
+        <div className="grid gap-2.5 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]">
           <div className="relative min-w-0">
-            <div className={`glass-panel-soft flex items-center gap-2 rounded-2xl ${isDayView ? 'px-3 py-2.5' : 'px-3.5 py-3'}`}>
-              <Search className="h-4 w-4 text-[#7A7A7A]" />
+            <div className="flex min-h-12 items-center gap-2 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/92 px-3">
+              <Search className="h-4 w-4 text-[color:var(--ui-text-muted)]" />
               <input
                 value={calendarCityInput}
                 onChange={(event) => onCityInputChange(event.target.value)}
                 onFocus={() => onCityInputFocus?.()}
                 onBlur={() => onCityInputBlur?.()}
-                placeholder="搜索城市：例如 北京、上海、Tokyo"
-                className="w-full bg-transparent text-sm text-[#DDDDDD] outline-none placeholder:text-[#5F5F5F]"
+                placeholder="搜索天气城市，例如北京、上海、Tokyo"
+                className="w-full bg-transparent text-sm text-[color:var(--ui-text-primary)] outline-none placeholder:text-[color:var(--ui-text-muted)]"
               />
               {onLocateCity && (
                 <button
                   type="button"
                   onClick={onLocateCity}
-                  className="btn btn-sm btn-ghost shrink-0"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1.5 text-[12px] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)]"
                   title="定位当前城市"
                 >
                   <Crosshair className="h-3.5 w-3.5" />
-                  {isLocatingCity ? '定位中...' : '定位'}
+                  {isLocatingCity ? '定位中' : '定位'}
                 </button>
               )}
             </div>
 
             {locateErrorMessage && (
-              <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
-                <span>{locateErrorMessage}</span>
+              <div className="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+                <span className="min-w-0 flex-1">{locateErrorMessage}</span>
                 {onRetryLocate && (
-                  <button type="button" onClick={onRetryLocate} className="btn btn-sm btn-ghost shrink-0">
-                    重试定位
+                  <button
+                    type="button"
+                    onClick={onRetryLocate}
+                    className="rounded-full border border-amber-300/25 px-2.5 py-1 text-[11px] transition-colors hover:bg-amber-500/10"
+                  >
+                    重试
                   </button>
                 )}
               </div>
             )}
 
             {showCityDropdown && (
-              <div className="z-20 mt-2 max-h-[40vh] w-full overflow-y-auto overscroll-contain rounded-2xl border border-[#3A3F4B]/50 bg-[#171717]/92 shadow-[0_16px_40px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:absolute sm:left-0 sm:right-0 sm:top-[calc(100%+0.5rem)] sm:mt-0 sm:max-h-56">
+              <div className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-30 overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(15,15,18,0.96)] shadow-[0_18px_48px_rgba(0,0,0,0.26)] backdrop-blur-xl">
                 {isSearchingWeatherCity ? (
-                  <div className="px-3 py-2 text-xs text-[#777777]">城市搜索中...</div>
+                  <div className="px-3 py-2.5 text-sm text-[color:var(--ui-text-secondary)]">城市搜索中...</div>
                 ) : weatherCities.length > 0 ? (
                   weatherCities.map((city) => (
                     <button
@@ -197,80 +184,53 @@ export default function CalendarTopPanel({
                         onSelectCity(city);
                         setIsEditingCity(false);
                       }}
-                      className="w-full px-3 py-2.5 text-left text-sm text-[#CCCCCC] transition-colors hover:bg-[#23262E]"
+                      className="w-full px-3 py-2.5 text-left text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-hover-bg)]"
                     >
                       {[city.name, city.admin1, city.country].filter(Boolean).join(' · ')}
                     </button>
                   ))
                 ) : weatherCitySearchMessage ? (
-                  <div className="px-3 py-2 text-xs text-[#777777]">{weatherCitySearchMessage}</div>
+                  <div className="px-3 py-2.5 text-sm text-[color:var(--ui-text-secondary)]">{weatherCitySearchMessage}</div>
                 ) : null}
               </div>
             )}
           </div>
-        )}
 
-        <div className={`glass-panel-soft rounded-2xl ${isDayView ? 'px-3.5 py-3' : 'px-4 py-3.5'}`}>
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex min-h-12 items-center justify-between gap-3 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/92 px-3.5 py-2.5">
             <div className="min-w-0">
-              <div className="text-[11px] text-[#6E6E6E]">天气预报（{selectedCalendarLabel}）</div>
-              <div className={`mt-1 flex items-start gap-2 text-sm text-[#DDDDDD] ${isDayView ? '' : 'sm:mt-1.5'}`}>
-                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-300" />
-                <span className="break-words">{cityLabel}</span>
+              <div className="flex items-center gap-2 text-sm text-[color:var(--ui-text-primary)]">
+                <MapPin className="h-4 w-4 shrink-0 text-[rgba(var(--theme-accent),0.94)]" />
+                <span className="truncate">{cityLabel}</span>
               </div>
+              {hasSelectedCity && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingCity(true)}
+                  className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)] underline-offset-4 transition-colors hover:text-[color:var(--ui-text-strong)] hover:underline"
+                >
+                  更换城市
+                </button>
+              )}
             </div>
 
             <div className="flex shrink-0 items-center gap-2 text-right">
               {weatherLoading ? (
-                <span className="text-xs text-[#6E6E6E]">加载中...</span>
+                <span className="text-sm text-[color:var(--ui-text-secondary)]">加载中...</span>
               ) : (
                 <>
                   {weatherIcon}
                   <div>
-                    <div className="text-sm text-[#E5E5E5]">{weatherSummaryLabel}</div>
-                    <div className="text-xs text-[#8A8A8A]">{weatherTemperatureText}</div>
-                    {weatherHintText && <div className="text-[10px] text-amber-300/80">{weatherHintText}</div>}
+                    <div className="text-sm text-[color:var(--ui-text-strong)]">{weatherSummaryLabel}</div>
+                    <div className="text-[11px] text-[color:var(--ui-text-secondary)]">{weatherTemperatureText}</div>
+                    {weatherHintText && (
+                      <div className="text-[10px] text-amber-300/85">{weatherHintText}</div>
+                    )}
                   </div>
                 </>
               )}
             </div>
           </div>
-
-          {hasSelectedCity && (
-            <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-[color:var(--ui-border-soft)] pt-2">
-              <button
-                type="button"
-                onClick={() => setIsEditingCity(true)}
-                className="btn btn-sm btn-ghost"
-                title="更换天气城市"
-              >
-                更换
-              </button>
-              {onLocateCity && (
-                <button
-                  type="button"
-                  onClick={onLocateCity}
-                  className="btn btn-sm btn-ghost"
-                  title="重新定位当前城市"
-                >
-                  <Crosshair className="h-3.5 w-3.5" />
-                  {isLocatingCity ? '定位中...' : '定位'}
-                </button>
-              )}
-            </div>
-          )}
         </div>
-
-        {!showCitySearch && locateErrorMessage && (
-          <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
-            <span>{locateErrorMessage}</span>
-            {onRetryLocate && (
-              <button type="button" onClick={onRetryLocate} className="btn btn-sm btn-ghost shrink-0">
-                重试定位
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
