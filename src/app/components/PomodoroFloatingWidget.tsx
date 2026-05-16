@@ -10,12 +10,12 @@ import {
 } from 'react';
 import { ChevronUp, Hourglass, Pause, Play, Timer, X } from 'lucide-react';
 import {
-  ensurePomodoroAudioReady,
   type PomodoroPhase,
   PHASE_LABELS,
   formatTime,
   usePomodoroState,
 } from '@/lib/pomodoro';
+import { POMODORO_AMBIENT_REQUEST_EVENT } from '@/app/components/PomodoroAmbientSound';
 
 type PomodoroFloatingWidgetProps = {
   onOpenPomodoro: () => void;
@@ -492,8 +492,10 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
                 <button
                   type="button"
                   onClick={() => {
-                    void ensurePomodoroAudioReady();
-                    toggleRunning();
+                    const nextState = toggleRunning();
+                    window.dispatchEvent(new CustomEvent(POMODORO_AMBIENT_REQUEST_EVENT, {
+                      detail: { isRunning: nextState.isRunning },
+                    }));
                   }}
                   className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.12)] px-3 py-1.5 text-xs text-[#E7EEFF] hover:bg-[rgba(var(--theme-accent),0.18)]"
                 >
@@ -504,6 +506,9 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
                   type="button"
                   onClick={() => {
                     reset();
+                    window.dispatchEvent(new CustomEvent(POMODORO_AMBIENT_REQUEST_EVENT, {
+                      detail: { isRunning: false },
+                    }));
                     setDismissed(true);
                   }}
                   className="rounded-full border border-[var(--ui-border-soft)] px-3 py-1.5 text-xs text-[#9AA3B5] hover:border-[#55607A] hover:text-white"

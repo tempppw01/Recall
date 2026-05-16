@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pause, Play, RotateCcw, Timer as TimerIcon } from 'lucide-react';
 import { pomodoroStore, PomodoroRecord } from '@/lib/store';
-import { PHASE_LABELS, cycleOrder, ensurePomodoroAudioReady, formatTime, usePomodoroState } from '@/lib/pomodoro';
-import PomodoroAmbientSound from '@/app/components/PomodoroAmbientSound';
+import { PHASE_LABELS, cycleOrder, formatTime, usePomodoroState } from '@/lib/pomodoro';
+import PomodoroAmbientSound, { POMODORO_AMBIENT_REQUEST_EVENT } from '@/app/components/PomodoroAmbientSound';
 
 const sortRecords = (records: PomodoroRecord[]) =>
   [...records].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
@@ -34,6 +34,12 @@ export default function PomodoroTimer() {
     if (!confirm('确认删除这条专注记录吗？')) return;
     pomodoroStore.remove(id);
     setRecords(sortRecords(pomodoroStore.getAll()));
+  };
+
+  const notifyAmbientSound = (isRunning: boolean) => {
+    window.dispatchEvent(new CustomEvent(POMODORO_AMBIENT_REQUEST_EVENT, {
+      detail: { isRunning },
+    }));
   };
 
   const recordsByDate = useMemo(() => {
@@ -118,8 +124,8 @@ export default function PomodoroTimer() {
           <div className="mt-6 flex items-center gap-3">
             <button
               onClick={() => {
-                void ensurePomodoroAudioReady();
-                toggleRunning();
+                const nextState = toggleRunning();
+                notifyAmbientSound(nextState.isRunning);
               }}
               className="flex items-center gap-2 rounded-lg bg-[rgba(248,113,113,0.92)] px-4 py-2 text-sm font-medium text-white shadow-[0_12px_26px_rgba(248,113,113,0.18)] transition-colors hover:bg-[rgba(239,68,68,0.96)]"
             >
@@ -127,19 +133,28 @@ export default function PomodoroTimer() {
               {state.isRunning ? '暂停' : state.hasActiveSession ? '继续' : '开始'}
             </button>
             <button
-              onClick={reset}
+              onClick={() => {
+                reset();
+                notifyAmbientSound(false);
+              }}
               className="flex items-center gap-2 rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-4 py-2 text-sm text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
             >
               <RotateCcw className="h-4 w-4" />
               重置
             </button>
-            <button onClick={skip} className="text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]">
+            <button
+              onClick={() => {
+                skip();
+                notifyAmbientSound(false);
+              }}
+              className="text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]"
+            >
               跳过
             </button>
           </div>
         </div>
 
-        <PomodoroAmbientSound />
+        <PomodoroAmbientSound isRunning={state.isRunning} />
       </div>
 
       <div>

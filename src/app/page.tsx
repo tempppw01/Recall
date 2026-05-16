@@ -75,7 +75,6 @@ import {
 import { taskStore, habitStore, countdownStore, itemStore, knowledgeStore, pomodoroStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
-import PomodoroAudioController from '@/app/components/PomodoroAudioController';
 import Sidebar from '@/app/components/sidebar/Sidebar';
 import SettingsModal from '@/app/components/settings/SettingsModal';
 import TaskItem from '@/app/components/tasks/TaskItem';
@@ -9585,7 +9584,6 @@ const headerTitle = activeFilter === 'category'
         appVersion={APP_VERSION}
       />
 
-      <PomodoroAudioController />
       <PomodoroFloatingWidget onOpenPomodoro={() => setActiveFilter('pomodoro')} />
 
     </div>

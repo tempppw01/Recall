@@ -21,8 +21,6 @@ export const cycleOrder: PomodoroPhase[] = ['focus', 'shortBreak', 'focus', 'sho
 export const STORAGE_KEY = 'recall_pomodoro_state';
 export const POMODORO_STATE_EVENT = 'recall:pomodoro-state';
 
-let pomodoroAudioContext: AudioContext | null = null;
-
 export type PersistedPomodoroState = {
   phaseIndex: number;
   remaining: number;
@@ -48,40 +46,6 @@ export const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-};
-
-export const ensurePomodoroAudioReady = async () => {
-  if (typeof window === 'undefined') return null;
-  if (!pomodoroAudioContext) {
-    const AudioContextCtor =
-      window.AudioContext ||
-      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) return null;
-    pomodoroAudioContext = new AudioContextCtor();
-  }
-
-  if (pomodoroAudioContext.state === 'suspended') {
-    await pomodoroAudioContext.resume();
-  }
-
-  return pomodoroAudioContext;
-};
-
-export const playPomodoroTickSound = () => {
-  if (!pomodoroAudioContext || pomodoroAudioContext.state !== 'running') return;
-
-  const now = pomodoroAudioContext.currentTime;
-  const oscillator = pomodoroAudioContext.createOscillator();
-  const gainNode = pomodoroAudioContext.createGain();
-  oscillator.type = 'square';
-  oscillator.frequency.setValueAtTime(1200, now);
-  gainNode.gain.setValueAtTime(0.0001, now);
-  gainNode.gain.exponentialRampToValueAtTime(0.035, now + 0.01);
-  gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
-  oscillator.connect(gainNode);
-  gainNode.connect(pomodoroAudioContext.destination);
-  oscillator.start(now);
-  oscillator.stop(now + 0.08);
 };
 
 export const getDefaultPomodoroState = (now = Date.now()): PersistedPomodoroState => ({
