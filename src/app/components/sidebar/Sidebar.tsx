@@ -493,61 +493,61 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
             role="menu"
             className={`absolute z-50 ${
               isRail
-                ? 'left-full top-1/2 ml-3 w-72 -translate-y-1/2'
-                : 'left-0 top-full mt-3 w-[min(86vw,320px)]'
+                ? 'left-full top-1/2 ml-2.5 w-64 -translate-y-1/2'
+                : 'left-0 top-full mt-2.5 w-[min(82vw,280px)]'
             }`}
           >
-            <div className="overflow-hidden rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(11,18,32,0.97),rgba(15,23,42,0.92))] p-3 text-[color:var(--ui-text-primary)] shadow-[0_30px_80px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
-              <div className="rounded-[22px] border border-white/10 bg-white/5 px-3.5 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-[rgba(var(--theme-accent),0.24)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.18),rgba(var(--theme-grad-end),0.08))] text-[color:var(--ui-text-strong)]">
-                    <Smile className="h-5 w-5" />
+            <div className="overflow-hidden rounded-[24px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(11,18,32,0.97),rgba(15,23,42,0.92))] p-2.5 text-[color:var(--ui-text-primary)] shadow-[0_24px_56px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
+              <div className="rounded-[18px] border border-white/10 bg-white/[0.045] px-3 py-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-[rgba(var(--theme-accent),0.24)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.18),rgba(var(--theme-grad-end),0.08))] text-[color:var(--ui-text-strong)]">
+                    <Smile className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-white">Recall 工作台</p>
-                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">把设置和统计收进同一个角落</p>
+                    <p className="truncate text-sm font-semibold text-white">Recall</p>
+                    <p className="mt-0.5 truncate text-[11px] text-[color:var(--ui-text-muted)]">设置与统计入口</p>
                   </div>
-                  <span className="shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-2 py-0.5 text-[10px] font-semibold text-[color:var(--ui-text-muted)]">
+                  <span className="shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-1.5 py-0.5 text-[9px] font-semibold text-[color:var(--ui-text-muted)]">
                     v{APP_VERSION}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-2.5 space-y-1.5">
                 <button
                   type="button"
                   onClick={handleOpenSettings}
                   role="menuitem"
-                  className="group/menu-item flex w-full items-center gap-3 rounded-[22px] border border-white/8 bg-white/[0.035] px-3.5 py-3 text-left transition-all hover:border-[rgba(var(--theme-accent),0.22)] hover:bg-white/[0.08]"
+                  className="group/menu-item flex w-full items-center gap-2.5 rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 text-left transition-all hover:border-[rgba(var(--theme-accent),0.22)] hover:bg-white/[0.07]"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.14)] text-[color:rgb(var(--theme-accent))]">
-                    <Settings className="h-4.5 w-4.5" />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.14)] text-[color:rgb(var(--theme-accent))]">
+                    <Settings className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-white">设置</span>
-                    <span className="mt-1 block truncate text-xs text-[color:var(--ui-text-muted)]">模型、同步、通知和外观都在这里</span>
+                    <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-muted)]">模型、同步、通知、外观</span>
                   </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={handleOpenStats}
                   role="menuitem"
-                  className={`group/menu-item flex w-full items-center gap-3 rounded-[22px] border px-3.5 py-3 text-left transition-all ${
+                  className={`group/menu-item flex w-full items-center gap-2.5 rounded-[18px] border px-3 py-2.5 text-left transition-all ${
                     activeFilter === 'stats'
                       ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.16)]'
-                      : 'border-white/8 bg-white/[0.035] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-white/[0.08]'
+                      : 'border-white/8 bg-white/[0.03] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-white/[0.07]'
                   }`}
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-sky-300/15 bg-sky-400/10 text-sky-200">
-                    <BarChart3 className="h-4.5 w-4.5" />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-sky-300/15 bg-sky-400/10 text-sky-200">
+                    <BarChart3 className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-white">统计</span>
-                    <span className="mt-1 block truncate text-xs text-[color:var(--ui-text-muted)]">查看任务、专注和习惯的整体趋势</span>
+                    <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-muted)]">任务、专注、习惯趋势</span>
                   </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
                 </button>
               </div>
             </div>

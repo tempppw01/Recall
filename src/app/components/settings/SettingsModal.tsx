@@ -548,82 +548,59 @@ const SettingsModal = ({
         onClick={() => setShowSettings(false)}
       />
       <div
-        className="relative flex h-full items-stretch justify-center p-0 sm:p-4 lg:p-6"
+        className="relative flex h-full items-stretch justify-center p-0 sm:p-3 lg:p-4"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="theme-native-surface relative flex h-full w-full max-w-[1180px] overflow-hidden border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(10,15,28,0.98),rgba(15,23,42,0.94))] shadow-[0_40px_120px_rgba(0,0,0,0.45)] sm:h-[min(90vh,880px)] sm:rounded-[34px]">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_top,rgba(var(--theme-accent),0.18),transparent_70%)] opacity-90" />
-          <aside className="relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] lg:w-[290px] lg:border-b-0 lg:border-r">
-            <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-4 sm:px-5">
+        <div className="theme-native-surface relative flex h-full w-full max-w-[980px] overflow-hidden border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(10,15,28,0.98),rgba(15,23,42,0.94))] shadow-[0_30px_90px_rgba(0,0,0,0.40)] sm:h-[min(84vh,760px)] sm:rounded-[28px]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(var(--theme-accent),0.15),transparent_70%)] opacity-80" />
+          <aside className="relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] lg:w-[224px] lg:border-b-0 lg:border-r">
+            <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3.5 sm:px-4.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.1)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-muted)]">
                     <Sparkles className="h-3.5 w-3.5" />
-                    设置工作台
+                    设置
                   </span>
-                  <h2 className="mt-3 text-[24px] font-semibold tracking-[-0.04em] text-white">设置</h2>
-                  <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-muted)]">
-                    把 AI、同步、通知、存储和外观收进一个更聚焦的弹出工作台。
+                  <h2 className="mt-2.5 text-[22px] font-semibold tracking-[-0.04em] text-white">设置</h2>
+                  <p className="mt-1.5 text-[12px] leading-5 text-[color:var(--ui-text-muted)]">
+                    更紧凑地管理模型、同步、通知和外观。
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowSettings(false)}
-                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:hidden"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:hidden"
                   aria-label="关闭设置"
                   title="关闭设置"
                 >
                   <X className="h-4.5 w-4.5" />
                 </button>
               </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2.5">
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">模型</p>
-                  <p className="mt-2 text-lg font-semibold text-white">{availableModels.length}</p>
-                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{hasApiKey ? '已接入模型' : '待配置密钥'}</p>
-                </div>
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">同步</p>
-                  <p className="mt-2 text-lg font-semibold text-white">{autoSyncEnabled ? 'ON' : 'OFF'}</p>
-                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{autoSyncEnabled ? `每 ${autoSyncInterval} 分钟` : '手动同步'}</p>
-                </div>
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">主题</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{themeModeLabel}</p>
-                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">当前风格已实时预览</p>
-                </div>
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">通知</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{notificationStatusLabel}</p>
-                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">浏览器权限状态</p>
-                </div>
-              </div>
             </div>
 
-            <div className="overflow-x-auto px-3 py-3 lg:flex-1 lg:overflow-y-auto lg:px-4 lg:py-4">
+            <div className="overflow-x-auto px-2.5 py-2.5 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:py-3">
               <div className="flex gap-2 lg:flex-col">
                 {SETTINGS_SECTIONS.map(({ key, label, description, icon: Icon }) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => scrollToSection(key)}
-                    className={`group flex min-w-[170px] items-center gap-3 rounded-[22px] border px-3.5 py-3 text-left transition-all lg:min-w-0 ${
+                    className={`group flex min-w-[152px] items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left transition-all lg:min-w-0 ${
                       activeSection === key
-                        ? 'border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_18px_32px_rgba(0,0,0,0.18)]'
+                        ? 'border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] shadow-[0_12px_24px_rgba(0,0,0,0.14)]'
                         : 'border-transparent bg-transparent hover:border-white/10 hover:bg-white/[0.05]'
                     }`}
                   >
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border transition-all ${
+                    <span className={`flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-[12px] border transition-all ${
                       activeSection === key
-                        ? 'border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.16)] text-[color:rgb(var(--theme-accent))]'
+                        ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.14)] text-[color:rgb(var(--theme-accent))]'
                         : 'border-[color:var(--ui-border-soft)] bg-white/[0.04] text-[color:var(--ui-text-secondary)] group-hover:text-white'
                     }`}>
-                      <Icon className="h-4.5 w-4.5" />
+                      <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-white">{label}</span>
-                      <span className="mt-1 block truncate text-xs text-[color:var(--ui-text-muted)]">{description}</span>
+                      <span className="block truncate text-[13px] font-semibold text-white">{label}</span>
+                      <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-muted)]">{description}</span>
                     </span>
                   </button>
                 ))}
@@ -632,28 +609,28 @@ const SettingsModal = ({
           </aside>
 
           <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] px-4 py-4 sm:px-6 lg:px-7">
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-5 lg:px-6">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-faint)]">
                   当前模块
                 </p>
-                <h3 className="mt-2 text-lg font-semibold text-white sm:text-[22px]">
+                <h3 className="mt-1.5 text-[17px] font-semibold text-white sm:text-[19px]">
                   {activeSectionMeta.label}
                 </h3>
-                <p className="mt-1 text-sm text-[color:var(--ui-text-muted)]">
+                <p className="mt-0.5 text-[12px] text-[color:var(--ui-text-muted)]">
                   {activeSectionMeta.description}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 {showAutoSavedNotice ? (
-                  <span className="rounded-full border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-3 py-1 text-[11px] font-medium text-[color:var(--ui-text-strong)]">
+                  <span className="rounded-full border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-2.5 py-1 text-[10px] font-medium text-[color:var(--ui-text-strong)]">
                     已自动保存
                   </span>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => setShowSettings(false)}
-                  className="hidden h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:inline-flex"
+                  className="hidden h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:inline-flex"
                   aria-label="关闭设置"
                   title="关闭设置"
                 >
@@ -662,8 +639,8 @@ const SettingsModal = ({
               </div>
             </div>
 
-            <div className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 lg:px-7">
-              <div className="space-y-3.5 text-sm sm:space-y-4">
+            <div className="min-h-0 overflow-y-auto px-4 py-3.5 sm:px-5 sm:py-4 lg:px-6">
+              <div className="space-y-3 text-sm sm:space-y-3.5">
           <details
             ref={aiSectionRef}
             open={isApiSettingsOpen}
