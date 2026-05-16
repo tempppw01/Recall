@@ -22,11 +22,13 @@ type ModelProviderIconRule = {
   label: string;
   matchers: string[];
   iconUrl?: string;
-  lobeIconSlug?: string;
+  lobeThemeSlug?: string;
+  lobeColorSlug?: string;
+  lobePreferredStyle?: 'theme' | 'color';
 };
 
-const buildLobeIconUrl = (slug: string) => (
-  `https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${slug}.svg`
+const buildLobeIconUrl = (themeMode: 'dark' | 'light', slug: string) => (
+  `https://unpkg.com/@lobehub/icons-static-png@latest/${themeMode}/${slug}.png`
 );
 
 const MODEL_PROVIDER_ICON_RULES: ModelProviderIconRule[] = [
@@ -34,37 +36,50 @@ const MODEL_PROVIDER_ICON_RULES: ModelProviderIconRule[] = [
     key: 'deepseek',
     label: 'DeepSeek',
     matchers: ['deepseek'],
-    lobeIconSlug: 'deepseek',
+    lobeThemeSlug: 'deepseek',
+    lobeColorSlug: 'deepseek-color',
+    lobePreferredStyle: 'color',
   },
   {
     key: 'gemini',
     label: 'Gemini',
     matchers: ['gemini'],
+    lobeThemeSlug: 'gemini',
+    lobeColorSlug: 'gemini-color',
+    lobePreferredStyle: 'color',
     iconUrl: 'https://storage.googleapis.com/gweb-uniblog-publish-prod/images/Gemini_SparkIcon_.max-1440x810.png',
   },
   {
     key: 'grok',
     label: 'Grok',
     matchers: ['grok', 'xai'],
+    lobeThemeSlug: 'xai',
+    lobePreferredStyle: 'theme',
     iconUrl: 'https://organizationalphysics.com/wp-content/uploads/2025/05/grok-logo.png',
   },
   {
     key: 'jina',
     label: 'Jina',
     matchers: ['jina'],
+    lobeThemeSlug: 'jina',
+    lobePreferredStyle: 'theme',
     iconUrl: 'https://miro.medium.com/1*NNFKpvX4kJ6m1Xlzb7toiQ.png',
   },
   {
     key: 'kimi',
     label: 'Kimi',
     matchers: ['kimi', 'moonshot'],
+    lobeThemeSlug: 'kimi',
+    lobeColorSlug: 'kimi-color',
+    lobePreferredStyle: 'color',
     iconUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT67b4JNffRE6z2oqGQ9ht-nC--q28I1y14DQ&s',
   },
   {
     key: 'gpt',
     label: 'OpenAI',
     matchers: ['gpt', 'chatgpt', 'openai'],
-    lobeIconSlug: 'openai',
+    lobeThemeSlug: 'openai',
+    lobePreferredStyle: 'theme',
   },
 ];
 
@@ -75,19 +90,65 @@ const resolveModelProvider = (model: string) => {
   )) ?? null;
 };
 
+const getThemeModeFromDocument = (): 'dark' | 'light' => {
+  if (typeof document === 'undefined') return 'dark';
+  return document.body.classList.contains('theme-light') ? 'light' : 'dark';
+};
+
+const useResolvedThemeMode = () => {
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => getThemeModeFromDocument());
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+
+    const syncThemeMode = () => {
+      setThemeMode(getThemeModeFromDocument());
+    };
+
+    syncThemeMode();
+
+    const observer = new MutationObserver(syncThemeMode);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return themeMode;
+};
+
 const ModelIcon = ({ model, size = 'md' }: { model: string; size?: 'sm' | 'md' }) => {
   const provider = resolveModelProvider(model);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const themeMode = useResolvedThemeMode();
+  const [iconIndex, setIconIndex] = useState(0);
   const boxSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
   const textSize = size === 'sm' ? 'text-[9px]' : 'text-[10px]';
 
   useEffect(() => {
-    setLoadFailed(false);
-  }, [model, provider?.key]);
+    setIconIndex(0);
+  }, [model, provider?.key, themeMode]);
 
-  const providerIconUrl = provider?.iconUrl || (provider?.lobeIconSlug ? buildLobeIconUrl(provider.lobeIconSlug) : '');
+  const providerIconUrls = (() => {
+    if (!provider) return [] as string[];
 
-  if (provider && providerIconUrl && !loadFailed) {
+    const urls: string[] = [];
+
+    if (provider.lobePreferredStyle === 'color' && provider.lobeColorSlug) {
+      urls.push(buildLobeIconUrl(themeMode, provider.lobeColorSlug));
+    }
+
+    if (provider.lobeThemeSlug) {
+      urls.push(buildLobeIconUrl(themeMode, provider.lobeThemeSlug));
+    }
+
+    if (provider.iconUrl) {
+      urls.push(provider.iconUrl);
+    }
+
+    return Array.from(new Set(urls.filter(Boolean)));
+  })();
+  const providerIconUrl = providerIconUrls[iconIndex] || '';
+
+  if (provider && providerIconUrl) {
     return (
       <img
         src={providerIconUrl}
@@ -95,7 +156,13 @@ const ModelIcon = ({ model, size = 'md' }: { model: string; size?: 'sm' | 'md' }
         className={`${boxSize} shrink-0 rounded-full object-cover`}
         loading="lazy"
         referrerPolicy="no-referrer"
-        onError={() => setLoadFailed(true)}
+        onError={() => {
+          if (iconIndex < providerIconUrls.length - 1) {
+            setIconIndex((current) => current + 1);
+          } else {
+            setIconIndex(providerIconUrls.length);
+          }
+        }}
       />
     );
   }
