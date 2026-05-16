@@ -6059,6 +6059,10 @@ const headerTitle = activeFilter === 'category'
           setIsSidebarCollapsed(collapsed);
           localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
         }}
+        onOpenSettings={() => {
+          setSettingsFocusTarget(null);
+          setShowSettings(true);
+        }}
       />
 
       {/* 2. Main Task List */}

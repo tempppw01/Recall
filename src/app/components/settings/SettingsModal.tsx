@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Bell, Bot, ChevronDown, Cloud, Database, Palette, Sparkles, X } from 'lucide-react';
 import ModelSelect from '@/app/components/models/ModelSelect';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
@@ -9,6 +9,7 @@ type ThemePreference = 'system' | 'light' | 'dark';
 type AccentTheme = 'blue' | 'violet' | 'emerald' | 'rose';
 type GradientTheme = 'aurora' | 'sunset' | 'ocean' | 'mono';
 type SettingsFocusTarget = 'sync' | null;
+type SettingsSectionKey = 'ai' | 'appearance' | 'notifications' | 'sync' | 'data';
 
 type SettingsModalProps = {
   showSettings: boolean;
@@ -202,6 +203,44 @@ const baseInputClassName =
 const buttonGroupClassName =
   'btn btn-sm ui-chip text-[12px] sm:text-xs';
 
+const SETTINGS_SECTIONS: Array<{
+  key: SettingsSectionKey;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  {
+    key: 'ai',
+    label: 'AI 与模型',
+    description: '模型、上下文和创建策略',
+    icon: Bot,
+  },
+  {
+    key: 'appearance',
+    label: '外观主题',
+    description: '日夜间、主色和渐变风格',
+    icon: Palette,
+  },
+  {
+    key: 'sync',
+    label: '同步与附件',
+    description: 'Redis、日历订阅和 WebDAV',
+    icon: Cloud,
+  },
+  {
+    key: 'notifications',
+    label: '通知',
+    description: '浏览器权限和测试通知',
+    icon: Bell,
+  },
+  {
+    key: 'data',
+    label: '数据',
+    description: '导入、导出和恢复',
+    icon: Database,
+  },
+];
+
 const SettingsModal = ({
   showSettings,
   setShowSettings,
@@ -293,16 +332,61 @@ const SettingsModal = ({
 }: SettingsModalProps) => {
   const [showAutoSavedNotice, setShowAutoSavedNotice] = useState(false);
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(settingsFocusTarget === 'sync' ? 'sync' : 'ai');
   const firstAutoSaveRef = useRef(true);
   const autoSavedNoticeTimerRef = useRef<number | null>(null);
   const lastAutoFetchedModelKeyRef = useRef<string | null>(null);
+  const aiSectionRef = useRef<HTMLDetailsElement>(null);
+  const appearanceSectionRef = useRef<HTMLDivElement>(null);
+  const notificationsSectionRef = useRef<HTMLDetailsElement>(null);
   const serverSettingsRef = useRef<HTMLDetailsElement>(null);
+  const dataSectionRef = useRef<HTMLDetailsElement>(null);
   const hasApiKey = Boolean(apiKey.trim());
 
   const availableModels = useMemo(() => {
     const models = parseModelList(modelListText);
     return models.length > 0 ? models : DEFAULT_MODEL_LIST;
   }, [DEFAULT_MODEL_LIST, modelListText, parseModelList]);
+
+  const themeModeLabel = useMemo(() => {
+    if (themePreference === 'system') return '跟随系统';
+    if (themePreference === 'light') return '浅色模式';
+    return '深色模式';
+  }, [themePreference]);
+
+  const notificationStatusLabel = useMemo(() => {
+    if (!notificationSupported) return '当前浏览器不支持';
+    if (notificationPermission === 'granted') return '已授权';
+    if (notificationPermission === 'denied') return '已拒绝';
+    return '待授权';
+  }, [notificationPermission, notificationSupported]);
+
+  const activeSectionMeta = useMemo(
+    () => SETTINGS_SECTIONS.find((section) => section.key === activeSection) ?? SETTINGS_SECTIONS[0],
+    [activeSection],
+  );
+
+  const getSectionTarget = (section: SettingsSectionKey) => {
+    if (section === 'ai') return aiSectionRef.current;
+    if (section === 'appearance') return appearanceSectionRef.current;
+    if (section === 'notifications') return notificationsSectionRef.current;
+    if (section === 'sync') return serverSettingsRef.current;
+    return dataSectionRef.current;
+  };
+
+  const scrollToSection = (section: SettingsSectionKey) => {
+    setActiveSection(section);
+    if (section === 'ai') {
+      setIsApiSettingsOpen(true);
+    }
+    if (section === 'sync') {
+      setIsServerSettingsOpen(true);
+    }
+
+    window.setTimeout(() => {
+      getSectionTarget(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
 
   const handleFetchModelList = async (mode: 'auto' | 'manual' = 'manual') => {
     if (!hasApiKey || isFetchingModels) return;
@@ -415,49 +499,157 @@ const SettingsModal = ({
     if (!showSettings) {
       firstAutoSaveRef.current = true;
       setShowAutoSavedNotice(false);
+      setActiveSection(settingsFocusTarget === 'sync' ? 'sync' : 'ai');
       if (autoSavedNoticeTimerRef.current) {
         window.clearTimeout(autoSavedNoticeTimerRef.current);
         autoSavedNoticeTimerRef.current = null;
       }
     }
-  }, [showSettings]);
+  }, [settingsFocusTarget, showSettings]);
 
   useEffect(() => {
-    if (!showSettings || settingsFocusTarget !== 'sync') return;
-    setIsServerSettingsOpen(true);
-
-    window.setTimeout(() => {
-      serverSettingsRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    }, 80);
+    if (!showSettings) return;
+    if (settingsFocusTarget === 'sync') {
+      scrollToSection('sync');
+      return;
+    }
+    setActiveSection('ai');
   }, [settingsFocusTarget, showSettings]);
 
   if (!showSettings) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-3 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 motion-modal-overlay">
-      <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
+    <div className="fixed inset-0 z-50 motion-modal-overlay">
       <div
-        className="theme-native-surface ui-modal-surface mobile-modal mobile-modal-body motion-modal-surface relative max-h-[90vh] w-full max-w-2xl overflow-y-auto p-4 sm:p-6"
+        className="absolute inset-0 bg-[rgba(6,11,23,0.72)] backdrop-blur-xl"
+        onClick={() => setShowSettings(false)}
+      />
+      <div
+        className="relative flex h-full items-stretch justify-center p-0 sm:p-4 lg:p-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="ui-modal-title">设置</h2>
-            <p className="ui-modal-subtitle">
-              把 AI、同步、通知、存储和外观放在这里。
-            </p>
-          </div>
-        </div>
+        <div className="theme-native-surface relative flex h-full w-full max-w-[1180px] overflow-hidden border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(10,15,28,0.98),rgba(15,23,42,0.94))] shadow-[0_40px_120px_rgba(0,0,0,0.45)] sm:h-[min(90vh,880px)] sm:rounded-[34px]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_top,rgba(var(--theme-accent),0.18),transparent_70%)] opacity-90" />
+          <aside className="relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] lg:w-[290px] lg:border-b-0 lg:border-r">
+            <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-4 sm:px-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    设置工作台
+                  </span>
+                  <h2 className="mt-3 text-[24px] font-semibold tracking-[-0.04em] text-white">设置</h2>
+                  <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-muted)]">
+                    把 AI、同步、通知、存储和外观收进一个更聚焦的弹出工作台。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(false)}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:hidden"
+                  aria-label="关闭设置"
+                  title="关闭设置"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
 
-        <div className="space-y-3.5 sm:space-y-4 text-sm">
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">模型</p>
+                  <p className="mt-2 text-lg font-semibold text-white">{availableModels.length}</p>
+                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{hasApiKey ? '已接入模型' : '待配置密钥'}</p>
+                </div>
+                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">同步</p>
+                  <p className="mt-2 text-lg font-semibold text-white">{autoSyncEnabled ? 'ON' : 'OFF'}</p>
+                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{autoSyncEnabled ? `每 ${autoSyncInterval} 分钟` : '手动同步'}</p>
+                </div>
+                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">主题</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{themeModeLabel}</p>
+                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">当前风格已实时预览</p>
+                </div>
+                <div className="rounded-[22px] border border-white/8 bg-white/[0.05] px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">通知</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{notificationStatusLabel}</p>
+                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">浏览器权限状态</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto px-3 py-3 lg:flex-1 lg:overflow-y-auto lg:px-4 lg:py-4">
+              <div className="flex gap-2 lg:flex-col">
+                {SETTINGS_SECTIONS.map(({ key, label, description, icon: Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => scrollToSection(key)}
+                    className={`group flex min-w-[170px] items-center gap-3 rounded-[22px] border px-3.5 py-3 text-left transition-all lg:min-w-0 ${
+                      activeSection === key
+                        ? 'border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_18px_32px_rgba(0,0,0,0.18)]'
+                        : 'border-transparent bg-transparent hover:border-white/10 hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border transition-all ${
+                      activeSection === key
+                        ? 'border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.16)] text-[color:rgb(var(--theme-accent))]'
+                        : 'border-[color:var(--ui-border-soft)] bg-white/[0.04] text-[color:var(--ui-text-secondary)] group-hover:text-white'
+                    }`}>
+                      <Icon className="h-4.5 w-4.5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-white">{label}</span>
+                      <span className="mt-1 block truncate text-xs text-[color:var(--ui-text-muted)]">{description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] px-4 py-4 sm:px-6 lg:px-7">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">
+                  当前模块
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-white sm:text-[22px]">
+                  {activeSectionMeta.label}
+                </h3>
+                <p className="mt-1 text-sm text-[color:var(--ui-text-muted)]">
+                  {activeSectionMeta.description}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {showAutoSavedNotice ? (
+                  <span className="rounded-full border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-3 py-1 text-[11px] font-medium text-[color:var(--ui-text-strong)]">
+                    已自动保存
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(false)}
+                  className="hidden h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:inline-flex"
+                  aria-label="关闭设置"
+                  title="关闭设置"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 lg:px-7">
+              <div className="space-y-3.5 text-sm sm:space-y-4">
           <details
+            ref={aiSectionRef}
             open={isApiSettingsOpen}
             onToggle={(event) =>
               setIsApiSettingsOpen((event.currentTarget as HTMLDetailsElement).open)
             }
-            className="group settings-section rounded-[22px] p-3 sm:p-3.5"
+            className="group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
           >
-            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
+            <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
               <span>AI 基础设置</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
@@ -490,19 +682,13 @@ const SettingsModal = ({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="mb-2 flex items-center justify-between gap-2">
                     <label className="ui-field-label mb-0 text-[11px] sm:text-xs">
                       对话模型
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => void handleFetchModelList('manual')}
-                      disabled={!hasApiKey || isFetchingModels}
-                      className="btn btn-sm btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="拉取模型列表"
-                    >
-                      {isFetchingModels ? '拉取中...' : hasApiKey ? '拉取模型列表' : '填写密钥后可拉取'}
-                    </button>
+                    <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                      {isFetchingModels ? '同步模型中' : hasApiKey ? `${availableModels.length} 个可选` : '等待密钥'}
+                    </span>
                   </div>
                   <ModelSelect
                     models={availableModels}
@@ -529,7 +715,7 @@ const SettingsModal = ({
                     ))}
                   </select>
                   <p className="ui-note mt-2 text-[11px] sm:text-xs">
-                    默认模型已调整为 deepseek-v4-flash；此处获得焦点时会尝试自动刷新，也可点击右上角手动拉取。
+                    点击模型选择器时会自动尝试刷新模型列表，避免额外的手动拉取步骤。
                   </p>
                   {modelFetchError && (
                     <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
@@ -654,7 +840,10 @@ const SettingsModal = ({
                   </div>
                 </details>
 
-                <div className="rounded-[18px] border border-[var(--ui-border-soft)] bg-transparent p-3 space-y-3">
+                <div
+                  ref={appearanceSectionRef}
+                  className="scroll-mt-6 space-y-3 rounded-[22px] border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] p-3.5"
+                >
                   <div className="ui-section-label text-[11px] sm:text-xs">外观主题</div>
 
                   <div>
@@ -737,8 +926,11 @@ const SettingsModal = ({
             </div>
           </details>
 
-          <details className="group settings-section rounded-[22px] p-3 sm:p-3.5">
-            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
+          <details
+            ref={notificationsSectionRef}
+            className="group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
+          >
+            <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
               <span>浏览器通知</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
@@ -778,12 +970,12 @@ const SettingsModal = ({
             onToggle={(event) =>
               setIsServerSettingsOpen((event.currentTarget as HTMLDetailsElement).open)
             }
-            className={`group settings-section rounded-[22px] p-3 sm:p-3.5 ${
+            className={`group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)] ${
               settingsFocusTarget === 'sync' ? 'ring-1 ring-amber-300/35' : ''
             }`}
           >
-            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
-              <span>API 专用设置组</span>
+            <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
+              <span>同步与附件</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
             <div className="grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 grid-rows-[0fr] opacity-85">
@@ -952,8 +1144,11 @@ const SettingsModal = ({
             </div>
           </details>
 
-          <details className="group settings-section rounded-[22px] p-3 sm:p-3.5">
-            <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
+          <details
+            ref={dataSectionRef}
+            className="group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
+          >
+            <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
               <span>数据导入导出</span>
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
             </summary>
@@ -1018,13 +1213,10 @@ const SettingsModal = ({
             </div>
           </details>
 
-        </div>
-
-        {showAutoSavedNotice && (
-          <div className="pointer-events-none sticky bottom-3 ml-auto mt-4 w-fit rounded-2xl border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-3 py-2 text-[12px] text-[color:var(--ui-text-strong)] opacity-100 shadow-[0_18px_40px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all duration-200">
-            已自动保存
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

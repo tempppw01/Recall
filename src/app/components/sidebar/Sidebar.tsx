@@ -18,6 +18,7 @@ import {
   Library,
   MessageCircle,
   Package2,
+  Settings,
   Smile,
   Sun,
   Timer,
@@ -51,6 +52,7 @@ type SidebarProps = {
   setSidebarWidth: (width: number) => void;
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: (collapsed: boolean) => void;
+  onOpenSettings: () => void;
 };
 
 const MIN_SIDEBAR_WIDTH = 180;
@@ -62,7 +64,6 @@ type ToolItemKey =
   | 'calendar'
   | 'timeline'
   | 'review'
-  | 'stats'
   | 'quadrant'
   | 'countdown'
   | 'habit'
@@ -88,7 +89,7 @@ const sidebarAccentStyle = (accentRgb?: string) => ({
 }) as React.CSSProperties;
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
-const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'stats', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -115,13 +116,16 @@ const Sidebar = ({
   setSidebarWidth,
   isSidebarCollapsed,
   setIsSidebarCollapsed,
+  onOpenSettings,
 }: SidebarProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [toolOrder, setToolOrder] = useState<ToolItemKey[]>(DEFAULT_TOOL_ORDER);
   const [draggingToolKey, setDraggingToolKey] = useState<ToolItemKey | null>(null);
   const [hoveredRailIndex, setHoveredRailIndex] = useState<number | null>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
+  const [isSmileMenuOpen, setIsSmileMenuOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
+  const smileMenuRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -178,6 +182,32 @@ const Sidebar = ({
     localStorage.setItem(TOOL_ORDER_KEY, JSON.stringify(toolOrder));
   }, [toolOrder]);
 
+  useEffect(() => {
+    if (!isSmileMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (smileMenuRef.current && target && !smileMenuRef.current.contains(target)) {
+        setIsSmileMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSmileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSmileMenuOpen]);
+
   const handleToolDrop = useCallback((targetKey: ToolItemKey) => {
     if (!draggingToolKey || draggingToolKey === targetKey) return;
     setToolOrder((previous) => {
@@ -194,6 +224,10 @@ const Sidebar = ({
   const isMobile = viewportWidth > 0 ? viewportWidth < 640 : true;
   const isRailLayout = viewportWidth >= 640 && viewportWidth < 1024;
   const isDesktopExpanded = viewportWidth >= 1024;
+
+  useEffect(() => {
+    setIsSmileMenuOpen(false);
+  }, [isRailLayout, isDesktopExpanded, isSidebarOpen]);
 
   const changeFilter = useCallback((nextFilter: string, refresher?: () => void) => {
     setActiveFilter(nextFilter);
@@ -225,6 +259,19 @@ const Sidebar = ({
       return taskDate >= now && taskDate <= next7Days;
     }).length;
   }, [tasks]);
+
+  const handleOpenSettings = useCallback(() => {
+    setIsSmileMenuOpen(false);
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+    onOpenSettings();
+  }, [isMobile, onOpenSettings, setIsSidebarOpen]);
+
+  const handleOpenStats = useCallback(() => {
+    setIsSmileMenuOpen(false);
+    changeFilter('stats');
+  }, [changeFilter]);
 
   const toolConfig: Record<ToolItemKey, Omit<SidebarAction, 'key' | 'title' | 'badge'>> = {
     todo: {
@@ -262,15 +309,6 @@ const Sidebar = ({
       onClick: () => changeFilter('review', refreshTasks),
       iconColor: 'text-sky-400',
       accentRgb: '14, 165, 233',
-    },
-    stats: {
-      icon: BarChart3,
-      label: '统计',
-      count: 0,
-      active: activeFilter === 'stats',
-      onClick: () => changeFilter('stats'),
-      iconColor: 'text-indigo-300',
-      accentRgb: '129, 140, 248',
     },
     quadrant: {
       icon: LayoutGrid,
@@ -407,7 +445,7 @@ const Sidebar = ({
 const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
     {
       title: '执行',
-      keys: ['todo', 'calendar', 'timeline', 'review', 'stats', 'quadrant'],
+      keys: ['todo', 'calendar', 'timeline', 'review', 'quadrant'],
     },
     {
       title: '节律',
@@ -425,6 +463,99 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
 
   const resolvedSidebarWidth = isRailLayout ? COLLAPSED_WIDTH : isDesktopExpanded ? sidebarWidth : undefined;
   const toolGridColumnsClass = isDesktopExpanded && sidebarWidth >= 340 ? 'grid-cols-3' : 'grid-cols-2';
+  const renderSmileMenu = (placement: 'rail' | 'sidebar') => {
+    const isRail = placement === 'rail';
+
+    return (
+      <div
+        ref={smileMenuRef}
+        className={`relative ${isRail ? 'flex justify-center' : 'inline-flex shrink-0 self-start'}`}
+      >
+        <button
+          type="button"
+          onClick={() => setIsSmileMenuOpen((previous) => !previous)}
+          aria-haspopup="menu"
+          aria-expanded={isSmileMenuOpen}
+          title="打开 Recall 工作台"
+          aria-label="打开 Recall 工作台"
+          className={`group relative inline-flex items-center justify-center overflow-hidden border text-[color:var(--ui-text-strong)] shadow-[0_14px_28px_rgba(0,0,0,0.16)] transition-all duration-[var(--motion-base)] hover:-translate-y-0.5 hover:border-[rgba(var(--theme-accent),0.34)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.24)] ${
+            isRail
+              ? 'h-10 w-10 rounded-2xl border-[rgba(var(--theme-accent),0.18)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.18),rgba(var(--theme-grad-end),0.1))]'
+              : 'h-11 w-11 rounded-[20px] border-[rgba(var(--theme-accent),0.2)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.16),rgba(var(--theme-grad-end),0.08))]'
+          }`}
+        >
+          <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.24),transparent_68%)] opacity-80" />
+          <Smile className={`${isRail ? 'h-[18px] w-[18px]' : 'h-5 w-5'} relative z-10 transition-transform duration-[var(--motion-base)] group-hover:scale-110`} />
+        </button>
+
+        {isSmileMenuOpen ? (
+          <div
+            role="menu"
+            className={`absolute z-50 ${
+              isRail
+                ? 'left-full top-1/2 ml-3 w-72 -translate-y-1/2'
+                : 'left-0 top-full mt-3 w-[min(86vw,320px)]'
+            }`}
+          >
+            <div className="overflow-hidden rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(11,18,32,0.97),rgba(15,23,42,0.92))] p-3 text-[color:var(--ui-text-primary)] shadow-[0_30px_80px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
+              <div className="rounded-[22px] border border-white/10 bg-white/5 px-3.5 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-[rgba(var(--theme-accent),0.24)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.18),rgba(var(--theme-grad-end),0.08))] text-[color:var(--ui-text-strong)]">
+                    <Smile className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-white">Recall 工作台</p>
+                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">把设置和统计收进同一个角落</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-2 py-0.5 text-[10px] font-semibold text-[color:var(--ui-text-muted)]">
+                    v{APP_VERSION}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={handleOpenSettings}
+                  role="menuitem"
+                  className="group/menu-item flex w-full items-center gap-3 rounded-[22px] border border-white/8 bg-white/[0.035] px-3.5 py-3 text-left transition-all hover:border-[rgba(var(--theme-accent),0.22)] hover:bg-white/[0.08]"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.14)] text-[color:rgb(var(--theme-accent))]">
+                    <Settings className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-white">设置</span>
+                    <span className="mt-1 block truncate text-xs text-[color:var(--ui-text-muted)]">模型、同步、通知和外观都在这里</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenStats}
+                  role="menuitem"
+                  className={`group/menu-item flex w-full items-center gap-3 rounded-[22px] border px-3.5 py-3 text-left transition-all ${
+                    activeFilter === 'stats'
+                      ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.16)]'
+                      : 'border-white/8 bg-white/[0.035] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-white/[0.08]'
+                  }`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-sky-300/15 bg-sky-400/10 text-sky-200">
+                    <BarChart3 className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-white">统计</span>
+                    <span className="mt-1 block truncate text-xs text-[color:var(--ui-text-muted)]">查看任务、专注和习惯的整体趋势</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
   const getRailDockMetrics = useCallback((index: number, active: boolean) => {
     const baseScale = active ? 1.06 : 0.9;
     const baseIconScale = active ? 1.08 : 0.94;
@@ -482,7 +613,7 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
       <aside
         ref={sidebarRef}
         className={`
-          theme-native-surface sidebar-shell fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden
+          theme-native-surface sidebar-shell fixed inset-y-0 left-0 z-40 flex flex-col overflow-visible
           border-r border-[color:var(--ui-border-soft)] bg-[var(--ui-surface-1)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.18)]
           ${isSidebarOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-full opacity-0 pointer-events-none'}
           sm:relative sm:translate-x-0 sm:opacity-100 sm:pointer-events-auto sm:shadow-none
@@ -498,11 +629,7 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
         {isRailLayout ? (
           <div className="relative z-10 hidden h-full flex-col sm:flex">
             <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-3">
-              <div className="flex justify-center">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(var(--theme-accent),0.16)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.14),rgba(var(--theme-grad-end),0.08))] text-[color:var(--ui-text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  <Smile className="h-[18px] w-[18px]" />
-                </div>
-              </div>
+              {renderSmileMenu('rail')}
             </div>
             <div className="hidden border-b border-[color:var(--ui-border-soft)] px-2 py-2.5">
               <button
@@ -587,13 +714,21 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
               <div className="mb-1.5 px-3 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="inline-flex max-w-full items-start gap-1.5">
-                      <h1 className="truncate text-[20px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)]">
-                        Recall
-                      </h1>
-                      <span className="mt-0.5 shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.1)] px-1.5 py-0.5 text-[9px] font-semibold leading-none tracking-[0.02em] text-[color:var(--ui-text-muted)]">
-                        v{APP_VERSION}
-                      </span>
+                    <div className="flex items-start gap-3">
+                      {renderSmileMenu('sidebar')}
+                      <div className="min-w-0 pt-1">
+                        <div className="inline-flex max-w-full items-start gap-1.5">
+                          <h1 className="truncate text-[20px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)]">
+                            Recall
+                          </h1>
+                          <span className="mt-0.5 shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.1)] px-1.5 py-0.5 text-[9px] font-semibold leading-none tracking-[0.02em] text-[color:var(--ui-text-muted)]">
+                            v{APP_VERSION}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-[11px] text-[color:var(--ui-text-muted)]">
+                          设置和统计从这里展开
+                        </p>
+                      </div>
                     </div>
                   </div>
 
