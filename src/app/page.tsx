@@ -913,7 +913,7 @@ const FUTURE_TASK_BUCKET_META: Record<FutureTaskBucketKey, { label: string; summ
     label: '未设日期',
     summary: '暂时先收着，等你安排。',
     tone: 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)]',
-    chipTone: 'text-[#B7C0D8] border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)]',
+    chipTone: 'text-[color:var(--ui-text-secondary)] border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)]',
   },
   completed: {
     label: '已完成',
@@ -6953,7 +6953,7 @@ const headerTitle = activeFilter === 'category'
                             className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap sm:max-w-[76%] ${
                               message.role === 'user'
                                 ? 'bg-blue-600/20 text-blue-100 ml-auto'
-                                : 'bg-[#2A2A2A] text-[#DDDDDD] mr-auto'
+                                : 'border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)] mr-auto'
                             }`}
                           >
                             {message.content}
@@ -7628,7 +7628,7 @@ const headerTitle = activeFilter === 'category'
 
                           onClick={() => setManageAgentFilter('overdue')}
 
-                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'overdue' ? 'bg-[#2B3448] border-[#F43F5E]/40 text-[#FFD1DC]' : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
+                          className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${manageAgentFilter === 'overdue' ? 'border-red-400/35 bg-red-500/10 text-red-200' : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
 
                         >
 
@@ -8646,7 +8646,7 @@ const headerTitle = activeFilter === 'category'
                               disabled={hasToday}
                               className={`w-full sm:w-auto px-3 py-2 text-sm rounded-lg border transition-colors ${
                                 hasToday
-                                  ? 'border-[#444444] text-[#777777] bg-[#2A2A2A]'
+                                  ? 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'
                                   : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
                               }`}
                             >

@@ -76,8 +76,8 @@ export default function CalendarTopPanel({
   }, [hasSelectedCity, cityLabel]);
 
   return (
-    <div className="calendar-top-panel relative z-10 -mx-1 border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(18,18,22,0.88))] px-1 pb-3 pt-1 backdrop-blur-xl lg:sticky lg:top-[5.5rem] lg:z-20 xl:top-24">
-      <div className="space-y-3 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.16)] sm:px-5">
+    <div className="calendar-top-panel relative z-10 -mx-1 border-b border-[color:var(--ui-border-soft)] bg-[var(--ui-header-bg)] px-1 pb-3 pt-1 backdrop-blur-xl lg:sticky lg:top-[5.5rem] lg:z-20 xl:top-24">
+      <div className="space-y-3 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-[0.28em] text-[color:var(--ui-text-muted)]">Calendar</div>
@@ -99,7 +99,7 @@ export default function CalendarTopPanel({
             >
               {showCompletedInCalendar ? '已显示完成项' : '隐藏完成项'}
             </button>
-            <div className="inline-flex items-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/90 p-1">
+            <div className="inline-flex items-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
               <button type="button" onClick={onPrevious} className="rounded-full p-2 text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]" aria-label="上一段">
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -133,7 +133,7 @@ export default function CalendarTopPanel({
 
         <div className="grid gap-2.5 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]">
           <div className="relative min-w-0">
-            <div className="flex min-h-12 items-center gap-2 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/92 px-3">
+            <div className="flex min-h-12 items-center gap-2 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3">
               <Search className="h-4 w-4 text-[color:var(--ui-text-muted)]" />
               <input
                 value={calendarCityInput}
@@ -172,7 +172,7 @@ export default function CalendarTopPanel({
             )}
 
             {showCityDropdown && (
-              <div className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-30 overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(15,15,18,0.96)] shadow-[0_18px_48px_rgba(0,0,0,0.26)] backdrop-blur-xl">
+              <div className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-30 overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-xl">
                 {isSearchingWeatherCity ? (
                   <div className="px-3 py-2.5 text-sm text-[color:var(--ui-text-secondary)]">城市搜索中...</div>
                 ) : weatherCities.length > 0 ? (
@@ -196,7 +196,7 @@ export default function CalendarTopPanel({
             )}
           </div>
 
-          <div className="flex min-h-12 items-center justify-between gap-3 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/92 px-3.5 py-2.5">
+          <div className="flex min-h-12 items-center justify-between gap-3 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3.5 py-2.5">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm text-[color:var(--ui-text-primary)]">
                 <MapPin className="h-4 w-4 shrink-0 text-[rgba(var(--theme-accent),0.94)]" />
@@ -223,7 +223,7 @@ export default function CalendarTopPanel({
                     <div className="text-sm text-[color:var(--ui-text-strong)]">{weatherSummaryLabel}</div>
                     <div className="text-[11px] text-[color:var(--ui-text-secondary)]">{weatherTemperatureText}</div>
                     {weatherHintText && (
-                      <div className="text-[10px] text-amber-300/85">{weatherHintText}</div>
+                      <div className="text-[10px] text-[color:var(--ui-text-muted)]">{weatherHintText}</div>
                     )}
                   </div>
                 </>
