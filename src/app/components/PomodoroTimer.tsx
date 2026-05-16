@@ -63,44 +63,42 @@ export default function PomodoroTimer() {
   const totalDuration = records.reduce((acc, current) => acc + current.durationMinutes, 0);
   const currentRound = state.phaseIndex + 1;
   const totalRounds = cycleOrder.length;
+  const overviewCards = [
+    { label: '今日番茄', value: String(todayCount), suffix: '', accentClassName: 'from-rose-500/18 to-orange-400/8', borderClassName: 'border-rose-400/16' },
+    { label: '今日专注', value: String(todayDuration), suffix: 'm', accentClassName: 'from-sky-500/18 to-cyan-400/8', borderClassName: 'border-sky-400/16' },
+    { label: '总番茄', value: String(totalCount), suffix: '', accentClassName: 'from-violet-500/16 to-indigo-400/8', borderClassName: 'border-violet-400/16' },
+    { label: '总专注', value: String(totalDuration), suffix: 'm', accentClassName: 'from-emerald-500/16 to-teal-400/8', borderClassName: 'border-emerald-400/16' },
+  ];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="mb-3 text-base font-bold text-[color:var(--ui-text-strong)]">概览</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
-            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">今日番茄</div>
-            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">{todayCount}</div>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
-            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">今日专注时长</div>
-            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">
-              {todayDuration} <span className="text-sm font-normal text-[color:var(--ui-text-muted)]">m</span>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
-            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">总番茄</div>
-            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">{totalCount}</div>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
-            <div className="mb-1 text-xs text-[color:var(--ui-text-muted)]">总专注时长</div>
-            <div className="text-2xl font-semibold text-[color:var(--ui-text-strong)]">
-              {totalDuration} <span className="text-sm font-normal text-[color:var(--ui-text-muted)]">m</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-6 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
-        <div className="flex items-center justify-between">
+      <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:p-6">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-[color:var(--ui-text-strong)]">番茄时钟</h3>
             <p className="text-xs text-[color:var(--ui-text-muted)]">
               {PHASE_LABELS[state.phase]} · 第 {currentRound}/{totalRounds} 轮
             </p>
           </div>
-          <span className="text-xs text-[color:var(--ui-text-muted)]">默认 25/5/15</span>
+          <span className="shrink-0 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+            默认 25/5/15
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+          {overviewCards.map((card) => (
+            <div
+              key={card.label}
+              className={`rounded-2xl border ${card.borderClassName} bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] px-3.5 py-3`}
+            >
+              <div className={`h-1.5 w-10 rounded-full bg-gradient-to-r ${card.accentClassName}`} />
+              <div className="mt-2 text-[11px] text-[color:var(--ui-text-muted)]">{card.label}</div>
+              <div className="mt-1 flex items-end gap-1">
+                <span className="text-xl font-semibold leading-none text-[color:var(--ui-text-strong)]">{card.value}</span>
+                {card.suffix ? <span className="text-[11px] text-[color:var(--ui-text-muted)]">{card.suffix}</span> : null}
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="mt-6 flex flex-col items-center">
