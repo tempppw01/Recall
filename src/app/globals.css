@@ -98,12 +98,17 @@ body {
   background: var(--background);
   font-family: var(--font-sans);
   min-height: 100vh;
+  overflow: hidden;
   padding-bottom: env(safe-area-inset-bottom);
   transition: background-color 0.2s ease, color 0.2s ease, filter 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
   position: relative;
+}
+
+html {
+  overflow: hidden;
 }
 
 body::before {
@@ -253,46 +258,16 @@ button {
   overscroll-behavior: contain;
 }
 
-/* Global scrollbar refinement for dark UI */
+/* Keep scroll ability, but hide visible scrollbars for a cleaner app shell */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(122, 138, 171, 0.42) rgba(255, 255, 255, 0.03);
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-*::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.025);
-  border-radius: 999px;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(132, 148, 182, 0.58), rgba(97, 110, 142, 0.72));
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(160, 178, 216, 0.78), rgba(118, 134, 173, 0.88));
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-
-*::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(180deg, rgba(var(--theme-accent), 0.78), rgba(var(--theme-accent-soft), 0.82));
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-
-*::-webkit-scrollbar-corner {
-  background: transparent;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 
