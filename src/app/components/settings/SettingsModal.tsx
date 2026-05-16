@@ -10,6 +10,7 @@ type AccentTheme = 'blue' | 'violet' | 'emerald' | 'rose';
 type GradientTheme = 'aurora' | 'sunset' | 'ocean' | 'mono';
 type SettingsFocusTarget = 'sync' | null;
 type SettingsSectionKey = 'ai' | 'appearance' | 'notifications' | 'sync' | 'data';
+type AppearanceTab = 'theme' | 'display';
 
 type SettingsModalProps = {
   showSettings: boolean;
@@ -168,30 +169,40 @@ const ACCENT_THEME_OPTIONS: Array<{
 const GRADIENT_THEME_OPTIONS: Array<{
   value: GradientTheme;
   label: string;
+  cityLabel: string;
+  subtitle: string;
   previewClassName: string;
   glowClassName: string;
 }> = [
   {
     value: 'aurora',
     label: '极光',
+    cityLabel: '北京',
+    subtitle: '清亮层次',
     previewClassName: 'bg-[linear-gradient(135deg,#22D3EE_0%,#60A5FA_38%,#A78BFA_72%,#34D399_100%)]',
     glowClassName: 'shadow-[0_0_24px_rgba(34,211,238,0.20)]',
   },
   {
     value: 'sunset',
     label: '日落',
+    cityLabel: '杭州',
+    subtitle: '暖调余晖',
     previewClassName: 'bg-[linear-gradient(135deg,#FB7185_0%,#F97316_45%,#F59E0B_100%)]',
     glowClassName: 'shadow-[0_0_24px_rgba(249,115,22,0.20)]',
   },
   {
     value: 'ocean',
     label: '海洋',
+    cityLabel: '广州',
+    subtitle: '清透蓝绿',
     previewClassName: 'bg-[linear-gradient(135deg,#38BDF8_0%,#2563EB_45%,#0F172A_100%)]',
     glowClassName: 'shadow-[0_0_24px_rgba(37,99,235,0.20)]',
   },
   {
     value: 'mono',
     label: '极简',
+    cityLabel: '伦敦',
+    subtitle: '克制夜景',
     previewClassName: 'bg-[linear-gradient(135deg,#E5E7EB_0%,#9CA3AF_42%,#111827_100%)]',
     glowClassName: 'shadow-[0_0_24px_rgba(156,163,175,0.18)]',
   },
@@ -333,6 +344,7 @@ const SettingsModal = ({
   const [showAutoSavedNotice, setShowAutoSavedNotice] = useState(false);
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsSectionKey>(settingsFocusTarget === 'sync' ? 'sync' : 'ai');
+  const [appearanceTab, setAppearanceTab] = useState<AppearanceTab>('theme');
   const firstAutoSaveRef = useRef(true);
   const autoSavedNoticeTimerRef = useRef<number | null>(null);
   const lastAutoFetchedModelKeyRef = useRef<string | null>(null);
@@ -353,6 +365,16 @@ const SettingsModal = ({
     if (themePreference === 'light') return '浅色模式';
     return '深色模式';
   }, [themePreference]);
+
+  const selectedAccentTheme = useMemo(
+    () => ACCENT_THEME_OPTIONS.find((option) => option.value === accentTheme) ?? ACCENT_THEME_OPTIONS[0],
+    [accentTheme],
+  );
+
+  const selectedGradientTheme = useMemo(
+    () => GRADIENT_THEME_OPTIONS.find((option) => option.value === gradientTheme) ?? GRADIENT_THEME_OPTIONS[0],
+    [gradientTheme],
+  );
 
   const notificationStatusLabel = useMemo(() => {
     if (!notificationSupported) return '当前浏览器不支持';
@@ -500,6 +522,7 @@ const SettingsModal = ({
       firstAutoSaveRef.current = true;
       setShowAutoSavedNotice(false);
       setActiveSection(settingsFocusTarget === 'sync' ? 'sync' : 'ai');
+      setAppearanceTab('theme');
       if (autoSavedNoticeTimerRef.current) {
         window.clearTimeout(autoSavedNoticeTimerRef.current);
         autoSavedNoticeTimerRef.current = null;
@@ -755,37 +778,6 @@ const SettingsModal = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
-                    倒数日显示模式
-                  </label>
-                  <div className="flex gap-2 text-[12px] sm:text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setCountdownDisplayMode('days')}
-                      className={`btn btn-sm ${
-                        countdownDisplayMode === 'days'
-                          ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                          : buttonGroupClassName
-                      }`}
-                    >
-                      剩余天数
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCountdownDisplayMode('date')}
-                      className={`btn btn-sm ${
-                        countdownDisplayMode === 'date'
-                          ? 'bg-blue-500/18 border-blue-400/70 text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                          : buttonGroupClassName
-                      }`}
-                    >
-                      目标日期
-                    </button>
-                  </div>
-                  <p className="ui-note mt-1 text-[11px] sm:text-xs">倒数日卡片右侧显示方式</p>
-                </div>
-
                 <details className="group rounded-[18px] border border-[var(--ui-border-soft)] bg-transparent p-3">
                   <summary className="ui-section-label cursor-pointer list-none flex items-center justify-between gap-2 rounded-2xl px-2 py-1.5 ui-state-hover">
                     <span>高级设置</span>
@@ -842,85 +834,310 @@ const SettingsModal = ({
 
                 <div
                   ref={appearanceSectionRef}
-                  className="scroll-mt-6 space-y-3 rounded-[22px] border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] p-3.5"
+                  className="scroll-mt-6 overflow-hidden rounded-[30px] border border-[rgba(var(--theme-accent),0.12)] bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.02))] shadow-[0_22px_48px_rgba(0,0,0,0.18)]"
                 >
-                  <div className="ui-section-label text-[11px] sm:text-xs">外观主题</div>
-
-                  <div>
-                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
-                      主题模式
-                    </label>
-                    <div className="flex flex-wrap gap-2 text-[12px] sm:text-xs">
-                      {([
-                        ['system', '跟随系统'],
-                        ['light', '浅色'],
-                        ['dark', '深色'],
-                      ] as const).map(([mode, label]) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setThemePreference(mode)}
-                          className={`btn btn-sm ${
-                            themePreference === mode
-                              ? 'btn btn-sm ui-chip ui-chip-active text-[12px] sm:text-xs'
-                              : buttonGroupClassName
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                  <div className="border-b border-[color:var(--ui-border-soft)] px-3.5 py-3.5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="ui-section-label text-[11px] sm:text-xs">外观设置</div>
+                        <p className="mt-1 text-sm text-[color:var(--ui-text-muted)]">
+                          把主题、色彩和信息显示收进一个更直觉的面板。
+                        </p>
+                      </div>
+                      <div className="inline-flex w-fit rounded-full border border-white/8 bg-black/20 p-1">
+                        {([
+                          ['theme', '主题'],
+                          ['display', '显示'],
+                        ] as const).map(([tab, label]) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            onClick={() => setAppearanceTab(tab)}
+                            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                              appearanceTab === tab
+                                ? 'bg-white text-slate-900 shadow-[0_10px_24px_rgba(255,255,255,0.16)]'
+                                : 'text-[color:var(--ui-text-muted)] hover:text-white'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
-                      主色
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {ACCENT_THEME_OPTIONS.map(({ value, label, previewClassName, glowClassName }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setAccentTheme(value)}
-                          className={`rounded-2xl border p-2.5 text-left transition-all ${
-                            accentTheme === value
-                              ? `ui-chip ui-chip-active ${glowClassName}`
-                              : 'ui-chip'
-                          }`}
-                        >
-                          <span className={`block h-11 rounded-xl ${previewClassName}`} />
-                          <span className="mt-2 block text-xs font-medium text-center">{label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <div className="space-y-5 px-3.5 py-4">
+                    {appearanceTab === 'theme' ? (
+                      <>
+                        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.8fr)]">
+                          <div className="space-y-3">
+                            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-3.5">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-white">界面样式</p>
+                                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                    当前使用 {selectedGradientTheme.label} 氛围和 {selectedAccentTheme.label} 主色。
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-strong)]">
+                                  {themeModeLabel}
+                                </span>
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {([
+                                  ['system', '跟随系统'],
+                                  ['light', '浅色'],
+                                  ['dark', '深色'],
+                                ] as const).map(([mode, label]) => (
+                                  <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => setThemePreference(mode)}
+                                    className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                                      themePreference === mode
+                                        ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                                        : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
 
-                  <div>
-                    <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
-                      渐变风格
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {GRADIENT_THEME_OPTIONS.map(({ value, label, previewClassName, glowClassName }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setGradientTheme(value)}
-                          className={`rounded-2xl border p-2.5 text-left transition-all ${
-                            gradientTheme === value
-                              ? `ui-chip ui-chip-active ${glowClassName}`
-                              : 'ui-chip'
-                          }`}
-                        >
-                          <span className={`block h-11 rounded-xl ${previewClassName}`} />
-                          <span className="mt-2 block text-xs font-medium text-center">{label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                            <button
+                              type="button"
+                              onClick={() => setThemePreference(themePreference === 'system' ? 'dark' : 'system')}
+                              className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] px-3.5 py-3 text-left transition-all hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[rgba(255,255,255,0.04)]"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-white">跟随系统切换暗色主题</p>
+                                <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                  根据设备明暗模式自动切换主题。
+                                </p>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] ${
+                                themePreference === 'system'
+                                  ? 'border border-emerald-400/35 bg-emerald-400/14 text-emerald-100'
+                                  : 'border border-[color:var(--ui-border-soft)] bg-white/[0.04] text-[color:var(--ui-text-muted)]'
+                              }`}>
+                                {themePreference === 'system' ? '开启' : '关闭'}
+                              </span>
+                            </button>
+                          </div>
 
-                  <p className="ui-note text-[11px] sm:text-xs">
-                    现在颜色卡片会直接预览主题颜色和渐变氛围，方便选中前就看到效果。
-                  </p>
+                          <div className="relative overflow-hidden rounded-[26px] border border-[rgba(var(--theme-accent),0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4">
+                            <div className="pointer-events-none absolute -right-10 top-0 h-28 w-28 rounded-full bg-[rgba(var(--theme-accent),0.14)] blur-3xl" />
+                            <div className="relative">
+                              <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">当前组合</p>
+                              <div className={`mt-3 h-24 rounded-[22px] ${selectedGradientTheme.previewClassName}`} />
+                              <div className="mt-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-white">{selectedGradientTheme.cityLabel}</p>
+                                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{selectedGradientTheme.subtitle}</p>
+                                </div>
+                                <div className={`h-11 w-11 rounded-2xl border border-white/10 ${selectedAccentTheme.previewClassName}`} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-white">颜色系列</p>
+                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">先决定主色，再决定整页情绪。</p>
+                            </div>
+                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                              当前：{selectedAccentTheme.label}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 min-[520px]:grid-cols-4">
+                            {ACCENT_THEME_OPTIONS.map(({ value, label, previewClassName, glowClassName }) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setAccentTheme(value)}
+                                className={`group rounded-[22px] border p-3 text-center transition-all ${
+                                  accentTheme === value
+                                    ? `border-[rgba(var(--theme-accent),0.34)] bg-[rgba(var(--theme-accent),0.12)] ${glowClassName}`
+                                    : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-[rgba(255,255,255,0.05)]'
+                                }`}
+                              >
+                                <span className={`mx-auto block h-14 w-14 rounded-[18px] ${previewClassName}`} />
+                                <span className="mt-3 block text-xs font-medium text-[color:var(--ui-text-primary)]">{label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-white">城市系列</p>
+                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">用大一点的预览挑氛围，而不是靠抽象名字想象。</p>
+                            </div>
+                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                              当前：{selectedGradientTheme.cityLabel}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 xl:grid-cols-4">
+                            {GRADIENT_THEME_OPTIONS.map(({ value, label, cityLabel, subtitle, previewClassName, glowClassName }, index) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setGradientTheme(value)}
+                                className={`group overflow-hidden rounded-[22px] border text-left transition-all ${
+                                  gradientTheme === value
+                                    ? `border-[rgba(var(--theme-accent),0.34)] bg-[rgba(var(--theme-accent),0.12)] ${glowClassName}`
+                                    : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-[rgba(255,255,255,0.05)]'
+                                }`}
+                              >
+                                <div className={`relative h-24 overflow-hidden ${previewClassName}`}>
+                                  <span className="absolute left-3 top-3 h-5 w-10 rounded-full bg-amber-200/80 blur-[1px]" />
+                                  <span className="absolute right-4 top-4 h-3 w-3 rounded-full bg-white/50" />
+                                  <span className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/30 to-transparent" />
+                                  <span
+                                    className="absolute bottom-0 left-0 right-0 h-10 opacity-90"
+                                    style={{
+                                      background: index % 2 === 0
+                                        ? 'linear-gradient(90deg, rgba(255,255,255,0.18) 8%, transparent 8%, transparent 14%, rgba(255,255,255,0.14) 14%, rgba(255,255,255,0.14) 19%, transparent 19%, transparent 26%, rgba(255,255,255,0.16) 26%, rgba(255,255,255,0.16) 33%, transparent 33%, transparent 42%, rgba(255,255,255,0.13) 42%, rgba(255,255,255,0.13) 46%, transparent 46%, transparent 58%, rgba(255,255,255,0.18) 58%, rgba(255,255,255,0.18) 66%, transparent 66%, transparent 74%, rgba(255,255,255,0.15) 74%, rgba(255,255,255,0.15) 82%, transparent 82%)'
+                                        : 'linear-gradient(90deg, transparent 6%, rgba(255,255,255,0.18) 6%, rgba(255,255,255,0.18) 12%, transparent 12%, transparent 22%, rgba(255,255,255,0.12) 22%, rgba(255,255,255,0.12) 28%, transparent 28%, transparent 38%, rgba(255,255,255,0.17) 38%, rgba(255,255,255,0.17) 48%, transparent 48%, transparent 60%, rgba(255,255,255,0.12) 60%, rgba(255,255,255,0.12) 67%, transparent 67%, transparent 78%, rgba(255,255,255,0.18) 78%, rgba(255,255,255,0.18) 86%, transparent 86%)',
+                                    }}
+                                  />
+                                  {gradientTheme === value ? (
+                                    <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                                      当前
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="px-3 py-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="truncate text-sm font-semibold text-white">{cityLabel}</span>
+                                    <span className="rounded-full border border-white/8 px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                                      {label}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{subtitle}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-3.5">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-white">当前主题模式</p>
+                                <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                  决定界面整体的明暗感和对比度。
+                                </p>
+                              </div>
+                              <span className="rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-strong)]">
+                                {themeModeLabel}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {([
+                                ['system', '跟随系统'],
+                                ['light', '浅色'],
+                                ['dark', '深色'],
+                              ] as const).map(([mode, label]) => (
+                                <button
+                                  key={mode}
+                                  type="button"
+                                  onClick={() => setThemePreference(mode)}
+                                  className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                                    themePreference === mode
+                                      ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                                      : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setThemePreference(themePreference === 'system' ? 'dark' : 'system')}
+                            className="flex items-center justify-between gap-3 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] px-3.5 py-3.5 text-left transition-all hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[rgba(255,255,255,0.04)]"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-white">跟随系统切换暗色主题</p>
+                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                适合在白天和夜间自动适配。
+                              </p>
+                            </div>
+                            <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] ${
+                              themePreference === 'system'
+                                ? 'border border-emerald-400/35 bg-emerald-400/14 text-emerald-100'
+                                : 'border border-[color:var(--ui-border-soft)] bg-white/[0.04] text-[color:var(--ui-text-muted)]'
+                            }`}>
+                              {themePreference === 'system' ? '开启' : '关闭'}
+                            </span>
+                          </button>
+                        </div>
+
+                        <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-3.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-white">倒数日信息显示</p>
+                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                控制倒数日卡片右侧显示剩余天数还是目标日期。
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                              {countdownDisplayMode === 'days' ? '剩余天数' : '目标日期'}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCountdownDisplayMode('days')}
+                              className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                                countdownDisplayMode === 'days'
+                                  ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                                  : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
+                              }`}
+                            >
+                              剩余天数
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCountdownDisplayMode('date')}
+                              className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                                countdownDisplayMode === 'date'
+                                  ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
+                                  : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
+                              }`}
+                            >
+                              目标日期
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[24px] border border-[rgba(var(--theme-accent),0.18)] bg-[linear-gradient(135deg,rgba(var(--theme-accent),0.14),rgba(var(--theme-grad-end),0.08),rgba(255,255,255,0.02))] p-4">
+                          <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">显示预览</p>
+                          <div className="mt-3 rounded-[20px] border border-white/8 bg-[rgba(10,14,24,0.52)] p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-white">春节</p>
+                                <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">目标日期：2026-02-17</p>
+                              </div>
+                              <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)]">
+                                {countdownDisplayMode === 'days' ? '还有 77 天' : '2026-02-17'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
