@@ -5970,7 +5970,7 @@ const headerTitle = activeFilter === 'category'
 
         <div className={`relative flex-1 w-full ${
           activeFilter === 'quadrant'
-            ? 'max-w-none px-2 sm:px-3 lg:px-4 xl:px-5 2xl:px-6'
+            ? 'max-w-none px-1.5 sm:px-2.5 lg:px-3.5 xl:px-4.5 2xl:px-5'
             : 'max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10'
         } ${
           isFixedPanelView
@@ -6664,7 +6664,7 @@ const headerTitle = activeFilter === 'category'
                 <span className="text-[11px] text-[#7d8595] sm:ml-auto">拖动任务可调整象限</span>
               </div>
 
-              <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-2.5 min-[900px]:grid-cols-2 min-[900px]:grid-rows-2 sm:gap-3">
+              <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-2.5 min-[640px]:grid-cols-2 min-[640px]:grid-rows-2 sm:gap-3">
                 {quadrantGroups.map((group) => {
                   const currentSortMode = quadrantSortModes[group.key] ?? 'dueDate';
                   const currentSortLabel = QUADRANT_SORT_OPTIONS.find((option) => option.value === currentSortMode)?.label ?? '时间';
