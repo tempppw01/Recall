@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pause, Play, RotateCcw, Timer as TimerIcon } from 'lucide-react';
 import { pomodoroStore, PomodoroRecord } from '@/lib/store';
 import { PHASE_LABELS, cycleOrder, ensurePomodoroAudioReady, formatTime, usePomodoroState } from '@/lib/pomodoro';
+import PomodoroAmbientSound from '@/app/components/PomodoroAmbientSound';
 
 const sortRecords = (records: PomodoroRecord[]) =>
   [...records].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
@@ -137,6 +138,8 @@ export default function PomodoroTimer() {
             </button>
           </div>
         </div>
+
+        <PomodoroAmbientSound />
       </div>
 
       <div>
