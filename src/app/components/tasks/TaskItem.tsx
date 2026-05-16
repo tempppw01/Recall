@@ -99,6 +99,7 @@ export type TaskItemProps = {
   dragTitle?: string;
   showInlineQuickActions?: boolean;
   compactText?: boolean;
+  showDueCountdown?: boolean;
   helpers: TaskItemHelpers;
 };
 
@@ -129,6 +130,7 @@ const TaskItem = ({
   dragEnabled = true,
   showInlineQuickActions = false,
   compactText = false,
+  showDueCountdown = true,
   helpers,
 }: TaskItemProps) => {
   const {
@@ -540,7 +542,7 @@ const TaskItem = ({
                 </div>
               </div>
               <div className={`flex shrink-0 items-center gap-1.5 ${compactText ? 'max-w-[7rem] flex-wrap justify-end' : ''}`}>
-                {dueCountdown && (
+                {showDueCountdown && dueCountdown && (
                   <span
                     className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border px-1.5 text-[10px] font-medium leading-none tracking-[-0.01em] ${
                       compactText ? 'max-w-[6.25rem] truncate' : ''
