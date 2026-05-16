@@ -1,4 +1,4 @@
-import { Calendar, CalendarDays, Flag, Pin, PinOff, Plus, Sunrise, Sunset } from 'lucide-react';
+import { Calendar, CalendarX, Flag, ListPlus, Moon, Pin, PinOff, Sunrise, Sunset } from 'lucide-react';
 import { Task } from '@/lib/store';
 
 type TaskQuickActionsProps = {
@@ -10,9 +10,6 @@ type TaskQuickActionsProps = {
   onStartAddSubtask?: () => void;
 };
 
-/**
- * 任务详情快捷栏：将高频操作前置，减少滚动和跨区操作。
- */
 export default function TaskQuickActions({
   task,
   onSetDuePreset,
@@ -22,37 +19,35 @@ export default function TaskQuickActions({
   onStartAddSubtask,
 }: TaskQuickActionsProps) {
   const actionButtonClassName =
-    'inline-flex h-7 items-center gap-1 rounded-xl border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-2 text-[11px] leading-none text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.3)] hover:text-[color:var(--ui-text-strong)]';
+    'inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--ui-border-soft)] bg-transparent px-2 text-[11px] leading-none text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[rgba(var(--theme-accent),0.06)] hover:text-[color:var(--ui-text-strong)]';
 
   return (
-    <div className="mb-4 space-y-2.5 rounded-[22px] border border-[color:var(--ui-border-strong)] bg-[var(--ui-card-bg)] p-3 shadow-[0_12px_28px_rgba(15,23,42,0.10)] sm:mb-5 sm:rounded-[26px] sm:p-3.5">
-      <div className="text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">快捷修改</div>
-
-      <div className="flex flex-wrap gap-1.5">
+    <div className="mb-4 space-y-2.5 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-2.5 sm:mb-5">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,1fr))] gap-1.5">
         <button onClick={() => onSetDuePreset(task.id, 'today')} className={actionButtonClassName}>
-          <Sunrise className="w-3 h-3" /> 今天
+          <Sunrise className="h-3.5 w-3.5 text-amber-400" /> 今天
         </button>
         <button onClick={() => onSetDuePreset(task.id, 'tomorrow')} className={actionButtonClassName}>
-          <Sunset className="w-3 h-3" /> 明天
+          <Sunset className="h-3.5 w-3.5 text-orange-400" /> 明天
         </button>
         <button onClick={() => onSetDuePreset(task.id, 'tonight')} className={actionButtonClassName}>
-          <Calendar className="w-3 h-3" /> 今晚
+          <Moon className="h-3.5 w-3.5 text-indigo-300" /> 今晚
         </button>
         <button onClick={() => onSetDuePreset(task.id, 'nextWeek')} className={actionButtonClassName}>
-          <CalendarDays className="w-3 h-3" /> 下周
+          <Calendar className="h-3.5 w-3.5 text-sky-400" /> 下周
         </button>
         <button onClick={() => onClearDueDate(task.id)} className={actionButtonClassName}>
-          清除日期
+          <CalendarX className="h-3.5 w-3.5 text-rose-400" /> 清日期
         </button>
         <button
           onClick={() => onStartAddSubtask?.()}
           className={actionButtonClassName}
         >
-          <Plus className="w-3 h-3" /> 新增子任务
+          <ListPlus className="h-3.5 w-3.5 text-emerald-400" /> 子任务
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,1fr))] gap-1.5">
         {[2, 1, 0].map((level) => (
           <button
             key={level}
@@ -63,7 +58,7 @@ export default function TaskQuickActions({
                 : ''
             }`}
           >
-            <Flag className={`w-3 h-3 ${level === 2 ? 'text-red-400' : level === 1 ? 'text-yellow-400' : 'text-emerald-400'}`} />
+            <Flag className={`h-3.5 w-3.5 ${level === 2 ? 'text-red-400' : level === 1 ? 'text-yellow-400' : 'text-emerald-400'}`} />
             {level === 2 ? '高优先级' : level === 1 ? '中优先级' : '低优先级'}
           </button>
         ))}
@@ -72,7 +67,7 @@ export default function TaskQuickActions({
           onClick={() => onTogglePinned(task)}
           className={actionButtonClassName}
         >
-          {task.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+          {task.pinned ? <PinOff className="h-3.5 w-3.5 text-violet-300" /> : <Pin className="h-3.5 w-3.5 text-violet-300" />}
           {task.pinned ? '取消置顶' : '置顶'}
         </button>
       </div>

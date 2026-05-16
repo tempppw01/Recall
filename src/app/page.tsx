@@ -8875,12 +8875,12 @@ const headerTitle = activeFilter === 'category'
               title="关闭任务详情"
             />
           )}
-          <aside className={`theme-native-surface fixed z-50 bg-[color:var(--ui-surface-1)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_48px_rgba(0,0,0,0.24)] ${
+          <aside className={`theme-native-surface fixed z-50 bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1))] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_36px_rgba(0,0,0,0.18)] ${
             isTaskDetailFullscreen
               ? 'inset-0 w-full border-l-0'
               : 'inset-y-0 right-0 w-[440px] 2xl:w-[480px] border-l border-[color:var(--ui-border-strong)]'
           }`}>
-            <div className="h-11 sm:h-12 md:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 md:px-4 shrink-0">
+            <div className="h-11 sm:h-12 md:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 md:px-4 shrink-0 bg-[rgba(255,255,255,0.025)]">
               <button
                 onClick={() => setSelectedTask(null)}
                 className={`${isTaskDetailFullscreen ? 'flex' : 'hidden'} items-center gap-1 text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]`}
@@ -8947,77 +8947,69 @@ const headerTitle = activeFilter === 'category'
               onStartAddSubtask={focusSubtaskQuickInput}
             />
 
-            <div className="space-y-5 md:space-y-6">
+            <div className="space-y-4 md:space-y-5">
               {/* 子任务管理 */}
-              <div className="space-y-3">
-                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">子任务</label>
-                <div className="flex items-center gap-2 text-xs text-[color:var(--ui-text-muted)]">
-                  <span>
+              <div className="space-y-2.5 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.022)] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">子任务</label>
+                  <span className="text-xs text-[color:var(--ui-text-muted)]">
                     {(selectedTask.subtasks || []).filter((subtask) => subtask.completed).length}
                     /{(selectedTask.subtasks || []).length} 已完成
                   </span>
                 </div>
-                <div className="space-y-2 rounded-2xl border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] p-2.5 sm:p-3">
-                  {(selectedTask.subtasks || []).length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-[var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-3 py-3 text-sm text-[color:var(--ui-text-muted)]">
-                      还没有子任务，下面可以直接快速补一条
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {(selectedTask.subtasks || []).map((subtask) => (
-                        <div key={subtask.id} className="flex items-center gap-2 rounded-xl bg-[rgba(255,255,255,0.02)] px-2.5 py-2 transition-colors hover:bg-[rgba(255,255,255,0.04)]">
-                          <button
-                            onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
-                            className={`w-4 h-4 rounded border flex items-center justify-center ${
-                              subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[color:var(--ui-border-strong)]'
-                            }`}
-                          >
-                            {subtask.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
-                          </button>
-                          <span className={`text-sm ${subtask.completed ? 'line-through text-[color:var(--ui-text-faint)]' : 'text-[color:var(--ui-text-primary)]'}`}>
-                            {subtask.title}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="rounded-xl border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.06)] px-2.5 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="shrink-0 text-sm text-[#8EA3FF]">＋</span>
-                      <input
-                        ref={subtaskQuickInputRef}
-                        type="text"
-                        value={newSubtaskTitle}
-                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
-                        placeholder="快速添加子任务，回车连续录入"
-                        className="flex-1 bg-transparent text-sm text-[color:var(--ui-text-primary)] placeholder:text-[color:var(--ui-text-faint)] focus:outline-none"
-                      />
-                      <button
-                        onClick={addSubtask}
-                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
-                      >
-                        添加
-                      </button>
-                    </div>
+                {(selectedTask.subtasks || []).length > 0 && (
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-2">
+                    {(selectedTask.subtasks || []).map((subtask) => (
+                      <div key={subtask.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--ui-border-soft)] bg-transparent px-2.5 py-2 transition-colors hover:bg-[rgba(255,255,255,0.035)]">
+                        <button
+                          onClick={() => toggleSubtask(selectedTask.id, subtask.id)}
+                          className={`h-4 w-4 shrink-0 rounded border flex items-center justify-center ${
+                            subtask.completed ? 'bg-blue-500 border-blue-500' : 'border-[color:var(--ui-border-strong)]'
+                          }`}
+                        >
+                          {subtask.completed && <CheckCircle2 className="h-3 w-3 text-white" />}
+                        </button>
+                        <span className={`min-w-0 truncate text-sm ${subtask.completed ? 'line-through text-[color:var(--ui-text-faint)]' : 'text-[color:var(--ui-text-primary)]'}`}>
+                          {subtask.title}
+                        </span>
+                      </div>
+                    ))}
                   </div>
+                )}
+
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.05)] px-2.5 py-2">
+                  <input
+                    ref={subtaskQuickInputRef}
+                    type="text"
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
+                    placeholder="快速添加子任务"
+                    className="min-w-0 bg-transparent text-sm text-[color:var(--ui-text-primary)] placeholder:text-[color:var(--ui-text-faint)] focus:outline-none"
+                  />
+                  {newSubtaskTitle.trim() && (
+                    <button
+                      onClick={addSubtask}
+                      className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-500"
+                    >
+                      添加
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] p-3">
                 <label className="flex items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">
                   日期
                   {isTaskOverdue(selectedTask) && (
                     <span className="text-[11px] text-red-400">已逾期</span>
                   )}
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[color:var(--ui-text-muted)] pointer-events-none" />
                     <input 
                       type="date"
-                      className="ui-input w-full rounded px-9 py-2 text-sm"
+                      className="ui-input min-w-0 w-full rounded px-3 py-2 text-sm"
                       value={selectedDateValue}
                       onChange={(e) => {
                         const nextDate = e.target.value;
@@ -9033,7 +9025,7 @@ const headerTitle = activeFilter === 'category'
                   <div className="relative">
                     <input
                       type="time"
-                      className="ui-input w-full rounded px-3 py-2 text-sm"
+                      className="ui-input min-w-0 w-full rounded px-3 py-2 text-sm"
                       value={selectedTimeValue}
                       onChange={(e) => {
                         const nextTime = e.target.value;
@@ -9047,7 +9039,7 @@ const headerTitle = activeFilter === 'category'
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
                   <div className="relative">
                     <select
                       value={selectedTimezoneOffset}
@@ -9062,7 +9054,7 @@ const headerTitle = activeFilter === 'category'
                           timezoneOffset: nextOffset,
                         });
                       }}
-                      className="ui-select w-full rounded px-3 py-2 text-sm"
+                      className="ui-select min-w-0 w-full rounded px-3 py-2 text-sm"
                     >
                       {TIMEZONE_OPTIONS.map((option) => (
                         <option key={option.offsetMinutes} value={option.offsetMinutes}>
@@ -9077,7 +9069,7 @@ const headerTitle = activeFilter === 'category'
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] p-3">
                 <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">提醒</label>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -9123,10 +9115,10 @@ const headerTitle = activeFilter === 'category'
                   </button>
                 </div>
                 {selectedReminderPreset === 'custom' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
                     <input
                       type="date"
-                      className="ui-input w-full rounded px-3 py-2 text-sm"
+                      className="ui-input min-w-0 w-full rounded px-3 py-2 text-sm"
                       value={selectedReminderDateValue}
                       onChange={(e) => {
                         if (!selectedTask) return;
@@ -9137,7 +9129,7 @@ const headerTitle = activeFilter === 'category'
                     />
                     <input
                       type="time"
-                      className="ui-input w-full rounded px-3 py-2 text-sm"
+                      className="ui-input min-w-0 w-full rounded px-3 py-2 text-sm"
                       value={selectedReminderTimeValue}
                       onChange={(e) => {
                         if (!selectedTask) return;
@@ -9150,7 +9142,7 @@ const headerTitle = activeFilter === 'category'
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] p-3">
                 <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">优先级</label>
                 <div className="text-[11px] text-[color:var(--ui-text-muted)]">
                   推荐：{getPriorityLabel(recommendedPriority)}
@@ -9177,7 +9169,7 @@ const headerTitle = activeFilter === 'category'
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] p-3">
                 <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">分类</label>
                 <div className="flex flex-wrap gap-2">
                   {categoryButtons.map((category) => (
@@ -9196,9 +9188,9 @@ const headerTitle = activeFilter === 'category'
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] p-3">
                 <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">标签</label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.022)] p-2">
                   {selectedTask.tags?.length ? selectedTask.tags.map(tag => (
                     <button
                       key={tag}
@@ -9209,28 +9201,28 @@ const headerTitle = activeFilter === 'category'
                     >
                       #{tag}
                     </button>
-                  )) : <span className="text-sm text-[color:var(--ui-text-muted)]">暂无标签</span>}
-                </div>
-                <div className="flex items-center gap-2">
+                  )) : null}
                   <input
                     type="text"
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addTagToTask()}
-                    placeholder="添加标签（回车确认）"
-                    className="ui-input flex-1 rounded px-3 py-2 text-sm"
+                    placeholder="添加标签"
+                    className="min-w-[9rem] flex-1 border-none bg-transparent px-2 py-1.5 text-sm text-[color:var(--ui-text-primary)] outline-none placeholder:text-[color:var(--ui-text-faint)]"
                   />
-                  <button
-                    onClick={addTagToTask}
-                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-500"
-                  >
-                    添加
-                  </button>
+                  {newTagInput.trim() && (
+                    <button
+                      onClick={addTagToTask}
+                      className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
+                    >
+                      添加
+                    </button>
+                  )}
                 </div>
               </div>
 
               {((selectedTask.attachments || []).length > 0 || canUploadTaskAttachments) && (
-                <div className="space-y-3">
+                <div className="space-y-3 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] p-3">
                   <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">附件</label>
                   <div className="space-y-2">
                     {(selectedTask.attachments || []).map((att) => (
@@ -9286,9 +9278,9 @@ const headerTitle = activeFilter === 'category'
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-3 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.018)] p-3">
                 <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">重复</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
                   {REPEAT_OPTIONS.map((option) => (
                     <button
                       key={option.value}
@@ -9305,14 +9297,14 @@ const headerTitle = activeFilter === 'category'
                 </div>
 
                 {repeatRule.type === 'weekly' && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(2rem,1fr))] gap-2">
                     {REPEAT_WEEKDAYS.map((label, index) => {
                       const active = repeatRule.weekdays?.includes(index) ?? false;
                       return (
                         <button
                           key={label}
                           onClick={() => toggleRepeatWeekday(index)}
-                          className={`w-8 h-8 rounded-full text-xs border transition-colors ${
+                          className={`h-8 rounded-lg text-xs border transition-colors ${
                             active
                               ? 'bg-blue-500/20 border-blue-400 text-[color:var(--ui-text-strong)]'
                               : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.3)]'
