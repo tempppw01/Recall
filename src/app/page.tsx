@@ -1584,6 +1584,7 @@ export default function Home() {
   const [addedAgentItemIds, setAddedAgentItemIds] = useState<Set<string>>(new Set());
   const [addedAgentTaskMap, setAddedAgentTaskMap] = useState<Record<string, Task>>({});
   const [expandedAgentSubtaskIds, setExpandedAgentSubtaskIds] = useState<Set<string>>(new Set());
+  const [isAgentGuidanceOpen, setIsAgentGuidanceOpen] = useState(false);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [manageAgentInput, setManageAgentInput] = useState('');
   const [manageAgentMessages, setManageAgentMessages] = useState<ManageAgentMessage[]>([]);
@@ -1598,6 +1599,9 @@ export default function Home() {
   const casualChatQueuedSendRef = useRef<{ content: string; history: AgentMessage[] } | null>(null);
   const casualChatConversationEndRef = useRef<HTMLDivElement | null>(null);
   const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([]);
+  useEffect(() => {
+    setIsAgentGuidanceOpen(false);
+  }, [agentGuidance]);
   const [knowledgeTitleInput, setKnowledgeTitleInput] = useState('');
   const [knowledgeContentInput, setKnowledgeContentInput] = useState('');
   const [knowledgeCategoryInput, setKnowledgeCategoryInput] = useState<KnowledgeEntry['category']>('note');
@@ -7833,6 +7837,18 @@ const headerTitle = activeFilter === 'category'
                           点击“加入任务”后会进入待办，细节可以之后再调
                         </div>
                       </div>
+                      {agentGuidance.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsAgentGuidanceOpen((prev) => !prev)}
+                          className="inline-flex items-center gap-1 rounded-full border border-blue-300/28 bg-blue-500/8 px-3 py-1.5 text-[11px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:border-blue-300/40 hover:bg-blue-500/14 hover:text-[color:var(--ui-text-strong)]"
+                          aria-expanded={isAgentGuidanceOpen}
+                          aria-label={isAgentGuidanceOpen ? '收起判断依据' : '展开判断依据'}
+                        >
+                          <span>判断依据</span>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isAgentGuidanceOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      )}
                       {pendingAgentSuggestions.length > 1 && (
                         <button
                           type="button"
@@ -7843,7 +7859,7 @@ const headerTitle = activeFilter === 'category'
                         </button>
                       )}
                     </div>
-                    {agentGuidance.length > 0 && (
+                    {agentGuidance.length > 0 && isAgentGuidanceOpen && (
                       <div className="mb-2 rounded-xl border border-blue-300/15 bg-blue-500/10 px-2.5 py-2 text-xs text-[color:var(--ui-text-primary)]">
                         <div className="mb-1.5 flex items-center gap-1.5 font-medium text-[color:var(--ui-text-strong)]">
                           <CheckCircle2 className="h-3 w-3 text-blue-200" />
