@@ -1621,6 +1621,7 @@ export default function Home() {
   const [addedHabitAgentItemIds, setAddedHabitAgentItemIds] = useState<Set<string>>(new Set());
   const [habitAgentError, setHabitAgentError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [viewportWidth, setViewportWidth] = useState(0);
   const repeatRule = selectedTask?.repeat ?? ({ type: 'none' } as TaskRepeatRule);
   const recommendedPriority = selectedTask
     ? evaluatePriority(selectedTask.dueDate, selectedTask.subtasks?.length ?? 0)
@@ -1642,6 +1643,8 @@ export default function Home() {
 
   const selectedTaskPhoneNumbers = selectedTask ? extractPhoneNumbers(selectedTask.title) : [];
   const shouldShowTaskDetail = Boolean(selectedTask && activeFilter !== 'quadrant');
+  const isTaskDetailFullscreen = shouldShowTaskDetail && viewportWidth > 0 && viewportWidth < 1280;
+  const isTaskDetailDocked = shouldShowTaskDetail && !isTaskDetailFullscreen;
   const taskItemHelpers = {
     getTimezoneOffset,
     formatZonedDateTime,
@@ -1660,6 +1663,16 @@ export default function Home() {
       setSelectedTask(null);
     }
   }, [activeFilter, selectedTask]);
+
+  useEffect(() => {
+    const syncViewportWidth = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    syncViewportWidth();
+    window.addEventListener('resize', syncViewportWidth);
+    return () => window.removeEventListener('resize', syncViewportWidth);
+  }, []);
 
   const {
     themeMode,
@@ -5893,7 +5906,7 @@ const headerTitle = activeFilter === 'category'
             ? 'overflow-hidden overscroll-none'
             : 'overflow-y-auto mobile-scroll'
         } bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
-          shouldShowTaskDetail ? 'sm:pr-[340px] md:pr-[360px] lg:pr-[380px] xl:pr-[440px] 2xl:pr-[480px]' : ''
+          isTaskDetailDocked ? 'xl:pr-[440px] 2xl:pr-[480px]' : ''
         } ${
           isTaskSelectionDragging ? 'select-none cursor-default' : ''
         }`}
@@ -8414,21 +8427,27 @@ const headerTitle = activeFilter === 'category'
         </div>
       </section>
 
-      {/* 3. Detail Sidebar (Right) */}
+{/* 3. Detail Sidebar (Right) */}
       {shouldShowTaskDetail && selectedTask && (
         <>
-          <button
-            type="button"
-            onClick={() => setSelectedTask(null)}
-            className="fixed inset-y-0 left-0 right-[min(88vw,340px)] z-[45] bg-transparent md:right-[360px] lg:hidden"
-            aria-label="关闭任务详情"
-            title="关闭任务详情"
-          />
-          <aside className="theme-native-surface fixed inset-y-0 right-0 z-50 w-[min(88vw,340px)] sm:w-[340px] md:w-[360px] lg:w-[380px] xl:w-[440px] 2xl:w-[480px] bg-[color:var(--ui-surface-1)] border-l border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_48px_rgba(0,0,0,0.24)]">
+          {isTaskDetailDocked && (
+            <button
+              type="button"
+              onClick={() => setSelectedTask(null)}
+              className="fixed inset-y-0 left-0 right-[440px] z-[45] hidden bg-transparent xl:block 2xl:right-[480px]"
+              aria-label="关闭任务详情"
+              title="关闭任务详情"
+            />
+          )}
+          <aside className={`theme-native-surface fixed z-50 bg-[color:var(--ui-surface-1)] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_48px_rgba(0,0,0,0.24)] ${
+            isTaskDetailFullscreen
+              ? 'inset-0 w-full border-l-0'
+              : 'inset-y-0 right-0 w-[440px] 2xl:w-[480px] border-l border-[color:var(--ui-border-strong)]'
+          }`}>
             <div className="h-11 sm:h-12 md:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 md:px-4 shrink-0">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="lg:hidden text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)] flex items-center gap-1"
+                className={`${isTaskDetailFullscreen ? 'flex' : 'hidden'} items-center gap-1 text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]`}
               >
                 <ChevronLeft className="w-4 h-4" />
                 返回
@@ -8441,7 +8460,12 @@ const headerTitle = activeFilter === 'category'
               </button>
             </div>
 
-            <div className="p-3 sm:p-4 md:p-6 flex-1 overflow-y-auto mobile-scroll safe-scroll-with-footer [--footer-safe-height:1rem]">
+            <div className={`flex-1 overflow-y-auto mobile-scroll safe-scroll-with-footer [--footer-safe-height:1rem] ${
+              isTaskDetailFullscreen
+                ? 'px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6'
+                : 'p-3 sm:p-4 md:p-6'
+            }`}>
+            <div className={isTaskDetailFullscreen ? 'mx-auto w-full max-w-4xl' : ''}>
             <div className="flex items-start gap-2.5 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
               <button 
                 onClick={() => toggleStatus(selectedTask.id)}
@@ -8907,6 +8931,7 @@ const headerTitle = activeFilter === 'category'
               </div>
 
             </div>
+          </div>
           </div>
           
             <div className="p-4 border-t border-[color:var(--ui-border-soft)] text-xs text-center text-[color:var(--ui-text-faint)]">
