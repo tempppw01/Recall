@@ -1492,7 +1492,7 @@ export default function Home() {
   const [isListsOpen, setIsListsOpen] = useState(true);
   const [lastRemovedTask, setLastRemovedTask] = useState<Task | null>(null);
   const [showAbout, setShowAbout] = useState(false);
-  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'agenda'>('day');
   const [showCompletedInCalendar, setShowCompletedInCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -1642,6 +1642,9 @@ export default function Home() {
     : '09:00';
 
   const selectedTaskPhoneNumbers = selectedTask ? extractPhoneNumbers(selectedTask.title) : [];
+  const canUploadTaskAttachments = Boolean(
+    webdavUrl.trim() && webdavUsername.trim() && webdavPassword.trim()
+  );
   const shouldShowTaskDetail = Boolean(selectedTask && activeFilter !== 'quadrant');
   const isTaskDetailFullscreen = shouldShowTaskDetail && viewportWidth > 0 && viewportWidth < 1280;
   const isTaskDetailDocked = shouldShowTaskDetail && !isTaskDetailFullscreen;
@@ -5981,7 +5984,7 @@ const headerTitle = activeFilter === 'category'
           activeFilter === 'quadrant' || isFixedPanelView ? 'min-h-0 overflow-hidden flex flex-col' : ''
         }`}>
           {activeFilter === 'calendar' ? (
-            <div className={`${calendarView === 'day' ? 'gap-3 sm:gap-4' : 'stack-gap'} flex flex-col`}>
+            <div className="flex flex-col gap-3 sm:gap-4">
               <CalendarTopPanel
                 calendarView={calendarView}
                 showCompletedInCalendar={showCompletedInCalendar}
@@ -6922,7 +6925,7 @@ const headerTitle = activeFilter === 'category'
                       <span>知识库</span>
                       <span className="rounded-full bg-[rgba(var(--theme-accent),0.12)] px-1.5 text-[10px]">{knowledgeEntries.length}</span>
                     </button>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center">
                       <ModelSelect
                         models={parseModelList(modelListText)}
                         value={chatModel}
@@ -6943,15 +6946,6 @@ const headerTitle = activeFilter === 'category'
                           <option key={model} value={model}>{model}</option>
                         ))}
                       </select>
-                      <button
-                        onClick={fetchModelList}
-                        disabled={isFetchingModels}
-                        className="rounded border border-[color:var(--ui-border-soft)] p-1 text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] hover:border-[color:var(--ui-border-strong)] disabled:opacity-50"
-                        title="拉取模型列表"
-                        aria-label="拉取模型列表"
-                      >
-                        <Cloud className={`w-3 h-3 ${isFetchingModels ? 'animate-bounce' : ''}`} />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -6984,18 +6978,20 @@ const headerTitle = activeFilter === 'category'
                           <div className="text-xs text-amber-100/80 mt-1">点击这里前往设置页面填写 Key</div>
                         </button>
                       ) : agentMessages.length === 0 ? (
-                        <div className="rounded-lg border border-[rgba(var(--theme-accent),0.16)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-sm text-[color:var(--ui-text-primary)]">先告诉我：想完成什么事情？</div>
+                        <div className="flex justify-start">
+                          <div className="w-fit max-w-[min(100%,30rem)] rounded-[22px] border border-cyan-500/20 bg-[color:var(--ui-card-bg)] px-4 py-2.5 text-sm text-[color:var(--ui-text-primary)] shadow-[0_8px_24px_rgba(15,23,42,0.12)]">先告诉我：想完成什么事情？</div>
+                        </div>
                       ) : (
                         <>
                           {agentMessages.map((message, idx) => (
                             <div
                               key={`${message.role}-${idx}`}
-                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                              className="flex justify-start"
                             >
                               <div
-                                className={`w-fit max-w-[min(100%,42rem)] rounded-2xl px-3 py-2 text-sm break-words [overflow-wrap:anywhere] ${
+                                className={`w-fit max-w-[min(100%,40rem)] rounded-[22px] border px-3.5 py-2.5 text-sm break-words [overflow-wrap:anywhere] shadow-[0_8px_24px_rgba(15,23,42,0.10)] ${
                                   message.role === 'user'
-                                    ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
+                                    ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
                                     : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
@@ -7212,7 +7208,9 @@ const headerTitle = activeFilter === 'category'
                           <div className="skeleton skeleton-shimmer rounded-lg h-12" />
                         </div>
                       ) : manageAgentMessages.length === 0 ? (
-                        <div className="rounded-lg border border-[rgba(var(--theme-accent),0.16)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-sm text-[color:var(--ui-text-primary)]">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
+                        <div className="flex justify-start">
+                          <div className="w-fit max-w-[min(100%,34rem)] rounded-[22px] border border-cyan-500/20 bg-[color:var(--ui-card-bg)] px-4 py-2.5 text-sm text-[color:var(--ui-text-primary)] shadow-[0_8px_24px_rgba(15,23,42,0.12)]">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
+                        </div>
                       ) : (
                         <>
                           {manageAgentMessages.map((message, idx) => {
@@ -7223,12 +7221,12 @@ const headerTitle = activeFilter === 'category'
                             return (
                               <div
                                 key={`${message.role}-${idx}`}
-                                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                className="flex justify-start"
                               >
                                 <div
-                                  className={`max-w-[86%] rounded-2xl px-3 py-2 text-sm ${
+                                  className={`w-fit max-w-[min(100%,40rem)] rounded-[22px] border px-3.5 py-2.5 text-sm shadow-[0_8px_24px_rgba(15,23,42,0.10)] ${
                                     message.role === 'user'
-                                      ? 'bg-[rgba(var(--theme-accent),0.14)] border border-[rgba(var(--theme-accent),0.28)] text-[color:var(--ui-text-strong)]'
+                                      ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
                                       : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
                                   }`}
                                 >
@@ -8793,61 +8791,62 @@ const headerTitle = activeFilter === 'category'
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">附件</label>
-                <div className="space-y-2">
-                  {(selectedTask.attachments || []).map((att) => (
-                    <div key={att.id} className="ui-hint-panel flex items-center justify-between rounded px-3 py-2">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <Paperclip className="w-3.5 h-3.5 text-[color:var(--ui-text-muted)] shrink-0" />
-                        <a 
-                          href={att.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-400 hover:text-blue-300 truncate"
+              {((selectedTask.attachments || []).length > 0 || canUploadTaskAttachments) && (
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">附件</label>
+                  <div className="space-y-2">
+                    {(selectedTask.attachments || []).map((att) => (
+                      <div key={att.id} className="ui-hint-panel flex items-center justify-between rounded px-3 py-2">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Paperclip className="w-3.5 h-3.5 text-[color:var(--ui-text-muted)] shrink-0" />
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="truncate text-xs text-blue-400 hover:text-blue-300"
+                          >
+                            {att.filename}
+                          </a>
+                          <span className="shrink-0 text-[10px] text-[color:var(--ui-text-muted)]">
+                            ({Math.round(att.size / 1024)}KB)
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => removeAttachment(att.id)}
+                          className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]"
+                          title="删除附件"
                         >
-                          {att.filename}
-                        </a>
-                        <span className="text-[10px] text-[color:var(--ui-text-muted)] shrink-0">
-                          ({Math.round(att.size / 1024)}KB)
-                        </span>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => removeAttachment(att.id)}
-                        className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]"
-                        title="删除附件"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      disabled={isUploading}
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="flex items-center gap-2 px-3 py-2 text-xs bg-[var(--ui-card-bg)] border border-[color:var(--ui-border-soft)] rounded text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50"
-                    >
-                      {isUploading ? (
-                        <div className="w-3.5 h-3.5 border-2 border-[color:var(--ui-border-strong)] border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Upload className="w-3.5 h-3.5" />
-                      )}
-                      {isUploading ? '上传中...' : '上传附件 (WebDAV)'}
-                    </button>
-                    {!webdavUrl && (
-                      <span className="text-[10px] text-yellow-500">需配置 WebDAV</span>
+                    ))}
+
+                    {canUploadTaskAttachments && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                          disabled={isUploading}
+                        />
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="flex items-center gap-2 rounded border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-3 py-2 text-xs text-[color:var(--ui-text-primary)] hover:border-[rgba(var(--theme-accent),0.3)] hover:text-[color:var(--ui-text-strong)] disabled:opacity-50"
+                        >
+                          {isUploading ? (
+                            <div className="w-3.5 h-3.5 border-2 border-[color:var(--ui-border-strong)] border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5" />
+                          )}
+                          {isUploading ? '上传中...' : '上传附件 (WebDAV)'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-[color:var(--ui-text-muted)] uppercase">重复</label>
