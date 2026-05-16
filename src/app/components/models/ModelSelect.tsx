@@ -21,15 +21,20 @@ type ModelProviderIconRule = {
   key: string;
   label: string;
   matchers: string[];
-  iconUrl: string;
+  iconUrl?: string;
+  lobeIconSlug?: string;
 };
+
+const buildLobeIconUrl = (slug: string) => (
+  `https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${slug}.svg`
+);
 
 const MODEL_PROVIDER_ICON_RULES: ModelProviderIconRule[] = [
   {
     key: 'deepseek',
     label: 'DeepSeek',
     matchers: ['deepseek'],
-    iconUrl: 'https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/deepseek-color.png',
+    lobeIconSlug: 'deepseek',
   },
   {
     key: 'gemini',
@@ -44,10 +49,22 @@ const MODEL_PROVIDER_ICON_RULES: ModelProviderIconRule[] = [
     iconUrl: 'https://organizationalphysics.com/wp-content/uploads/2025/05/grok-logo.png',
   },
   {
+    key: 'jina',
+    label: 'Jina',
+    matchers: ['jina'],
+    iconUrl: 'https://miro.medium.com/1*NNFKpvX4kJ6m1Xlzb7toiQ.png',
+  },
+  {
+    key: 'kimi',
+    label: 'Kimi',
+    matchers: ['kimi', 'moonshot'],
+    iconUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT67b4JNffRE6z2oqGQ9ht-nC--q28I1y14DQ&s',
+  },
+  {
     key: 'gpt',
-    label: 'GPT',
+    label: 'OpenAI',
     matchers: ['gpt', 'chatgpt', 'openai'],
-    iconUrl: 'https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/codex-color.png',
+    lobeIconSlug: 'openai',
   },
 ];
 
@@ -60,17 +77,25 @@ const resolveModelProvider = (model: string) => {
 
 const ModelIcon = ({ model, size = 'md' }: { model: string; size?: 'sm' | 'md' }) => {
   const provider = resolveModelProvider(model);
+  const [loadFailed, setLoadFailed] = useState(false);
   const boxSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
   const textSize = size === 'sm' ? 'text-[9px]' : 'text-[10px]';
 
-  if (provider) {
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [model, provider?.key]);
+
+  const providerIconUrl = provider?.iconUrl || (provider?.lobeIconSlug ? buildLobeIconUrl(provider.lobeIconSlug) : '');
+
+  if (provider && providerIconUrl && !loadFailed) {
     return (
       <img
-        src={provider.iconUrl}
+        src={providerIconUrl}
         alt={provider.label}
         className={`${boxSize} shrink-0 rounded-full object-cover`}
         loading="lazy"
         referrerPolicy="no-referrer"
+        onError={() => setLoadFailed(true)}
       />
     );
   }
