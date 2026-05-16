@@ -217,37 +217,31 @@ const buttonGroupClassName =
 const SETTINGS_SECTIONS: Array<{
   key: SettingsSectionKey;
   label: string;
-  description: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   {
     key: 'ai',
     label: 'AI 与模型',
-    description: '模型、上下文和创建策略',
     icon: Bot,
   },
   {
     key: 'appearance',
     label: '外观主题',
-    description: '日夜间、主色和渐变风格',
     icon: Palette,
   },
   {
     key: 'sync',
     label: '同步与附件',
-    description: 'Redis、日历订阅和 WebDAV',
     icon: Cloud,
   },
   {
     key: 'notifications',
     label: '通知',
-    description: '浏览器权限和测试通知',
     icon: Bell,
   },
   {
     key: 'data',
     label: '数据',
-    description: '导入、导出和恢复',
     icon: Database,
   },
 ];
@@ -551,20 +545,17 @@ const SettingsModal = ({
         className="relative flex h-full items-stretch justify-center p-0 sm:p-3 lg:p-4"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="theme-native-surface relative flex h-full w-full max-w-[980px] overflow-hidden border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(10,15,28,0.98),rgba(15,23,42,0.94))] shadow-[0_30px_90px_rgba(0,0,0,0.40)] sm:h-[min(84vh,760px)] sm:rounded-[28px]">
+        <div className="theme-native-surface relative flex h-full w-full max-w-[940px] overflow-hidden border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(10,15,28,0.98),rgba(15,23,42,0.94))] shadow-[0_24px_64px_rgba(0,0,0,0.32)] sm:h-[min(82vh,720px)] sm:rounded-[26px]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(var(--theme-accent),0.15),transparent_70%)] opacity-80" />
-          <aside className="relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] lg:w-[224px] lg:border-b-0 lg:border-r">
-            <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3.5 sm:px-4.5">
+          <aside className="relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] lg:w-[208px] lg:border-b-0 lg:border-r">
+            <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-4.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.1)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-muted)]">
                     <Sparkles className="h-3.5 w-3.5" />
                     设置
                   </span>
-                  <h2 className="mt-2.5 text-[22px] font-semibold tracking-[-0.04em] text-white">设置</h2>
-                  <p className="mt-1.5 text-[12px] leading-5 text-[color:var(--ui-text-muted)]">
-                    更紧凑地管理模型、同步、通知和外观。
-                  </p>
+                  <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.04em] text-white">设置</h2>
                 </div>
                 <button
                   type="button"
@@ -580,14 +571,14 @@ const SettingsModal = ({
 
             <div className="overflow-x-auto px-2.5 py-2.5 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:py-3">
               <div className="flex gap-2 lg:flex-col">
-                {SETTINGS_SECTIONS.map(({ key, label, description, icon: Icon }) => (
+                {SETTINGS_SECTIONS.map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => scrollToSection(key)}
-                    className={`group flex min-w-[152px] items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left transition-all lg:min-w-0 ${
+                    className={`group flex min-w-[132px] items-center gap-2.5 rounded-[14px] border px-2.5 py-2 text-left transition-all lg:min-w-0 ${
                       activeSection === key
-                        ? 'border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] shadow-[0_12px_24px_rgba(0,0,0,0.14)]'
+                        ? 'border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.1)]'
                         : 'border-transparent bg-transparent hover:border-white/10 hover:bg-white/[0.05]'
                     }`}
                   >
@@ -598,10 +589,7 @@ const SettingsModal = ({
                     }`}>
                       <Icon className="h-4 w-4" />
                     </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-semibold text-white">{label}</span>
-                      <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-muted)]">{description}</span>
-                    </span>
+                    <span className="min-w-0 truncate text-[13px] font-semibold text-white">{label}</span>
                   </button>
                 ))}
               </div>
@@ -611,15 +599,9 @@ const SettingsModal = ({
           <div className="relative z-10 flex min-h-0 flex-1 flex-col">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-5 lg:px-6">
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-faint)]">
-                  当前模块
-                </p>
-                <h3 className="mt-1.5 text-[17px] font-semibold text-white sm:text-[19px]">
+                <h3 className="text-[17px] font-semibold text-white sm:text-[18px]">
                   {activeSectionMeta.label}
                 </h3>
-                <p className="mt-0.5 text-[12px] text-[color:var(--ui-text-muted)]">
-                  {activeSectionMeta.description}
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 {showAutoSavedNotice ? (
@@ -647,7 +629,7 @@ const SettingsModal = ({
             onToggle={(event) =>
               setIsApiSettingsOpen((event.currentTarget as HTMLDetailsElement).open)
             }
-            className="group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
+            className="group settings-section scroll-mt-6 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] p-3.5"
           >
             <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
               <span>AI 基础设置</span>
@@ -714,9 +696,6 @@ const SettingsModal = ({
                       </option>
                     ))}
                   </select>
-                  <p className="ui-note mt-2 text-[11px] sm:text-xs">
-                    点击模型选择器时会自动尝试刷新模型列表，避免额外的手动拉取步骤。
-                  </p>
                   {modelFetchError && (
                     <p className="text-[11px] sm:text-xs text-red-300 mt-2">{modelFetchError}</p>
                   )}
@@ -734,9 +713,6 @@ const SettingsModal = ({
                       placeholder="jina-embeddings-v3"
                       className={baseInputClassName}
                     />
-                    <p className="ui-note mt-1 text-[11px] sm:text-xs">
-                      用于后续向量化知识库内容，当前会随设置同步保存。
-                    </p>
                   </div>
                   <div>
                     <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
@@ -749,9 +725,6 @@ const SettingsModal = ({
                       placeholder="jina-reranker-v3"
                       className={baseInputClassName}
                     />
-                    <p className="ui-note mt-1 text-[11px] sm:text-xs">
-                      用于从候选资料中挑更相关的内容，未配置时使用本地相关度。
-                    </p>
                   </div>
                 </div>
 
@@ -773,9 +746,6 @@ const SettingsModal = ({
                         placeholder={String(DEFAULT_FALLBACK_TIMEOUT_SEC)}
                         className={baseInputClassName}
                       />
-                      <p className="ui-note mt-1 text-[11px] sm:text-xs">
-                        超时将直接本地创建，避免无法新增。作为高级兜底设置，默认不放在常用区域。
-                      </p>
                       <div>
                         <div className="flex items-center justify-between gap-2">
                           <label className="ui-field-label mb-0 text-[11px] sm:text-xs">
@@ -801,9 +771,6 @@ const SettingsModal = ({
                             </button>
                           ))}
                         </div>
-                        <p className="ui-note mt-1 text-[11px] sm:text-xs">
-                          限制每次发送给 AI 的任务摘要、知识库候选和最近对话数量；越小越快，越大越完整。
-                        </p>
                       </div>
                     </div>
                   </div>
@@ -811,15 +778,12 @@ const SettingsModal = ({
 
                 <div
                   ref={appearanceSectionRef}
-                  className="scroll-mt-6 overflow-hidden rounded-[30px] border border-[rgba(var(--theme-accent),0.12)] bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.02))] shadow-[0_22px_48px_rgba(0,0,0,0.18)]"
+                  className="scroll-mt-6 overflow-hidden rounded-[24px] border border-[rgba(var(--theme-accent),0.1)] bg-[rgba(255,255,255,0.035)] shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
                 >
                   <div className="border-b border-[color:var(--ui-border-soft)] px-3.5 py-3.5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="ui-section-label text-[11px] sm:text-xs">外观设置</div>
-                        <p className="mt-1 text-sm text-[color:var(--ui-text-muted)]">
-                          把主题、色彩和信息显示收进一个更直觉的面板。
-                        </p>
                       </div>
                       <div className="inline-flex w-fit rounded-full border border-white/8 bg-black/20 p-1">
                         {([
@@ -1122,7 +1086,7 @@ const SettingsModal = ({
 
           <details
             ref={notificationsSectionRef}
-            className="group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
+            className="group settings-section scroll-mt-6 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] p-3.5"
           >
             <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
               <span>浏览器通知</span>
@@ -1130,18 +1094,23 @@ const SettingsModal = ({
             </summary>
             <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
               <div className="space-y-3 overflow-hidden mt-3">
-                <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs space-y-1">
-                  <p>支持情况：{notificationSupported ? '已支持' : '不支持'}（目前以 Safari/现代浏览器为主）</p>
-                  <p>安全上下文：{isSecureContext ? '是' : '否（需要 https 或 localhost）'}</p>
-                  <p>
-                    权限状态：
-                    {notificationPermission === 'granted'
+                <div className="flex flex-wrap gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
+                  <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1">
+                    支持：{notificationSupported ? '是' : '否'}
+                  </span>
+                  <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1">
+                    安全上下文：{isSecureContext ? '是' : '否'}
+                  </span>
+                  <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1">
+                    权限：{notificationPermission === 'granted'
                       ? '已授权'
                       : notificationPermission === 'denied'
-                      ? '已拒绝'
-                      : '未授权'}
-                  </p>
-                  <p>Service Worker：{serviceWorkerSupported ? '已支持' : '不支持'}</p>
+                        ? '已拒绝'
+                        : '未授权'}
+                  </span>
+                  <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1">
+                    Worker：{serviceWorkerSupported ? '已支持' : '不支持'}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={requestNotificationPermission} className="btn btn-md btn-ghost">
@@ -1151,9 +1120,6 @@ const SettingsModal = ({
                     发送测试通知
                   </button>
                 </div>
-                <p className="ui-note text-[11px] sm:text-xs">
-                  提示：浏览器会拦截非用户触发的通知，请尽量在手动点击按钮时申请或测试。
-                </p>
               </div>
             </div>
           </details>
@@ -1164,7 +1130,7 @@ const SettingsModal = ({
             onToggle={(event) =>
               setIsServerSettingsOpen((event.currentTarget as HTMLDetailsElement).open)
             }
-            className={`group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)] ${
+            className={`group settings-section scroll-mt-6 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] p-3.5 ${
               settingsFocusTarget === 'sync' ? 'ring-1 ring-amber-300/35' : ''
             }`}
           >
@@ -1174,10 +1140,6 @@ const SettingsModal = ({
             </summary>
             <div className="grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 grid-rows-[0fr] opacity-85">
               <div className="space-y-4 overflow-hidden mt-3">
-                <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs">
-                  用于连接远程服务，当前仍保存在浏览器本地。
-                </div>
-
                 <PgSettings
                   host={pgHost}
                   port={pgPort}
@@ -1216,9 +1178,6 @@ const SettingsModal = ({
                       placeholder={DEFAULT_SYNC_NAMESPACE}
                       className={baseInputClassName}
                     />
-                    <p className="ui-note mt-1 text-[11px] sm:text-xs">
-                      类似“房间号”，多端填写一致即可同步同一份数据。
-                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -1259,9 +1218,6 @@ const SettingsModal = ({
                     rows={3}
                     className={baseInputClassName}
                   />
-                  <p className="ui-note mt-1 text-[11px] sm:text-xs">
-                    目前先保存配置，后续可用于自动抓取日历。
-                  </p>
                 </div>
 
                 <div className="space-y-3">
@@ -1297,9 +1253,6 @@ const SettingsModal = ({
                     >
                       测试 WebDAV
                     </button>
-                  </div>
-                  <div className="ui-hint-panel rounded-2xl px-3 py-2.5 text-[12px] sm:text-xs">
-                    配置 WebDAV 后可上传图片和文件附件。
                   </div>
                   <div>
                     <label className="ui-field-label mb-2 text-[11px] sm:text-xs">服务地址</label>
@@ -1340,7 +1293,7 @@ const SettingsModal = ({
 
           <details
             ref={dataSectionRef}
-            className="group settings-section scroll-mt-6 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
+            className="group settings-section scroll-mt-6 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] p-3.5"
           >
             <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
               <span>数据导入导出</span>

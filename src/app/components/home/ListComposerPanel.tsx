@@ -1,4 +1,4 @@
-import { Plus, Send, SlidersHorizontal, X } from 'lucide-react';
+import { Plus, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 type SelectOption = { value: string; label: string };
@@ -95,23 +95,22 @@ export default function ListComposerPanel({
   return (
     <>
     <div className="theme-native-surface px-3 sm:px-6 pt-4 sm:pt-5">
-      <div className="glass-panel rounded-[30px] border-[color:var(--ui-border-strong)] px-3.5 py-3 sm:px-4 sm:py-4">
+      <div className="rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 sm:px-3.5 sm:py-3">
         <div className="flex flex-wrap items-center gap-2.5 text-xs text-[color:var(--ui-text-secondary)]">
           {totalTasks > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 py-1">
+              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2.5 py-1">
                 完成率 <span className="text-[color:var(--ui-text-strong)]">{completionRate}%</span>
               </span>
-              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 py-1">
+              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2.5 py-1">
                 拖延 <span className="text-[color:var(--ui-text-strong)]">{procrastinationIndex}%</span>
               </span>
             </div>
           )}
 
           {isBatchMode && (
-            <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-1">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2 py-1">
               <span className="px-1 text-[11px] text-[color:var(--ui-text-secondary)]">已选 {selectedCount}</span>
-              <span className="hidden px-1 text-[11px] text-[color:var(--ui-text-muted)] sm:inline">按住滑过可多选</span>
               <button
                 type="button"
                 onClick={onBatchComplete}
@@ -172,9 +171,9 @@ export default function ListComposerPanel({
           </div>
         </div>
 
-        {taskSortMode === 'manual' && taskGroupMode !== 'none' && (
-          <div className="mt-2 px-1 text-[11px] text-[color:var(--ui-text-muted)]">手动排序在分组时不可拖动</div>
-        )}
+        {taskSortMode === 'manual' && taskGroupMode !== 'none' ? (
+          <div className="mt-2 px-1 text-[11px] text-[color:var(--ui-text-muted)]">分组中暂不支持拖动排序</div>
+        ) : null}
       </div>
     </div>
     {showQuickAdd && (
@@ -191,14 +190,11 @@ export default function ListComposerPanel({
         <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[60] flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3 sm:right-6">
           {isQuickComposerOpen && (
             <div
-              className="motion-modal-surface w-[min(32rem,calc(100vw-2rem))] rounded-[28px] border border-[rgba(var(--theme-accent-soft),0.22)] bg-[color:var(--ui-modal-bg)] p-3 shadow-[0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:p-3.5"
+              className="motion-modal-surface w-[min(30rem,calc(100vw-2rem))] rounded-[24px] border border-[rgba(var(--theme-accent-soft),0.18)] bg-[color:var(--ui-modal-bg)] p-3 shadow-[0_18px_42px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-3"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-3 px-1 pb-2">
-                <div>
-                  <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">快速创建任务</div>
-                  <div className="text-[11px] text-[color:var(--ui-text-muted)]">直接写一句话，时间、标签和优先级会自动识别。</div>
-                </div>
+                <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">快速创建</div>
                 <button
                   type="button"
                   onClick={() => setIsQuickComposerOpen(false)}
@@ -210,7 +206,7 @@ export default function ListComposerPanel({
                 </button>
               </div>
 
-              <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-2">
+              <div className="rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] p-2">
                 <div className="flex items-center gap-2">
                   <input
                     ref={quickInputRef}
@@ -239,10 +235,6 @@ export default function ListComposerPanel({
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-[rgba(255,255,255,0.05)] pt-2">
-                  <span className="inline-flex h-7 items-center gap-1 rounded-full px-2 text-[10px] text-[color:var(--ui-text-muted)]">
-                    <SlidersHorizontal className="h-3 w-3" />
-                    快捷项
-                  </span>
                   {[
                     ['高', '高优先级'],
                     ['中', '中优先级'],

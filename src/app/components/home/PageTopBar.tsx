@@ -1,10 +1,10 @@
 import { Cloud, Flame, Inbox, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal } from 'lucide-react';
 
 const iconButtonClassName =
-  'btn btn-ghost motion-card surface-sheen h-9 w-9 rounded-xl border-[color:var(--ui-border-soft)] p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
-const actionButtonClassName = 'btn btn-secondary btn-sm motion-card surface-sheen h-8 shrink-0 rounded-xl border px-2.5 text-[11px] sm:h-9';
+  'btn btn-ghost motion-card h-8 w-8 rounded-lg border-[color:var(--ui-border-soft)] bg-transparent p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
+const actionButtonClassName = 'btn btn-secondary btn-sm motion-card h-8 shrink-0 rounded-lg border px-2.5 text-[11px]';
 const utilityGroupClassName =
-  'flex shrink-0 items-center gap-1 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] px-1 py-0.5 sm:ml-1';
+  'flex shrink-0 items-center gap-0.5 sm:ml-1';
 
 type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -54,12 +54,12 @@ export default function PageTopBar({
   return (
     <header className="theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
       <div className="mx-auto w-full max-w-[1680px] px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10">
-        <div className="topbar-panel topbar-ribbon px-2.5 py-2.5 sm:px-3.5 sm:py-3 lg:px-4">
-          <div className="flex min-h-9 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="topbar-panel px-2 py-2 sm:px-3 sm:py-2.5 lg:px-3.5">
+          <div className="flex min-h-8 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="flex w-full min-w-0 items-center gap-2.5 sm:flex-1 sm:gap-3">
               <button
                 onClick={onOpenSidebar}
-                className={`-ml-0.5 min-h-10 min-w-10 shrink-0 bg-[color:var(--ui-card-bg)] shadow-[0_6px_16px_rgba(0,0,0,0.12)] sm:hidden ${iconButtonClassName}`}
+                className={`-ml-0.5 min-h-9 min-w-9 shrink-0 bg-transparent shadow-none sm:hidden ${iconButtonClassName}`}
                 aria-label="打开导航"
                 title="打开导航"
               >
@@ -67,21 +67,19 @@ export default function PageTopBar({
               </button>
 
               <div className="min-w-0 flex-1">
-                <h2 className="flex min-w-0 items-center gap-2 text-[15px] font-semibold tracking-tight text-[color:var(--ui-text-strong)] sm:text-base">
+                <h2
+                  className="flex min-w-0 items-center gap-2 text-[15px] font-semibold tracking-tight text-[color:var(--ui-text-strong)] sm:text-base"
+                  title={headerSubtitle ?? headerTitle}
+                >
                   {activeFilter === 'inbox' && <Inbox className="h-[18px] w-[18px] shrink-0 text-blue-400" />}
                   {activeFilter === 'today' && <Sun className="h-[18px] w-[18px] shrink-0 text-yellow-400" />}
                   {activeFilter === 'habit' && <Flame className="h-[18px] w-[18px] shrink-0 text-orange-400" />}
                   <span className="truncate">{headerTitle}</span>
                 </h2>
-                {headerSubtitle ? (
-                  <p className="mt-1 hidden max-w-3xl truncate text-[11px] text-[color:var(--ui-text-muted)] sm:block">
-                    {headerSubtitle}
-                  </p>
-                ) : null}
               </div>
             </div>
 
-            <div className="mobile-toolbar -mx-0.5 flex w-[calc(100%+0.25rem)] shrink-0 items-center gap-1 overflow-x-auto px-0.5 pb-0.5 text-[color:var(--ui-icon-muted)] sm:mx-0 sm:w-auto sm:justify-end sm:gap-1.5 sm:overflow-visible sm:px-0 sm:pb-0 lg:gap-2">
+            <div className="mobile-toolbar -mx-0.5 flex w-[calc(100%+0.25rem)] shrink-0 items-center gap-1 overflow-x-auto px-0.5 pb-0.5 text-[color:var(--ui-icon-muted)] sm:mx-0 sm:w-auto sm:justify-end sm:gap-1 sm:overflow-visible sm:px-0 sm:pb-0 lg:gap-1.5">
               {isListView && (
                 <button
                   onClick={onToggleBatchMode}
@@ -111,7 +109,7 @@ export default function PageTopBar({
               </button>
 
               {isSyncingNow && (
-                <div className="skeleton skeleton-shimmer hidden items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] text-blue-100 sm:flex">
+                <div className="skeleton skeleton-shimmer hidden items-center gap-2 rounded-lg px-2 py-1 text-[11px] text-blue-100 md:flex">
                   <span className="icon-halo float-bob h-2 w-2 rounded-full bg-blue-300" />
                   同步队列处理中
                 </div>
@@ -154,7 +152,7 @@ export default function PageTopBar({
               <div className={utilityGroupClassName}>
                 <button
                   onClick={onOpenSettings}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] sm:h-8 sm:px-2.5 sm:text-xs"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] sm:h-8 sm:px-2 sm:text-xs"
                   title="打开设置"
                   aria-label="打开设置面板"
                 >
@@ -164,7 +162,7 @@ export default function PageTopBar({
 
                 <button
                   onClick={onOpenAbout}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] sm:h-8 sm:px-2.5 sm:text-xs"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] sm:h-8 sm:px-2 sm:text-xs"
                   title="关于 Recall"
                   aria-label="打开关于 Recall"
                 >

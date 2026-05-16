@@ -114,7 +114,6 @@ import {
   Copy,
   RotateCcw,
   Library,
-  MessageCircle,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -7354,7 +7353,7 @@ const headerTitle = activeFilter === 'category'
             <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
               <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
                 <div className="flex justify-end">
-                  <div className="conversation-inline-surface flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+                  <div className="conversation-inline-surface flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-[18px] border border-[color:var(--ui-border-soft)] px-2 py-1.5 backdrop-blur-xl">
                     <button
                       type="button"
                       onClick={() => setActiveFilter('knowledge')}
@@ -7415,12 +7414,11 @@ const headerTitle = activeFilter === 'category'
                           className="w-full text-left rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 hover:border-amber-300/60 hover:bg-amber-500/15 transition-colors"
                           title="未配置 AI Key，点击前往设置"
                         >
-                          <div className="text-sm text-amber-200 font-medium">未检测到 AI Key，AI 助手暂不可用</div>
-                          <div className="text-xs text-amber-100/80 mt-1">点击这里前往设置页面填写 Key</div>
+                          <div className="text-sm text-amber-200 font-medium">未检测到 AI Key，点击前往设置</div>
                         </button>
                       ) : agentMessages.length === 0 ? (
-                        <div className="flex justify-start">
-                          <div className="w-fit max-w-[min(100%,30rem)] rounded-[22px] border border-cyan-500/20 bg-[color:var(--ui-card-bg)] px-4 py-2.5 text-sm text-[color:var(--ui-text-primary)] shadow-[0_8px_24px_rgba(15,23,42,0.12)]">先告诉我：想完成什么事情？</div>
+                        <div className="px-1 pt-1 text-xs text-[color:var(--ui-text-muted)]">
+                          先说想完成什么。
                         </div>
                       ) : (
                         <>
@@ -7649,8 +7647,8 @@ const headerTitle = activeFilter === 'category'
                           <div className="skeleton skeleton-shimmer rounded-lg h-12" />
                         </div>
                       ) : manageAgentMessages.length === 0 ? (
-                        <div className="flex justify-start">
-                          <div className="w-fit max-w-[min(100%,34rem)] rounded-[22px] border border-cyan-500/20 bg-[color:var(--ui-card-bg)] px-4 py-2.5 text-sm text-[color:var(--ui-text-primary)] shadow-[0_8px_24px_rgba(15,23,42,0.12)]">先告诉我：你想怎么管理这些任务？例如“帮我挑出今天最该做的 5 个”。</div>
+                        <div className="px-1 pt-1 text-xs text-[color:var(--ui-text-muted)]">
+                          直接说想怎么处理这些任务。
                         </div>
                       ) : (
                         <>
@@ -8021,7 +8019,7 @@ const headerTitle = activeFilter === 'category'
                 )}
 
                 {aiAssistantMode === 'record' && agentImages.length > 0 && (
-                  <div className="conversation-inline-surface-soft flex flex-wrap gap-2 rounded-[24px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 backdrop-blur-xl">
+                  <div className="conversation-inline-surface-soft flex flex-wrap gap-2 rounded-[18px] border border-[color:var(--ui-border-soft)] px-2.5 py-2 backdrop-blur-xl">
                     {agentImages.map((image) => (
                       <div
                         key={image.id}
@@ -8048,8 +8046,7 @@ const headerTitle = activeFilter === 'category'
                   </div>
 
                 <div
-                  className="conversation-composer-surface flex shrink-0 flex-wrap items-center gap-2 rounded-[26px] border border-[color:var(--ui-border-soft)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4"
-                  title="AI 会结合当前任务、时间占用和知识库，优先给出可直接选择的安排建议。"
+                  className="conversation-composer-surface flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.10)] backdrop-blur-2xl sm:px-3.5"
                 >
                   <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
                     <button
@@ -8146,14 +8143,10 @@ const headerTitle = activeFilter === 'category'
           ) : activeFilter === 'chat' ? (
             <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
               <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
-                <div className="conversation-inline-surface flex flex-wrap items-center gap-2.5 rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 backdrop-blur-xl">
-                  <div className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
-                    <MessageCircle className="h-3.5 w-3.5 shrink-0 text-sky-400" />
-                    <span className="truncate">普通对话为主，相关时自动参考知识库。</span>
-                  </div>
+                <div className="conversation-inline-surface flex flex-wrap items-center justify-end gap-2 rounded-[18px] border border-[color:var(--ui-border-soft)] px-2.5 py-1.5 backdrop-blur-xl">
                   <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
                     <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
-                      自动沉淀 · 知识 {knowledgeEntries.length}
+                      知识 {knowledgeEntries.length}
                     </span>
                     <button
                       type="button"
@@ -8180,15 +8173,11 @@ const headerTitle = activeFilter === 'category'
                         }}
                         className="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 text-left transition-colors hover:border-amber-300/60 hover:bg-amber-500/15"
                       >
-                        <div className="text-sm font-medium text-amber-200">未检测到 AI Key</div>
-                        <div className="mt-1 text-xs text-amber-100/80">点击前往设置填写 Key 后即可聊天</div>
+                        <div className="text-sm font-medium text-amber-200">未检测到 AI Key，点击前往设置</div>
                       </button>
                     ) : casualChatMessages.length === 0 ? (
-                      <div className="flex justify-center px-3 pb-1 pt-3 sm:px-4">
-                        <div className="inline-flex max-w-[34rem] items-start gap-2 text-center text-[13px] leading-6 text-[color:var(--ui-text-muted)]">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400/80 shadow-[0_0_16px_rgba(56,189,248,0.26)]" />
-                          <p>可以问任何问题，也可以让它结合你的偏好、习惯和知识库聊。</p>
-                        </div>
+                      <div className="px-1 pt-1 text-xs text-[color:var(--ui-text-muted)]">
+                        直接开始聊就行。
                       </div>
                     ) : (
                       casualChatMessages.map((message, index) => (
@@ -8241,26 +8230,19 @@ const headerTitle = activeFilter === 'category'
                     <div ref={casualChatConversationEndRef} aria-hidden="true" />
                   </div>
 
-                  <div className="conversation-composer-surface shrink-0 space-y-2 rounded-[26px] border border-[color:var(--ui-border-soft)] px-3 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:px-4">
+                  <div className="conversation-composer-surface shrink-0 space-y-2 rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.10)] backdrop-blur-2xl sm:px-3.5">
                     <div className="flex items-center justify-between gap-2 px-1">
                       <div className="min-w-0 flex items-center gap-2 text-[11px] text-[color:var(--ui-text-muted)]">
                         <Library className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                        <span className="shrink-0 rounded-full border border-[rgba(250,204,21,0.24)] bg-[rgba(250,204,21,0.08)] px-2 py-0.5 text-[10px] text-amber-200">
-                          AI 摘要
-                        </span>
                         <span className="truncate">{casualKnowledgeInlineText}</span>
                       </div>
                       {casualKnowledgePreviewEntries.length > 0 && (
                         <details className="group relative shrink-0">
                           <summary className="conversation-reference-pill flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]">
-                            <span>参考 {casualKnowledgePreviewEntries.length}</span>
+                            <span>资料 {casualKnowledgePreviewEntries.length}</span>
                             <ChevronDown className="h-3.5 w-3.5 text-[color:var(--ui-icon-muted)] transition-transform group-open:rotate-180" />
                           </summary>
                           <div className="conversation-reference-popover absolute bottom-[calc(100%+0.65rem)] right-0 z-20 w-[min(24rem,calc(100vw-2.5rem))] rounded-[22px] border border-[color:var(--ui-border-soft)] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.28)] backdrop-blur-xl">
-                            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-strong)]">
-                              <Library className="h-3.5 w-3.5 text-amber-400" />
-                              <span>本次可参考资料</span>
-                            </div>
                             {renderCasualKnowledgePreview()}
                           </div>
                         </details>

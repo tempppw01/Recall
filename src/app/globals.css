@@ -283,9 +283,9 @@ button {
 .topbar-shell {
   position: sticky;
   overflow: visible;
-  background: linear-gradient(180deg, rgba(10, 13, 20, 0.82), rgba(10, 13, 20, 0.06));
+  background: linear-gradient(180deg, rgba(10, 13, 20, 0.72), rgba(10, 13, 20, 0.04));
   border-bottom: 1px solid rgba(var(--theme-accent-soft), 0.02);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
 }
 
 .topbar-shell::before,
@@ -297,13 +297,13 @@ button {
 
 .topbar-shell::before {
   inset: 0 12% auto 12%;
-  height: 64px;
+  height: 52px;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 12% 50%, rgba(var(--theme-grad-start), 0.12), transparent 30%),
-    radial-gradient(circle at 88% 45%, rgba(var(--theme-grad-end), 0.1), transparent 26%);
-  filter: blur(20px);
-  opacity: 0.55;
+    radial-gradient(circle at 12% 50%, rgba(var(--theme-grad-start), 0.08), transparent 28%),
+    radial-gradient(circle at 88% 45%, rgba(var(--theme-grad-end), 0.07), transparent 24%);
+  filter: blur(18px);
+  opacity: 0.32;
 }
 
 .topbar-shell::after {
@@ -312,21 +312,21 @@ button {
   inset: auto 0 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(var(--theme-accent-soft), 0.26), transparent);
-  opacity: 0.75;
+  opacity: 0.5;
 }
 
 .topbar-panel {
   position: relative;
   overflow: hidden;
-  border-radius: 0 0 24px 24px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 0 0 20px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.035);
   border-top: 0;
-  background: linear-gradient(180deg, rgba(15, 20, 30, 0.72), rgba(15, 20, 30, 0.34));
+  background: linear-gradient(180deg, rgba(15, 20, 30, 0.62), rgba(15, 20, 30, 0.24));
   box-shadow:
-    inset 0 -1px 0 rgba(var(--theme-accent-soft), 0.08),
-    0 12px 30px rgba(15, 23, 42, 0.1);
-  backdrop-filter: blur(20px) saturate(155%);
-  -webkit-backdrop-filter: blur(20px) saturate(155%);
+    inset 0 -1px 0 rgba(var(--theme-accent-soft), 0.05),
+    0 8px 18px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
 }
 
 .topbar-ribbon::before,
@@ -363,29 +363,29 @@ button {
 
 body.theme-light .topbar-panel {
   border-color: rgba(148, 163, 184, 0.14);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 248, 255, 0.48));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(246, 249, 255, 0.38));
   box-shadow:
-    inset 0 -1px 0 rgba(var(--theme-accent-soft), 0.1),
-    0 12px 28px rgba(15, 23, 42, 0.06);
+    inset 0 -1px 0 rgba(var(--theme-accent-soft), 0.08),
+    0 8px 18px rgba(15, 23, 42, 0.04);
 }
 
 body.theme-light .topbar-shell {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 248, 255, 0.1));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(244, 248, 255, 0.08));
   border-bottom-color: rgba(148, 163, 184, 0.06);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.03);
 }
 
 body.theme-light .glass-panel {
   border-color: rgba(148, 163, 184, 0.16);
   box-shadow:
-    0 12px 28px rgba(15, 23, 42, 0.06),
+    0 8px 20px rgba(15, 23, 42, 0.045),
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 body.theme-light .glass-panel:hover {
   border-color: rgba(var(--theme-accent-soft), 0.20);
   box-shadow:
-    0 16px 34px rgba(15, 23, 42, 0.08),
+    0 10px 24px rgba(15, 23, 42, 0.055),
     0 0 0 1px rgba(var(--theme-accent), 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
@@ -393,7 +393,7 @@ body.theme-light .glass-panel:hover {
 body.theme-light .glass-panel-soft {
   border-color: rgba(148, 163, 184, 0.14);
   box-shadow:
-    0 8px 22px rgba(15, 23, 42, 0.05),
+    0 4px 14px rgba(15, 23, 42, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.68);
 }
 
@@ -430,9 +430,9 @@ body.theme-light .glass-panel-soft {
 
 .glass-panel {
   background: var(--glass-panel-bg);
-  border: 1px solid rgba(110, 118, 138, 0.18);
+  border: 1px solid rgba(110, 118, 138, 0.14);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.22),
+    0 8px 24px rgba(0, 0, 0, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.015);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
@@ -441,8 +441,8 @@ body.theme-light .glass-panel-soft {
 .glass-panel:hover {
   border-color: rgba(var(--theme-accent-soft), 0.22);
   box-shadow:
-    0 18px 54px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(var(--theme-accent), 0.08),
+    0 12px 30px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(var(--theme-accent), 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.018);
 }
 
@@ -474,7 +474,7 @@ body.theme-light .glass-panel-soft {
   background: var(--glass-panel-soft-bg);
   border: 1px solid rgba(110, 118, 138, 0.14);
   box-shadow:
-    0 8px 30px rgba(0, 0, 0, 0.18),
+    0 4px 16px rgba(0, 0, 0, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.012);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);

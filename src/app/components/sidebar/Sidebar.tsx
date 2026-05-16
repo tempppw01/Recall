@@ -493,40 +493,30 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
             role="menu"
             className={`absolute z-50 ${
               isRail
-                ? 'left-full top-1/2 ml-2.5 w-64 -translate-y-1/2'
-                : 'left-0 top-full mt-2.5 w-[min(82vw,280px)]'
+                ? 'left-full top-1/2 ml-2.5 w-56 -translate-y-1/2'
+                : 'left-0 top-full mt-2.5 w-[min(78vw,248px)]'
             }`}
           >
-            <div className="overflow-hidden rounded-[24px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(11,18,32,0.97),rgba(15,23,42,0.92))] p-2.5 text-[color:var(--ui-text-primary)] shadow-[0_24px_56px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
-              <div className="rounded-[18px] border border-white/10 bg-white/[0.045] px-3 py-2.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-[rgba(var(--theme-accent),0.24)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.18),rgba(var(--theme-grad-end),0.08))] text-[color:var(--ui-text-strong)]">
-                    <Smile className="h-4.5 w-4.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-white">Recall</p>
-                    <p className="mt-0.5 truncate text-[11px] text-[color:var(--ui-text-muted)]">设置与统计入口</p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.12)] px-1.5 py-0.5 text-[9px] font-semibold text-[color:var(--ui-text-muted)]">
-                    v{APP_VERSION}
-                  </span>
+            <div className="overflow-hidden rounded-[20px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(11,18,32,0.96),rgba(15,23,42,0.9))] p-2 text-[color:var(--ui-text-primary)] shadow-[0_18px_40px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)] text-[color:var(--ui-text-strong)]">
+                  <Smile className="h-4 w-4" />
                 </div>
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">Recall</p>
+                <span className="shrink-0 text-[10px] text-[color:var(--ui-text-muted)]">v{APP_VERSION}</span>
               </div>
 
-              <div className="mt-2.5 space-y-1.5">
+              <div className="mt-1 space-y-1">
                 <button
                   type="button"
                   onClick={handleOpenSettings}
                   role="menuitem"
-                  className="group/menu-item flex w-full items-center gap-2.5 rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2.5 text-left transition-all hover:border-[rgba(var(--theme-accent),0.22)] hover:bg-white/[0.07]"
+                  className="group/menu-item flex w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left transition-all hover:bg-white/[0.06]"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.14)] text-[color:rgb(var(--theme-accent))]">
-                    <Settings className="h-4 w-4" />
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[rgba(var(--theme-accent),0.12)] text-[color:rgb(var(--theme-accent))]">
+                    <Settings className="h-3.5 w-3.5" />
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-white">设置</span>
-                    <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-muted)]">模型、同步、通知、外观</span>
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-white">设置</span>
                   <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
                 </button>
 
@@ -534,19 +524,16 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
                   type="button"
                   onClick={handleOpenStats}
                   role="menuitem"
-                  className={`group/menu-item flex w-full items-center gap-2.5 rounded-[18px] border px-3 py-2.5 text-left transition-all ${
+                  className={`group/menu-item flex w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left transition-all ${
                     activeFilter === 'stats'
-                      ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.16)]'
-                      : 'border-white/8 bg-white/[0.03] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-white/[0.07]'
+                      ? 'bg-[rgba(var(--theme-accent),0.12)]'
+                      : 'hover:bg-white/[0.06]'
                   }`}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-sky-300/15 bg-sky-400/10 text-sky-200">
-                    <BarChart3 className="h-4 w-4" />
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-sky-400/10 text-sky-200">
+                    <BarChart3 className="h-3.5 w-3.5" />
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-white">统计</span>
-                    <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-muted)]">任务、专注、习惯趋势</span>
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-white">统计</span>
                   <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--ui-text-faint)] transition-transform duration-[var(--motion-base)] group-hover/menu-item:translate-x-0.5" />
                 </button>
               </div>
@@ -725,9 +712,6 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
                             v{APP_VERSION}
                           </span>
                         </div>
-                        <p className="mt-1 truncate text-[11px] text-[color:var(--ui-text-muted)]">
-                          设置和统计从这里展开
-                        </p>
                       </div>
                     </div>
                   </div>
