@@ -76,7 +76,7 @@ export default function CalendarTopPanel({
   }, [hasSelectedCity, cityLabel]);
 
   return (
-    <div className="calendar-top-panel sticky top-0 z-20 -mx-1 border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(18,18,22,0.88))] px-1 pb-3 pt-1 backdrop-blur-xl">
+    <div className="calendar-top-panel relative z-10 -mx-1 border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(18,18,22,0.88))] px-1 pb-3 pt-1 backdrop-blur-xl lg:sticky lg:top-[5.5rem] lg:z-20 xl:top-24">
       <div className="space-y-3 rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.16)] sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">

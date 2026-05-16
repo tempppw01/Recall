@@ -56,7 +56,7 @@ export default function CalendarScheduleGrid({
         className="grid min-w-full"
         style={{ gridTemplateColumns: `72px repeat(${dateKeys.length}, minmax(${columnWidth}px, 1fr))` }}
       >
-        <div className="sticky left-0 top-0 z-20 border-b border-r border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/96 backdrop-blur" />
+        <div className="sticky left-0 z-[6] border-b border-r border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/96 backdrop-blur" />
         {dateKeys.map((dateKey) => {
           const date = parseDateKey(dateKey);
           const isToday = dateKey === todayKey;
@@ -65,7 +65,7 @@ export default function CalendarScheduleGrid({
               key={`header-${dateKey}`}
               type="button"
               onClick={() => onSelectDate?.(dateKey)}
-              className={`sticky top-0 z-10 flex min-h-[72px] flex-col items-start justify-center gap-1 border-b border-r border-[color:var(--ui-border-soft)] px-4 text-left backdrop-blur transition-colors last:border-r-0 ${
+              className={`relative z-[1] flex min-h-[72px] flex-col items-start justify-center gap-1 border-b border-r border-[color:var(--ui-border-soft)] px-4 text-left backdrop-blur transition-colors last:border-r-0 ${
                 isToday
                   ? 'bg-[rgba(var(--theme-accent),0.14)]'
                   : 'bg-[color:var(--ui-surface-1)]/96 hover:bg-[color:var(--ui-hover-bg)]'
