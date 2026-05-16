@@ -98,6 +98,7 @@ export type TaskItemProps = {
   dragLabel?: string;
   dragTitle?: string;
   showInlineQuickActions?: boolean;
+  compactText?: boolean;
   helpers: TaskItemHelpers;
 };
 
@@ -127,6 +128,7 @@ const TaskItem = ({
   dragTitle = '拖动排序',
   dragEnabled = true,
   showInlineQuickActions = false,
+  compactText = false,
   helpers,
 }: TaskItemProps) => {
   const {
@@ -488,7 +490,9 @@ const TaskItem = ({
                       event.stopPropagation();
                       setIsSubtasksOpen((prev) => !prev);
                     }}
-                    className={`mt-0.5 shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-[var(--ui-card-bg)] motion-press ${isSubtasksOpen ? 'text-[color:var(--ui-text-strong)] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[color:var(--ui-text-muted)] border-[color:var(--ui-border-soft)] hover:text-[color:var(--ui-text-strong)]'}`}
+                    className={`mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border bg-[var(--ui-card-bg)] px-1.5 py-0.5 text-[10px] motion-press ${
+                      compactText ? 'max-w-[6.25rem]' : ''
+                    } ${isSubtasksOpen ? 'text-[color:var(--ui-text-strong)] border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.10)]' : 'text-[color:var(--ui-text-muted)] border-[color:var(--ui-border-soft)] hover:text-[color:var(--ui-text-strong)]'}`}
                     aria-label={isSubtasksOpen ? '收起子任务' : '展开子任务'}
                   >
                     {isSubtasksOpen ? (
@@ -496,7 +500,7 @@ const TaskItem = ({
                     ) : (
                       <ChevronDown className="w-3 h-3 transition-transform duration-[var(--motion-base)]" />
                     )}
-                    <span>子任务 {completedSubtasks}/{subtaskTotal}</span>
+                    <span className={compactText ? 'truncate' : ''}>子任务 {completedSubtasks}/{subtaskTotal}</span>
                   </button>
                 )}
                 <div className="min-w-0 flex-1">
@@ -512,17 +516,22 @@ const TaskItem = ({
                           onTitleClick?.();
                         }}
                         className={`min-w-0 flex-1 text-left text-[13px] font-medium leading-snug ${
+                          compactText ? 'truncate' : 'break-words [overflow-wrap:anywhere]'
+                        } ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                         }`}
-                        title="点击编辑标题"
+                        title={task.title}
                       >
                         {task.title}
                       </button>
                     ) : (
                       <p
                         className={`min-w-0 flex-1 text-[13px] font-medium leading-snug ${
+                          compactText ? 'truncate' : 'break-words [overflow-wrap:anywhere]'
+                        } ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                         }`}
+                        title={task.title}
                       >
                         {task.title}
                       </p>
@@ -530,10 +539,12 @@ const TaskItem = ({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className={`flex shrink-0 items-center gap-1.5 ${compactText ? 'max-w-[7rem] flex-wrap justify-end' : ''}`}>
                 {dueCountdown && (
                   <span
                     className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border px-1.5 text-[10px] font-medium leading-none tracking-[-0.01em] ${
+                      compactText ? 'max-w-[6.25rem] truncate' : ''
+                    } ${
                       dueCountdown.isOverdue
                         ? 'border-red-500/25 bg-red-500/10 text-red-300'
                         : 'border-sky-500/20 bg-sky-500/10 text-sky-200'
@@ -549,7 +560,9 @@ const TaskItem = ({
                     draggable
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
-                    className={`transition-opacity text-[10px] text-[color:var(--ui-text-muted)] px-1.5 py-0.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] cursor-grab active:cursor-grabbing touch-none hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)] ${selected ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
+                    className={`rounded-full border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-muted)] transition-opacity cursor-grab touch-none active:cursor-grabbing hover:text-[color:var(--ui-text-strong)] hover:border-[rgba(var(--theme-accent),0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.35)] ${
+                      compactText ? 'max-w-[5rem] truncate' : ''
+                    } ${selected ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
                     onMouseDown={(event) => {
                       event.stopPropagation();
                     }}

@@ -6887,7 +6887,9 @@ const headerTitle = activeFilter === 'category'
                                     setDragOverQuadrantKey(null);
                                   }}
                                   dragEnabled
+                                  dragLabel="拖动"
                                   showInlineQuickActions
+                                  compactText
                                   onTitleClick={() => {
                                     setEditingTaskId(task.id);
                                     setEditingTaskTitle(task.title);
