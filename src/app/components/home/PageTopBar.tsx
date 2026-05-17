@@ -1,8 +1,8 @@
-import { Cloud, Flame, Inbox, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal } from 'lucide-react';
+import { CheckSquare, Cloud, Flame, Inbox, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal, Trash2 } from 'lucide-react';
 
 const iconButtonClassName =
   'btn btn-ghost motion-card h-8 w-8 rounded-lg border-[color:var(--ui-border-soft)] bg-transparent p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
-const actionButtonClassName = 'btn btn-secondary btn-sm motion-card h-8 shrink-0 rounded-lg border px-2.5 text-[11px]';
+const actionButtonClassName = 'btn btn-secondary btn-sm motion-card h-8 shrink-0 rounded-lg border text-[11px]';
 const utilityGroupClassName =
   'flex shrink-0 items-center gap-0.5 sm:ml-1';
 
@@ -55,11 +55,11 @@ export default function PageTopBar({
     <header className="theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
       <div className="mx-auto w-full max-w-[1680px] px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10">
         <div className="topbar-panel px-2 py-2 sm:px-3 sm:py-2.5 lg:px-3.5">
-          <div className="flex min-h-8 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-            <div className="flex w-full min-w-0 items-center gap-2.5 sm:flex-1 sm:gap-3">
+          <div className="flex min-h-8 items-center justify-between gap-2 sm:gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
               <button
                 onClick={onOpenSidebar}
-                className={`-ml-0.5 min-h-9 min-w-9 shrink-0 bg-transparent shadow-none sm:hidden ${iconButtonClassName}`}
+                className={`-ml-0.5 min-h-9 min-w-9 shrink-0 bg-transparent shadow-none lg:hidden ${iconButtonClassName}`}
                 aria-label="打开导航"
                 title="打开导航"
               >
@@ -79,18 +79,20 @@ export default function PageTopBar({
               </div>
             </div>
 
-            <div className="mobile-toolbar -mx-0.5 flex w-[calc(100%+0.25rem)] shrink-0 items-center gap-1 overflow-x-auto px-0.5 pb-0.5 text-[color:var(--ui-icon-muted)] sm:mx-0 sm:w-auto sm:justify-end sm:gap-1 sm:overflow-visible sm:px-0 sm:pb-0 lg:gap-1.5">
+            <div className="mobile-toolbar flex min-w-0 shrink-0 items-center justify-end gap-0.5 overflow-hidden text-[color:var(--ui-icon-muted)] sm:w-auto sm:gap-1 sm:overflow-visible lg:gap-1.5">
               {isListView && (
                 <button
                   onClick={onToggleBatchMode}
-                  className={`${actionButtonClassName} ${
+                  className={`${actionButtonClassName} w-8 justify-center px-0 lg:w-auto lg:px-2.5 ${
                     isBatchMode
                       ? 'border-blue-400/60 bg-blue-500/12 text-blue-100 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]'
                       : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
                   }`}
                   title={isBatchMode ? '退出批量模式' : '批量选择'}
+                  aria-label={isBatchMode ? '退出批量模式' : '批量选择'}
                 >
-                  {isBatchMode ? '退出批量' : '批量'}
+                  <CheckSquare className="h-4 w-4 lg:hidden" />
+                  <span className="hidden lg:inline">{isBatchMode ? '退出批量' : '批量'}</span>
                 </button>
               )}
 
@@ -118,10 +120,12 @@ export default function PageTopBar({
               {activeFilter === 'completed' && completedTasks > 0 && (
                 <button
                   onClick={onClearCompleted}
-                  className={`${actionButtonClassName} border-red-500/35 text-xs text-red-300 hover:bg-red-500/10 sm:text-sm`}
+                  className={`${actionButtonClassName} w-8 justify-center border-red-500/35 px-0 text-xs text-red-300 hover:bg-red-500/10 lg:w-auto lg:px-2.5 lg:text-sm`}
                   title="清空已完成"
+                  aria-label="清空已完成"
                 >
-                  清空已完成
+                  <Trash2 className="h-4 w-4 lg:hidden" />
+                  <span className="hidden lg:inline">清空已完成</span>
                 </button>
               )}
 

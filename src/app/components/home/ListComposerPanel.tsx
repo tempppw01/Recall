@@ -57,18 +57,18 @@ const MetricProgressPill = ({
     : 'border-emerald-400/25 bg-emerald-400/10 text-emerald-400';
 
   return (
-    <div className="min-w-[142px] rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 py-2 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-      <div className="flex items-center gap-2">
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${iconClassName}`}>
-          <Icon className="h-3.5 w-3.5" />
+    <div className="min-w-0 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-1.5 shadow-[0_8px_18px_rgba(15,23,42,0.06)] lg:min-w-[142px] lg:px-2.5 lg:py-2">
+      <div className="flex items-center gap-1.5 lg:gap-2">
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border lg:h-7 lg:w-7 ${iconClassName}`}>
+          <Icon className="h-3 w-3 lg:h-3.5 lg:w-3.5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[11px] font-medium text-[color:var(--ui-text-secondary)]">{label}</span>
-            <span className="text-[13px] font-semibold tabular-nums text-[color:var(--ui-text-strong)]">{percent}%</span>
+            <span className="truncate text-[10px] font-medium text-[color:var(--ui-text-secondary)] lg:text-[11px]">{label}</span>
+            <span className="text-xs font-semibold tabular-nums text-[color:var(--ui-text-strong)] lg:text-[13px]">{percent}%</span>
           </div>
           <div
-            className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[color:var(--ui-hover-bg)]"
+            className="mt-1 h-1 overflow-hidden rounded-full bg-[color:var(--ui-hover-bg)] lg:mt-1.5 lg:h-1.5"
             role="progressbar"
             aria-label={`${label} ${percent}%`}
             aria-valuemin={0}
@@ -147,10 +147,10 @@ export default function ListComposerPanel({
   return (
     <>
     <div className="theme-native-surface px-3 sm:px-6 pt-4 sm:pt-5">
-      <div className="rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 sm:px-3.5 sm:py-3">
-        <div className="flex flex-wrap items-center gap-2.5 text-xs text-[color:var(--ui-text-secondary)]">
+      <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-2 lg:rounded-[24px] lg:px-3.5 lg:py-3">
+        <div className="grid gap-2 text-xs text-[color:var(--ui-text-secondary)] lg:flex lg:flex-wrap lg:items-center lg:gap-2.5">
           {totalTasks > 0 && (
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <div className="grid min-w-0 grid-cols-2 gap-2 lg:flex lg:flex-1 lg:flex-wrap lg:items-center">
               <MetricProgressPill
                 icon={CheckCircle2}
                 label="完成率"
@@ -163,14 +163,14 @@ export default function ListComposerPanel({
                 value={procrastinationIndex}
                 tone="risk"
               />
-              <span className="hidden rounded-full border border-[color:var(--ui-border-soft)] px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] sm:inline-flex">
+              <span className="hidden rounded-full border border-[color:var(--ui-border-soft)] px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] lg:inline-flex">
                 实时 · {totalTasks} 项
               </span>
             </div>
           )}
 
           {isBatchMode && (
-            <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2 py-1">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2 py-1 lg:w-auto">
               <span className="px-1 text-[11px] text-[color:var(--ui-text-secondary)]">已选 {selectedCount}</span>
               <button
                 type="button"
@@ -199,13 +199,13 @@ export default function ListComposerPanel({
             </div>
           )}
 
-          <div className="ml-0 flex flex-wrap items-center gap-2 sm:ml-auto">
+          <div className="grid min-w-0 grid-cols-2 gap-2 lg:ml-auto lg:flex lg:flex-wrap lg:items-center">
             <label htmlFor="task-sort-mode" className="sr-only">排序</label>
             <select
               id="task-sort-mode"
               value={taskSortMode}
               onChange={(event) => onTaskSortModeChange(event.target.value)}
-              className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-1.5 text-[12px] text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[color:var(--ui-border-strong)] focus:border-[rgba(var(--theme-accent),0.55)]"
+              className="min-w-0 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-1.5 text-[11px] text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[color:var(--ui-border-strong)] focus:border-[rgba(var(--theme-accent),0.55)] lg:px-3 lg:text-[12px]"
               aria-label="排序方式"
             >
               {sortOptions.map((option) => (
@@ -220,7 +220,7 @@ export default function ListComposerPanel({
               id="task-group-mode"
               value={taskGroupMode}
               onChange={(event) => onTaskGroupModeChange(event.target.value)}
-              className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-1.5 text-[12px] text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[color:var(--ui-border-strong)] focus:border-[rgba(var(--theme-accent),0.55)]"
+              className="min-w-0 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-1.5 text-[11px] text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[color:var(--ui-border-strong)] focus:border-[rgba(var(--theme-accent),0.55)] lg:px-3 lg:text-[12px]"
               aria-label="分组方式"
             >
               {groupOptions.map((option) => (
