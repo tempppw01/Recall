@@ -5922,19 +5922,23 @@ const headerTitle = activeFilter === 'category'
         : '本地检索';
 
     return (
-      <div className="mt-2 border-t border-cyan-400/10 pt-2">
-        <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-muted)]">
-          已提供给 AI 参考 · {strategyLabel} · {normalizedRefs.length} 条
-        </div>
-        <div className="mt-1.5">
-          <button
-            type="button"
-            onClick={() => setActiveFilter('knowledge')}
-            className="inline-flex items-center rounded-full border border-cyan-300/18 bg-cyan-400/8 px-2 py-0.5 text-[10px] text-cyan-200 transition-colors hover:bg-cyan-400/14 hover:text-cyan-100"
-          >
-            查看
-          </button>
-        </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] leading-none text-[color:var(--ui-text-muted)]">
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-cyan-300/12 bg-cyan-400/6 px-1.5 py-1"
+          title={`已提供给 AI 参考 · ${strategyLabel} · ${normalizedRefs.length} 条`}
+        >
+          <Library className="h-2.5 w-2.5 text-cyan-300/80" />
+          <span>知识库</span>
+          <span className="text-cyan-200/80">{normalizedRefs.length}</span>
+          <span className="hidden text-[color:var(--ui-text-muted)] sm:inline">· {strategyLabel}</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setActiveFilter('knowledge')}
+          className="rounded-full px-1.5 py-1 text-[10px] text-cyan-200/90 transition-colors hover:bg-cyan-400/10 hover:text-cyan-100"
+        >
+          查看
+        </button>
       </div>
     );
   };
