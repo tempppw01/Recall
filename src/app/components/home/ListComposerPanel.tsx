@@ -1,4 +1,4 @@
-import { Plus, Send, X } from 'lucide-react';
+import { CheckCircle2, Clock3, Plus, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 type SelectOption = { value: string; label: string };
@@ -33,6 +33,58 @@ const TASK_PLACEHOLDERS = [
   '给妈妈回电话，备注一下体检时间',
   '把新功能验收清单补完 #Recall',
 ];
+
+const clampPercent = (value: number) => Math.min(100, Math.max(0, Math.round(Number.isFinite(value) ? value : 0)));
+
+const MetricProgressPill = ({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof CheckCircle2;
+  label: string;
+  value: number;
+  tone: 'success' | 'risk';
+}) => {
+  const percent = clampPercent(value);
+  const isRisk = tone === 'risk';
+  const barClassName = isRisk
+    ? 'from-rose-400 via-orange-400 to-amber-300'
+    : 'from-emerald-400 via-teal-400 to-sky-400';
+  const iconClassName = isRisk
+    ? 'border-rose-400/25 bg-rose-400/10 text-rose-400'
+    : 'border-emerald-400/25 bg-emerald-400/10 text-emerald-400';
+
+  return (
+    <div className="min-w-[142px] rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 py-2 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+      <div className="flex items-center gap-2">
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${iconClassName}`}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-[11px] font-medium text-[color:var(--ui-text-secondary)]">{label}</span>
+            <span className="text-[13px] font-semibold tabular-nums text-[color:var(--ui-text-strong)]">{percent}%</span>
+          </div>
+          <div
+            className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[color:var(--ui-hover-bg)]"
+            role="progressbar"
+            aria-label={`${label} ${percent}%`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+          >
+            <div
+              className={`h-full rounded-full bg-gradient-to-r ${barClassName} transition-[width] duration-500 ease-out`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /**
  * 列表视图下的输入与批量工具区：
@@ -98,12 +150,21 @@ export default function ListComposerPanel({
       <div className="rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 sm:px-3.5 sm:py-3">
         <div className="flex flex-wrap items-center gap-2.5 text-xs text-[color:var(--ui-text-secondary)]">
           {totalTasks > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2.5 py-1">
-                完成率 <span className="text-[color:var(--ui-text-strong)]">{completionRate}%</span>
-              </span>
-              <span className="rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2.5 py-1">
-                拖延 <span className="text-[color:var(--ui-text-strong)]">{procrastinationIndex}%</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <MetricProgressPill
+                icon={CheckCircle2}
+                label="完成率"
+                value={completionRate}
+                tone="success"
+              />
+              <MetricProgressPill
+                icon={Clock3}
+                label="拖延指数"
+                value={procrastinationIndex}
+                tone="risk"
+              />
+              <span className="hidden rounded-full border border-[color:var(--ui-border-soft)] px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] sm:inline-flex">
+                实时 · {totalTasks} 项
               </span>
             </div>
           )}
