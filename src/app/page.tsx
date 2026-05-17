@@ -955,23 +955,6 @@ const groupTasksByFutureSignal = (
     }));
 };
 
-const summarizeFutureTaskGroups = (groups: TaskGroup[]) => {
-  const summary = {
-    overdue: 0,
-    today: 0,
-    upcoming: 0,
-    future: 0,
-  };
-
-  groups.forEach((group) => {
-    if (group.key === 'overdue' || group.key === 'today' || group.key === 'upcoming' || group.key === 'future') {
-      summary[group.key] = group.items.length;
-    }
-  });
-
-  return summary;
-};
-
 const parseHabitFrequencyToRepeat = (frequency?: string, dueDate?: string): TaskRepeatRule | undefined => {
   const text = frequency?.trim();
   if (!text) return { type: 'daily' };
@@ -2924,7 +2907,6 @@ export default function Home() {
   const sortedTasks = sortTasks(filteredTasks, taskSortMode);
   const groupedTasks = groupTasks(sortedTasks, taskGroupMode);
   const futureAwareGroupedTasks = groupTasksByFutureSignal(sortedTasks, filterNow);
-  const futureTaskSummary = summarizeFutureTaskGroups(futureAwareGroupedTasks);
 
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const totalTasks = tasks.length;
@@ -8680,24 +8662,6 @@ const headerTitle = activeFilter === 'category'
                 </div>
               ) : (
                 <>
-                  {activeFilter !== 'completed' && (
-                    <div className="theme-native-surface inline-flex max-w-3xl rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(var(--theme-accent),0.045)] px-3 py-2.5">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-[11px] uppercase tracking-[0.14em] text-[#8EA3FF]">时间感知</div>
-                          <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">先看今天和近期</div>
-                          <div className="text-xs text-[color:var(--ui-text-secondary)]">逾期优先，远期稍后。</div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-[11px]">
-                          {futureTaskSummary.overdue > 0 && <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-rose-100">逾期 {futureTaskSummary.overdue}</span>}
-                          {futureTaskSummary.today > 0 && <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-100">今天 {futureTaskSummary.today}</span>}
-                          {futureTaskSummary.upcoming > 0 && <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-sky-100">即将到来 {futureTaskSummary.upcoming}</span>}
-                          {futureTaskSummary.future > 0 && <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-violet-100">更远计划 {futureTaskSummary.future}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   {activeFilter === 'completed' && completedTasks > 0 && (
                     <div className="theme-native-surface flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-3">
                       <div className="min-w-0">
