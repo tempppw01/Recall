@@ -834,6 +834,53 @@ body.theme-light .theme-native-surface input[type='datetime-local']::-webkit-cal
   color: var(--ui-text-strong);
 }
 
+.settings-modal-backdrop {
+  background: rgba(4, 7, 12, 0.58);
+  backdrop-filter: blur(10px) saturate(135%);
+  -webkit-backdrop-filter: blur(10px) saturate(135%);
+}
+
+.settings-modal-surface {
+  background:
+    radial-gradient(circle at top, rgba(var(--theme-accent), 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    var(--ui-modal-bg);
+}
+
+.settings-modal-nav {
+  background:
+    linear-gradient(180deg, rgba(var(--theme-accent), 0.055), rgba(var(--theme-accent), 0.018)),
+    var(--ui-card-bg);
+}
+
+body.theme-light .settings-modal-backdrop {
+  background: rgba(15, 23, 42, 0.24);
+  backdrop-filter: blur(5px) saturate(120%);
+  -webkit-backdrop-filter: blur(5px) saturate(120%);
+}
+
+body.theme-light .settings-modal-surface {
+  background:
+    radial-gradient(circle at top, rgba(var(--theme-accent), 0.10), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 248, 253, 0.94)),
+    var(--ui-modal-bg);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.16);
+}
+
+body.theme-light .settings-modal-root [class~="text-white"],
+body.theme-light .settings-modal-root [class*="hover:text-white"]:hover {
+  color: var(--ui-text-strong) !important;
+}
+
+body.theme-light .settings-modal-root [class*="bg-white/"],
+body.theme-light .settings-modal-root [class*="bg-black/"] {
+  background-color: var(--ui-card-bg) !important;
+}
+
+body.theme-light .settings-modal-root [class*="border-white/"] {
+  border-color: var(--ui-border-soft) !important;
+}
+
 .ui-panel-muted {
   border-radius: 1.5rem;
   border: 1px solid var(--ui-border-soft);

@@ -400,7 +400,11 @@ const SettingsModal = ({
     }
 
     window.setTimeout(() => {
-      getSectionTarget(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const target = getSectionTarget(section);
+      if (target instanceof HTMLDetailsElement) {
+        target.open = true;
+      }
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
   };
 
@@ -531,23 +535,24 @@ const SettingsModal = ({
       return;
     }
     setActiveSection('ai');
+    setIsApiSettingsOpen(true);
   }, [settingsFocusTarget, showSettings]);
 
   if (!showSettings) return null;
 
   return (
-    <div className="fixed inset-0 z-50 motion-modal-overlay">
+    <div className="settings-modal-root fixed inset-0 z-50 motion-modal-overlay">
       <div
-        className="absolute inset-0 bg-[rgba(6,11,23,0.72)] backdrop-blur-xl"
+        className="settings-modal-backdrop absolute inset-0 bg-[color:var(--ui-overlay-bg)] backdrop-blur-md"
         onClick={() => setShowSettings(false)}
       />
       <div
-        className="relative flex h-full items-stretch justify-center p-0 sm:p-3 lg:p-4"
+        className="relative flex h-full items-center justify-center p-3 sm:p-5 lg:p-8"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="theme-native-surface relative flex h-full w-full max-w-[940px] overflow-hidden border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(10,15,28,0.98),rgba(15,23,42,0.94))] shadow-[0_24px_64px_rgba(0,0,0,0.32)] sm:h-[min(82vh,720px)] sm:rounded-[26px]">
+        <div className="settings-modal-surface theme-native-surface relative flex h-[min(88dvh,760px)] w-full max-w-[1080px] flex-col overflow-hidden rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-modal-bg)] shadow-[0_24px_64px_rgba(0,0,0,0.24)] lg:flex-row">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(var(--theme-accent),0.15),transparent_70%)] opacity-80" />
-          <aside className="relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] lg:w-[208px] lg:border-b-0 lg:border-r">
+          <aside className="settings-modal-nav relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] lg:w-[216px] lg:border-b-0 lg:border-r">
             <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-4.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -555,12 +560,12 @@ const SettingsModal = ({
                     <Sparkles className="h-3.5 w-3.5" />
                     设置
                   </span>
-                  <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.04em] text-white">设置</h2>
+                  <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)]">设置</h2>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowSettings(false)}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:hidden"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:hidden"
                   aria-label="关闭设置"
                   title="关闭设置"
                 >
@@ -579,17 +584,17 @@ const SettingsModal = ({
                     className={`group flex min-w-[132px] items-center gap-2.5 rounded-[14px] border px-2.5 py-2 text-left transition-all lg:min-w-0 ${
                       activeSection === key
                         ? 'border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.1)]'
-                        : 'border-transparent bg-transparent hover:border-white/10 hover:bg-white/[0.05]'
+                        : 'border-transparent bg-transparent hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-hover-bg)]'
                     }`}
                   >
                     <span className={`flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-[12px] border transition-all ${
                       activeSection === key
                         ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.14)] text-[color:rgb(var(--theme-accent))]'
-                        : 'border-[color:var(--ui-border-soft)] bg-white/[0.04] text-[color:var(--ui-text-secondary)] group-hover:text-white'
+                        : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] group-hover:text-[color:var(--ui-text-strong)]'
                     }`}>
                       <Icon className="h-4 w-4" />
                     </span>
-                    <span className="min-w-0 truncate text-[13px] font-semibold text-white">{label}</span>
+                    <span className="min-w-0 truncate text-[13px] font-semibold text-[color:var(--ui-text-strong)]">{label}</span>
                   </button>
                 ))}
               </div>
@@ -599,7 +604,7 @@ const SettingsModal = ({
           <div className="relative z-10 flex min-h-0 flex-1 flex-col">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-5 lg:px-6">
               <div className="min-w-0">
-                <h3 className="text-[17px] font-semibold text-white sm:text-[18px]">
+                <h3 className="text-[17px] font-semibold text-[color:var(--ui-text-strong)] sm:text-[18px]">
                   {activeSectionMeta.label}
                 </h3>
               </div>
@@ -612,7 +617,7 @@ const SettingsModal = ({
                 <button
                   type="button"
                   onClick={() => setShowSettings(false)}
-                  className="hidden h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-white/5 text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-white/10 hover:text-white lg:inline-flex"
+                  className="hidden h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:inline-flex"
                   aria-label="关闭设置"
                   title="关闭设置"
                 >
@@ -621,8 +626,8 @@ const SettingsModal = ({
               </div>
             </div>
 
-            <div className="min-h-0 overflow-y-auto px-4 py-3.5 sm:px-5 sm:py-4 lg:px-6">
-              <div className="space-y-3 text-sm sm:space-y-3.5">
+            <div className="min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 lg:px-6">
+              <div className="space-y-3 text-sm">
           <details
             ref={aiSectionRef}
             open={isApiSettingsOpen}
