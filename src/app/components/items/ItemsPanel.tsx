@@ -3,6 +3,12 @@ import { AlertTriangle, Edit3, MapPin, Package2, Plus, Search, Tag, X, XCircle }
 import { Item } from '@/lib/store';
 
 type ItemStatus = Item['status'];
+type QuickItemTemplate = {
+  name: string;
+  category: string;
+  tags?: string[];
+  note?: string;
+};
 
 const statusMeta: Record<ItemStatus, { label: string; className: string }> = {
   normal: { label: '正常', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' },
@@ -10,6 +16,14 @@ const statusMeta: Record<ItemStatus, { label: string; className: string }> = {
   need_restock: { label: '待补货', className: 'border-orange-500/30 bg-orange-500/10 text-orange-200' },
   missing: { label: '缺失', className: 'border-rose-500/30 bg-rose-500/10 text-rose-200' },
 };
+
+const quickItemTemplates: QuickItemTemplate[] = [
+  { name: '电池', category: '耗材', tags: ['常用', '补货'] },
+  { name: '药品', category: '健康', tags: ['常用', '有效期'] },
+  { name: '线材', category: '数码', tags: ['常用', '收纳'] },
+  { name: '证件', category: '证件', tags: ['重要', '随身'] },
+  { name: '工具', category: '工具', tags: ['常用', '归位'] },
+];
 
 type ItemsPanelProps = {
   items: Item[];
@@ -36,6 +50,7 @@ type ItemsPanelProps = {
   onUpdateItemStatus: (id: string, status: ItemStatus) => void;
   onDeleteItem: (id: string) => void;
   onCreateItemTask: (item: Item, action: 'restock' | 'buy' | 'put_back') => void;
+  onQuickCreateItem: (template: QuickItemTemplate) => void;
 };
 
 const FIELD_CLASS_NAME = 'ui-input rounded-xl text-sm';
@@ -65,6 +80,7 @@ export default function ItemsPanel({
   onUpdateItemStatus,
   onDeleteItem,
   onCreateItemTask,
+  onQuickCreateItem,
 }: ItemsPanelProps) {
   const [isItemFormOpen, setIsItemFormOpen] = useState(false);
   const lowStockCount = items.filter((item) => item.status === 'low_stock' || item.status === 'need_restock').length;
@@ -152,10 +168,17 @@ export default function ItemsPanel({
                 从经常找不到或需要补货的东西开始，比如电池、药品、线材、证件或工具。
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                {['电池', '药品', '线材', '证件', '工具'].map((label) => (
-                  <span key={label} className="ui-badge rounded-full px-2.5 py-1 text-[11px]">
-                    {label}
-                  </span>
+                {quickItemTemplates.map((template) => (
+                  <button
+                    key={template.name}
+                    type="button"
+                    onClick={() => onQuickCreateItem(template)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.10)] px-3 py-1.5 text-xs font-medium text-[color:var(--ui-text-strong)] transition-all hover:-translate-y-0.5 hover:border-[rgba(var(--theme-accent),0.36)] hover:bg-[rgba(var(--theme-accent),0.16)]"
+                    title={`快速添加${template.name}`}
+                  >
+                    <Plus className="h-3 w-3" />
+                    {template.name}
+                  </button>
                 ))}
               </div>
             </div>
@@ -290,8 +313,8 @@ export default function ItemsPanel({
             type="button"
             onClick={openNewItemForm}
             className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(var(--theme-accent),0.28)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-strong)] shadow-[0_18px_40px_rgba(15,23,42,0.28)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-[rgba(var(--theme-accent),0.4)] hover:bg-[color:var(--ui-card-hover-bg)]"
-            aria-label="鏂板鐗╁搧"
-            title="鏂板鐗╁搧"
+            aria-label="新增物品"
+            title="新增物品"
           >
             <Plus className="h-6 w-6" />
           </button>

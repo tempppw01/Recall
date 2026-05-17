@@ -8448,6 +8448,25 @@ const headerTitle = activeFilter === 'category'
                 setItemNoteInput('');
                 pushLog('success', editingItemId ? '已更新物品' : '已添加物品', `物品：${name}`);
               }}
+              onQuickCreateItem={(template) => {
+                const nowIso = new Date().toISOString();
+                itemStore.add({
+                  id: createId(),
+                  name: template.name,
+                  category: template.category,
+                  location: undefined,
+                  quantity: 1,
+                  status: 'normal',
+                  tags: template.tags || [],
+                  note: template.note,
+                  createdAt: nowIso,
+                  updatedAt: nowIso,
+                });
+                refreshItems();
+                setItemSearch('');
+                setItemStatusFilter('all');
+                pushLog('success', '已快速添加物品', `物品：${template.name}`);
+              }}
               onEditItem={(item) => {
                 setEditingItemId(item.id);
                 setItemNameInput(item.name);
