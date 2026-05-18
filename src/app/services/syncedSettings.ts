@@ -1,4 +1,11 @@
 import { normalizeAiContextLimit } from '@/app/services/aiContextLimit';
+import {
+  DEFAULT_WEB_SEARCH_MAX_RESULTS,
+  DEFAULT_WEB_SEARCH_PROVIDER,
+  normalizeWebSearchMaxResults,
+  normalizeWebSearchProvider,
+  type WebSearchProvider,
+} from '@/app/services/webSearchConfig';
 
 export type ResolveSyncedSettingsParams = {
   payload: any;
@@ -8,6 +15,9 @@ export type ResolveSyncedSettingsParams = {
     chatModel: string;
     embeddingModel: string;
     rerankModel: string;
+    webSearchEnabled: boolean;
+    webSearchProvider: WebSearchProvider;
+    webSearchMaxResults: number;
     fallbackTimeoutSec: number;
     autoSyncEnabled: boolean;
     autoSyncInterval: number;
@@ -16,6 +26,7 @@ export type ResolveSyncedSettingsParams = {
     aiContextLimit: number;
 
     apiKey: string;
+    tavilyApiKey: string;
     pgHost: string;
     pgPort: string;
     pgDatabase: string;
@@ -54,6 +65,17 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
   const nextRerankModel = typeof settings.rerankModel === 'string' && settings.rerankModel.trim().length > 0
     ? settings.rerankModel
     : (current.rerankModel || defaults.defaultRerankModel);
+  const nextWebSearchEnabled = typeof settings.webSearchEnabled === 'boolean'
+    ? settings.webSearchEnabled
+    : current.webSearchEnabled;
+  const nextWebSearchProvider = typeof settings.webSearchProvider === 'string'
+    ? normalizeWebSearchProvider(settings.webSearchProvider)
+    : (current.webSearchProvider || DEFAULT_WEB_SEARCH_PROVIDER);
+  const nextWebSearchMaxResults = normalizeWebSearchMaxResults(
+    typeof settings.webSearchMaxResults === 'undefined'
+      ? (current.webSearchMaxResults || DEFAULT_WEB_SEARCH_MAX_RESULTS)
+      : settings.webSearchMaxResults,
+  );
   const nextFallback = Number.isFinite(Number(settings.fallbackTimeoutSec))
     ? Number(settings.fallbackTimeoutSec)
     : defaults.defaultFallbackTimeoutSec;
@@ -66,6 +88,7 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
   );
 
   const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : current.apiKey;
+  const nextTavilyApiKey = typeof secrets.tavilyApiKey === 'string' ? secrets.tavilyApiKey : current.tavilyApiKey;
   const nextPgHost = typeof settings.pgHost === 'string' ? settings.pgHost : current.pgHost;
   const nextPgPort = typeof settings.pgPort === 'string' ? settings.pgPort : current.pgPort;
   const nextPgDatabase = typeof settings.pgDatabase === 'string' ? settings.pgDatabase : current.pgDatabase;
@@ -88,6 +111,10 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
     nextChatModel,
     nextEmbeddingModel,
     nextRerankModel,
+    nextWebSearchEnabled,
+    nextWebSearchProvider,
+    nextWebSearchMaxResults,
+    nextTavilyApiKey,
     nextFallback,
     nextAutoSyncEnabled,
     nextAutoSyncInterval,

@@ -22,6 +22,14 @@ import Redis from 'ioredis';
 import { DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
 import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
 import { inferRepeatRuleFromText, normalizeTaskRepeatRule } from '@/app/services/repeatRules';
+import {
+  DEFAULT_WEB_SEARCH_MAX_RESULTS,
+  DEFAULT_WEB_SEARCH_PROVIDER,
+  WEB_SEARCH_PROVIDER_LABELS,
+  normalizeWebSearchMaxResults,
+  normalizeWebSearchProvider,
+  type WebSearchProvider,
+} from '@/app/services/webSearchConfig';
 
 // ─── AI API 配置 ────────────────────────────────────────────
 
@@ -313,6 +321,296 @@ async function requestRerank(baseUrls: string[], apiKey: string | undefined, pay
     }
   }
   throw new Error(`Rerank failed: ${errors.join(' | ') || 'all endpoints failed'}`);
+}
+
+type WebSearchConfig = {
+  enabled: boolean;
+  provider: WebSearchProvider;
+  tavilyApiKey: string;
+  maxResults: number;
+};
+
+type WebSearchResult = {
+  title: string;
+  url: string;
+  content: string;
+};
+
+type WebSearchPayload = {
+  provider: WebSearchProvider;
+  providerLabel: string;
+  answer?: string;
+  results: WebSearchResult[];
+  error?: string;
+};
+
+const TAVILY_API_BASE_URL = 'https://api.tavily.com';
+const WEB_SEARCH_TIMEOUT_MS = 8000;
+const WEB_SEARCH_INTENT_PATTERN = /联网|搜索|搜一下|查一下|查找|最新|今天|新闻|实时|官网|网址|价格|天气|汇率|股价|赛事|日程|政策|法规|资料|来源|google|bing|baidu|tavily|search|latest|today|news|price|weather|website|official/i;
+
+function normalizeWebSearchConfig(value: any): WebSearchConfig {
+  return {
+    enabled: value?.enabled === true,
+    provider: normalizeWebSearchProvider(value?.provider ?? DEFAULT_WEB_SEARCH_PROVIDER),
+    tavilyApiKey: typeof value?.tavilyApiKey === 'string' ? value.tavilyApiKey.trim() : '',
+    maxResults: normalizeWebSearchMaxResults(value?.maxResults ?? DEFAULT_WEB_SEARCH_MAX_RESULTS),
+  };
+}
+
+function shouldUseWebSearch(mode: unknown, input: string, config: WebSearchConfig) {
+  if (!config.enabled || !input.trim()) return false;
+  if (mode === 'casual-chat') return true;
+  if (mode === 'todo-agent' || mode === 'manage-agent') return WEB_SEARCH_INTENT_PATTERN.test(input);
+  return false;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = WEB_SEARCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ');
+}
+
+function stripHtml(value: string) {
+  return decodeHtmlEntities(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function compactSearchText(value: unknown, maxLength = 280) {
+  const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+  return text.length > maxLength ? `${text.slice(0, maxLength).trim()}...` : text;
+}
+
+function normalizeSearchUrl(provider: WebSearchProvider, href: string) {
+  const bases: Record<WebSearchProvider, string> = {
+    tavily: TAVILY_API_BASE_URL,
+    google: 'https://www.google.com',
+    bing: 'https://www.bing.com',
+    baidu: 'https://www.baidu.com',
+  };
+  let candidate = decodeHtmlEntities(href).trim();
+  if (!candidate || candidate.startsWith('#') || candidate.startsWith('javascript:')) return '';
+
+  try {
+    const maybeWrapped = new URL(candidate, bases[provider]);
+    if (provider === 'google' && maybeWrapped.hostname.includes('google.') && maybeWrapped.pathname === '/url') {
+      candidate = maybeWrapped.searchParams.get('q') || '';
+    } else {
+      candidate = maybeWrapped.toString();
+    }
+  } catch {
+    return '';
+  }
+
+  try {
+    const url = new URL(candidate);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    const host = url.hostname.toLowerCase();
+    if (host.includes('google.') && url.pathname.startsWith('/search')) return '';
+    if (host.includes('bing.com') && url.pathname.startsWith('/search')) return '';
+    if (host.includes('baidu.com') && (url.pathname === '/s' || url.pathname.startsWith('/baidu'))) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function extractLocalSearchResults(html: string, provider: WebSearchProvider, maxResults: number): WebSearchResult[] {
+  const results: WebSearchResult[] = [];
+  const seen = new Set<string>();
+  const anchorPattern = /<a\b[^>]*href=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = anchorPattern.exec(html)) && results.length < maxResults) {
+    const href = match[1] || match[2] || match[3] || '';
+    const rawTitle = stripHtml(match[4] || '');
+    const title = compactSearchText(rawTitle, 120);
+    if (title.length < 2 || /^(cached|translate|图片|视频|地图|新闻|登录)$/i.test(title)) continue;
+
+    const url = normalizeSearchUrl(provider, href);
+    if (!url || seen.has(url)) continue;
+
+    const nextChunk = html.slice(match.index + match[0].length, match.index + match[0].length + 900);
+    const content = compactSearchText(stripHtml(nextChunk), 260);
+    seen.add(url);
+    results.push({
+      title,
+      url,
+      content: content && !content.includes(title) ? content : '',
+    });
+  }
+
+  return results;
+}
+
+async function searchWithTavily(query: string, config: WebSearchConfig): Promise<WebSearchPayload> {
+  if (!config.tavilyApiKey) {
+    return {
+      provider: 'tavily',
+      providerLabel: WEB_SEARCH_PROVIDER_LABELS.tavily,
+      results: [],
+      error: 'Tavily API Key is missing.',
+    };
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${TAVILY_API_BASE_URL}/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.tavilyApiKey}`,
+      },
+      body: JSON.stringify({
+        query,
+        search_depth: 'basic',
+        max_results: config.maxResults,
+        include_answer: true,
+      }),
+    });
+
+    if (!res.ok) {
+      return {
+        provider: 'tavily',
+        providerLabel: WEB_SEARCH_PROVIDER_LABELS.tavily,
+        results: [],
+        error: `Tavily request failed: ${res.status}`,
+      };
+    }
+
+    const data = await res.json();
+    const results = Array.isArray(data?.results)
+      ? data.results
+          .map((item: any) => ({
+            title: compactSearchText(item?.title, 120),
+            url: typeof item?.url === 'string' ? item.url.trim() : '',
+            content: compactSearchText(item?.content || item?.raw_content, 360),
+          }))
+          .filter((item: WebSearchResult) => item.title && item.url)
+          .slice(0, config.maxResults)
+      : [];
+
+    return {
+      provider: 'tavily',
+      providerLabel: WEB_SEARCH_PROVIDER_LABELS.tavily,
+      answer: compactSearchText(data?.answer, 600),
+      results,
+    };
+  } catch (error) {
+    return {
+      provider: 'tavily',
+      providerLabel: WEB_SEARCH_PROVIDER_LABELS.tavily,
+      results: [],
+      error: `Tavily request failed: ${(error as Error)?.message || 'unknown error'}`,
+    };
+  }
+}
+
+async function searchWithLocalProvider(query: string, config: WebSearchConfig): Promise<WebSearchPayload> {
+  const provider = config.provider;
+  const encoded = encodeURIComponent(query);
+  const urlMap: Record<Exclude<WebSearchProvider, 'tavily'>, string> = {
+    google: `https://www.google.com/search?q=${encoded}&hl=zh-CN`,
+    bing: `https://www.bing.com/search?q=${encoded}&setlang=zh-Hans`,
+    baidu: `https://www.baidu.com/s?wd=${encoded}`,
+  };
+  const url = urlMap[provider as Exclude<WebSearchProvider, 'tavily'>];
+
+  try {
+    const res = await fetchWithTimeout(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.6',
+      },
+    });
+
+    if (!res.ok) {
+      return {
+        provider,
+        providerLabel: WEB_SEARCH_PROVIDER_LABELS[provider],
+        results: [],
+        error: `${WEB_SEARCH_PROVIDER_LABELS[provider]} search failed: ${res.status}`,
+      };
+    }
+
+    const html = await res.text();
+    return {
+      provider,
+      providerLabel: WEB_SEARCH_PROVIDER_LABELS[provider],
+      results: extractLocalSearchResults(html, provider, config.maxResults),
+    };
+  } catch (error) {
+    return {
+      provider,
+      providerLabel: WEB_SEARCH_PROVIDER_LABELS[provider],
+      results: [],
+      error: `${WEB_SEARCH_PROVIDER_LABELS[provider]} search failed: ${(error as Error)?.message || 'unknown error'}`,
+    };
+  }
+}
+
+async function runWebSearch(query: string, config: WebSearchConfig): Promise<WebSearchPayload | null> {
+  if (!config.enabled || !query.trim()) return null;
+  return config.provider === 'tavily'
+    ? searchWithTavily(query, config)
+    : searchWithLocalProvider(query, config);
+}
+
+function buildWebSearchMessages(search: WebSearchPayload | null) {
+  if (!search) return [];
+  const safePayload = {
+    provider: search.providerLabel,
+    answer: search.answer || '',
+    error: search.error || '',
+    results: search.results.slice(0, 8).map((result) => ({
+      title: result.title,
+      url: result.url,
+      content: result.content,
+    })),
+  };
+
+  return [
+    {
+      role: 'system' as const,
+      content: 'Recall web search context may be provided below. Use it only when relevant, prefer it for current or factual claims, mention concise source names or domains in the reply when using it, and never invent facts when results are empty or the search failed. Keep the required JSON response shape.',
+    },
+    {
+      role: 'system' as const,
+      content: JSON.stringify({ webSearch: safePayload }),
+    },
+  ];
+}
+
+function buildWebSearchResponseMeta(search: WebSearchPayload | null) {
+  if (!search) return {};
+  return {
+    webSearchProvider: search.provider,
+    usedWebSearchCount: search.results.length,
+    webSearchError: search.error || undefined,
+  };
 }
 
 /** 将 AI 处理异常转换为前端可展示、可排查的错误信息 */
@@ -1472,8 +1770,9 @@ function normalizeTodoAgentDecisions(
  */
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, tasks, knowledge, chatHistory, apiKey, apiBaseUrl, chatModel, embeddingModel, rerankModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
+    const { input, mode, images, tasks, knowledge, chatHistory, webSearch, apiKey, apiBaseUrl, chatModel, embeddingModel, rerankModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
     const effectiveContextLimit = normalizeAiContextLimit(contextLimit);
+    const webSearchConfig = normalizeWebSearchConfig(webSearch);
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
     const resolvedChatModel = chatModel || process.env.OPENAI_CHAT_MODEL || DEFAULT_CHAT_MODEL;
@@ -1641,6 +1940,9 @@ export async function POST(req: NextRequest) {
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], effectiveContextLimit);
       const incomingChatHistory = normalizeChatHistory(Array.isArray(chatHistory) ? chatHistory : [], effectiveContextLimit);
+      const webSearchContext = shouldUseWebSearch(mode, normalizedInput, webSearchConfig)
+        ? await runWebSearch(normalizedInput, webSearchConfig)
+        : null;
 
       const chatPayload = {
         model: resolvedChatModel,
@@ -1661,6 +1963,7 @@ export async function POST(req: NextRequest) {
             role: 'system',
             content: 'For knowledgeUpdates, save only durable user knowledge that will help future sessions. Never output transcript-style summaries, direct quotes, or formats like "the user said" / "the assistant replied". Do not store temporary Q&A about news, people, events, or general facts. Rewrite reusable knowledge into a concise organized summary. If the conversation does not contain durable memory-like information, return an empty knowledgeUpdates array.',
           },
+          ...buildWebSearchMessages(webSearchContext),
           {
             role: 'system',
             content: JSON.stringify({
@@ -1701,6 +2004,7 @@ export async function POST(req: NextRequest) {
         reply,
         knowledgeUpdates: normalizedKnowledgeUpdates,
         usedKnowledgeCount: incomingKnowledge.length,
+        ...buildWebSearchResponseMeta(webSearchContext),
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });
@@ -1712,6 +2016,9 @@ export async function POST(req: NextRequest) {
       const incomingTasks = normalizeTodoAgentTasks(Array.isArray(tasks) ? tasks : [], effectiveContextLimit);
       const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], effectiveContextLimit);
       const planContext = buildTodoPlanContext(incomingTasks, normalizedInput, networkNow);
+      const webSearchContext = shouldUseWebSearch(mode, normalizedInput, webSearchConfig)
+        ? await runWebSearch(normalizedInput, webSearchConfig)
+        : null;
       // todo-agent：返回聊天回复 + 待办清单
       // 有图片时按 OpenAI 多模态格式构造 content，否则保持纯文本
       const userContent = normalizedImages.length > 0
@@ -1775,6 +2082,7 @@ export async function POST(req: NextRequest) {
             role: 'system',
             content: 'Learning extraction: generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return an empty knowledgeUpdates array. The JSON response shape is { "reply": string, "guidance": string[], "decisions": [...], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
           },
+          ...buildWebSearchMessages(webSearchContext),
           {
             role: 'user',
             content: JSON.stringify({
@@ -1834,6 +2142,7 @@ export async function POST(req: NextRequest) {
         decisions: normalizedDecisions,
         items: normalizedCategoryItems,
         knowledgeUpdates: normalizedKnowledgeUpdates,
+        ...buildWebSearchResponseMeta(webSearchContext),
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });
@@ -1846,6 +2155,9 @@ export async function POST(req: NextRequest) {
       const serverTimeText = formatShanghaiDateTime(networkNow);
       const incomingTasks = Array.isArray(tasks) ? tasks : [];
       const incomingKnowledge = normalizeKnowledgeContext(Array.isArray(knowledge) ? knowledge : [], effectiveContextLimit);
+      const webSearchContext = shouldUseWebSearch(mode, normalizedInput, webSearchConfig)
+        ? await runWebSearch(normalizedInput, webSearchConfig)
+        : null;
 
       // 精简任务，避免 prompt 过长
       const normalizedTasks = incomingTasks
@@ -1864,6 +2176,7 @@ export async function POST(req: NextRequest) {
       const managePayload = {
         model: resolvedChatModel,
         messages: [
+          ...buildWebSearchMessages(webSearchContext),
           {
             role: 'system',
             content: 'Learning extraction: generate knowledgeUpdates for explicit reusable knowledge that should enter the global knowledge base, including preferences, habits, profile facts, task management experience, or things the user is doing/did when useful later. Do not store sensitive secrets, API keys, passwords, pure small talk, unconfirmed guesses, or ordinary assistant suggestions. If unsure, return an empty knowledgeUpdates array. The JSON response shape is { "reply": string, "recommendations": [...], "knowledgeUpdates": [{"title": string, "content": string, "category": "preference"|"task"|"habit"|"profile"|"note"}] }.',
@@ -1963,6 +2276,7 @@ export async function POST(req: NextRequest) {
         reply: typeof raw?.reply === 'string' && raw.reply.trim().length > 0 ? raw.reply.trim() : '已生成管理建议。',
         recommendations: normalizedRecs,
         knowledgeUpdates: normalizedKnowledgeUpdates,
+        ...buildWebSearchResponseMeta(webSearchContext),
         serverTime: networkNow.toISOString(),
         serverTimeText,
       });

@@ -13,6 +13,17 @@ import { resolveSyncedSettings } from '@/app/services/syncedSettings';
 import { AI_CONTEXT_LIMIT_OPTIONS, AI_CONTEXT_LIMIT_STORAGE_KEY, DEFAULT_AI_CONTEXT_LIMIT, normalizeAiContextLimit } from '@/app/services/aiContextLimit';
 import { isDurableAiMemoryContent, normalizeAiMemoryContent } from '@/app/services/aiMemory';
 import { normalizeTaskRepeatRule } from '@/app/services/repeatRules';
+import {
+  DEFAULT_WEB_SEARCH_MAX_RESULTS,
+  DEFAULT_WEB_SEARCH_PROVIDER,
+  WEB_SEARCH_ENABLED_KEY,
+  WEB_SEARCH_MAX_RESULTS_KEY,
+  WEB_SEARCH_PROVIDER_KEY,
+  WEB_SEARCH_TAVILY_API_KEY,
+  normalizeWebSearchMaxResults,
+  normalizeWebSearchProvider,
+  type WebSearchProvider,
+} from '@/app/services/webSearchConfig';
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
@@ -1289,6 +1300,10 @@ export default function Home() {
   const [chatModel, setChatModel] = useState(DEFAULT_MODEL_LIST[0]);
   const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL);
   const [rerankModel, setRerankModel] = useState(DEFAULT_RERANK_MODEL);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [webSearchProvider, setWebSearchProvider] = useState<WebSearchProvider>(DEFAULT_WEB_SEARCH_PROVIDER);
+  const [tavilyApiKey, setTavilyApiKey] = useState('');
+  const [webSearchMaxResults, setWebSearchMaxResults] = useState(DEFAULT_WEB_SEARCH_MAX_RESULTS);
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -1697,6 +1712,10 @@ export default function Home() {
     chatModel: string;
     embeddingModel: string;
     rerankModel: string;
+    webSearchEnabled: boolean;
+    webSearchProvider: WebSearchProvider;
+    tavilyApiKey: string;
+    webSearchMaxResults: number;
     fallbackTimeoutSec: number;
     webdavUrl: string;
     webdavPath: string;
@@ -1728,6 +1747,10 @@ export default function Home() {
     localStorage.setItem('recall_chat_model', next.chatModel);
     localStorage.setItem(EMBEDDING_MODEL_KEY, next.embeddingModel);
     localStorage.setItem(RERANK_MODEL_KEY, next.rerankModel);
+    localStorage.setItem(WEB_SEARCH_ENABLED_KEY, String(next.webSearchEnabled));
+    localStorage.setItem(WEB_SEARCH_PROVIDER_KEY, next.webSearchProvider);
+    localStorage.setItem(WEB_SEARCH_TAVILY_API_KEY, next.tavilyApiKey);
+    localStorage.setItem(WEB_SEARCH_MAX_RESULTS_KEY, String(normalizeWebSearchMaxResults(next.webSearchMaxResults)));
     localStorage.setItem('recall_fallback_timeout_sec', String(next.fallbackTimeoutSec));
     localStorage.setItem(WEBDAV_URL_KEY, next.webdavUrl);
     localStorage.setItem(WEBDAV_PATH_KEY, next.webdavPath);
@@ -1947,6 +1970,10 @@ export default function Home() {
             DELETED_KNOWLEDGE_ENTRIES_KEY,
             EMBEDDING_MODEL_KEY,
             RERANK_MODEL_KEY,
+            WEB_SEARCH_ENABLED_KEY,
+            WEB_SEARCH_PROVIDER_KEY,
+            WEB_SEARCH_TAVILY_API_KEY,
+            WEB_SEARCH_MAX_RESULTS_KEY,
           ]);
           const preservedEntries = Object.keys(localStorage)
             .filter((key) => keysToPreserve.has(key))
@@ -1966,6 +1993,10 @@ export default function Home() {
       const storedChatModel = localStorage.getItem('recall_chat_model');
       const storedEmbeddingModel = localStorage.getItem(EMBEDDING_MODEL_KEY);
       const storedRerankModel = localStorage.getItem(RERANK_MODEL_KEY);
+      const storedWebSearchEnabled = localStorage.getItem(WEB_SEARCH_ENABLED_KEY);
+      const storedWebSearchProvider = localStorage.getItem(WEB_SEARCH_PROVIDER_KEY);
+      const storedTavilyApiKey = localStorage.getItem(WEB_SEARCH_TAVILY_API_KEY);
+      const storedWebSearchMaxResults = localStorage.getItem(WEB_SEARCH_MAX_RESULTS_KEY);
       const storedFallbackTimeout = localStorage.getItem('recall_fallback_timeout_sec');
       const storedSessionId = localStorage.getItem(DEFAULT_SESSION_ID_KEY);
       const storedWebdavUrl = localStorage.getItem(WEBDAV_URL_KEY);
@@ -2025,6 +2056,10 @@ export default function Home() {
       setRerankModel(nextRerankModel);
       localStorage.setItem(EMBEDDING_MODEL_KEY, nextEmbeddingModel);
       localStorage.setItem(RERANK_MODEL_KEY, nextRerankModel);
+      setWebSearchEnabled(storedWebSearchEnabled === 'true');
+      setWebSearchProvider(normalizeWebSearchProvider(storedWebSearchProvider));
+      if (storedTavilyApiKey) setTavilyApiKey(storedTavilyApiKey);
+      setWebSearchMaxResults(normalizeWebSearchMaxResults(storedWebSearchMaxResults));
       if (storedFallbackTimeout) {
         const parsed = Number(storedFallbackTimeout);
         if (Number.isFinite(parsed) && parsed > 0) {
@@ -3432,6 +3467,13 @@ const normalizeTimeoutSec = (value: number) => {
     return { entries: localEntries, strategy: 'local-fallback' };
   };
 
+  const buildWebSearchRequestConfig = () => ({
+    enabled: webSearchEnabled,
+    provider: webSearchProvider,
+    tavilyApiKey,
+    maxResults: webSearchMaxResults,
+  });
+
   const handleAgentSend = async () => {
     if (agentLoading) return;
     const imagePayload = agentImages.map((image) => image.dataUrl);
@@ -3465,6 +3507,7 @@ const normalizeTimeoutSec = (value: number) => {
           images: imagePayload,
           tasks: buildTaskSummaryForTodoAgent(),
           knowledge: relevantKnowledge,
+          webSearch: buildWebSearchRequestConfig(),
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -3631,6 +3674,7 @@ const normalizeTimeoutSec = (value: number) => {
           input: content,
           tasks: buildTaskSummaryForManageAgent(),
           knowledge: relevantKnowledge,
+          webSearch: buildWebSearchRequestConfig(),
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -3805,6 +3849,7 @@ const normalizeTimeoutSec = (value: number) => {
           input: content,
           knowledge: relevantKnowledge,
           chatHistory: requestHistory.slice(-aiContextLimit),
+          webSearch: buildWebSearchRequestConfig(),
           ...(apiKey ? { apiKey } : {}),
           apiBaseUrl: apiBaseUrl?.trim() || undefined,
           chatModel: chatModel?.trim() || undefined,
@@ -4342,6 +4387,9 @@ const normalizeTimeoutSec = (value: number) => {
       chatModel,
       embeddingModel,
       rerankModel,
+      webSearchEnabled,
+      webSearchProvider,
+      webSearchMaxResults,
       fallbackTimeoutSec,
       syncNamespace,
       autoSyncEnabled,
@@ -4361,6 +4409,7 @@ const normalizeTimeoutSec = (value: number) => {
     },
     secrets: {
       apiKey,
+      tavilyApiKey,
       pgPassword,
       redisPassword,
     },
@@ -4373,6 +4422,10 @@ const normalizeTimeoutSec = (value: number) => {
       nextChatModel,
       nextEmbeddingModel,
       nextRerankModel,
+      nextWebSearchEnabled,
+      nextWebSearchProvider,
+      nextWebSearchMaxResults,
+      nextTavilyApiKey,
       nextFallback,
       nextAutoSyncEnabled,
       nextAutoSyncInterval,
@@ -4399,6 +4452,9 @@ const normalizeTimeoutSec = (value: number) => {
         chatModel,
         embeddingModel,
         rerankModel,
+        webSearchEnabled,
+        webSearchProvider,
+        webSearchMaxResults,
         fallbackTimeoutSec,
         autoSyncEnabled,
         autoSyncInterval,
@@ -4406,6 +4462,7 @@ const normalizeTimeoutSec = (value: number) => {
         aiRetentionDays,
         aiContextLimit,
         apiKey,
+        tavilyApiKey,
         pgHost,
         pgPort,
         pgDatabase,
@@ -4445,6 +4502,10 @@ const normalizeTimeoutSec = (value: number) => {
     setAiContextLimit(nextAiContextLimit);
     setEmbeddingModel(nextEmbeddingModel);
     setRerankModel(nextRerankModel);
+    setWebSearchEnabled(nextWebSearchEnabled);
+    setWebSearchProvider(nextWebSearchProvider);
+    setWebSearchMaxResults(nextWebSearchMaxResults);
+    setTavilyApiKey(nextTavilyApiKey);
     const hasStructuredKnowledgePayload = Array.isArray(payload?.data?.knowledgeEntries) || Array.isArray(payload?.knowledgeEntries);
     const syncedKnowledgeEntries = hasStructuredKnowledgePayload
       ? []
@@ -4465,6 +4526,10 @@ const normalizeTimeoutSec = (value: number) => {
       chatModel: nextChatModel,
       embeddingModel: nextEmbeddingModel,
       rerankModel: nextRerankModel,
+      webSearchEnabled: nextWebSearchEnabled,
+      webSearchProvider: nextWebSearchProvider,
+      tavilyApiKey: nextTavilyApiKey,
+      webSearchMaxResults: nextWebSearchMaxResults,
       fallbackTimeoutSec: nextFallback,
       webdavUrl,
       webdavPath,
@@ -9135,6 +9200,14 @@ const headerTitle = activeFilter === 'category'
         setEmbeddingModel={setEmbeddingModel}
         rerankModel={rerankModel}
         setRerankModel={setRerankModel}
+        webSearchEnabled={webSearchEnabled}
+        setWebSearchEnabled={setWebSearchEnabled}
+        webSearchProvider={webSearchProvider}
+        setWebSearchProvider={setWebSearchProvider}
+        tavilyApiKey={tavilyApiKey}
+        setTavilyApiKey={setTavilyApiKey}
+        webSearchMaxResults={webSearchMaxResults}
+        setWebSearchMaxResults={setWebSearchMaxResults}
         fallbackTimeoutSec={fallbackTimeoutSec}
         setFallbackTimeoutSec={setFallbackTimeoutSec}
         DEFAULT_FALLBACK_TIMEOUT_SEC={DEFAULT_FALLBACK_TIMEOUT_SEC}

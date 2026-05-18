@@ -4,6 +4,12 @@ import ModelSelect from '@/app/components/models/ModelSelect';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
 import type { KnowledgeEntry } from '@/app/homeTypes';
+import {
+  WEB_SEARCH_MAX_RESULT_OPTIONS,
+  WEB_SEARCH_PROVIDER_LABELS,
+  WEB_SEARCH_PROVIDERS,
+  type WebSearchProvider,
+} from '@/app/services/webSearchConfig';
 
 type CountdownDisplayMode = 'days' | 'date';
 type ThemePreference = 'system' | 'light' | 'dark';
@@ -35,6 +41,14 @@ type SettingsModalProps = {
   setEmbeddingModel: React.Dispatch<React.SetStateAction<string>>;
   rerankModel: string;
   setRerankModel: React.Dispatch<React.SetStateAction<string>>;
+  webSearchEnabled: boolean;
+  setWebSearchEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  webSearchProvider: WebSearchProvider;
+  setWebSearchProvider: React.Dispatch<React.SetStateAction<WebSearchProvider>>;
+  tavilyApiKey: string;
+  setTavilyApiKey: React.Dispatch<React.SetStateAction<string>>;
+  webSearchMaxResults: number;
+  setWebSearchMaxResults: React.Dispatch<React.SetStateAction<number>>;
   fallbackTimeoutSec: number;
   setFallbackTimeoutSec: React.Dispatch<React.SetStateAction<number>>;
   DEFAULT_FALLBACK_TIMEOUT_SEC: number;
@@ -106,6 +120,10 @@ type SettingsModalProps = {
     chatModel: string;
     embeddingModel: string;
     rerankModel: string;
+    webSearchEnabled: boolean;
+    webSearchProvider: WebSearchProvider;
+    tavilyApiKey: string;
+    webSearchMaxResults: number;
     fallbackTimeoutSec: number;
     webdavUrl: string;
     webdavPath: string;
@@ -295,6 +313,14 @@ const SettingsModal = ({
   setEmbeddingModel,
   rerankModel,
   setRerankModel,
+  webSearchEnabled,
+  setWebSearchEnabled,
+  webSearchProvider,
+  setWebSearchProvider,
+  tavilyApiKey,
+  setTavilyApiKey,
+  webSearchMaxResults,
+  setWebSearchMaxResults,
   fallbackTimeoutSec,
   setFallbackTimeoutSec,
   DEFAULT_FALLBACK_TIMEOUT_SEC,
@@ -487,6 +513,10 @@ const SettingsModal = ({
         chatModel,
         embeddingModel,
         rerankModel,
+        webSearchEnabled,
+        webSearchProvider,
+        tavilyApiKey,
+        webSearchMaxResults,
         fallbackTimeoutSec: normalizedTimeout,
         webdavUrl,
         webdavPath,
@@ -531,6 +561,10 @@ const SettingsModal = ({
     chatModel,
     embeddingModel,
     rerankModel,
+    webSearchEnabled,
+    webSearchProvider,
+    tavilyApiKey,
+    webSearchMaxResults,
     fallbackTimeoutSec,
     webdavUrl,
     webdavPath,
@@ -781,6 +815,91 @@ const SettingsModal = ({
                       className={baseInputClassName}
                     />
                   </div>
+                </div>
+
+                <div className="rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[rgba(var(--theme-accent),0.055)] p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[color:var(--ui-text-strong)]">联网回答</p>
+                      <p className="mt-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                        需要实时资料时自动带入搜索结果，Tavily 更稳定，本地搜索作为轻量兜底。
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWebSearchEnabled((value) => !value)}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all ${
+                        webSearchEnabled
+                          ? 'border-[rgba(var(--theme-accent),0.4)] bg-[rgba(var(--theme-accent),0.2)] text-[color:var(--ui-text-strong)] shadow-[0_0_0_4px_rgba(var(--theme-accent),0.08)]'
+                          : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]'
+                      }`}
+                    >
+                      {webSearchEnabled ? '已开启' : '未开启'}
+                    </button>
+                  </div>
+
+                  {webSearchEnabled ? (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="ui-field-label mb-2 text-[11px] sm:text-xs">搜索服务商</label>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {WEB_SEARCH_PROVIDERS.map((provider) => (
+                            <button
+                              key={provider}
+                              type="button"
+                              onClick={() => setWebSearchProvider(provider)}
+                              className={`rounded-2xl border px-3 py-2 text-[12px] font-medium transition-all ${
+                                webSearchProvider === provider
+                                  ? 'border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.18)] text-[color:var(--ui-text-strong)] shadow-[0_0_0_4px_rgba(var(--theme-accent),0.08)]'
+                                  : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]'
+                              }`}
+                            >
+                              {WEB_SEARCH_PROVIDER_LABELS[provider]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {webSearchProvider === 'tavily' ? (
+                        <div>
+                          <label className="ui-field-label mb-2 text-[11px] sm:text-xs">
+                            Tavily API Key
+                          </label>
+                          <input
+                            type="password"
+                            value={tavilyApiKey}
+                            onChange={(e) => setTavilyApiKey(e.target.value)}
+                            placeholder="tvly-..."
+                            className={baseInputClassName}
+                          />
+                        </div>
+                      ) : (
+                        <p className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-3 py-2 text-[11px] text-[color:var(--ui-text-muted)]">
+                          本地搜索会直接请求公开搜索页，可能受网络、地区或反爬策略影响；失败时会自动退回普通回答。
+                        </p>
+                      )}
+
+                      <div>
+                        <label className="ui-field-label mb-2 text-[11px] sm:text-xs">结果数量</label>
+                        <div className="flex flex-wrap gap-2">
+                          {WEB_SEARCH_MAX_RESULT_OPTIONS.map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setWebSearchMaxResults(option)}
+                              className={`btn btn-sm ${
+                                webSearchMaxResults === option
+                                  ? 'border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.18)] text-[color:var(--ui-text-strong)] shadow-[0_0_0_4px_rgba(var(--theme-accent),0.08)]'
+                                  : buttonGroupClassName
+                              }`}
+                            >
+                              {option} 条
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <details className="group rounded-[18px] border border-[var(--ui-border-soft)] bg-transparent p-3">
