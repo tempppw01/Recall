@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Bot, ChevronDown, Cloud, Database, Library, Palette, Pencil, Sparkles, Trash2, X } from 'lucide-react';
+import { Bell, Bot, ChevronDown, Cloud, Database, Library, Palette, Pencil, Sparkles, Trash2 } from 'lucide-react';
 import ModelSelect from '@/app/components/models/ModelSelect';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
@@ -610,6 +610,17 @@ const SettingsModal = ({
 
   useEffect(() => {
     if (!showSettings) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowSettings(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setShowSettings, showSettings]);
+
+  useEffect(() => {
+    if (!showSettings) return;
     if (settingsFocusTarget === 'sync') {
       scrollToSection('sync');
       return;
@@ -632,9 +643,12 @@ const SettingsModal = ({
       />
       <div
         className="relative flex h-full items-center justify-center p-3 sm:p-5 lg:p-8"
-        onClick={(event) => event.stopPropagation()}
+        onClick={() => setShowSettings(false)}
       >
-        <div className="settings-modal-surface theme-native-surface relative flex h-[min(88dvh,760px)] w-full max-w-[1080px] flex-col overflow-hidden rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-modal-bg)] shadow-[0_24px_64px_rgba(0,0,0,0.24)] lg:flex-row">
+        <div
+          className="settings-modal-surface theme-native-surface relative flex h-[min(88dvh,760px)] w-full max-w-[1080px] flex-col overflow-hidden rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-modal-bg)] shadow-[0_24px_64px_rgba(0,0,0,0.24)] lg:flex-row"
+          onClick={(event) => event.stopPropagation()}
+        >
           <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(var(--theme-accent),0.15),transparent_70%)] opacity-80" />
           <aside className="settings-modal-nav relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] lg:w-[216px] lg:border-b-0 lg:border-r">
             <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-4.5">
@@ -647,15 +661,6 @@ const SettingsModal = ({
                     设置
                   </h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(false)}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:hidden"
-                  aria-label="关闭设置"
-                  title="关闭设置"
-                >
-                  <X className="h-4.5 w-4.5" />
-                </button>
               </div>
             </div>
 
@@ -699,15 +704,6 @@ const SettingsModal = ({
                     已自动保存
                   </span>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(false)}
-                  className="hidden h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] transition-all hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)] lg:inline-flex"
-                  aria-label="关闭设置"
-                  title="关闭设置"
-                >
-                  <X className="h-4.5 w-4.5" />
-                </button>
               </div>
             </div>
 
