@@ -6502,6 +6502,7 @@ const headerTitle = activeFilter === 'category'
             showCompletedTasks={showCompletedTasks}
             loading={loading}
             input={input}
+            showQuickAdd={!showSettings}
             isBatchMode={isBatchMode}
             selectedCount={selectedTaskIds.size}
             taskSortMode={taskSortMode}

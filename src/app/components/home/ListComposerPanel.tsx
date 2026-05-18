@@ -162,6 +162,11 @@ export default function ListComposerPanel({
     };
   }, [isQuickComposerOpen]);
 
+  useEffect(() => {
+    if (showQuickAdd) return;
+    setIsQuickComposerOpen(false);
+  }, [showQuickAdd]);
+
   const appendInputToken = (token: string) => {
     const nextInput = `${input.trim()}${input.trim() ? ' ' : ''}${token}`.trim();
     setInput(nextInput);
