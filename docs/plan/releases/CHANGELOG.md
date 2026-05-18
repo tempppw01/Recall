@@ -3,6 +3,12 @@
 > Official release history aligned with `package.json.version`.
 > A version is considered released only when the code version, Git tag, changelog entry, and matching release notes all exist together.
 
+## v0.3.4
+
+- GitHub Release: https://github.com/tempppw01/Recall/releases/tag/v0.3.4
+- Summary: unified AI assistant, web search answers, and broad workspace UX polish
+- Release Notes: `docs/plan/releases/release_notes_v0.3.4.md`
+
 ## v0.3.3
 
 - GitHub Release: https://github.com/tempppw01/Recall/releases/tag/v0.3.3
