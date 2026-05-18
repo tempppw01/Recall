@@ -2,6 +2,13 @@ import { CheckCircle2, Clock3, Plus, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 type SelectOption = { value: string; label: string };
+type TaskScope = 'todo' | 'inbox' | 'today' | 'next7';
+type TaskScopeOption = {
+  value: TaskScope;
+  label: string;
+  count: number;
+  hint: string;
+};
 
 type ListComposerPanelProps = {
   totalTasks: number;
@@ -14,6 +21,8 @@ type ListComposerPanelProps = {
   selectedCount: number;
   taskSortMode: string;
   taskGroupMode: string;
+  taskScope?: TaskScope;
+  taskScopeOptions?: TaskScopeOption[];
   sortOptions: SelectOption[];
   groupOptions: SelectOption[];
   setInput: (value: string) => void;
@@ -23,6 +32,7 @@ type ListComposerPanelProps = {
   onBatchClear: () => void;
   onTaskSortModeChange: (mode: string) => void;
   onTaskGroupModeChange: (mode: string) => void;
+  onTaskScopeChange?: (scope: TaskScope) => void;
 };
 
 const TASK_PLACEHOLDERS = [
@@ -103,6 +113,8 @@ export default function ListComposerPanel({
   selectedCount,
   taskSortMode,
   taskGroupMode,
+  taskScope,
+  taskScopeOptions,
   sortOptions,
   groupOptions,
   setInput,
@@ -112,6 +124,7 @@ export default function ListComposerPanel({
   onBatchClear,
   onTaskSortModeChange,
   onTaskGroupModeChange,
+  onTaskScopeChange,
 }: ListComposerPanelProps) {
   const [randomPlaceholder, setRandomPlaceholder] = useState(TASK_PLACEHOLDERS[0]);
   const [isQuickComposerOpen, setIsQuickComposerOpen] = useState(false);
@@ -143,11 +156,43 @@ export default function ListComposerPanel({
     if (!input.trim() || loading) return;
     onMagicSubmit();
   };
+  const shouldShowTaskScopes = Boolean(taskScope && taskScopeOptions?.length && onTaskScopeChange);
 
   return (
     <>
     <div className="theme-native-surface px-3 sm:px-6 pt-4 sm:pt-5">
       <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-2 lg:rounded-[24px] lg:px-3.5 lg:py-3">
+        {shouldShowTaskScopes && (
+          <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/45 p-1 sm:flex sm:items-center">
+            {taskScopeOptions?.map((option) => {
+              const active = option.value === taskScope;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onTaskScopeChange?.(option.value)}
+                  title={option.hint}
+                  aria-pressed={active}
+                  className={`group/scope flex min-w-0 flex-1 items-center justify-between gap-1.5 rounded-[14px] px-2.5 py-1.5 text-left text-[11px] transition-all sm:px-3 ${
+                    active
+                      ? 'bg-[rgba(var(--theme-accent),0.15)] text-[color:var(--ui-text-strong)] shadow-[inset_0_0_0_1px_rgba(var(--theme-accent),0.22)]'
+                      : 'text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
+                  }`}
+                >
+                  <span className="truncate font-semibold">{option.label}</span>
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                    active
+                      ? 'bg-[rgba(var(--theme-accent),0.18)] text-[color:var(--ui-text-strong)]'
+                      : 'bg-[color:var(--ui-surface-2)] text-[color:var(--ui-text-muted)] group-hover/scope:text-[color:var(--ui-text-secondary)]'
+                  }`}>
+                    {option.count > 99 ? '99+' : option.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="grid gap-2 text-xs text-[color:var(--ui-text-secondary)] lg:flex lg:flex-wrap lg:items-center lg:gap-2.5">
           {totalTasks > 0 && (
             <div className="grid min-w-0 grid-cols-2 gap-2 lg:flex lg:flex-1 lg:flex-wrap lg:items-center">

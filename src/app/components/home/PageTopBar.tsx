@@ -1,4 +1,4 @@
-import { CheckSquare, Cloud, Flame, Inbox, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal, Trash2 } from 'lucide-react';
+import { CheckSquare, Cloud, Flame, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal, Trash2 } from 'lucide-react';
 
 const iconButtonClassName =
   'btn btn-ghost motion-card h-8 w-8 rounded-lg border-[color:var(--ui-border-soft)] bg-transparent p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
@@ -71,8 +71,6 @@ export default function PageTopBar({
                   className="flex min-w-0 items-center gap-2 text-[15px] font-semibold tracking-tight text-[color:var(--ui-text-strong)] sm:text-base"
                   title={headerSubtitle ?? headerTitle}
                 >
-                  {activeFilter === 'inbox' && <Inbox className="h-[18px] w-[18px] shrink-0 text-blue-400" />}
-                  {activeFilter === 'today' && <Sun className="h-[18px] w-[18px] shrink-0 text-yellow-400" />}
                   {activeFilter === 'habit' && <Flame className="h-[18px] w-[18px] shrink-0 text-orange-400" />}
                   <span className="truncate">{headerTitle}</span>
                 </h2>

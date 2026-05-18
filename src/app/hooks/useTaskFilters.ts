@@ -44,6 +44,9 @@ export function useTaskFilters(params: {
     const filtered = tasks.filter((t) => {
       if (activeFilter === 'agent') return true;
       if (activeFilter === 'completed') return t.status === 'completed';
+      if (activeFilter === 'inbox') {
+        return t.status !== 'completed' && !t.dueDate;
+      }
       if (activeFilter === 'today') {
         return t.status !== 'completed' && isTaskDueToday(t, now);
       }

@@ -155,7 +155,7 @@ const AI_RETENTION_KEY = 'recall_ai_retention';
 const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
 const SIDEBAR_COLLAPSED_KEY = 'recall_sidebar_collapsed';
 const ACTIVE_FILTER_KEY = 'recall_active_filter';
-const QUICK_ACCESS_OPEN_KEY = 'recall_quick_access_open';
+const TASK_SCOPE_KEY = 'recall_task_scope';
 const AGENT_MESSAGES_KEY = 'recall_agent_messages';
 const MANAGE_AGENT_MESSAGES_KEY = 'recall_manage_agent_messages';
 const CASUAL_CHAT_MESSAGES_KEY = 'recall_casual_chat_messages';
@@ -168,6 +168,11 @@ const DEFAULT_SYNC_NAMESPACE = 'recall-default';
 const DEFAULT_EMBEDDING_MODEL = 'jina-embeddings-v3';
 const DEFAULT_RERANK_MODEL = 'jina-reranker-v3';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
+const TASK_SCOPES = ['todo', 'inbox', 'today', 'next7'] as const;
+const TASK_SCOPE_VALUES = new Set<string>(TASK_SCOPES);
+const LEGACY_TASK_FILTER_VALUES = new Set<string>(['inbox', 'today', 'next7']);
+
+type TaskScope = (typeof TASK_SCOPES)[number];
 
 type TaskSelectionDragMode = 'select' | 'deselect';
 
@@ -1297,7 +1302,8 @@ export default function Home() {
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [settingsFocusTarget, setSettingsFocusTarget] = useState<'sync' | null>(null);
-  const [activeFilter, setActiveFilter] = useState('agent'); // inbox, today, next7, completed, calendar, agent
+  const [activeFilter, setActiveFilter] = useState('agent');
+  const [taskScope, setTaskScope] = useState<TaskScope>('todo');
   const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
   const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('dueDate');
   const [quadrantSortModes, setQuadrantSortModes] = useState<Record<string, TaskSortMode>>({});
@@ -1468,7 +1474,6 @@ export default function Home() {
   const [itemSearch, setItemSearch] = useState('');
   const [itemStatusFilter, setItemStatusFilter] = useState('all');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -1925,7 +1930,7 @@ export default function Home() {
             SIDEBAR_WIDTH_KEY,
             SIDEBAR_COLLAPSED_KEY,
             ACTIVE_FILTER_KEY,
-            QUICK_ACCESS_OPEN_KEY,
+            TASK_SCOPE_KEY,
             CASUAL_CHAT_MESSAGES_KEY,
             USER_MEMORIES_KEY,
             KNOWLEDGE_BASE_KEY,
@@ -2085,16 +2090,22 @@ export default function Home() {
       }
 
       const storedActiveFilter = localStorage.getItem(ACTIVE_FILTER_KEY);
+      const storedTaskScope = localStorage.getItem(TASK_SCOPE_KEY);
+      if (storedTaskScope && TASK_SCOPE_VALUES.has(storedTaskScope)) {
+        setTaskScope(storedTaskScope as TaskScope);
+      }
       if (storedActiveFilter === 'chat') {
         setActiveFilter('agent');
         setAiAssistantMode('chat');
         localStorage.setItem(ACTIVE_FILTER_KEY, 'agent');
+      } else if (storedActiveFilter && LEGACY_TASK_FILTER_VALUES.has(storedActiveFilter)) {
+        setActiveFilter('todo');
+        setTaskScope(storedActiveFilter as TaskScope);
+        localStorage.setItem(ACTIVE_FILTER_KEY, 'todo');
+        localStorage.setItem(TASK_SCOPE_KEY, storedActiveFilter);
       } else if (storedActiveFilter && ACTIVE_FILTER_VALUES.has(storedActiveFilter)) {
         setActiveFilter(storedActiveFilter);
       }
-      const storedQuickAccessOpen = localStorage.getItem(QUICK_ACCESS_OPEN_KEY);
-      if (storedQuickAccessOpen === 'true') setIsQuickAccessOpen(true);
-      if (storedQuickAccessOpen === 'false') setIsQuickAccessOpen(false);
 
       const storedAgentMessages = localStorage.getItem(AGENT_MESSAGES_KEY);
       if (storedAgentMessages) {
@@ -2221,9 +2232,9 @@ export default function Home() {
   }, [activeFilter]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(QUICK_ACCESS_OPEN_KEY, String(isQuickAccessOpen));
-  }, [isQuickAccessOpen]);
+    if (typeof window === 'undefined' || !settingsLoaded) return;
+    localStorage.setItem(TASK_SCOPE_KEY, taskScope);
+  }, [settingsLoaded, taskScope]);
 
   // 注意：apiKey 的持久化已移至 persistSettings 函数中统一处理
   // 避免在用户编辑设置时意外丢失密钥
@@ -2886,10 +2897,23 @@ export default function Home() {
 
   // Filter Logic
   const filterNow = new Date();
+  const effectiveTaskFilter = activeFilter === 'todo' ? taskScope : activeFilter;
+  const taskScopeCounts: Record<TaskScope, number> = {
+    todo: tasks.filter((task) => task.status !== 'completed').length,
+    inbox: tasks.filter((task) => task.status !== 'completed' && !task.dueDate).length,
+    today: tasks.filter((task) => task.status !== 'completed' && isTaskDueToday(task, filterNow)).length,
+    next7: tasks.filter((task) => task.status !== 'completed' && isTaskDueWithinDays(task, filterNow, 7)).length,
+  };
+  const taskScopeOptions = [
+    { value: 'todo' as const, label: '全部', count: taskScopeCounts.todo, hint: '所有未完成任务' },
+    { value: 'inbox' as const, label: '收件箱', count: taskScopeCounts.inbox, hint: '还没有安排日期的任务' },
+    { value: 'today' as const, label: '今日', count: taskScopeCounts.today, hint: '今天要处理的任务' },
+    { value: 'next7' as const, label: '7 天', count: taskScopeCounts.next7, hint: '未来 7 天内的任务' },
+  ];
 
   const { filteredTasks, overdueCount, activeDueCount } = useTaskFilters({
     tasks,
-    activeFilter,
+    activeFilter: effectiveTaskFilter,
     activeCategory,
     activeTag,
     now: filterNow,
@@ -6021,8 +6045,6 @@ const headerTitle = activeFilter === 'category'
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
-        isQuickAccessOpen={isQuickAccessOpen}
-        setIsQuickAccessOpen={setIsQuickAccessOpen}
         isToolsOpen={isToolsOpen}
         setIsToolsOpen={setIsToolsOpen}
         activeFilter={activeFilter}
@@ -6035,10 +6057,6 @@ const headerTitle = activeFilter === 'category'
         hasCalendarTasks={hasCalendarTasks}
         countdowns={countdowns}
         APP_VERSION={APP_VERSION}
-        DEFAULT_TIMEZONE_OFFSET={DEFAULT_TIMEZONE_OFFSET}
-        formatDateKeyByOffset={formatDateKeyByOffset}
-        formatZonedDate={formatZonedDate}
-        getTimezoneOffset={getTimezoneOffset}
         sidebarWidth={sidebarWidth}
         setSidebarWidth={(width) => {
           setSidebarWidth(width);
@@ -6110,6 +6128,8 @@ const headerTitle = activeFilter === 'category'
             selectedCount={selectedTaskIds.size}
             taskSortMode={taskSortMode}
             taskGroupMode={taskGroupMode}
+            taskScope={activeFilter === 'todo' ? taskScope : undefined}
+            taskScopeOptions={activeFilter === 'todo' ? taskScopeOptions : undefined}
             sortOptions={TASK_SORT_OPTIONS}
             groupOptions={TASK_GROUP_OPTIONS}
             showQuickAdd={activeFilter !== 'completed'}
@@ -6120,6 +6140,7 @@ const headerTitle = activeFilter === 'category'
             onBatchClear={clearBatchSelection}
             onTaskSortModeChange={(mode) => setTaskSortMode(mode as TaskSortMode)}
             onTaskGroupModeChange={(mode) => setTaskGroupMode(mode as TaskGroupMode)}
+            onTaskScopeChange={setTaskScope}
           />
         )}
 
@@ -8704,7 +8725,7 @@ const headerTitle = activeFilter === 'category'
                     </div>
                   )}
 
-                  {(taskGroupMode === 'dueDate' || activeFilter === 'inbox' || activeFilter === 'all' || activeFilter === 'today' || activeFilter === 'next7')
+                  {(taskGroupMode === 'dueDate' || effectiveTaskFilter === 'inbox' || effectiveTaskFilter === 'all' || effectiveTaskFilter === 'today' || effectiveTaskFilter === 'next7')
                     ? futureAwareGroupedTasks.map((group) => {
                         const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];
                         return (

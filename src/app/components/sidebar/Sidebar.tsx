@@ -13,13 +13,11 @@ import {
   Flame,
   GripVertical,
   History,
-  Inbox,
   LayoutGrid,
   Library,
   Package2,
   Settings,
   Smile,
-  Sun,
   Timer,
   X,
 } from 'lucide-react';
@@ -29,8 +27,6 @@ import SidebarItem from '@/app/components/sidebar/SidebarItem';
 type SidebarProps = {
   isSidebarOpen: boolean;
   setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isQuickAccessOpen: boolean;
-  setIsQuickAccessOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isToolsOpen: boolean;
   setIsToolsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   activeFilter: string;
@@ -43,10 +39,6 @@ type SidebarProps = {
   hasCalendarTasks: boolean;
   countdowns: Countdown[];
   APP_VERSION: string;
-  DEFAULT_TIMEZONE_OFFSET: number;
-  formatDateKeyByOffset: (date: Date, offsetMinutes: number) => string;
-  formatZonedDate: (iso: string, offsetMinutes: number) => string;
-  getTimezoneOffset: (task: Task) => number;
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
   isSidebarCollapsed: boolean;
@@ -93,8 +85,6 @@ const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'revi
 const Sidebar = ({
   isSidebarOpen,
   setIsSidebarOpen,
-  isQuickAccessOpen,
-  setIsQuickAccessOpen,
   isToolsOpen,
   setIsToolsOpen,
   activeFilter,
@@ -107,10 +97,6 @@ const Sidebar = ({
   hasCalendarTasks,
   countdowns,
   APP_VERSION,
-  DEFAULT_TIMEZONE_OFFSET,
-  formatDateKeyByOffset,
-  formatZonedDate,
-  getTimezoneOffset,
   sidebarWidth,
   setSidebarWidth,
   isSidebarCollapsed,
@@ -241,24 +227,6 @@ const Sidebar = ({
     [tasks],
   );
 
-  const todayTaskCount = useMemo(() => {
-    const todayKey = formatDateKeyByOffset(new Date(), DEFAULT_TIMEZONE_OFFSET);
-    return tasks.filter((task) => {
-      if (task.status === 'completed' || !task.dueDate) return false;
-      return formatZonedDate(task.dueDate, getTimezoneOffset(task)) === todayKey;
-    }).length;
-  }, [DEFAULT_TIMEZONE_OFFSET, formatDateKeyByOffset, formatZonedDate, getTimezoneOffset, tasks]);
-
-  const next7TaskCount = useMemo(() => {
-    const now = new Date();
-    const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return tasks.filter((task) => {
-      if (task.status === 'completed' || !task.dueDate) return false;
-      const taskDate = new Date(task.dueDate);
-      return taskDate >= now && taskDate <= next7Days;
-    }).length;
-  }, [tasks]);
-
   const handleOpenSettings = useCallback(() => {
     setIsSmileMenuOpen(false);
     if (isMobile) {
@@ -365,42 +333,6 @@ const Sidebar = ({
     },
   };
 
-  const quickAccessItems: SidebarAction[] = [
-    {
-      key: 'inbox',
-      icon: Inbox,
-      label: '收件箱',
-      title: '收件箱',
-      active: activeFilter === 'inbox',
-      iconColor: 'text-blue-400',
-      accentRgb: '59, 130, 246',
-      badge: activeTaskCount,
-      onClick: () => changeFilter('inbox', refreshTasks),
-    },
-    {
-      key: 'today',
-      icon: Sun,
-      label: '今日',
-      title: '今日',
-      active: activeFilter === 'today',
-      iconColor: 'text-yellow-400',
-      accentRgb: '234, 179, 8',
-      badge: todayTaskCount,
-      onClick: () => changeFilter('today', refreshTasks),
-    },
-    {
-      key: 'next7',
-      icon: Calendar,
-      label: '未来 7 天',
-      title: '未来 7 天',
-      active: activeFilter === 'next7',
-      iconColor: 'text-purple-400',
-      accentRgb: '168, 85, 247',
-      badge: next7TaskCount,
-      onClick: () => changeFilter('next7', refreshTasks),
-    },
-  ];
-
   const collapsedRailItems: SidebarAction[] = [
     {
       key: 'agent',
@@ -423,7 +355,6 @@ const Sidebar = ({
       accentRgb: '245, 158, 11',
       onClick: () => changeFilter('knowledge'),
     },
-    ...quickAccessItems,
     ...toolOrder.map((key) => ({
       key,
       title: toolConfig[key].label,
@@ -747,35 +678,6 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
                     iconColor="text-amber-400"
                     accentRgb="245, 158, 11"
                   />
-                </div>
-
-                <div className="sidebar-section rounded-[18px] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsQuickAccessOpen((previous) => !previous)}
-                    className="sidebar-section-toggle flex w-full items-center justify-between rounded-[14px] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-secondary)]"
-                    aria-expanded={isQuickAccessOpen}
-                    aria-label="切换快捷入口"
-                  >
-                    <span>快捷入口</span>
-                    {isQuickAccessOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  </button>
-                  {isQuickAccessOpen && (
-                    <div className="space-y-1">
-                      {quickAccessItems.map((item) => (
-                        <SidebarItem
-                          key={item.key}
-                          icon={item.icon}
-                          label={item.label}
-                          active={item.active}
-                          onClick={item.onClick}
-                          iconColor={item.iconColor}
-                          accentRgb={item.accentRgb}
-                          badge={item.badge}
-                        />
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <div className="sidebar-section rounded-[18px] p-1">
