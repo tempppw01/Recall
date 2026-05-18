@@ -728,18 +728,18 @@ export default function ReviewPanel(props: ReviewPanelProps) {
   };
 
   return (
-    <div className="stack-gap flex flex-col gap-4 px-3 pb-4 sm:gap-5 sm:px-6 sm:pb-6 xl:gap-6">
-      <section className="glass-panel motion-enter rounded-[30px] border-[color:var(--ui-border-strong)] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="app-page-stack stack-gap flex flex-col px-3 pb-4 sm:px-6 sm:pb-6">
+      <section className="app-toolbar app-hero-compact motion-enter">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.08)] px-3 py-1 text-[11px] text-[color:var(--ui-text-secondary)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.07)] px-2.5 py-1 text-[10px] text-[color:var(--ui-text-secondary)]">
               <Sparkles className="h-3.5 w-3.5" />
               Review 工作台
             </div>
-            <h2 className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)] sm:text-[28px]">
+            <h2 className="mt-2 text-[18px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)] sm:text-[22px]">
               先判断最该处理的任务，不让辅助信息挤占主流程
             </h2>
-            <p className="mt-2 max-w-2xl text-sm text-[color:var(--ui-text-secondary)]">
+            <p className="app-clamp-1 mt-1 max-w-2xl text-xs text-[color:var(--ui-text-secondary)] sm:text-sm">
               左边选组，中间处理当前任务，右边只保留批量动作和恢复记录。
             </p>
           </div>
@@ -748,7 +748,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             {reviewOverviewCards.map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.key} className="glass-panel-soft rounded-[22px] border-[color:var(--ui-border-soft)] px-3.5 py-3">
+                <div key={item.key} className="app-micro-card rounded-[18px] px-3 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">{item.label}</div>
@@ -765,8 +765,8 @@ export default function ReviewPanel(props: ReviewPanelProps) {
         </div>
       </section>
 
-      <div className="grid gap-4 xl:h-[calc(100dvh-12rem)] xl:grid-cols-[280px_minmax(0,1fr)_320px]">
-        <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(18,22,30,0.95),rgba(12,15,22,0.94))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] xl:order-1">
+      <div className="grid gap-3 xl:h-[calc(100dvh-10.75rem)] xl:grid-cols-[260px_minmax(0,1fr)_300px]">
+        <aside className="app-section order-2 flex min-h-0 flex-col overflow-hidden rounded-[24px] p-3.5 xl:order-1">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">视角</p>
@@ -802,7 +802,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             })}
           </div>
 
-          <div className="mt-4 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-3.5 py-3">
+          <div className="app-section-quiet mt-3 rounded-[18px] px-3 py-2.5">
             <p className="text-xs leading-5 text-[color:var(--ui-text-secondary)]">{activeModeHint}</p>
             {currentGroupMeta ? (
               <div className="mt-3 rounded-[18px] border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.08)] px-3 py-2.5">
@@ -860,7 +860,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           </div>
         </aside>
 
-        <section className="order-1 flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-[color:var(--ui-border-strong)] bg-[linear-gradient(180deg,rgba(20,24,34,0.96),rgba(11,15,22,0.94))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] xl:order-2">
+        <section className="app-section order-1 flex min-h-0 flex-col overflow-hidden rounded-[24px] p-3.5 xl:order-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">当前处理台</p>
@@ -884,7 +884,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             </div>
           </div>
 
-          <div className="mt-4 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-3.5 py-3">
+          <div className="app-section-quiet mt-3 rounded-[18px] px-3 py-2.5">
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[color:var(--ui-text-primary)]">
               <span>本组 {reviewList.length} 项</span>
               <span>已过 {reviewedCount} 项</span>
@@ -1119,7 +1119,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
           )}
         </section>
 
-        <aside className="order-3 flex min-h-0 flex-col gap-4 overflow-hidden rounded-[30px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(19,22,29,0.95),rgba(11,14,20,0.94))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.16)]">
+        <aside className="app-section order-3 flex min-h-0 flex-col gap-3 overflow-hidden rounded-[24px] p-3.5">
           <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3">
             <div className="flex items-start justify-between gap-3">
               <div>

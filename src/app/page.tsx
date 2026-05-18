@@ -6537,8 +6537,8 @@ const headerTitle = activeFilter === 'category'
           isFixedPanelView
             ? 'pt-2 sm:pt-3'
             : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'items', 'stats'].includes(activeFilter)
-              ? 'pt-5 sm:pt-6'
-              : 'pt-4 sm:pt-5'
+              ? 'pt-3 sm:pt-4'
+              : 'pt-3 sm:pt-4'
         } ${
           activeFilter === 'quadrant' || isFixedPanelView ? 'min-h-0 overflow-hidden flex flex-col' : ''
         }`}>
@@ -7554,10 +7554,10 @@ const headerTitle = activeFilter === 'category'
           ) : activeFilter === 'pomodoro' ? (
             <PomodoroTimer />
           ) : activeFilter === 'agent' ? (
-            <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
-              <div className="mx-auto flex min-h-0 w-full max-w-[1120px] flex-1 flex-col gap-3">
-                <div className="flex justify-end">
-                  <div className="conversation-inline-surface flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-[18px] border border-[color:var(--ui-border-soft)] px-2 py-1.5 backdrop-blur-xl">
+              <div className="theme-native-surface flex min-h-0 flex-1 flex-col">
+                <div className="mx-auto app-page-stack flex min-h-0 w-full max-w-[1120px] flex-1 flex-col">
+                  <div className="flex justify-end">
+                    <div className="app-toolbar flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-[18px] px-2 py-1.5">
                     <button
                       type="button"
                       onClick={openKnowledgeSettings}
@@ -7605,7 +7605,7 @@ const headerTitle = activeFilter === 'category'
                   </div>
                 </div>
 
-                <div className="conversation-inline-surface overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2 backdrop-blur-xl">
+                <div className="app-toolbar overflow-hidden rounded-[20px] px-3 py-2">
                   <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 flex-1 items-center gap-2.5">
                       <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-400/10 text-cyan-200">
@@ -7649,8 +7649,8 @@ const headerTitle = activeFilter === 'category'
                   </div>
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-                  <div className="conversation-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[28px] px-1 py-1.5 pr-1 sm:px-2">
+                <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
+                  <div className="conversation-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[24px] px-1 py-1.5 pr-1 sm:px-2">
                   {aiAssistantMode === 'record' ? (
                     <>
                       <div className="order-2 space-y-2">
@@ -8373,7 +8373,7 @@ const headerTitle = activeFilter === 'category'
                   </div>
 
                 <div
-                  className="conversation-composer-surface flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.10)] backdrop-blur-2xl sm:px-3.5"
+                  className="conversation-composer-surface flex shrink-0 flex-wrap items-center gap-2 rounded-[20px] border border-[color:var(--ui-border-soft)] px-3 py-2 shadow-[0_6px_16px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:px-3.5"
                 >
                   <div ref={aiModeMenuRef} className="relative shrink-0">
                     <button

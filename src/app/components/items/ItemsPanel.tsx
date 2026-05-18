@@ -123,16 +123,16 @@ export default function ItemsPanel({
   };
 
   return (
-    <div className="theme-native-surface space-y-5 pb-24 sm:space-y-6 sm:pb-28">
-      <div className="glass-panel rounded-[30px] border-[color:var(--ui-border-strong)] px-4 py-4 sm:px-5 sm:py-5">
+    <div className="theme-native-surface app-page-stack pb-24 sm:pb-28">
+      <div className="app-toolbar app-hero-compact">
         <div className="flex flex-col gap-4">
           <div className="min-w-0">
             <div className="ui-kicker">物品管理</div>
             <h2 className="ui-title mt-1 text-xl font-semibold tracking-[-0.03em]">物品台账</h2>
-            <p className="ui-copy-muted mt-1 max-w-2xl text-sm leading-6">
+            <p className="ui-copy-muted app-clamp-1 mt-1 max-w-2xl text-xs leading-5 sm:text-sm">
               记录物品放在哪里、剩余多少，以及是否需要补货或归位。
             </p>
-            <div className="ui-copy-muted mt-3 flex flex-wrap gap-2 text-[11px] sm:text-xs">
+            <div className="ui-copy-muted mt-2 flex flex-wrap gap-2 text-[11px] sm:text-xs">
               <span className="glass-card rounded-full px-2.5 py-1">
                 物品总数：<span className="ui-title">{items.length}</span>
               </span>
@@ -157,7 +157,7 @@ export default function ItemsPanel({
       </div>
 
       {isEmpty ? (
-        <div className="ui-empty-state rounded-[28px] border border-dashed border-[color:var(--ui-border-strong)] px-5 py-6 sm:px-6">
+        <div className="ui-empty-state rounded-[24px] border border-dashed border-[color:var(--ui-border-strong)] px-5 py-6 sm:px-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-[var(--ui-card-bg)]">
               <Package2 className="h-6 w-6 text-[color:var(--ui-icon-muted)]" />
@@ -186,7 +186,7 @@ export default function ItemsPanel({
         </div>
       ) : (
         <>
-          <div className="glass-panel-soft rounded-[28px] border-[color:var(--ui-border-strong)] px-4 py-4">
+          <div className="app-toolbar rounded-[22px] px-3 py-3">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-icon-muted)]" />
@@ -217,7 +217,7 @@ export default function ItemsPanel({
               const meta = statusMeta[item.status];
 
               return (
-                <article key={item.id} className="glass-panel space-y-3 rounded-[28px] border-[color:var(--ui-border-strong)] p-4">
+                <article key={item.id} className="app-section space-y-2.5 rounded-[22px] p-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="ui-title break-words text-base font-semibold">{item.name}</div>

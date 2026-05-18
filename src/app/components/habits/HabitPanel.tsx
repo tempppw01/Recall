@@ -52,12 +52,12 @@ export default function HabitPanel({
   };
 
   return (
-    <div className="theme-native-surface space-y-4">
-      <section className="motion-enter relative overflow-hidden rounded-[28px] border border-[rgba(var(--theme-accent),0.22)] bg-[linear-gradient(135deg,rgba(249,115,22,0.16),rgba(var(--theme-accent),0.08),rgba(255,255,255,0.018))] p-3.5 shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-4">
+    <div className="theme-native-surface app-page-stack">
+      <section className="app-hero-compact motion-enter relative overflow-hidden border border-[rgba(var(--theme-accent),0.18)] bg-[linear-gradient(135deg,rgba(249,115,22,0.13),rgba(var(--theme-accent),0.055),rgba(255,255,255,0.012))] shadow-[0_12px_36px_rgba(0,0,0,0.12)]">
         <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-orange-400/18 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-12 h-28 w-48 rounded-full bg-[rgba(var(--theme-accent),0.12)] blur-3xl" />
 
-        <div className="relative grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
+        <div className="relative grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,0.64fr)]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl border border-orange-300/25 bg-orange-400/14 text-orange-200 shadow-[0_12px_30px_rgba(249,115,22,0.16)]">
@@ -69,7 +69,7 @@ export default function HabitPanel({
               </div>
             </div>
 
-            <div className="mt-3 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)]/82 p-2.5">
+            <div className="mt-3 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)]/82 p-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-0)]/50 px-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-orange-300" />
@@ -111,19 +111,19 @@ export default function HabitPanel({
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/70 p-3">
+            <div className="app-micro-card rounded-[18px] p-2.5">
               <p className="text-[11px] text-[color:var(--ui-text-muted)]">今日</p>
               <p className="mt-1 text-xl font-semibold text-[color:var(--ui-text-strong)]">{completedToday}/{habits.length}</p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color:var(--ui-hover-bg)]">
                 <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-amber-300" style={{ width: formatPercent(todayRate) }} />
               </div>
             </div>
-            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/70 p-3">
+            <div className="app-micro-card rounded-[18px] p-2.5">
               <p className="text-[11px] text-[color:var(--ui-text-muted)]">最佳连续</p>
               <p className="mt-1 text-xl font-semibold text-[color:var(--ui-text-strong)]">{bestStreak}<span className="ml-1 text-xs text-[color:var(--ui-text-muted)]">天</span></p>
               <Flame className="mt-2 h-4 w-4 text-orange-300" />
             </div>
-            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/70 p-3">
+            <div className="app-micro-card rounded-[18px] p-2.5">
               <p className="text-[11px] text-[color:var(--ui-text-muted)]">本周打卡</p>
               <p className="mt-1 text-xl font-semibold text-[color:var(--ui-text-strong)]">{weekCheckCount}</p>
               <CalendarCheck className="mt-2 h-4 w-4 text-emerald-300" />
@@ -143,7 +143,7 @@ export default function HabitPanel({
           {habitAgentItems.map((item) => {
             const isAdded = addedHabitAgentItemIds.has(item.id);
             return (
-              <div key={item.id} className="motion-card rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/86 p-3.5">
+              <div key={item.id} className="motion-card app-section rounded-[20px] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -178,7 +178,7 @@ export default function HabitPanel({
       )}
 
       {habits.length === 0 ? (
-        <section className="motion-enter flex min-h-[22rem] flex-col items-center justify-center rounded-[28px] border border-dashed border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 px-6 text-center">
+        <section className="motion-enter flex min-h-[18rem] flex-col items-center justify-center rounded-[24px] border border-dashed border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 px-6 text-center">
           <div className="icon-halo float-bob flex h-16 w-16 items-center justify-center rounded-[28px] border border-orange-300/25 bg-orange-400/12 text-orange-300">
             <Flame className="h-7 w-7" />
           </div>
@@ -196,7 +196,7 @@ export default function HabitPanel({
             return (
               <article
                 key={habit.id}
-                className={`motion-card motion-enter group/habit relative overflow-hidden rounded-[26px] border p-3.5 transition-all ${
+                className={`motion-card motion-enter group/habit relative overflow-hidden rounded-[22px] border p-3 transition-all ${
                   hasToday
                     ? 'border-orange-300/30 bg-[linear-gradient(180deg,rgba(249,115,22,0.13),rgba(255,255,255,0.025))]'
                     : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/88'

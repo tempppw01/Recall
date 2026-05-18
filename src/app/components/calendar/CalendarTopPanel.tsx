@@ -76,22 +76,22 @@ export default function CalendarTopPanel({
   }, [hasSelectedCity, cityLabel]);
 
   return (
-    <div className="calendar-top-panel relative z-10 -mx-1 border-b border-[color:var(--ui-border-soft)] bg-[var(--ui-header-bg)] px-1 pb-3 pt-1 backdrop-blur-xl lg:sticky lg:top-[5.5rem] lg:z-20 xl:top-24">
-      <div className="space-y-2.5 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-3 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.10)] sm:px-4">
-        <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
+    <div className="calendar-top-panel relative z-10 -mx-1 px-1 pb-2 pt-0 lg:sticky lg:top-[4.75rem] lg:z-20 xl:top-20">
+      <div className="app-toolbar space-y-2 rounded-[22px] px-3 py-2.5 sm:px-3.5">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.28em] text-[color:var(--ui-text-muted)]">Calendar</div>
-            <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <h2 className="min-w-0 truncate text-xl font-semibold text-[color:var(--ui-text-strong)] sm:text-2xl">{periodLabel}</h2>
-              <span className="min-w-0 truncate text-xs text-[color:var(--ui-text-secondary)] sm:text-sm">焦点：{focusLabel}</span>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--ui-text-muted)]">Calendar</div>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+              <h2 className="min-w-0 truncate text-base font-semibold text-[color:var(--ui-text-strong)] sm:text-lg">{periodLabel}</h2>
+              <span className="min-w-0 truncate text-[11px] text-[color:var(--ui-text-secondary)] sm:text-xs">焦点：{focusLabel}</span>
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={onToggleCompleted}
-              className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[12px] transition-colors ${
+              className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[11px] transition-colors ${
                 showCompletedInCalendar
                   ? 'border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.15)] text-[rgba(var(--theme-accent),0.96)]'
                   : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-hover-bg)]'
@@ -99,11 +99,11 @@ export default function CalendarTopPanel({
             >
               {showCompletedInCalendar ? '已显示完成项' : '隐藏完成项'}
             </button>
-            <div className="inline-flex shrink-0 items-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-0.5 sm:p-1">
+            <div className="inline-flex shrink-0 items-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-0.5">
               <button type="button" onClick={onPrevious} className="rounded-full p-2 text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]" aria-label="上一段">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button type="button" onClick={onToday} className="rounded-full px-3 py-2 text-sm font-medium text-[color:var(--ui-text-strong)] transition-colors hover:bg-[color:var(--ui-hover-bg)] sm:px-4">
+              <button type="button" onClick={onToday} className="rounded-full px-3 py-2 text-xs font-medium text-[color:var(--ui-text-strong)] transition-colors hover:bg-[color:var(--ui-hover-bg)] sm:px-4">
                 今天
               </button>
               <button type="button" onClick={onNext} className="rounded-full p-2 text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]" aria-label="下一段">
@@ -113,13 +113,13 @@ export default function CalendarTopPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(4.6rem,1fr))] gap-1.5">
           {CALENDAR_VIEW_OPTIONS.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => onViewChange(option.value)}
-              className={`min-w-0 rounded-full border px-2 py-1.5 text-[12px] transition-all ${
+              className={`min-w-0 rounded-full border px-2 py-1.5 text-[11px] transition-all ${
                 calendarView === option.value
                   ? 'border-[rgba(var(--theme-accent),0.4)] bg-[rgba(var(--theme-accent),0.16)] text-[color:var(--ui-text-strong)] shadow-[0_10px_24px_rgba(37,99,235,0.16)]'
                   : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
@@ -131,9 +131,9 @@ export default function CalendarTopPanel({
           ))}
         </div>
 
-        <div className="grid gap-2.5 xl:grid-cols-[minmax(0,1.35fr)_minmax(16rem,0.9fr)]">
+        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(15rem,0.85fr)]">
           <div className="relative min-w-0">
-            <div className="flex min-h-11 items-center gap-2 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3">
+            <div className="flex min-h-10 items-center gap-2 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3">
               <Search className="h-4 w-4 text-[color:var(--ui-text-muted)]" />
               <input
                 value={calendarCityInput}
@@ -147,7 +147,7 @@ export default function CalendarTopPanel({
                 <button
                   type="button"
                   onClick={onLocateCity}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1.5 text-[12px] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)]"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1.5 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-hover-bg)]"
                   title="定位当前城市"
                 >
                   <Crosshair className="h-3.5 w-3.5" />
@@ -196,7 +196,7 @@ export default function CalendarTopPanel({
             )}
           </div>
 
-          <div className="flex min-h-11 items-center justify-between gap-3 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3.5 py-2.5">
+          <div className="flex min-h-10 items-center justify-between gap-3 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm text-[color:var(--ui-text-primary)]">
                 <MapPin className="h-4 w-4 shrink-0 text-[rgba(var(--theme-accent),0.94)]" />

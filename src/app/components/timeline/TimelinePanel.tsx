@@ -439,7 +439,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             onSelectTask(task);
           }
         }}
-        className="group relative overflow-hidden rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/80 p-3.5 text-left shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-[var(--motion-slow)] hover:-translate-y-0.5 hover:border-[rgba(var(--theme-accent),0.28)] hover:bg-[color:var(--ui-card-hover-bg)] hover:shadow-[0_18px_38px_rgba(15,23,42,0.13)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.32)] motion-enter"
+        className="group app-micro-card relative overflow-hidden rounded-[20px] p-3 text-left transition-all duration-[var(--motion-slow)] hover:-translate-y-0.5 hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[color:var(--ui-card-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.32)] motion-enter"
         style={{ animationDelay: `${Math.min(index * 28, 180)}ms` }}
       >
         <div className={`absolute inset-y-4 left-0 w-[3px] rounded-full bg-gradient-to-b ${badge.railClassName}`} />
@@ -517,22 +517,22 @@ export default function TimelinePanel(props: TimelinePanelProps) {
   };
 
   return (
-    <div className="theme-native-surface flex min-h-0 flex-col gap-3 px-2 pb-4 sm:px-5 sm:pb-6">
-      <section className="timeline-focus-orb motion-enter relative overflow-hidden rounded-[30px] border border-[rgba(var(--theme-accent),0.22)] bg-[linear-gradient(135deg,rgba(var(--theme-accent),0.13),rgba(var(--theme-grad-end),0.07),rgba(255,255,255,0.018))] p-4 shadow-[0_22px_70px_rgba(15,23,42,0.15)] sm:p-5">
-        <div className="relative z-10 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-stretch">
+    <div className="theme-native-surface app-page-stack flex min-h-0 flex-col px-2 pb-4 sm:px-5 sm:pb-6">
+      <section className="timeline-focus-orb app-hero-compact motion-enter relative overflow-hidden border border-[rgba(var(--theme-accent),0.18)] bg-[linear-gradient(135deg,rgba(var(--theme-accent),0.10),rgba(var(--theme-grad-end),0.045),rgba(255,255,255,0.012))] shadow-[0_12px_36px_rgba(15,23,42,0.10)]">
+        <div className="relative z-10 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-stretch">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.09)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
               <span className="timeline-pulse-dot h-1.5 w-1.5 rounded-full bg-[rgba(var(--theme-accent),0.95)]" />
               现在先看这里
             </div>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)] sm:text-3xl">
+            <h2 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)] sm:text-2xl">
               {focus.title}
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--ui-text-secondary)]">
+            <p className="app-clamp-2 mt-1.5 max-w-2xl text-xs leading-5 text-[color:var(--ui-text-secondary)] sm:text-sm">
               {focus.helper}
             </p>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setStatusFilter(focus.actionFilter)}
@@ -554,13 +554,13 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             </div>
 
             {focus.tasks.length > 0 ? (
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {focus.tasks.map((task, index) => (
                   <button
                     key={`focus-${task.id}`}
                     type="button"
                     onClick={() => onSelectTask(task)}
-                    className="motion-enter motion-card min-w-0 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/64 px-3 py-2.5 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)]"
+                    className="motion-enter motion-card app-micro-card min-w-0 rounded-[18px] px-3 py-2 text-left"
                     style={{ animationDelay: `${index * 55}ms` }}
                   >
                     <span className="block truncate text-xs font-semibold text-[color:var(--ui-text-strong)]">{task.title}</span>
@@ -573,7 +573,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             ) : null}
           </div>
 
-          <div className="rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/62 p-3.5 backdrop-blur-xl">
+          <div className="app-section-quiet rounded-[22px] p-3">
             <div className="flex items-end justify-between gap-3">
               <div>
                 <div className="text-[11px] text-[color:var(--ui-text-muted)]">总体完成率</div>
@@ -615,7 +615,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
             key={item.label}
             type="button"
             onClick={() => setStatusFilter(item.filter)}
-            className="motion-card motion-press group relative overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/68 p-3 text-left transition-all hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[color:var(--ui-card-hover-bg)]"
+            className="motion-card motion-press app-micro-card group relative overflow-hidden rounded-[18px] p-2.5 text-left transition-all hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[color:var(--ui-card-hover-bg)]"
             style={{ animationDelay: `${index * 42}ms` }}
           >
             <span className="timeline-card-sheen absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -628,7 +628,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         ))}
       </section>
 
-      <section className="motion-enter flex flex-col gap-2 rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/54 p-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+      <section className="app-toolbar motion-enter flex flex-col gap-2 rounded-[22px] p-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {statusFilterOptions.map((item) => (
             <button
@@ -713,7 +713,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
 
               <div className="grid gap-3">
                 {month.days.map((day) => (
-                  <div key={day.dateKey} className="relative rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/42 p-3 sm:p-3.5">
+                  <div key={day.dateKey} className="app-section-quiet relative rounded-[22px] p-2.5 sm:p-3">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <span className="timeline-pulse-dot h-2 w-2 rounded-full bg-[rgba(var(--theme-accent),0.88)]" />
@@ -727,7 +727,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                       </div>
                     </div>
 
-                    <div className="grid gap-2.5">
+                    <div className="grid gap-2">
                       {day.list.map((task, index) => renderTaskCard(task, index))}
                     </div>
                   </div>

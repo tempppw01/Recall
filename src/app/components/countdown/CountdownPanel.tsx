@@ -129,10 +129,10 @@ export default function CountdownPanel({
   };
 
   return (
-    <div className="theme-native-surface grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.34fr)]">
+    <div className="theme-native-surface grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,0.32fr)]">
       <div className="min-w-0 space-y-3">
-        <section className="motion-enter overflow-hidden rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/72 shadow-[0_18px_58px_rgba(0,0,0,0.12)]">
-          <div className="relative border-b border-[color:var(--ui-border-soft)] px-3.5 py-3 sm:px-4">
+        <section className="app-section motion-enter overflow-hidden rounded-[24px]">
+          <div className="relative border-b border-[color:var(--ui-border-soft)] px-3.5 py-2.5 sm:px-4">
             <div className="pointer-events-none absolute -right-10 -top-20 h-44 w-44 rounded-full bg-[rgba(var(--theme-accent),0.13)] blur-3xl" />
             <div className="relative flex min-w-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
@@ -155,14 +155,14 @@ export default function CountdownPanel({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 border-b border-[color:var(--ui-border-soft)] p-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 border-b border-[color:var(--ui-border-soft)] p-2.5 sm:grid-cols-4">
             {[
               ['总数', countdowns.length],
               ['未来', upcoming.length],
               ['已过去', past.length],
               ['置顶', pinnedCount],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-[18px] bg-[color:var(--ui-surface-2)]/45 px-3 py-2">
+              <div key={label} className="app-micro-card rounded-[16px] px-3 py-2">
                 <p className="text-[10px] text-[color:var(--ui-text-muted)]">{label}</p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-[color:var(--ui-text-strong)]">{value}</p>
               </div>
@@ -181,7 +181,7 @@ export default function CountdownPanel({
           )}
 
           {countdowns.length === 0 ? (
-            <div className="flex min-h-[21rem] flex-col items-center justify-center px-6 text-center">
+            <div className="flex min-h-[18rem] flex-col items-center justify-center px-6 text-center">
               <div className="icon-halo float-bob flex h-16 w-16 items-center justify-center rounded-[28px] border border-[rgba(var(--theme-accent),0.25)] bg-[rgba(var(--theme-accent),0.12)] text-[rgba(var(--theme-accent),0.95)]">
                 <CalendarDays className="h-7 w-7" />
               </div>
@@ -189,7 +189,7 @@ export default function CountdownPanel({
               <p className="mt-2 max-w-sm text-sm text-[color:var(--ui-text-secondary)]">生日、旅行、考试、发布日，都可以放在这里。</p>
             </div>
           ) : (
-            <div className="space-y-3 p-3">
+            <div className="space-y-2.5 p-2.5">
               {groupedCountdowns.map((group) => (
                 <div key={group.key} className="min-w-0">
                   <div className="mb-1.5 flex items-center justify-between px-1">
@@ -202,7 +202,7 @@ export default function CountdownPanel({
                       return (
                         <article
                           key={entry.item.id}
-                          className="motion-card motion-enter group/countdown relative grid min-h-[62px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-2)]/42 px-3 py-2.5 transition-all hover:-translate-y-0.5 hover:bg-[color:var(--ui-card-hover-bg)]"
+                          className="motion-card motion-enter group/countdown app-micro-card relative grid min-h-[56px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-[18px] px-3 py-2 transition-all hover:-translate-y-0.5 hover:bg-[color:var(--ui-card-hover-bg)]"
                           style={{ animationDelay: `${Math.min(index * 22, 160)}ms` }}
                         >
                           <span className={`absolute bottom-2 left-0 top-2 w-1 rounded-r-full ${tone.rail}`} />
@@ -278,7 +278,7 @@ export default function CountdownPanel({
       </div>
 
       <aside className="min-w-0 space-y-3 xl:sticky xl:top-3 xl:self-start">
-        <section className="motion-enter rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/76 p-3.5">
+        <section className="app-section motion-enter rounded-[22px] p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -350,7 +350,7 @@ export default function CountdownPanel({
           </div>
         </section>
 
-        <section className="rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/64 p-3.5">
+        <section className="app-section-quiet rounded-[22px] p-3">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold text-[color:var(--ui-text-strong)]">识别结果</h4>
             {showCountdownAgentBulkAdd && (
@@ -375,7 +375,7 @@ export default function CountdownPanel({
                 const isAdded = addedCountdownAgentItemIds.has(item.id);
                 const hasDate = Boolean(item.targetDate);
                 return (
-                  <div key={item.id} className="rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-2)]/45 p-3">
+                  <div key={item.id} className="app-micro-card rounded-[18px] p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-[color:var(--ui-text-strong)]">{item.title}</p>

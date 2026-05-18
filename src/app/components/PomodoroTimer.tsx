@@ -78,8 +78,8 @@ export default function PomodoroTimer() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:p-6">
+    <div className="app-page-stack">
+      <div className="app-section rounded-[24px] p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-[color:var(--ui-text-strong)]">番茄时钟</h3>
@@ -92,11 +92,11 @@ export default function PomodoroTimer() {
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
           {overviewCards.map((card) => (
             <div
               key={card.label}
-              className={`rounded-2xl border ${card.borderClassName} bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] px-3.5 py-3`}
+              className={`app-micro-card rounded-2xl ${card.borderClassName} px-3 py-2.5`}
             >
               <div className={`h-1.5 w-10 rounded-full bg-gradient-to-r ${card.accentClassName}`} />
               <div className="mt-2 text-[11px] text-[color:var(--ui-text-muted)]">{card.label}</div>
@@ -108,7 +108,7 @@ export default function PomodoroTimer() {
           ))}
         </div>
 
-        <div className="mt-6 flex flex-col items-center">
+        <div className="mt-5 flex flex-col items-center">
           <div className="relative flex h-40 w-40 items-center justify-center rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]">
             <div
               className="absolute inset-0 rounded-full"
@@ -121,7 +121,7 @@ export default function PomodoroTimer() {
             </div>
           </div>
 
-          <div className="mt-6 flex items-center gap-3">
+          <div className="mt-5 flex items-center gap-3">
             <button
               onClick={() => {
                 const nextState = toggleRunning();
@@ -157,13 +157,13 @@ export default function PomodoroTimer() {
         <PomodoroAmbientSound isRunning={state.isRunning} />
       </div>
 
-      <div>
+      <div className="app-section-quiet rounded-[22px] px-3.5 py-3">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-bold text-[color:var(--ui-text-strong)]">专注记录</h3>
           <div className="text-xs text-[color:var(--ui-text-muted)]">专注阶段结束后自动记录</div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {Object.entries(recordsByDate).map(([date, dateRecords]) => (
             <div key={date}>
               <div className="mb-2 text-xs text-[color:var(--ui-text-muted)]">{date}</div>

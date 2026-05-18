@@ -71,7 +71,7 @@ const MetricProgressPill = ({
     : 'border-emerald-400/25 bg-emerald-400/10 text-emerald-400';
 
   return (
-    <div className="min-w-0 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2 py-1.5 shadow-[0_8px_18px_rgba(15,23,42,0.06)] lg:min-w-[142px] lg:px-2.5 lg:py-2">
+    <div className="app-micro-card min-w-0 rounded-2xl px-2 py-1.5 lg:min-w-[132px] lg:px-2.5 lg:py-1.5">
       <div className="flex items-center gap-1.5 lg:gap-2">
         <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border lg:h-7 lg:w-7 ${iconClassName}`}>
           <Icon className="h-3 w-3 lg:h-3.5 lg:w-3.5" />
@@ -168,10 +168,10 @@ export default function ListComposerPanel({
 
   return (
     <>
-    <div className="theme-native-surface px-3 sm:px-6 pt-4 sm:pt-5">
-      <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-2 lg:rounded-[24px] lg:px-3.5 lg:py-3">
+    <div className="theme-native-surface px-3 pt-3 sm:px-6 sm:pt-4">
+      <div className="app-toolbar rounded-[20px] px-2.5 py-2 lg:rounded-[22px] lg:px-3 lg:py-2.5">
         {shouldShowTaskScopes && (
-          <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/45 p-1 sm:flex sm:items-center">
+          <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 p-1 sm:flex sm:items-center">
             {taskScopeOptions?.map((option) => {
               const active = option.value === taskScope;
               return (
