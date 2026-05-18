@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3, Eye, EyeOff, Plus, Send, Trash2, X } from 'lucide-react';
+import { CalendarDays, CalendarRange, CheckCircle2, Clock3, Eye, EyeOff, Inbox, ListTodo, Plus, Send, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 type SelectOption = { value: string; label: string };
@@ -49,6 +49,13 @@ const TASK_PLACEHOLDERS = [
 ];
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, Math.round(Number.isFinite(value) ? value : 0)));
+
+const TASK_SCOPE_ICONS: Record<TaskScope, typeof CheckCircle2> = {
+  todo: ListTodo,
+  inbox: Inbox,
+  today: CalendarDays,
+  next7: CalendarRange,
+};
 
 const MetricProgressPill = ({
   icon: Icon,
@@ -174,6 +181,7 @@ export default function ListComposerPanel({
           <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 p-1 sm:flex sm:items-center">
             {taskScopeOptions?.map((option) => {
               const active = option.value === taskScope;
+              const ScopeIcon = TASK_SCOPE_ICONS[option.value];
               return (
                 <button
                   key={option.value}
@@ -187,7 +195,14 @@ export default function ListComposerPanel({
                       : 'text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]'
                   }`}
                 >
-                  <span className="truncate font-semibold">{option.label}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <ScopeIcon
+                      className={`h-3.5 w-3.5 shrink-0 transition-colors ${
+                        active ? 'text-[color:var(--ui-text-strong)]' : 'text-[color:var(--ui-text-muted)] group-hover/scope:text-[color:var(--ui-text-secondary)]'
+                      }`}
+                    />
+                    <span className="truncate font-semibold">{option.label}</span>
+                  </span>
                   <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
                     active
                       ? 'bg-[rgba(var(--theme-accent),0.18)] text-[color:var(--ui-text-strong)]'
