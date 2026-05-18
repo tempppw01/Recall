@@ -22,6 +22,11 @@ const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
+const formatDateInputByOffset = (date: Date, offsetMinutes: number) => {
+  const zoned = new Date(date.getTime() + offsetMinutes * MINUTE_MS);
+  return `${zoned.getUTCFullYear()}-${String(zoned.getUTCMonth() + 1).padStart(2, '0')}-${String(zoned.getUTCDate()).padStart(2, '0')}`;
+};
+
 const formatDueCountdownLabel = (dueDate?: string, nowMs?: number) => {
   if (!dueDate || nowMs === undefined) return null;
   const dueMs = new Date(dueDate).getTime();
@@ -262,10 +267,70 @@ const TaskItem = ({
     setIsDueEditorOpen(false);
   };
 
+  const applyTimeSlot = (dayOffset: number, timeText: string) => {
+    if (!onUpdateDueDate) return;
+    const dateText = formatDateInputByOffset(new Date(Date.now() + dayOffset * DAY_MS), timezoneOffset);
+    const nextIso = buildDueDateIso(dateText, timeText, timezoneOffset);
+    onUpdateDueDate(task.id, nextIso, timezoneOffset);
+    setIsDueEditorOpen(false);
+  };
+
   const clearDueDate = () => {
     onUpdateDueDate?.(task.id, undefined, timezoneOffset);
     setIsDueEditorOpen(false);
   };
+
+  const contextTimeActions = [
+    {
+      key: 'morning',
+      label: '上午',
+      hint: '09:00',
+      icon: <Sunrise className="h-4 w-4" />,
+      disabled: !onUpdateDueDate,
+      onSelect: () => applyTimeSlot(0, '09:00'),
+    },
+    {
+      key: 'afternoon',
+      label: '下午',
+      hint: '15:00',
+      icon: <Sunset className="h-4 w-4" />,
+      disabled: !onUpdateDueDate,
+      onSelect: () => applyTimeSlot(0, '15:00'),
+    },
+    {
+      key: 'tonight',
+      label: '今晚',
+      hint: '20:00',
+      icon: <Bell className="h-4 w-4" />,
+      disabled: !onQuickSetDuePreset,
+      onSelect: () => applyPreset('tonight'),
+    },
+    {
+      key: 'tomorrow',
+      label: '明天',
+      hint: '09:00',
+      icon: <Calendar className="h-4 w-4" />,
+      disabled: !onQuickSetDuePreset,
+      onSelect: () => applyPreset('tomorrow'),
+    },
+    {
+      key: 'next-week',
+      label: '下周',
+      hint: '周一',
+      icon: <CalendarDays className="h-4 w-4" />,
+      disabled: !onQuickSetDuePreset,
+      onSelect: () => applyPreset('nextWeek'),
+    },
+    {
+      key: 'clear',
+      label: '清除',
+      hint: '时间',
+      icon: <Trash2 className="h-4 w-4" />,
+      disabled: !onUpdateDueDate || !task.dueDate,
+      onSelect: clearDueDate,
+      danger: true,
+    },
+  ];
 
   const handleContextMenu = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -856,10 +921,43 @@ const TaskItem = ({
           <div className="fixed inset-0 z-[70]" onClick={closeContextMenu} />
           <div
             ref={contextMenuRef}
-            className="fixed z-[80] min-w-[180px] rounded-[22px] border border-[var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] backdrop-blur-xl shadow-[0_22px_48px_rgba(15,23,42,0.18)] overflow-hidden"
+            className="fixed z-[80] w-[252px] overflow-hidden rounded-[24px] border border-[var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] shadow-[0_22px_48px_rgba(15,23,42,0.18)] backdrop-blur-xl"
             style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
             onClick={(event) => event.stopPropagation()}
           >
+            {(onQuickSetDuePreset || onUpdateDueDate) && (
+              <div className="border-b border-[color:var(--ui-border-soft)] p-2.5">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">快捷时间</span>
+                  <span className="text-[10px] text-[color:var(--ui-text-faint)]">{task.dueDate ? formatZonedDateTime(task.dueDate, timezoneOffset) : '未设置'}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {contextTimeActions.map((action) => (
+                    <button
+                      key={action.key}
+                      type="button"
+                      disabled={action.disabled}
+                      onClick={() => {
+                        closeContextMenu();
+                        action.onSelect();
+                      }}
+                      className={`group/time flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-2 text-center transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+                        action.danger
+                          ? 'border-rose-400/18 bg-rose-500/6 text-rose-200 hover:border-rose-300/34 hover:bg-rose-500/12'
+                          : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/72 text-[color:var(--ui-text-secondary)] hover:border-[rgba(var(--theme-accent),0.34)] hover:bg-[rgba(var(--theme-accent),0.10)] hover:text-[color:var(--ui-text-strong)]'
+                      }`}
+                      title={`${action.label} ${action.hint}`}
+                    >
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-[color:var(--ui-input-bg)] transition-transform group-hover/time:scale-105">
+                        {action.icon}
+                      </span>
+                      <span className="text-[11px] font-medium leading-none">{action.label}</span>
+                      <span className="text-[9px] leading-none text-[color:var(--ui-text-muted)]">{action.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {onTitleClick && (
               <button
                 type="button"
