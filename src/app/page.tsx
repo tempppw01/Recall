@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
@@ -1553,6 +1553,7 @@ export default function Home() {
   const agentImageInputRef = useRef<HTMLInputElement | null>(null);
   const agentAbortControllerRef = useRef<AbortController | null>(null);
   const agentConversationEndRef = useRef<HTMLDivElement | null>(null);
+  const aiModeMenuRef = useRef<HTMLDivElement | null>(null);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [agentDecisions, setAgentDecisions] = useState<AgentDecision[]>([]);
   const [appliedAgentDecisionIds, setAppliedAgentDecisionIds] = useState<Set<string>>(new Set());
@@ -1571,6 +1572,7 @@ export default function Home() {
   const [casualChatMessages, setCasualChatMessages] = useState<AgentMessage[]>([]);
   const [casualChatInput, setCasualChatInput] = useState('');
   const [casualChatLoading, setCasualChatLoading] = useState(false);
+  const [isAiModeMenuOpen, setIsAiModeMenuOpen] = useState(false);
   const casualChatAbortControllerRef = useRef<AbortController | null>(null);
   const casualChatQueuedSendRef = useRef<{ content: string; history: AgentMessage[] } | null>(null);
   const casualChatConversationEndRef = useRef<HTMLDivElement | null>(null);
@@ -1578,6 +1580,21 @@ export default function Home() {
   useEffect(() => {
     setIsAgentGuidanceOpen(false);
   }, [agentGuidance]);
+  useEffect(() => {
+    if (!isAiModeMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (target && !aiModeMenuRef.current?.contains(target)) {
+        setIsAiModeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [isAiModeMenuOpen]);
   const [knowledgeTitleInput, setKnowledgeTitleInput] = useState('');
   const [knowledgeContentInput, setKnowledgeContentInput] = useState('');
   const [knowledgeCategoryInput, setKnowledgeCategoryInput] = useState<KnowledgeEntry['category']>('note');
@@ -5984,6 +6001,37 @@ const headerTitle = activeFilter === 'category'
     && !agentLoading
     && !manageAgentLoading
     && !casualChatLoading;
+  const aiAssistantModeOptions: Array<{
+    value: AiAssistantMode;
+    label: string;
+    helper: string;
+    icon: ReactNode;
+    activeClassName: string;
+  }> = [
+    {
+      value: 'chat',
+      label: '聊天',
+      helper: '自由问答',
+      icon: <Command className="h-3.5 w-3.5" />,
+      activeClassName: 'bg-sky-600 text-white shadow-[0_8px_18px_rgba(14,165,233,0.22)]',
+    },
+    {
+      value: 'record',
+      label: '记录',
+      helper: '拆解任务',
+      icon: <CheckSquare className="h-3.5 w-3.5" />,
+      activeClassName: 'bg-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)]',
+    },
+    {
+      value: 'manage',
+      label: '管理',
+      helper: '整理待办',
+      icon: <LayoutGrid className="h-3.5 w-3.5" />,
+      activeClassName: 'bg-violet-600 text-white shadow-[0_8px_18px_rgba(124,58,237,0.22)]',
+    },
+  ];
+  const currentAiAssistantModeOption =
+    aiAssistantModeOptions.find((option) => option.value === aiAssistantMode) ?? aiAssistantModeOptions[0];
   const visibleKnowledgeEntries = knowledgeSearchInput.trim()
     ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40, false)
     : knowledgeEntries;
@@ -8060,28 +8108,56 @@ const headerTitle = activeFilter === 'category'
                 <div
                   className="conversation-composer-surface flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.10)] backdrop-blur-2xl sm:px-3.5"
                 >
-                  <div className="inline-flex h-[42px] shrink-0 items-center rounded-lg border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] p-1">
+                  <div ref={aiModeMenuRef} className="relative shrink-0">
                     <button
                       type="button"
-                      onClick={() => setAiAssistantMode('chat')}
-                      className={`h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors ${aiAssistantMode === 'chat' ? 'bg-sky-600 text-white shadow-[0_6px_14px_rgba(14,165,233,0.18)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
+                      onClick={() => setIsAiModeMenuOpen((prev) => !prev)}
+                      className={`inline-flex h-[42px] items-center gap-1.5 rounded-2xl px-3 text-xs font-semibold transition-all duration-[var(--motion-base)] ${currentAiAssistantModeOption.activeClassName}`}
+                      aria-haspopup="menu"
+                      aria-expanded={isAiModeMenuOpen}
+                      aria-label={`当前模式：${currentAiAssistantModeOption.label}，点击切换`}
                     >
-                      聊天
+                      {currentAiAssistantModeOption.icon}
+                      <span>{currentAiAssistantModeOption.label}</span>
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isAiModeMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setAiAssistantMode('record')}
-                      className={`h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors ${aiAssistantMode === 'record' ? 'bg-blue-600 text-white shadow-[0_6px_14px_rgba(37,99,235,0.18)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
-                    >
-                      记录
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAiAssistantMode('manage')}
-                      className={`h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors ${aiAssistantMode === 'manage' ? 'bg-violet-600 text-white shadow-[0_6px_14px_rgba(124,58,237,0.18)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}
-                    >
-                      管理
-                    </button>
+                    {isAiModeMenuOpen && (
+                      <div
+                        role="menu"
+                        className="absolute bottom-[calc(100%+0.55rem)] left-0 z-40 w-[168px] overflow-hidden rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] p-1.5 shadow-[0_18px_44px_rgba(15,23,42,0.26)] backdrop-blur-2xl"
+                      >
+                        {aiAssistantModeOptions.map((option) => {
+                          const active = option.value === aiAssistantMode;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              role="menuitemradio"
+                              aria-checked={active}
+                              onClick={() => {
+                                setAiAssistantMode(option.value);
+                                setIsAiModeMenuOpen(false);
+                              }}
+                              className={`flex w-full items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition-all hover:bg-[var(--state-hover-bg)] ${
+                                active
+                                  ? 'bg-[rgba(var(--theme-accent),0.12)] text-[color:var(--ui-text-strong)]'
+                                  : 'text-[color:var(--ui-text-secondary)]'
+                              }`}
+                            >
+                              <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${
+                                active ? option.activeClassName : 'bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-muted)]'
+                              }`}>
+                                {option.icon}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-xs font-semibold">{option.label}</span>
+                                <span className="block truncate text-[10px] text-[color:var(--ui-text-muted)]">{option.helper}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {aiAssistantMode === 'record' ? (
