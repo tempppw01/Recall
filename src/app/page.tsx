@@ -88,6 +88,7 @@ import CalendarYearView from '@/app/components/calendar/CalendarYearView';
 import CalendarScheduleGrid from '@/app/components/calendar/CalendarScheduleGrid';
 import CalendarAgendaView from '@/app/components/calendar/CalendarAgendaView';
 import type { CalendarViewMode } from '@/app/components/calendar/calendarTypes';
+import CountdownPanel from '@/app/components/countdown/CountdownPanel';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
 import ReviewPanel from '@/app/components/review/ReviewPanel';
 import ItemsPanel from '@/app/components/items/ItemsPanel';
@@ -101,7 +102,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   X, CheckCircle2,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
-  CheckSquare, LayoutGrid, Timer, Settings, Cloud, CloudSun, CloudRain, CloudFog, CloudSnow,
+  CheckSquare, LayoutGrid, Settings, Cloud, CloudSun, CloudRain, CloudFog, CloudSnow,
   ImagePlus, Monitor, Paperclip, Upload,
   Phone,
   Info,
@@ -719,12 +720,6 @@ const extractCalendarNote = (data: Record<string, any>) => {
 };
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
-
-const formatCountdownDate = (dateText: string) => {
-  const [year, month, day] = dateText.split('-');
-  if (!year || !month || !day) return dateText;
-  return `${year}年${month.padStart(2, '0')}月${day.padStart(2, '0')}日`;
-};
 
 const getTimezoneLabel = (offsetMinutes: number) => {
   const match = TIMEZONE_OPTIONS.find((option) => option.offsetMinutes === offsetMinutes);
@@ -6855,211 +6850,25 @@ const headerTitle = activeFilter === 'category'
               </div>
             </>
           ) : activeFilter === 'countdown' ? (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-              <div className="space-y-4">
-                <div className="flex items-center justify-end">
-                  <button
-                    onClick={() => openCountdownForm()}
-                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-500"
-                  >
-                    新建倒数日
-                  </button>
-                </div>
-
-                {countdowns.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-48 text-[#444444]">
-                    <Timer className="w-12 h-12 mb-3 opacity-20" />
-                    <p className="text-sm">还没有倒数日</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {countdowns.map((item) => {
-                      const diff = getCountdownDays(item.targetDate);
-                      const isPast = diff < 0;
-                      const displayDays = Math.abs(diff);
-                      return (
-                        <div
-                          key={item.id}
-                          className="bg-[#20242C]/90 border border-[#343C4C]/80 rounded-xl px-3 py-3 sm:px-4 flex items-center justify-between gap-3"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="text-sm font-semibold text-[#EEEEEE] leading-snug">{item.title}</h4>
-                                  {item.pinned && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">置顶</span>
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-[#8A93A6] mt-0.5">目标日期：{item.targetDate}</p>
-                              </div>
-                              <div className="text-right shrink-0 min-w-[58px]">
-                                {countdownDisplayMode === 'date' ? (
-                                  <>
-                                    <p className={`text-sm font-semibold ${isPast ? 'text-red-300' : 'text-blue-200'}`}>
-                                      {formatCountdownDate(item.targetDate)}
-                                    </p>
-                                    <p className="text-[11px] text-[#666666]">
-                                      {isPast ? `已过去 ${displayDays} 天` : `还有 ${displayDays} 天`}
-                                    </p>
-                                  </>
-                                ) : (
-                                  <>
-                                    <p className={`text-xl font-semibold leading-none ${isPast ? 'text-red-400' : 'text-blue-400'}`}>
-                                      {displayDays}
-                                    </p>
-                                    <p className="mt-1 text-[10px] text-[#666666]">{isPast ? '已过去' : '天后'}</p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              <button
-                                onClick={() => toggleCountdownPinned(item)}
-                                className={`px-2 py-0.5 text-[11px] rounded-md border transition-colors ${
-                                  item.pinned
-                                    ? 'border-yellow-500 text-yellow-300 bg-yellow-500/10'
-                                    : 'border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]'
-                                }`}
-                              >
-                                {item.pinned ? '取消置顶' : '置顶'}
-                              </button>
-                              <button
-                                onClick={() => openCountdownForm(item)}
-                                className="px-2 py-0.5 text-[11px] rounded-md border border-[#333333] text-[#888888] hover:text-white hover:border-[#555555]"
-                              >
-                                编辑
-                              </button>
-                              <button
-                                onClick={() => removeCountdown(item.id)}
-                                className="px-2 py-0.5 text-[11px] rounded-md border border-red-500/40 text-red-300 hover:bg-red-500/10"
-                              >
-                                删除
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                    <h3 className="text-base font-semibold text-[#DDDDDD]">倒数日 AI 助手</h3>
-                      <p className="text-xs text-[#666666] mt-1">一句话识别重要日期，我来帮你记</p>
-                    </div>
-                    <span className="text-[11px] text-[#555555]">知识库自动沉淀</span>
-                  </div>
-                  <div className="mt-3 space-y-3">
-                    <div className="rounded-xl border border-dashed border-[#333333] bg-[#1B1B1B] px-3 py-2 text-xs text-[#777777]">
-                      小提示：可以说“孩子生日是 9 月 9 日”或“距离项目发布还有两周”。
-                    </div>
-                    <div className="max-h-[32vh] overflow-y-auto space-y-2 pr-1">
-                      {countdownAgentMessages.length === 0 ? (
-                        <div className="text-sm text-[#555555]">告诉我：你想倒数的日子是什么？</div>
-                      ) : (
-                        countdownAgentMessages.map((message, idx) => (
-                          <div
-                            key={`${message.role}-${idx}`}
-                            className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap sm:max-w-[76%] ${
-                              message.role === 'user'
-                                ? 'bg-blue-600/20 text-blue-100 ml-auto'
-                                : 'border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)] mr-auto'
-                            }`}
-                          >
-                            {message.content}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    {countdownAgentError && (
-                      <div className="flex items-start justify-between gap-3 text-xs text-red-300 bg-red-500/10 p-2 rounded-lg">
-                        <span className="whitespace-pre-wrap leading-relaxed">{countdownAgentError}</span>
-                        <button
-                          onClick={handleCountdownAgentSend}
-                          disabled={countdownAgentLoading}
-                          className="text-red-200 underline hover:text-white"
-                        >
-                          重试
-                        </button>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={countdownAgentInput}
-                        onChange={(e) => setCountdownAgentInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleCountdownAgentSend()}
-                        placeholder="例如：10 月 1 日去旅行"
-                        className="ui-input flex-1 rounded-lg px-3 py-3 text-sm leading-6"
-                        disabled={countdownAgentLoading}
-                      />
-                      <button
-                        onClick={handleCountdownAgentSend}
-                        disabled={countdownAgentLoading || !countdownAgentInput.trim()}
-                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50"
-                      >
-                        {countdownAgentLoading ? '识别中…' : '发送'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-[#CCCCCC]">建议倒数日（我猜你在想）</h4>
-                  {showCountdownAgentBulkAdd && (
-                    <button
-                      onClick={handleAddAllCountdownAgentItems}
-                      disabled={countdownAgentItems.length === 0 || addedCountdownAgentItemIds.size === countdownAgentItems.length}
-                      className="text-xs px-3 py-1 rounded-lg border border-blue-500 text-blue-200 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      一键全部添加
-                    </button>
-                  )}
-                </div>
-                {countdownAgentItems.length === 0 ? (
-                  <div className="bg-[#1F1F1F] border border-dashed border-[#2C2C2C] rounded-2xl p-4 text-xs text-[#666666]">
-                    识别结果会在这里展示，选中即可加入倒数日列表。
-                  </div>
-                ) : (
-                  <div className="grid gap-3">
-                    {countdownAgentItems.map((item) => {
-                      const isAdded = addedCountdownAgentItemIds.has(item.id);
-                      const hasDate = Boolean(item.targetDate);
-                      return (
-                        <div key={item.id} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-[#EEEEEE]">{item.title}</p>
-                              <p className="text-xs text-[#777777] mt-1">
-                                日期：{item.targetDate ? item.targetDate : '未识别日期'}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleAddCountdownAgentItem(item)}
-                              disabled={isAdded || !hasDate}
-                              className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-                                isAdded
-                                  ? 'border-[#333333] text-[#666666]'
-                                  : hasDate
-                                  ? 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                                  : 'border-[#333333] text-[#555555]'
-                              }`}
-                            >
-                              {isAdded ? '已添加' : hasDate ? '加入倒数日' : '缺日期'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
+            <CountdownPanel
+              countdowns={countdowns}
+              countdownDisplayMode={countdownDisplayMode}
+              countdownAgentMessages={countdownAgentMessages}
+              countdownAgentInput={countdownAgentInput}
+              countdownAgentLoading={countdownAgentLoading}
+              countdownAgentError={countdownAgentError}
+              countdownAgentItems={countdownAgentItems}
+              addedCountdownAgentItemIds={addedCountdownAgentItemIds}
+              showCountdownAgentBulkAdd={showCountdownAgentBulkAdd}
+              setCountdownAgentInput={setCountdownAgentInput}
+              onOpenCreate={() => openCountdownForm()}
+              onOpenEdit={openCountdownForm}
+              onTogglePinned={toggleCountdownPinned}
+              onRemove={removeCountdown}
+              onAgentSend={handleCountdownAgentSend}
+              onAddAgentItem={handleAddCountdownAgentItem}
+              onAddAllAgentItems={handleAddAllCountdownAgentItems}
+            />
           ) : activeFilter === 'timeline' ? (
             <TimelinePanel
               tasks={tasks}
@@ -9335,6 +9144,8 @@ const headerTitle = activeFilter === 'category'
       <CountdownFormModal
         show={showCountdownForm}
         editingCountdown={Boolean(editingCountdown)}
+        countdownTitle={countdownTitle}
+        setCountdownTitle={setCountdownTitle}
         countdownDate={countdownDate}
         setCountdownDate={setCountdownDate}
         onClose={() => {
