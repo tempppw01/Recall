@@ -14,7 +14,6 @@ import {
   GripVertical,
   History,
   LayoutGrid,
-  Library,
   Package2,
   Settings,
   Smile,
@@ -345,16 +344,6 @@ const Sidebar = ({
       accentRgb: '96, 165, 250',
       onClick: () => changeFilter('agent'),
     },
-    {
-      key: 'knowledge',
-      icon: Library,
-      label: '知识库',
-      title: '知识库',
-      active: activeFilter === 'knowledge',
-      iconColor: 'text-amber-400',
-      accentRgb: '245, 158, 11',
-      onClick: () => changeFilter('knowledge'),
-    },
     ...toolOrder.map((key) => ({
       key,
       title: toolConfig[key].label,
@@ -669,14 +658,6 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
                     active={activeFilter === 'agent' || activeFilter === 'chat'}
                     onClick={() => changeFilter('agent')}
                     accentRgb="96, 165, 250"
-                  />
-                  <SidebarItem
-                    icon={Library}
-                    label="知识库"
-                    active={activeFilter === 'knowledge'}
-                    onClick={() => changeFilter('knowledge')}
-                    iconColor="text-amber-400"
-                    accentRgb="245, 158, 11"
                   />
                 </div>
 

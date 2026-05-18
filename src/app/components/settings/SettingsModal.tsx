@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Bot, ChevronDown, Cloud, Database, Palette, Sparkles, X } from 'lucide-react';
+import { Bell, Bot, ChevronDown, Cloud, Database, Library, Palette, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import ModelSelect from '@/app/components/models/ModelSelect';
 import PgSettings from '@/app/components/PgSettings';
 import RedisSettings from '@/app/components/RedisSettings';
+import type { KnowledgeEntry } from '@/app/homeTypes';
 
 type CountdownDisplayMode = 'days' | 'date';
 type ThemePreference = 'system' | 'light' | 'dark';
 type AccentTheme = 'blue' | 'violet' | 'emerald' | 'rose';
 type GradientTheme = 'aurora' | 'sunset' | 'ocean' | 'mono';
-type SettingsFocusTarget = 'sync' | null;
-type SettingsSectionKey = 'ai' | 'appearance' | 'notifications' | 'sync' | 'data';
+type SettingsFocusTarget = 'sync' | 'knowledge' | null;
+type SettingsSectionKey = 'ai' | 'appearance' | 'knowledge' | 'notifications' | 'sync' | 'data';
 type AppearanceTab = 'theme' | 'display';
 
 type SettingsModalProps = {
@@ -132,6 +133,22 @@ type SettingsModalProps = {
   }) => void;
   webdavPath: string;
   aiRetentionDays: number;
+  knowledgeEntries: KnowledgeEntry[];
+  visibleKnowledgeEntries: KnowledgeEntry[];
+  knowledgeCategoryLabels: Record<KnowledgeEntry['category'], string>;
+  knowledgeTitleInput: string;
+  setKnowledgeTitleInput: React.Dispatch<React.SetStateAction<string>>;
+  knowledgeContentInput: string;
+  setKnowledgeContentInput: React.Dispatch<React.SetStateAction<string>>;
+  knowledgeCategoryInput: KnowledgeEntry['category'];
+  setKnowledgeCategoryInput: React.Dispatch<React.SetStateAction<KnowledgeEntry['category']>>;
+  knowledgeSearchInput: string;
+  setKnowledgeSearchInput: React.Dispatch<React.SetStateAction<string>>;
+  editingKnowledgeId: string | null;
+  saveKnowledgeEntry: () => void;
+  resetKnowledgeForm: () => void;
+  startEditKnowledgeEntry: (entry: KnowledgeEntry) => void;
+  removeKnowledgeEntry: (entryId: string) => void;
 };
 
 const ACCENT_THEME_OPTIONS: Array<{
@@ -230,6 +247,11 @@ const SETTINGS_SECTIONS: Array<{
     icon: Palette,
   },
   {
+    key: 'knowledge',
+    label: '知识库',
+    icon: Library,
+  },
+  {
     key: 'sync',
     label: '同步与附件',
     icon: Cloud,
@@ -245,6 +267,12 @@ const SETTINGS_SECTIONS: Array<{
     icon: Database,
   },
 ];
+
+const getInitialSettingsSection = (target?: SettingsFocusTarget): SettingsSectionKey => {
+  if (target === 'sync') return 'sync';
+  if (target === 'knowledge') return 'knowledge';
+  return 'ai';
+};
 
 const SettingsModal = ({
   showSettings,
@@ -334,16 +362,33 @@ const SettingsModal = ({
   persistSettings,
   webdavPath,
   aiRetentionDays,
+  knowledgeEntries,
+  visibleKnowledgeEntries,
+  knowledgeCategoryLabels,
+  knowledgeTitleInput,
+  setKnowledgeTitleInput,
+  knowledgeContentInput,
+  setKnowledgeContentInput,
+  knowledgeCategoryInput,
+  setKnowledgeCategoryInput,
+  knowledgeSearchInput,
+  setKnowledgeSearchInput,
+  editingKnowledgeId,
+  saveKnowledgeEntry,
+  resetKnowledgeForm,
+  startEditKnowledgeEntry,
+  removeKnowledgeEntry,
 }: SettingsModalProps) => {
   const [showAutoSavedNotice, setShowAutoSavedNotice] = useState(false);
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(settingsFocusTarget === 'sync' ? 'sync' : 'ai');
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(getInitialSettingsSection(settingsFocusTarget));
   const [appearanceTab, setAppearanceTab] = useState<AppearanceTab>('theme');
   const firstAutoSaveRef = useRef(true);
   const autoSavedNoticeTimerRef = useRef<number | null>(null);
   const lastAutoFetchedModelKeyRef = useRef<string | null>(null);
   const aiSectionRef = useRef<HTMLDetailsElement>(null);
   const appearanceSectionRef = useRef<HTMLDivElement>(null);
+  const knowledgeSectionRef = useRef<HTMLDetailsElement>(null);
   const notificationsSectionRef = useRef<HTMLDetailsElement>(null);
   const serverSettingsRef = useRef<HTMLDetailsElement>(null);
   const dataSectionRef = useRef<HTMLDetailsElement>(null);
@@ -385,6 +430,7 @@ const SettingsModal = ({
   const getSectionTarget = (section: SettingsSectionKey) => {
     if (section === 'ai') return aiSectionRef.current;
     if (section === 'appearance') return appearanceSectionRef.current;
+    if (section === 'knowledge') return knowledgeSectionRef.current;
     if (section === 'notifications') return notificationsSectionRef.current;
     if (section === 'sync') return serverSettingsRef.current;
     return dataSectionRef.current;
@@ -519,7 +565,7 @@ const SettingsModal = ({
     if (!showSettings) {
       firstAutoSaveRef.current = true;
       setShowAutoSavedNotice(false);
-      setActiveSection(settingsFocusTarget === 'sync' ? 'sync' : 'ai');
+      setActiveSection(getInitialSettingsSection(settingsFocusTarget));
       setAppearanceTab('theme');
       if (autoSavedNoticeTimerRef.current) {
         window.clearTimeout(autoSavedNoticeTimerRef.current);
@@ -532,6 +578,10 @@ const SettingsModal = ({
     if (!showSettings) return;
     if (settingsFocusTarget === 'sync') {
       scrollToSection('sync');
+      return;
+    }
+    if (settingsFocusTarget === 'knowledge') {
+      scrollToSection('knowledge');
       return;
     }
     setActiveSection('ai');
@@ -1083,6 +1133,149 @@ const SettingsModal = ({
                         </div>
                       </>
                     )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details
+            ref={knowledgeSectionRef}
+            className={`group settings-section scroll-mt-6 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] p-3.5 ${
+              settingsFocusTarget === 'knowledge' ? 'ring-1 ring-amber-300/35' : ''
+            }`}
+          >
+            <summary className="ui-section-label ui-state-hover flex cursor-pointer list-none items-center justify-between gap-2 rounded-[22px] px-2.5 py-2">
+              <span>知识库</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[color:var(--ui-icon-muted)] transition-transform duration-[var(--motion-base)] group-open:rotate-180" />
+            </summary>
+            <div className="grid grid-rows-[0fr] opacity-85 transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100">
+              <div className="mt-3 min-w-0 overflow-hidden">
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                  <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-2)]/38 p-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-amber-400/12 text-amber-300">
+                          <Library className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[color:var(--ui-text-strong)]">
+                            {editingKnowledgeId ? '编辑知识' : '补充知识'}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">AI 会在相关对话和任务建议中参考</p>
+                        </div>
+                      </div>
+                      <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                        {knowledgeEntries.length} 条
+                      </span>
+                    </div>
+
+                    <div className="mt-3 space-y-2.5">
+                      <input
+                        type="text"
+                        value={knowledgeTitleInput}
+                        onChange={(event) => setKnowledgeTitleInput(event.target.value)}
+                        placeholder="标题，例如：我的作息偏好"
+                        className={baseInputClassName}
+                      />
+                      <select
+                        value={knowledgeCategoryInput}
+                        onChange={(event) => setKnowledgeCategoryInput(event.target.value as KnowledgeEntry['category'])}
+                        className="ui-select rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm"
+                      >
+                        {(Object.entries(knowledgeCategoryLabels) as Array<[KnowledgeEntry['category'], string]>).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                      <textarea
+                        value={knowledgeContentInput}
+                        onChange={(event) => setKnowledgeContentInput(event.target.value)}
+                        placeholder="写下之后应该长期记住、检索或调用的信息"
+                        rows={5}
+                        className="ui-textarea rounded-2xl px-3 py-2.5 text-[13px] sm:text-sm"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={saveKnowledgeEntry}
+                          disabled={!knowledgeTitleInput.trim() || !knowledgeContentInput.trim()}
+                          className="btn btn-md btn-primary rounded-2xl disabled:opacity-50"
+                        >
+                          {editingKnowledgeId ? '保存修改' : '加入知识库'}
+                        </button>
+                        {editingKnowledgeId ? (
+                          <button type="button" onClick={resetKnowledgeForm} className="btn btn-md btn-ghost rounded-2xl">
+                            取消编辑
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/45 p-3 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">
+                      <div className="font-semibold text-[color:var(--ui-text-strong)]">模型链路</div>
+                      <div className="mt-1">Embedding：{embeddingModel.trim() || '未配置，先用本地相关度'}</div>
+                      <div>Rerank：{rerankModel.trim() || '未配置，先用本地排序'}</div>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-2)]/30 p-3.5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[color:var(--ui-text-strong)]">已保存资料</p>
+                        <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">自动沉淀和手动补充都会集中在这里</p>
+                      </div>
+                      <input
+                        type="text"
+                        value={knowledgeSearchInput}
+                        onChange={(event) => setKnowledgeSearchInput(event.target.value)}
+                        placeholder="搜索知识"
+                        className="ui-input w-full rounded-2xl px-3 py-2 text-[13px] sm:w-56"
+                      />
+                    </div>
+
+                    <div className="mt-3 max-h-[42vh] space-y-2 overflow-y-auto pr-1">
+                      {visibleKnowledgeEntries.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-4 py-8 text-center text-sm text-[color:var(--ui-text-muted)]">
+                          还没有知识。继续使用 AI 助手时，可复用资料会自动沉淀到这里。
+                        </div>
+                      ) : (
+                        visibleKnowledgeEntries.map((entry) => (
+                          <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/58 p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <div className="min-w-0 truncate text-sm font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
+                                  <span className="shrink-0 rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                                    {knowledgeCategoryLabels[entry.category]}
+                                  </span>
+                                </div>
+                                <div className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-[color:var(--ui-text-primary)]">{entry.content}</div>
+                              </div>
+                              <div className="flex shrink-0 gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditKnowledgeEntry(entry)}
+                                  className="rounded-lg border border-[color:var(--ui-border-soft)] p-2 text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                                  title="编辑"
+                                  aria-label={`编辑知识：${entry.title}`}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeKnowledgeEntry(entry.id)}
+                                  className="rounded-lg border border-rose-300/25 p-2 text-[color:var(--ui-text-secondary)] hover:bg-rose-400/10 hover:text-rose-400"
+                                  title="删除"
+                                  aria-label={`删除知识：${entry.title}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

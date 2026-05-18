@@ -108,7 +108,6 @@ import {
   Info,
   AlertTriangle,
   XCircle,
-  Pencil,
   Plus,
   MoreHorizontal,
   Copy,
@@ -549,7 +548,6 @@ const FILTER_LABELS: Record<string, string> = {
   countdown: '倒数日',
   habit: '习惯打卡',
   agent: 'AI 助手',
-  knowledge: '知识库',
   search: '搜索',
   pomodoro: '番茄时钟',
   category: '列表',
@@ -569,7 +567,6 @@ const ACTIVE_FILTER_VALUES = new Set([
   'countdown',
   'habit',
   'agent',
-  'knowledge',
   'search',
   'pomodoro',
   'category',
@@ -1296,7 +1293,7 @@ export default function Home() {
   const [fallbackTimeoutSec, setFallbackTimeoutSec] = useState(DEFAULT_FALLBACK_TIMEOUT_SEC);
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsFocusTarget, setSettingsFocusTarget] = useState<'sync' | null>(null);
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState<'sync' | 'knowledge' | null>(null);
   const [activeFilter, setActiveFilter] = useState('agent');
   const [taskScope, setTaskScope] = useState<TaskScope>('todo');
   const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
@@ -2092,6 +2089,11 @@ export default function Home() {
       if (storedActiveFilter === 'chat') {
         setActiveFilter('agent');
         setAiAssistantMode('chat');
+        localStorage.setItem(ACTIVE_FILTER_KEY, 'agent');
+      } else if (storedActiveFilter === 'knowledge') {
+        setActiveFilter('agent');
+        setSettingsFocusTarget('knowledge');
+        setShowSettings(true);
         localStorage.setItem(ACTIVE_FILTER_KEY, 'agent');
       } else if (storedActiveFilter && LEGACY_TASK_FILTER_VALUES.has(storedActiveFilter)) {
         setActiveFilter('todo');
@@ -5758,8 +5760,6 @@ const headerTitle = activeFilter === 'category'
     ? '物品管理'
     : activeFilter === 'stats'
     ? '统计'
-    : activeFilter === 'knowledge'
-    ? '知识库'
     : (FILTER_LABELS[activeFilter] ?? '待办');
   const headerSubtitle = activeFilter === 'timeline'
     ? '按时间回顾任务进展，查看完成、未完成和逾期事项'
@@ -5779,8 +5779,6 @@ const headerTitle = activeFilter === 'category'
     ? '把任务、专注和习惯放在一个视角里，先看趋势，再决定下一步怎么推进'
     : activeFilter === 'pomodoro'
     ? '用专注与休息节奏推进当前任务'
-    : activeFilter === 'knowledge'
-    ? '统一管理偏好、习惯、背景信息和做过的事，供所有 AI 功能调用'
     : activeFilter === 'agent'
     ? (aiAssistantMode === 'record'
       ? '先说目标或想法，我会帮你整理、拆解并推进下一步'
@@ -5795,7 +5793,7 @@ const headerTitle = activeFilter === 'category'
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
   const isFixedPanelView = activeFilter === 'agent';
-  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'knowledge', 'review', 'items', 'stats'].includes(activeFilter);
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'review', 'items', 'stats'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
@@ -5931,6 +5929,10 @@ const headerTitle = activeFilter === 'category'
       )}
     </div>
   );
+  const openKnowledgeSettings = () => {
+    setSettingsFocusTarget('knowledge');
+    setShowSettings(true);
+  };
   const renderKnowledgeReferences = (refs?: KnowledgeReference[]) => {
     const normalizedRefs = normalizeKnowledgeReferences(refs);
     if (normalizedRefs.length === 0) return null;
@@ -5953,7 +5955,7 @@ const headerTitle = activeFilter === 'category'
         </span>
         <button
           type="button"
-          onClick={() => setActiveFilter('knowledge')}
+          onClick={openKnowledgeSettings}
           className="rounded-full px-1.5 py-1 text-[10px] text-cyan-200/90 transition-colors hover:bg-cyan-400/10 hover:text-cyan-100"
         >
           查看
@@ -7177,7 +7179,7 @@ const headerTitle = activeFilter === 'category'
                   <div className="conversation-inline-surface flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-[18px] border border-[color:var(--ui-border-soft)] px-2 py-1.5 backdrop-blur-xl">
                     <button
                       type="button"
-                      onClick={() => setActiveFilter('knowledge')}
+                      onClick={openKnowledgeSettings}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-strong)]"
                       title="打开知识库"
                       aria-label="打开知识库"
@@ -8092,111 +8094,6 @@ const headerTitle = activeFilter === 'category'
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : activeFilter === 'knowledge' ? (
-            <div className="theme-native-surface grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-              <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-strong)]">
-                  <Library className="h-4 w-4 text-amber-400" />
-                  <span>{editingKnowledgeId ? '编辑知识' : '手动补充知识'}</span>
-                </div>
-                <div className="mt-4 space-y-3">
-                  <input
-                    type="text"
-                    value={knowledgeTitleInput}
-                    onChange={(event) => setKnowledgeTitleInput(event.target.value)}
-                    placeholder="标题，例如：我的作息偏好"
-                    className="ui-input rounded-2xl px-3 py-2.5 text-sm"
-                  />
-                  <select
-                    value={knowledgeCategoryInput}
-                    onChange={(event) => setKnowledgeCategoryInput(event.target.value as KnowledgeEntry['category'])}
-                    className="ui-select rounded-2xl px-3 py-2.5 text-sm"
-                  >
-                    {Object.entries(KNOWLEDGE_CATEGORY_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  <textarea
-                    value={knowledgeContentInput}
-                    onChange={(event) => setKnowledgeContentInput(event.target.value)}
-                    placeholder="写下 AI 之后应该记住、检索或调用的信息"
-                    rows={8}
-                    className="ui-textarea rounded-2xl px-3 py-2.5 text-sm"
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={saveKnowledgeEntry}
-                      disabled={!knowledgeTitleInput.trim() || !knowledgeContentInput.trim()}
-                      className="btn btn-md btn-primary rounded-2xl disabled:opacity-50"
-                    >
-                      {editingKnowledgeId ? '保存修改' : '加入知识库'}
-                    </button>
-                    {editingKnowledgeId && (
-                      <button type="button" onClick={resetKnowledgeForm} className="btn btn-md btn-ghost rounded-2xl">
-                        取消
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3">
-                  <div className="text-xs font-semibold text-[color:var(--ui-text-strong)]">模型链路</div>
-                  <div className="mt-2 space-y-1 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">
-                    <div>Embedding：{embeddingModel.trim() || '未配置，先用本地相关度'}</div>
-                    <div>Rerank：{rerankModel.trim() || '未配置，先用本地重排序'}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">全局知识库</div>
-                    <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">AI 助手会自动总结可复用资料；这里也支持手动补充和修正。</p>
-                  </div>
-                  <input
-                    type="text"
-                    value={knowledgeSearchInput}
-                    onChange={(event) => setKnowledgeSearchInput(event.target.value)}
-                    placeholder="搜索知识"
-                    className="ui-input w-full rounded-2xl px-3 py-2.5 text-sm sm:w-64"
-                  />
-                </div>
-
-                <div className="mt-4 grid gap-2">
-                  {visibleKnowledgeEntries.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-4 py-10 text-center text-sm text-[color:var(--ui-text-muted)]">
-                      还没有知识。继续使用 AI 助手时，可复用资料会自动沉淀到这里。
-                    </div>
-                  ) : (
-                    visibleKnowledgeEntries.map((entry) => (
-                      <div key={entry.id} className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <div className="truncate text-sm font-semibold text-[color:var(--ui-text-strong)]">{entry.title}</div>
-                              <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
-                                {KNOWLEDGE_CATEGORY_LABELS[entry.category]}
-                              </span>
-                            </div>
-                            <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[color:var(--ui-text-primary)]">{entry.content}</div>
-                          </div>
-                          <div className="flex shrink-0 gap-1">
-                            <button type="button" onClick={() => startEditKnowledgeEntry(entry)} className="rounded-lg border border-[color:var(--ui-border-soft)] p-2 text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button type="button" onClick={() => removeKnowledgeEntry(entry.id)} className="rounded-lg border border-rose-300/25 p-2 text-[color:var(--ui-text-secondary)] hover:bg-rose-400/10 hover:text-rose-400">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
                   )}
                 </div>
               </div>
@@ -9139,6 +9036,22 @@ const headerTitle = activeFilter === 'category'
         persistSettings={persistSettings}
         webdavPath={webdavPath}
         aiRetentionDays={aiRetentionDays}
+        knowledgeEntries={knowledgeEntries}
+        visibleKnowledgeEntries={visibleKnowledgeEntries}
+        knowledgeCategoryLabels={KNOWLEDGE_CATEGORY_LABELS}
+        knowledgeTitleInput={knowledgeTitleInput}
+        setKnowledgeTitleInput={setKnowledgeTitleInput}
+        knowledgeContentInput={knowledgeContentInput}
+        setKnowledgeContentInput={setKnowledgeContentInput}
+        knowledgeCategoryInput={knowledgeCategoryInput}
+        setKnowledgeCategoryInput={setKnowledgeCategoryInput}
+        knowledgeSearchInput={knowledgeSearchInput}
+        setKnowledgeSearchInput={setKnowledgeSearchInput}
+        editingKnowledgeId={editingKnowledgeId}
+        saveKnowledgeEntry={saveKnowledgeEntry}
+        resetKnowledgeForm={resetKnowledgeForm}
+        startEditKnowledgeEntry={startEditKnowledgeEntry}
+        removeKnowledgeEntry={removeKnowledgeEntry}
       />
 
       <CountdownFormModal
