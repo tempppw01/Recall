@@ -6954,7 +6954,6 @@ const headerTitle = activeFilter === 'category'
                   紧急
                   <span className="text-[#F3F6FF]">{quadrantUrgentCount}</span>
                 </span>
-                <span className="text-[11px] text-[#7d8595] sm:ml-auto">拖动任务可调整象限</span>
               </div>
 
               <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-2.5 min-[640px]:grid-cols-2 min-[640px]:grid-rows-2 sm:gap-3">
@@ -7184,7 +7183,7 @@ const headerTitle = activeFilter === 'category'
                                     setDragOverQuadrantKey(null);
                                   }}
                                   dragEnabled
-                                  dragLabel="拖动"
+                                  showDragHandle={false}
                                   compactText
                                   showDueCountdown={false}
                                   onTitleClick={() => {

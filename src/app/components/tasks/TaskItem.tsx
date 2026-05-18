@@ -97,6 +97,7 @@ export type TaskItemProps = {
   onQuickSetDuePreset?: (taskId: string, preset: 'today' | 'tomorrow' | 'tonight' | 'nextWeek') => void;
   dragLabel?: string;
   dragTitle?: string;
+  showDragHandle?: boolean;
   showInlineQuickActions?: boolean;
   compactText?: boolean;
   showDueCountdown?: boolean;
@@ -128,6 +129,7 @@ const TaskItem = ({
   dragLabel = '拖动排序',
   dragTitle = '拖动排序',
   dragEnabled = true,
+  showDragHandle = true,
   showInlineQuickActions = false,
   compactText = false,
   showDueCountdown = true,
@@ -164,6 +166,11 @@ const TaskItem = ({
   const timezoneOffset = getTimezoneOffset(task);
   const canDrag = Boolean(onDragStart) && dragEnabled && !multiSelectEnabled;
   const isCardClickable = Boolean(onClick) || Boolean(multiSelectEnabled);
+  const cardCursorClass = canDrag && !showDragHandle
+    ? 'cursor-grab active:cursor-grabbing'
+    : isCardClickable
+      ? 'cursor-pointer'
+      : 'cursor-default';
   const subtaskTotal = task.subtasks?.length ?? 0;
   const completedSubtasks = subtaskTotal
     ? (task.subtasks ?? []).filter((subtask: Subtask) => subtask.completed).length
@@ -424,9 +431,7 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative overflow-visible rounded-[20px] p-2.5 pl-3.5 motion-card motion-press ui-state-hover ui-state-press border sm:p-3 sm:pl-4 ${
-          isCardClickable ? 'cursor-pointer' : 'cursor-default'
-        } ${
+        className={`group relative overflow-visible rounded-[20px] p-2.5 pl-3.5 motion-card motion-press ui-state-hover ui-state-press border sm:p-3 sm:pl-4 ${cardCursorClass} ${
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
@@ -556,7 +561,7 @@ const TaskItem = ({
                     {dueCountdown.label}
                   </span>
                 )}
-                {canDrag && (
+                {canDrag && showDragHandle && (
                   <button
                     type="button"
                     draggable
