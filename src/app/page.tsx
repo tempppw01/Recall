@@ -156,6 +156,7 @@ const SIDEBAR_WIDTH_KEY = 'recall_sidebar_width';
 const SIDEBAR_COLLAPSED_KEY = 'recall_sidebar_collapsed';
 const ACTIVE_FILTER_KEY = 'recall_active_filter';
 const TASK_SCOPE_KEY = 'recall_task_scope';
+const SHOW_COMPLETED_TASKS_KEY = 'recall_show_completed_tasks';
 const AGENT_MESSAGES_KEY = 'recall_agent_messages';
 const MANAGE_AGENT_MESSAGES_KEY = 'recall_manage_agent_messages';
 const CASUAL_CHAT_MESSAGES_KEY = 'recall_casual_chat_messages';
@@ -555,7 +556,6 @@ const FILTER_LABELS: Record<string, string> = {
   inbox: '收件箱',
   today: '今日',
   next7: '未来 7 天',
-  completed: '已完成',
   review: '检查',
   items: '物品管理',
   stats: '统计',
@@ -574,7 +574,6 @@ const ACTIVE_FILTER_VALUES = new Set([
   'inbox',
   'today',
   'next7',
-  'completed',
   'review',
   'items',
   'stats',
@@ -1453,6 +1452,7 @@ export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [showCountdownForm, setShowCountdownForm] = useState(false);
   const [showClearCompletedConfirm, setShowClearCompletedConfirm] = useState(false);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [editingCountdown, setEditingCountdown] = useState<Countdown | null>(null);
   const [countdownTitle, setCountdownTitle] = useState('');
   const [countdownDate, setCountdownDate] = useState('');
@@ -1923,6 +1923,7 @@ export default function Home() {
             SIDEBAR_COLLAPSED_KEY,
             ACTIVE_FILTER_KEY,
             TASK_SCOPE_KEY,
+            SHOW_COMPLETED_TASKS_KEY,
             CASUAL_CHAT_MESSAGES_KEY,
             USER_MEMORIES_KEY,
             KNOWLEDGE_BASE_KEY,
@@ -2083,13 +2084,22 @@ export default function Home() {
 
       const storedActiveFilter = localStorage.getItem(ACTIVE_FILTER_KEY);
       const storedTaskScope = localStorage.getItem(TASK_SCOPE_KEY);
+      const storedShowCompletedTasks = localStorage.getItem(SHOW_COMPLETED_TASKS_KEY);
       if (storedTaskScope && TASK_SCOPE_VALUES.has(storedTaskScope)) {
         setTaskScope(storedTaskScope as TaskScope);
+      }
+      if (storedShowCompletedTasks === 'true') {
+        setShowCompletedTasks(true);
       }
       if (storedActiveFilter === 'chat') {
         setActiveFilter('agent');
         setAiAssistantMode('chat');
         localStorage.setItem(ACTIVE_FILTER_KEY, 'agent');
+      } else if (storedActiveFilter === 'completed') {
+        setActiveFilter('todo');
+        setShowCompletedTasks(true);
+        localStorage.setItem(ACTIVE_FILTER_KEY, 'todo');
+        localStorage.setItem(SHOW_COMPLETED_TASKS_KEY, 'true');
       } else if (storedActiveFilter === 'knowledge') {
         setActiveFilter('agent');
         setSettingsFocusTarget('knowledge');
@@ -2232,6 +2242,11 @@ export default function Home() {
     if (typeof window === 'undefined' || !settingsLoaded) return;
     localStorage.setItem(TASK_SCOPE_KEY, taskScope);
   }, [settingsLoaded, taskScope]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !settingsLoaded) return;
+    localStorage.setItem(SHOW_COMPLETED_TASKS_KEY, String(showCompletedTasks));
+  }, [settingsLoaded, showCompletedTasks]);
 
   // 注意：apiKey 的持久化已移至 persistSettings 函数中统一处理
   // 避免在用户编辑设置时意外丢失密钥
@@ -2895,17 +2910,38 @@ export default function Home() {
   // Filter Logic
   const filterNow = new Date();
   const effectiveTaskFilter = activeFilter === 'todo' ? taskScope : activeFilter;
+  const taskScopeSource = showCompletedTasks ? tasks : tasks.filter((task) => task.status !== 'completed');
   const taskScopeCounts: Record<TaskScope, number> = {
-    todo: tasks.filter((task) => task.status !== 'completed').length,
-    inbox: tasks.filter((task) => task.status !== 'completed' && !task.dueDate).length,
-    today: tasks.filter((task) => task.status !== 'completed' && isTaskDueToday(task, filterNow)).length,
-    next7: tasks.filter((task) => task.status !== 'completed' && isTaskDueWithinDays(task, filterNow, 7)).length,
+    todo: taskScopeSource.length,
+    inbox: taskScopeSource.filter((task) => !task.dueDate).length,
+    today: taskScopeSource.filter((task) => isTaskDueToday(task, filterNow)).length,
+    next7: taskScopeSource.filter((task) => isTaskDueWithinDays(task, filterNow, 7)).length,
   };
   const taskScopeOptions = [
-    { value: 'todo' as const, label: '全部', count: taskScopeCounts.todo, hint: '所有未完成任务' },
-    { value: 'inbox' as const, label: '收件箱', count: taskScopeCounts.inbox, hint: '还没有安排日期的任务' },
-    { value: 'today' as const, label: '今日', count: taskScopeCounts.today, hint: '今天要处理的任务' },
-    { value: 'next7' as const, label: '7 天', count: taskScopeCounts.next7, hint: '未来 7 天内的任务' },
+    {
+      value: 'todo' as const,
+      label: '全部',
+      count: taskScopeCounts.todo,
+      hint: showCompletedTasks ? '所有任务，包含已完成' : '所有未完成任务',
+    },
+    {
+      value: 'inbox' as const,
+      label: '收件箱',
+      count: taskScopeCounts.inbox,
+      hint: showCompletedTasks ? '没有安排日期的任务，包含已完成' : '还没有安排日期的任务',
+    },
+    {
+      value: 'today' as const,
+      label: '今日',
+      count: taskScopeCounts.today,
+      hint: showCompletedTasks ? '今天相关任务，包含已完成' : '今天要处理的任务',
+    },
+    {
+      value: 'next7' as const,
+      label: '7 天',
+      count: taskScopeCounts.next7,
+      hint: showCompletedTasks ? '未来 7 天内任务，包含已完成' : '未来 7 天内的任务',
+    },
   ];
 
   const { filteredTasks, overdueCount, activeDueCount } = useTaskFilters({
@@ -2917,6 +2953,7 @@ export default function Home() {
     isTaskOverdue,
     isTaskDueToday,
     isTaskDueWithinDays,
+    showCompletedTasks,
   });
 
   const activeDueTasks = activeDueCount;
@@ -5785,8 +5822,6 @@ const headerTitle = activeFilter === 'category'
       : aiAssistantMode === 'manage'
         ? '直接基于当前待办给出最值得推进的下一步'
         : '自然聊天、追问或发散，需要时会参考记忆和知识库')
-    : activeFilter === 'completed'
-    ? '查看已经完成的事项，顺手清理历史任务'
     : activeFilter === 'category'
     ? '按列表查看当前任务，聚焦同一类事情'
     : activeFilter === 'tag'
@@ -6091,7 +6126,6 @@ const headerTitle = activeFilter === 'category'
           headerSubtitle={headerSubtitle}
           isListView={isListView}
           isBatchMode={isBatchMode}
-          completedTasks={completedTasks}
           isSyncingNow={isSyncingNow}
           themePreference={themePreference}
           onOpenSidebar={() => setIsSidebarOpen((previous) => !previous)}
@@ -6103,7 +6137,6 @@ const headerTitle = activeFilter === 'category'
             }
           }}
           onSync={() => handleWebdavSync('sync')}
-          onClearCompleted={() => setShowClearCompletedConfirm(true)}
           onOpenSettings={() => {
             setSettingsFocusTarget(null);
             setShowSettings(true);
@@ -6119,6 +6152,8 @@ const headerTitle = activeFilter === 'category'
             totalTasks={totalTasks}
             completionRate={completionRate}
             procrastinationIndex={procrastinationIndex}
+            completedTasks={completedTasks}
+            showCompletedTasks={showCompletedTasks}
             loading={loading}
             input={input}
             isBatchMode={isBatchMode}
@@ -6129,12 +6164,13 @@ const headerTitle = activeFilter === 'category'
             taskScopeOptions={activeFilter === 'todo' ? taskScopeOptions : undefined}
             sortOptions={TASK_SORT_OPTIONS}
             groupOptions={TASK_GROUP_OPTIONS}
-            showQuickAdd={activeFilter !== 'completed'}
             setInput={setInput}
             onMagicSubmit={handleMagicInput}
             onBatchComplete={batchCompleteTasks}
             onBatchDelete={batchDeleteTasks}
             onBatchClear={clearBatchSelection}
+            onToggleShowCompleted={() => setShowCompletedTasks((previous) => !previous)}
+            onClearCompleted={() => setShowClearCompletedConfirm(true)}
             onTaskSortModeChange={(mode) => setTaskSortMode(mode as TaskSortMode)}
             onTaskGroupModeChange={(mode) => setTaskGroupMode(mode as TaskGroupMode)}
             onTaskScopeChange={setTaskScope}
@@ -8275,25 +8311,6 @@ const headerTitle = activeFilter === 'category'
                 </div>
               ) : (
                 <>
-                  {activeFilter === 'completed' && completedTasks > 0 && (
-                    <div className="theme-native-surface flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">已完成任务</div>
-                        <div className="mt-0.5 text-xs text-[color:var(--ui-text-secondary)]">
-                          当前共有 {completedTasks} 项已收尾任务，可以一键清理历史列表。
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowClearCompletedConfirm(true)}
-                        className="shrink-0 rounded-full border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 transition-colors hover:bg-red-500/16 hover:text-red-100"
-                        title="清空所有已完成任务"
-                      >
-                        一键清空
-                      </button>
-                    </div>
-                  )}
-
                   {(taskGroupMode === 'dueDate' || effectiveTaskFilter === 'inbox' || effectiveTaskFilter === 'all' || effectiveTaskFilter === 'today' || effectiveTaskFilter === 'next7')
                     ? futureAwareGroupedTasks.map((group) => {
                         const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];

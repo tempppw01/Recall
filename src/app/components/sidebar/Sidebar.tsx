@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   BarChart3,
   Calendar,
-  CheckCircle2,
   CheckSquare,
   ClipboardCheck,
   ChevronDown,
@@ -58,8 +57,7 @@ type ToolItemKey =
   | 'countdown'
   | 'habit'
   | 'items'
-  | 'pomodoro'
-  | 'completed';
+  | 'pomodoro';
 
 type SidebarAction = {
   key: string;
@@ -79,7 +77,7 @@ const sidebarAccentStyle = (accentRgb?: string) => ({
 }) as React.CSSProperties;
 
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
-const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro', 'completed'];
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -321,15 +319,6 @@ const Sidebar = ({
       iconColor: 'text-red-400',
       accentRgb: '248, 113, 113',
     },
-    completed: {
-      icon: CheckCircle2,
-      label: '已完成',
-      count: 0,
-      active: activeFilter === 'completed',
-      onClick: () => changeFilter('completed'),
-      iconColor: 'text-emerald-400',
-      accentRgb: '16, 185, 129',
-    },
   };
 
   const collapsedRailItems: SidebarAction[] = [
@@ -363,10 +352,6 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
     {
       title: '物品',
       keys: ['items'],
-    },
-    {
-      title: '归档',
-      keys: ['completed'],
     },
   ];
 

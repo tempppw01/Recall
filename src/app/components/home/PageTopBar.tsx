@@ -1,4 +1,4 @@
-import { CheckSquare, Cloud, Flame, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal, Trash2 } from 'lucide-react';
+import { CheckSquare, Cloud, Flame, Info, Loader2, Menu, Monitor, Moon, Settings, Sun, Terminal } from 'lucide-react';
 
 const iconButtonClassName =
   'btn btn-ghost motion-card h-8 w-8 rounded-lg border-[color:var(--ui-border-soft)] bg-transparent p-0 text-[color:var(--ui-icon-muted)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-50';
@@ -14,13 +14,11 @@ type PageTopBarProps = {
   headerSubtitle?: string;
   isListView: boolean;
   isBatchMode: boolean;
-  completedTasks: number;
   isSyncingNow: boolean;
   themePreference: ThemePreference;
   onOpenSidebar: () => void;
   onToggleBatchMode: () => void;
   onSync: () => void;
-  onClearCompleted: () => void;
   onOpenSettings: () => void;
   onOpenAbout: () => void;
   onOpenLogs: () => void;
@@ -39,13 +37,11 @@ export default function PageTopBar({
   headerSubtitle,
   isListView,
   isBatchMode,
-  completedTasks,
   isSyncingNow,
   themePreference,
   onOpenSidebar,
   onToggleBatchMode,
   onSync,
-  onClearCompleted,
   onOpenSettings,
   onOpenAbout,
   onOpenLogs,
@@ -113,18 +109,6 @@ export default function PageTopBar({
                   <span className="icon-halo float-bob h-2 w-2 rounded-full bg-blue-300" />
                   同步队列处理中
                 </div>
-              )}
-
-              {activeFilter === 'completed' && completedTasks > 0 && (
-                <button
-                  onClick={onClearCompleted}
-                  className={`${actionButtonClassName} w-8 justify-center border-red-500/35 px-0 text-xs text-red-300 hover:bg-red-500/10 lg:w-auto lg:px-2.5 lg:text-sm`}
-                  title="清空已完成"
-                  aria-label="清空已完成"
-                >
-                  <Trash2 className="h-4 w-4 lg:hidden" />
-                  <span className="hidden lg:inline">清空已完成</span>
-                </button>
               )}
 
               <button

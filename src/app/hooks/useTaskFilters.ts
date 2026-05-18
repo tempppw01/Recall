@@ -13,7 +13,6 @@ export type ActiveFilter =
   | 'pomodoro'
   | 'stats'
   | 'agent'
-  | 'completed'
   | 'category'
   | 'tag'
   | 'timeline'
@@ -28,6 +27,7 @@ export function useTaskFilters(params: {
   isTaskOverdue: (task: Task) => boolean;
   isTaskDueToday: (task: Task, now: Date) => boolean;
   isTaskDueWithinDays: (task: Task, now: Date, days: number) => boolean;
+  showCompletedTasks?: boolean;
 }) {
   const {
     tasks,
@@ -38,30 +38,31 @@ export function useTaskFilters(params: {
     isTaskOverdue,
     isTaskDueToday,
     isTaskDueWithinDays,
+    showCompletedTasks = false,
   } = params;
 
   return useMemo(() => {
+    const canShowTask = (task: Task) => showCompletedTasks || task.status !== 'completed';
+
     const filtered = tasks.filter((t) => {
       if (activeFilter === 'agent') return true;
-      if (activeFilter === 'completed') return t.status === 'completed';
       if (activeFilter === 'inbox') {
-        return t.status !== 'completed' && !t.dueDate;
+        return canShowTask(t) && !t.dueDate;
       }
       if (activeFilter === 'today') {
-        return t.status !== 'completed' && isTaskDueToday(t, now);
+        return canShowTask(t) && isTaskDueToday(t, now);
       }
       if (activeFilter === 'next7') {
-        return t.status !== 'completed' && isTaskDueWithinDays(t, now, 7);
+        return canShowTask(t) && isTaskDueWithinDays(t, now, 7);
       }
       if (activeFilter === 'category') {
-        return activeCategory ? t.category === activeCategory : true;
+        return canShowTask(t) && (activeCategory ? t.category === activeCategory : true);
       }
       if (activeFilter === 'tag') {
-        return activeTag ? (t.tags || []).includes(activeTag) : true;
+        return canShowTask(t) && (activeTag ? (t.tags || []).includes(activeTag) : true);
       }
 
-      // default: show non-completed
-      return t.status !== 'completed';
+      return canShowTask(t);
     });
 
     const activeDueTasks = filtered.filter((task) => task.status !== 'completed' && task.dueDate);
@@ -81,5 +82,6 @@ export function useTaskFilters(params: {
     isTaskOverdue,
     isTaskDueToday,
     isTaskDueWithinDays,
+    showCompletedTasks,
   ]);
 }
