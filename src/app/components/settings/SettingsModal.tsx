@@ -639,12 +639,13 @@ const SettingsModal = ({
           <aside className="settings-modal-nav relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] lg:w-[216px] lg:border-b-0 lg:border-r">
             <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-4.5">
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.1)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-muted)]">
-                    <Sparkles className="h-3.5 w-3.5" />
+                <div className="flex min-h-9 items-center">
+                  <h2 className="inline-flex items-center gap-2 text-[18px] font-semibold tracking-[-0.035em] text-[color:var(--ui-text-strong)]">
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.1)] text-[color:var(--ui-text-muted)]">
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </span>
                     设置
-                  </span>
-                  <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)]">设置</h2>
+                  </h2>
                 </div>
                 <button
                   type="button"
