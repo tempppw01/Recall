@@ -1796,6 +1796,50 @@ export async function POST(req: NextRequest) {
     const normalizedImages = Array.isArray(images)
       ? images.filter((item) => typeof item === 'string' && item.trim().length > 0)
       : [];
+    if (mode === 'assistant-briefing') {
+      const networkNow = await getNetworkTime();
+      const serverTimeText = formatShanghaiDateTime(networkNow);
+      const incomingTasks = normalizeTodoAgentTasks(Array.isArray(tasks) ? tasks : [], 8);
+      const briefingPayload = {
+        model: resolvedChatModel,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are Recall AI assistant. Create one compact Chinese status briefing for the top of the assistant page. It should feel smart and useful, but not verbose. Return JSON only: { "summary": string }. The summary must be 18-38 Chinese characters, no markdown, no bullet list, no exaggerated claims.',
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              now: serverTimeText,
+              openTaskCount: Array.isArray(tasks)
+                ? tasks.filter((task: any) => task?.status !== 'completed').length
+                : incomingTasks.length,
+              tasks: incomingTasks.map((task: any) => ({
+                title: task.title,
+                status: task.status,
+                dueDate: task.dueDate,
+                priority: task.priority,
+                category: task.category,
+                pinned: task.pinned,
+                subtaskCompleted: task.subtaskCompleted,
+                subtaskTotal: task.subtaskTotal,
+              })),
+            }),
+          },
+        ],
+        response_format: { type: 'json_object' },
+      };
+
+      const { res: briefingRes } = await requestChat(baseUrlList, apiKey, briefingPayload);
+      const briefingJson = await briefingRes.json();
+      const raw = parseChatContent(briefingJson) as any;
+      const summary = typeof raw?.summary === 'string' ? raw.summary.trim() : '';
+      return NextResponse.json({
+        summary: summary.slice(0, 80),
+        serverTime: networkNow.toISOString(),
+        serverTimeText,
+      });
+    }
     if (!normalizedInput && normalizedImages.length === 0) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
     }

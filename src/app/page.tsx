@@ -124,6 +124,7 @@ import {
   Copy,
   RotateCcw,
   Library,
+  Sparkles,
 } from 'lucide-react';
 
 const DEFAULT_BASE_URL = 'https://ai.shuaihong.fun/v1';
@@ -197,6 +198,8 @@ type TaskSelectionDragState = {
   seenTaskIds: Set<string>;
   dragging: boolean;
 };
+
+type AssistantBriefingSource = 'local' | 'ai';
 
 type AiErrorResponseBody = {
   error?: unknown;
@@ -1588,9 +1591,13 @@ export default function Home() {
   const [casualChatInput, setCasualChatInput] = useState('');
   const [casualChatLoading, setCasualChatLoading] = useState(false);
   const [isAiModeMenuOpen, setIsAiModeMenuOpen] = useState(false);
+  const [assistantBriefingSummary, setAssistantBriefingSummary] = useState('');
+  const [assistantBriefingLoading, setAssistantBriefingLoading] = useState(false);
+  const [assistantBriefingSource, setAssistantBriefingSource] = useState<AssistantBriefingSource>('local');
   const casualChatAbortControllerRef = useRef<AbortController | null>(null);
   const casualChatQueuedSendRef = useRef<{ content: string; history: AgentMessage[] } | null>(null);
   const casualChatConversationEndRef = useRef<HTMLDivElement | null>(null);
+  const assistantBriefingAbortControllerRef = useRef<AbortController | null>(null);
   const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([]);
   useEffect(() => {
     setIsAgentGuidanceOpen(false);
@@ -6008,6 +6015,157 @@ const headerTitle = activeFilter === 'category'
   const openTasksForAgent = tasks.filter((task) => task.status !== 'completed');
   const todayTasksForAgent = openTasksForAgent.filter((task) => isTaskDueToday(task, now));
   const overdueTasksForAgent = openTasksForAgent.filter((task) => isTaskOverdue(task));
+  const highPriorityTasksForAgent = openTasksForAgent.filter((task) => task.priority >= 2);
+  const scoreAssistantBriefingTask = (task: Task) => {
+    let score = 0;
+    if (task.status === 'in_progress') score += 30;
+    if (task.pinned) score += 24;
+    score += Math.max(0, Math.min(2, Number(task.priority) || 0)) * 14;
+    if (task.dueDate) {
+      const diff = new Date(task.dueDate).getTime() - now.getTime();
+      if (Number.isFinite(diff)) {
+        if (diff <= 0) score += 70;
+        else if (diff <= 24 * 60 * 60 * 1000) score += 58;
+        else if (diff <= 7 * 24 * 60 * 60 * 1000) score += 36;
+        else score += 10;
+      }
+    }
+    const updatedMs = new Date(task.updatedAt || task.createdAt).getTime();
+    if (Number.isFinite(updatedMs)) {
+      const ageDays = (now.getTime() - updatedMs) / (24 * 60 * 60 * 1000);
+      if (ageDays <= 1) score += 18;
+      else if (ageDays <= 7) score += 10;
+    }
+    return score;
+  };
+  const assistantBriefingTasks = [...openTasksForAgent]
+    .sort((a, b) => scoreAssistantBriefingTask(b) - scoreAssistantBriefingTask(a))
+    .slice(0, 3);
+  const assistantBriefingTaskSignature = assistantBriefingTasks
+    .map((task) => [
+      task.id,
+      task.updatedAt || task.createdAt,
+      task.dueDate || '',
+      task.status,
+      task.priority,
+      task.pinned ? 'pinned' : '',
+    ].join(':'))
+    .join('|');
+  const localAssistantBriefingSummary = openTasksForAgent.length === 0
+    ? '当前没有未完成任务，可以直接记录新想法。'
+    : overdueTasksForAgent.length > 0
+      ? `有 ${overdueTasksForAgent.length} 个逾期任务，建议先收口最紧急的一项。`
+      : todayTasksForAgent.length > 0
+        ? `今天有 ${todayTasksForAgent.length} 个任务，AI 已挑出最值得关注的几项。`
+        : highPriorityTasksForAgent.length > 0
+          ? `当前有 ${highPriorityTasksForAgent.length} 个高优先级任务，适合先排推进顺序。`
+          : `当前待办 ${openTasksForAgent.length} 个，先从最近更新或将到期的任务开始。`;
+  const getAssistantBriefingTaskBadge = (task: Task) => {
+    if (task.dueDate) {
+      if (isTaskOverdue(task)) return '逾期';
+      if (isTaskDueToday(task, now)) return '今天';
+      if (isTaskDueWithinDays(task, now, 7)) return formatZonedDate(task.dueDate, getTimezoneOffset(task)).slice(5);
+    }
+    if (task.status === 'in_progress') return '进行中';
+    if (task.pinned) return '置顶';
+    return task.updatedAt ? '最近' : '待办';
+  };
+  const assistantBriefingTaskPayloadJson = JSON.stringify(assistantBriefingTasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    dueDate: task.dueDate || null,
+    status: task.status,
+    priority: task.priority,
+    category: task.category || '',
+    tags: task.tags || [],
+    pinned: Boolean(task.pinned),
+    updatedAt: task.updatedAt || task.createdAt,
+    subtaskCompleted: (task.subtasks || []).filter((subtask) => subtask.completed).length,
+    subtaskTotal: task.subtasks?.length ?? 0,
+  })));
+  const assistantBriefingRequestKey = [
+    assistantBriefingTaskSignature,
+    openTasksForAgent.length,
+    todayTasksForAgent.length,
+    overdueTasksForAgent.length,
+    highPriorityTasksForAgent.length,
+  ].join('|');
+  useEffect(() => {
+    if (activeFilter !== 'agent') return undefined;
+
+    assistantBriefingAbortControllerRef.current?.abort();
+    setAssistantBriefingSummary(localAssistantBriefingSummary);
+    setAssistantBriefingSource('local');
+
+    if (!hasApiKey || assistantBriefingTaskPayloadJson === '[]') {
+      setAssistantBriefingLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    assistantBriefingAbortControllerRef.current = controller;
+    setAssistantBriefingLoading(true);
+
+    const runBriefing = async () => {
+      try {
+        const res = await fetch('/api/ai/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            mode: 'assistant-briefing',
+            input: '生成 AI 助手顶部智能简报',
+            tasks: JSON.parse(assistantBriefingTaskPayloadJson),
+            ...(apiKey ? { apiKey } : {}),
+            apiBaseUrl: apiBaseUrl?.trim() || undefined,
+            chatModel: chatModel?.trim() || undefined,
+            contextLimit: 8,
+          }),
+        });
+        const data = await readAiResponseBody(res);
+        if (!res.ok) throw new Error(buildAiResponseErrorMessage(res, data, 'assistant briefing failed'));
+        const summary = typeof data?.summary === 'string' ? data.summary.trim() : '';
+        if (summary && !controller.signal.aborted) {
+          setAssistantBriefingSummary(summary);
+          setAssistantBriefingSource('ai');
+        }
+      } catch (error) {
+        if ((error as any)?.name !== 'AbortError') {
+          console.warn('Assistant briefing fallback:', error);
+        }
+      } finally {
+        if (assistantBriefingAbortControllerRef.current === controller) {
+          assistantBriefingAbortControllerRef.current = null;
+          setAssistantBriefingLoading(false);
+        }
+      }
+    };
+
+    void runBriefing();
+
+    return () => {
+      controller.abort();
+      if (assistantBriefingAbortControllerRef.current === controller) {
+        assistantBriefingAbortControllerRef.current = null;
+        setAssistantBriefingLoading(false);
+      }
+    };
+  }, [
+    activeFilter,
+    hasApiKey,
+    assistantBriefingRequestKey,
+    assistantBriefingTaskPayloadJson,
+    localAssistantBriefingSummary,
+    apiKey,
+    apiBaseUrl,
+    chatModel,
+  ]);
+  const assistantBriefingDisplaySummary = assistantBriefingSummary || localAssistantBriefingSummary;
+  const assistantBriefingSourceLabel = assistantBriefingLoading
+    ? 'AI 正在总结'
+    : assistantBriefingSource === 'ai'
+      ? 'AI 已总结'
+      : '本地概览';
   const pendingAgentSuggestions = agentItems.filter((item) => !addedAgentItemIds.has(item.id));
   const hasAgentComparisonResults = agentUpdateDecisions.length > 0
     || agentDeleteDecisions.length > 0
@@ -7443,6 +7601,50 @@ const headerTitle = activeFilter === 'category'
                           <option key={model} value={model}>{model}</option>
                         ))}
                       </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="conversation-inline-surface overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] px-3 py-2 backdrop-blur-xl">
+                  <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-400/10 text-cyan-200">
+                        <Sparkles className={`h-4 w-4 ${assistantBriefingLoading ? 'animate-pulse' : ''}`} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--ui-text-muted)]">
+                          <span>智能简报</span>
+                          <span className="rounded-full border border-[color:var(--ui-border-soft)] px-1.5 py-0.5 normal-case tracking-normal text-[10px]">
+                            {assistantBriefingSourceLabel}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate text-sm font-medium text-[color:var(--ui-text-strong)]">
+                          {assistantBriefingDisplaySummary}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex min-w-0 flex-wrap gap-1.5 lg:justify-end">
+                      {assistantBriefingTasks.length > 0 ? (
+                        assistantBriefingTasks.map((task) => (
+                          <button
+                            key={task.id}
+                            type="button"
+                            onClick={() => openTaskDetailFromAssistant(task)}
+                            className="group inline-flex max-w-[min(14rem,100%)] items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-cyan-300/35 hover:bg-cyan-400/10 hover:text-[color:var(--ui-text-strong)]"
+                            title={`打开任务：${task.title}`}
+                          >
+                            <span className="shrink-0 rounded-full bg-[rgba(var(--theme-accent),0.12)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-strong)]">
+                              {getAssistantBriefingTaskBadge(task)}
+                            </span>
+                            <span className="truncate">{task.title}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                          暂无近期任务
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
