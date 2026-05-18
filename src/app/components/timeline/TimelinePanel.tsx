@@ -16,13 +16,6 @@ type TimelineStatusFilter = 'all' | 'completed' | 'todo' | 'overdue';
 
 type TimelineStatus = 'completed' | 'overdue' | 'in_progress' | 'todo';
 
-type TimelineStatusBadge = {
-  label: string;
-  className: string;
-  dotClassName: string;
-  railClassName: string;
-};
-
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
 const formatDateKeyByOffset = (date: Date, offsetMinutes: number) => {
@@ -50,10 +43,8 @@ const getMonthStart = (date: Date) => {
 
 const buildRecentDayKeys = (days: number, offsetMinutes: number) => {
   const today = new Date();
-  // normalize to start-of-day in the selected offset
   const todayKey = formatDateKeyByOffset(today, offsetMinutes);
   const [y, m, d] = todayKey.split('-').map((v) => parseInt(v, 10));
-  // Create a UTC date matching the offset-zone day start
   const end = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
 
   const result: string[] = [];
@@ -81,27 +72,59 @@ const getTimelineStatus = (task: Task, isOverdue: boolean): TimelineStatus => {
   return 'todo';
 };
 
-const statusBadge: Record<TimelineStatus, { label: string; className: string; railClassName: string }> = {
+const compareByFocus = (a: Task, b: Task) => {
+  const aIso = getAnchorIso(a);
+  const bIso = getAnchorIso(b);
+  return new Date(aIso).getTime() - new Date(bIso).getTime();
+};
+
+const statusBadge: Record<TimelineStatus, {
+  label: string;
+  className: string;
+  dotClassName: string;
+  railClassName: string;
+}> = {
   completed: {
-    label: '已完成',
-    className: 'text-green-100 bg-green-500/14 border-green-400/28 shadow-[0_8px_20px_rgba(34,197,94,0.12)]',
-    railClassName: 'from-green-400/80 via-green-300/24 to-transparent',
+    label: '完成',
+    className: 'border-emerald-400/28 bg-emerald-500/12 text-emerald-200',
+    dotClassName: 'bg-emerald-400 shadow-[0_0_0_5px_rgba(52,211,153,0.12)]',
+    railClassName: 'from-emerald-400 via-teal-300 to-transparent',
   },
   overdue: {
-    label: '已逾期',
-    className: 'text-red-100 bg-red-500/14 border-red-400/28 shadow-[0_8px_20px_rgba(248,113,113,0.12)]',
-    railClassName: 'from-red-400/85 via-red-300/24 to-transparent',
+    label: '逾期',
+    className: 'border-rose-400/30 bg-rose-500/12 text-rose-200',
+    dotClassName: 'bg-rose-400 shadow-[0_0_0_5px_rgba(251,113,133,0.12)]',
+    railClassName: 'from-rose-400 via-orange-300 to-transparent',
   },
   in_progress: {
     label: '进行中',
-    className: 'text-amber-100 bg-amber-500/14 border-amber-400/28 shadow-[0_8px_20px_rgba(251,191,36,0.10)]',
-    railClassName: 'from-amber-400/80 via-amber-300/22 to-transparent',
+    className: 'border-amber-400/30 bg-amber-500/12 text-amber-200',
+    dotClassName: 'bg-amber-400 shadow-[0_0_0_5px_rgba(251,191,36,0.12)]',
+    railClassName: 'from-amber-400 via-yellow-300 to-transparent',
   },
   todo: {
-    label: '未完成',
-    className: 'text-blue-100 bg-blue-500/12 border-blue-400/24 shadow-[0_8px_20px_rgba(96,165,250,0.10)]',
-    railClassName: 'from-blue-400/80 via-cyan-300/20 to-transparent',
+    label: '待处理',
+    className: 'border-sky-400/28 bg-sky-500/12 text-sky-200',
+    dotClassName: 'bg-sky-400 shadow-[0_0_0_5px_rgba(56,189,248,0.12)]',
+    railClassName: 'from-sky-400 via-cyan-300 to-transparent',
   },
+};
+
+const statusFilterOptions: Array<{ key: TimelineStatusFilter; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'todo', label: '待处理' },
+  { key: 'overdue', label: '逾期' },
+  { key: 'completed', label: '完成' },
+];
+
+const parseDateKeyAsUtc = (dateKey: string) => {
+  const [year, month, day] = dateKey.split('-').map((value) => Number(value));
+  return Date.UTC(year, month - 1, day);
+};
+
+const formatMonthLabel = (monthKey: string) => {
+  const [year, month] = monthKey.split('-');
+  return `${year} 年 ${month} 月`;
 };
 
 export default function TimelinePanel(props: TimelinePanelProps) {
@@ -116,26 +139,28 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     isTaskOverdue,
   } = props;
 
-
   const [statusFilter, setStatusFilter] = useState<TimelineStatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [tagFilter, setTagFilter] = useState<string>('');
-
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+  const todayKey = useMemo(
+    () => formatDateKeyByOffset(new Date(), defaultTimezoneOffset),
+    [defaultTimezoneOffset],
+  );
 
   const availableCategories = useMemo(() => {
     const set = new Set<string>();
-    tasks.forEach((t) => {
-      if (t?.category) set.add(t.category);
+    tasks.forEach((task) => {
+      if (task?.category) set.add(task.category);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
   }, [tasks]);
 
   const availableTags = useMemo(() => {
     const set = new Set<string>();
-    tasks.forEach((t) => {
-      (t?.tags || []).forEach((tag) => {
+    tasks.forEach((task) => {
+      (task?.tags || []).forEach((tag) => {
         const text = String(tag || '').trim();
         if (text) set.add(text);
       });
@@ -143,7 +168,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
   }, [tasks]);
 
-  const filteredTasks = useMemo(() => {
+  const scopedTasks = useMemo(() => {
     return tasks.filter((task) => {
       if (!task) return false;
 
@@ -152,27 +177,37 @@ export default function TimelinePanel(props: TimelinePanelProps) {
       }
 
       if (tagFilter) {
-        const tags = (task.tags || []).map((t) => String(t || '').trim()).filter(Boolean);
+        const tags = (task.tags || []).map((tag) => String(tag || '').trim()).filter(Boolean);
         if (!tags.includes(tagFilter)) return false;
       }
 
+      return true;
+    });
+  }, [tasks, categoryFilter, tagFilter]);
+
+  const statusCounts = useMemo(() => {
+    const overdue = scopedTasks.filter((task) => task.status !== 'completed' && Boolean(task.dueDate) && isTaskOverdue(task));
+    return {
+      all: scopedTasks.length,
+      completed: scopedTasks.filter((task) => task.status === 'completed').length,
+      overdue: overdue.length,
+      todo: scopedTasks.filter((task) => task.status !== 'completed' && !overdue.some((item) => item.id === task.id)).length,
+    };
+  }, [scopedTasks, isTaskOverdue]);
+
+  const filteredTasks = useMemo(() => {
+    return scopedTasks.filter((task) => {
       if (statusFilter === 'all') return true;
 
       const overdue = task.status !== 'completed' && Boolean(task.dueDate) && isTaskOverdue(task);
 
       if (statusFilter === 'completed') return task.status === 'completed';
       if (statusFilter === 'overdue') return overdue;
-      // 未完成：不含已完成，且把过期单独分出去
       if (statusFilter === 'todo') return task.status !== 'completed' && !overdue;
 
       return true;
     });
-  }, [tasks, categoryFilter, tagFilter, statusFilter, isTaskOverdue]);
-
-  const todayKey = useMemo(
-    () => formatDateKeyByOffset(new Date(), defaultTimezoneOffset),
-    [defaultTimezoneOffset],
-  );
+  }, [scopedTasks, statusFilter, isTaskOverdue]);
 
   const groups = useMemo(() => {
     const items = filteredTasks
@@ -207,7 +242,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     const monthStart = getMonthStart(now);
 
     const classifyWindow = (start: Date) => {
-      const inWindow = filteredTasks.filter((task) => {
+      const inWindow = tasks.filter((task) => {
         const anchor = new Date(getAnchorIso(task));
         return anchor >= start && anchor <= now;
       });
@@ -226,19 +261,18 @@ export default function TimelinePanel(props: TimelinePanelProps) {
       week: classifyWindow(weekStart),
       month: classifyWindow(monthStart),
     };
-  }, [filteredTasks]);
+  }, [tasks]);
 
   const heatmap = useMemo(() => {
     const offsetMinutes = defaultTimezoneOffset;
-    const keys = buildRecentDayKeys(28, offsetMinutes);
+    const keys = buildRecentDayKeys(21, offsetMinutes);
     const counts = new Map<string, number>();
 
-    filteredTasks.forEach((task) => {
+    tasks.forEach((task) => {
       if (task.status !== 'completed') return;
       const iso = task.updatedAt || task.dueDate || task.createdAt;
       if (!iso) return;
       const key = formatDateKeyByOffset(new Date(iso), offsetMinutes);
-      if (!counts.has(key)) counts.set(key, 0);
       counts.set(key, (counts.get(key) || 0) + 1);
     });
 
@@ -247,7 +281,7 @@ export default function TimelinePanel(props: TimelinePanelProps) {
       count: counts.get(dateKey) || 0,
     }));
 
-    const max = days.reduce((acc, d) => Math.max(acc, d.count), 0);
+    const max = days.reduce((acc, day) => Math.max(acc, day.count), 0);
 
     const levelOf = (count: number) => {
       if (count <= 0) return 0;
@@ -259,12 +293,8 @@ export default function TimelinePanel(props: TimelinePanelProps) {
       return 4;
     };
 
-    return {
-      days,
-      max,
-      levelOf,
-    };
-  }, [filteredTasks, defaultTimezoneOffset]);
+    return { days, max, levelOf };
+  }, [tasks, defaultTimezoneOffset]);
 
   const monthGroups = useMemo(() => {
     const map = new Map<string, { monthKey: string; days: typeof groups }>();
@@ -276,6 +306,101 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     return Array.from(map.values());
   }, [groups]);
 
+  const focus = useMemo(() => {
+    const openTasks = tasks.filter((task) => task.status !== 'completed');
+    const overdue = openTasks
+      .filter((task) => Boolean(task.dueDate) && isTaskOverdue(task))
+      .sort(compareByFocus);
+    const dueToday = openTasks
+      .filter((task) => {
+        if (!task.dueDate) return false;
+        const key = formatDateKeyByOffset(new Date(task.dueDate), getTimezoneOffset(task));
+        return key === todayKey;
+      })
+      .sort(compareByFocus);
+    const inProgress = openTasks
+      .filter((task) => task.status === 'in_progress')
+      .sort(compareByFocus);
+    const pool = overdue.length > 0
+      ? overdue
+      : dueToday.length > 0
+        ? dueToday
+        : inProgress.length > 0
+          ? inProgress
+          : openTasks.slice().sort(compareByFocus);
+
+    if (overdue.length > 0) {
+      return {
+        title: `先处理 ${overdue.length} 个逾期`,
+        helper: '别先翻历史，先把它们完成、改期或删除。',
+        actionLabel: '只看逾期',
+        actionFilter: 'overdue' as TimelineStatusFilter,
+        tasks: pool.slice(0, 3),
+        tone: 'rose',
+      };
+    }
+
+    if (dueToday.length > 0) {
+      return {
+        title: `今天还有 ${dueToday.length} 个要推进`,
+        helper: '先看今天相关任务，再决定是否回顾更久以前。',
+        actionLabel: '看待处理',
+        actionFilter: 'todo' as TimelineStatusFilter,
+        tasks: pool.slice(0, 3),
+        tone: 'sky',
+      };
+    }
+
+    if (inProgress.length > 0) {
+      return {
+        title: `继续推进 ${inProgress.length} 个进行中`,
+        helper: '从未完成的上下文接着走，不用重新找线索。',
+        actionLabel: '看待处理',
+        actionFilter: 'todo' as TimelineStatusFilter,
+        tasks: pool.slice(0, 3),
+        tone: 'amber',
+      };
+    }
+
+    return {
+      title: openTasks.length > 0 ? '从最早的待办开始' : '时间线很干净',
+      helper: openTasks.length > 0 ? '没有明显逾期，按时间顺序挑一件推进。' : '没有待处理任务，可以轻松回顾完成记录。',
+      actionLabel: openTasks.length > 0 ? '看待处理' : '看完成',
+      actionFilter: openTasks.length > 0 ? 'todo' as TimelineStatusFilter : 'completed' as TimelineStatusFilter,
+      tasks: pool.slice(0, 3),
+      tone: 'emerald',
+    };
+  }, [tasks, isTaskOverdue, getTimezoneOffset, todayKey]);
+
+  const rhythmItems = useMemo(() => {
+    const openTasks = tasks.filter((task) => task.status !== 'completed');
+    const overdue = openTasks.filter((task) => Boolean(task.dueDate) && isTaskOverdue(task)).length;
+    const dueToday = openTasks.filter((task) => {
+      if (!task.dueDate) return false;
+      return formatDateKeyByOffset(new Date(task.dueDate), getTimezoneOffset(task)) === todayKey;
+    }).length;
+    const inProgress = openTasks.filter((task) => task.status === 'in_progress').length;
+    const completed = tasks.filter((task) => task.status === 'completed').length;
+    return [
+      { label: '逾期', value: overdue, helper: '先清理', filter: 'overdue' as TimelineStatusFilter },
+      { label: '今天', value: dueToday, helper: '当前焦点', filter: 'todo' as TimelineStatusFilter },
+      { label: '进行中', value: inProgress, helper: '接着推进', filter: 'todo' as TimelineStatusFilter },
+      { label: '完成', value: completed, helper: '回顾沉淀', filter: 'completed' as TimelineStatusFilter },
+    ];
+  }, [tasks, isTaskOverdue, getTimezoneOffset, todayKey]);
+
+  const completionRate = tasks.length > 0
+    ? Math.round((tasks.filter((task) => task.status === 'completed').length / tasks.length) * 100)
+    : 0;
+
+  const getDateLabel = (dateKey: string) => {
+    const diff = Math.round((parseDateKeyAsUtc(dateKey) - parseDateKeyAsUtc(todayKey)) / (24 * 60 * 60 * 1000));
+    if (diff === 0) return '今天';
+    if (diff === -1) return '昨天';
+    if (diff === 1) return '明天';
+    return dateKey;
+  };
+
   const toggleExpanded = (taskId: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -285,143 +410,136 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     });
   };
 
-  return (
-    <div className="theme-native-surface stack-gap flex flex-col px-3 sm:px-6 pb-4 sm:pb-6">
-      <div className="glass-panel motion-enter rounded-[32px] border-[color:var(--ui-border-strong)] p-4 sm:p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_auto] lg:items-start">
-          <div>
-            <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">时间轴概览</div>
-            <div className="text-xs text-[#777777] mt-1">
-              从时间维度查看任务推进节奏，快速找到完成、未完成和逾期事项。
+  const renderTaskCard = (task: Task, index: number) => {
+    const offset = task.dueDate
+      ? getTimezoneOffset(task)
+      : (task.timezoneOffset ?? defaultTimezoneOffset);
+    const dueLabel = task.dueDate
+      ? formatZonedDateTime(task.dueDate, offset)
+      : undefined;
+    const anchorIso = getAnchorIso(task);
+    const createdLabel = formatZonedDate(anchorIso, offset);
+    const overdue = task.status !== 'completed' && Boolean(task.dueDate) && isTaskOverdue(task);
+    const timelineStatus = getTimelineStatus(task, overdue);
+    const badge = statusBadge[timelineStatus];
+    const isExpanded = expandedIds.has(task.id);
+    const shouldFold = task.title.length >= 68 || task.title.includes('\n');
+    const completedSubtasks = task.subtasks?.filter((subtask) => subtask.completed).length ?? 0;
+    const subtaskTotal = task.subtasks?.length ?? 0;
+
+    return (
+      <div
+        key={task.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => onSelectTask(task)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelectTask(task);
+          }
+        }}
+        className="group relative overflow-hidden rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/80 p-3.5 text-left shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-[var(--motion-slow)] hover:-translate-y-0.5 hover:border-[rgba(var(--theme-accent),0.28)] hover:bg-[color:var(--ui-card-hover-bg)] hover:shadow-[0_18px_38px_rgba(15,23,42,0.13)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--theme-accent),0.32)] motion-enter"
+        style={{ animationDelay: `${Math.min(index * 28, 180)}ms` }}
+      >
+        <div className={`absolute inset-y-4 left-0 w-[3px] rounded-full bg-gradient-to-b ${badge.railClassName}`} />
+        <div className="relative flex items-start gap-3 pl-2">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleTaskStatus(task.id);
+            }}
+            className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all duration-[var(--motion-base)] ${
+              task.status === 'completed'
+                ? 'border-emerald-400/55 bg-emerald-500/16 text-emerald-200 group-hover:scale-105'
+                : 'border-[color:var(--ui-border-strong)] bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-muted)] hover:border-sky-400/55 hover:bg-sky-500/12 hover:text-sky-100 hover:scale-105'
+            }`}
+            aria-label={task.status === 'completed' ? '取消完成任务' : '完成任务'}
+          >
+            {task.status === 'completed' ? '✓' : ''}
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>
+                {badge.label}
+              </span>
+              {task.category ? (
+                <span className="inline-flex max-w-[9rem] truncate rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-secondary)]">
+                  {task.category}
+                </span>
+              ) : null}
             </div>
-          </div>
-          <span className="text-[10px] text-[#7d8595] rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 bg-[rgba(0,0,0,0.18)]">按时间查看</span>
-        </div>
 
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[
-          { key: 'week', label: '本周总结', data: summary.week },
-          { key: 'month', label: '本月总结', data: summary.month },
-        ].map((item) => (
-          <div key={item.key} className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-[#F3F6FF]">{item.label}</div>
-                <div className="text-[11px] text-[#6F7890] mt-1">
-                  完成 {item.data.completed} / {item.data.total} · 完成率 {item.data.completionRate}%
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-semibold tracking-tight text-[#F3F6FF]">{item.data.completionRate}%</div>
-                <div className="text-[10px] text-[#666666]">Top：{item.data.topCategory}</div>
-              </div>
+            <div
+              className={`mt-2 text-[13px] font-semibold leading-snug tracking-[-0.01em] ${
+                task.status === 'completed'
+                  ? 'text-[color:var(--ui-text-faint)] line-through'
+                  : 'text-[color:var(--ui-text-strong)]'
+              } ${!isExpanded && shouldFold ? 'line-clamp-2' : ''}`}
+            >
+              {task.title}
             </div>
-            <div className="mt-3 h-2 rounded-full bg-[#111111] overflow-hidden border border-[#262626]">
-              <div
-                className="h-full rounded-full transition-all duration-[calc(var(--motion-slow)+200ms)] bg-[linear-gradient(90deg,rgba(var(--theme-grad-start),0.75),rgba(var(--theme-accent),0.65),rgba(var(--theme-grad-end),0.75))]"
-                style={{ width: `${item.data.completionRate}%` }}
-              />
+
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[color:var(--ui-text-muted)]">
+              <span>{dueLabel ? `截止 ${dueLabel}` : `记录 ${createdLabel}`}</span>
+              {subtaskTotal > 0 ? <span>子任务 {completedSubtasks}/{subtaskTotal}</span> : null}
+              {(task.tags?.length ?? 0) > 0 ? (
+                <span className="min-w-0 truncate">
+                  {task.tags
+                    .filter(Boolean)
+                    .slice(0, 3)
+                    .map((tag) => `#${tag}`)
+                    .join(' ')}
+                </span>
+              ) : null}
             </div>
-          </div>
-        ))}
-      </div>
 
-      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4 transition-[box-shadow,border-color,background-color] duration-[var(--motion-slow)]">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold text-[#F3F6FF]">完成密度</div>
-            <div className="text-[11px] text-[#6F7890] mt-1">近 28 天（按 completed 任务的 updatedAt 统计）</div>
-          </div>
-          <div className="text-[11px] text-[#666666]">峰值：{heatmap.max}/天</div>
-        </div>
-
-        <div className="mt-3 grid grid-cols-7 gap-1.5">
-          {heatmap.days.map((d) => {
-            const level = heatmap.levelOf(d.count);
-            const bg =
-              level === 0
-                ? 'bg-[#121212]'
-                : level === 1
-                  ? 'bg-[rgba(var(--theme-accent),0.12)]'
-                  : level === 2
-                    ? 'bg-[rgba(var(--theme-accent),0.22)]'
-                    : level === 3
-                      ? 'bg-[rgba(var(--theme-accent-soft),0.30)]'
-                      : 'bg-[rgba(var(--theme-grad-end),0.35)]';
-
-            return (
-              <div
-                key={d.dateKey}
-                title={`${d.dateKey}：${d.count} 完成`}
-                className={`h-3.5 rounded-[5px] border border-[#262626] ${bg}`}
-              />
-            );
-          })}
-        </div>
-
-        <div className="mt-3 flex items-center justify-between text-[10px] text-[#666666]">
-          <span>更淡 → 更密</span>
-          <span>0 / · / ·· / ··· / ····</span>
-        </div>
-      </div>
-
-      <div className="glass-panel-soft motion-enter rounded-[28px] border-[color:var(--ui-border-soft)] p-3.5 sm:p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            {(
-              [
-                { key: 'all', label: '全部' },
-                { key: 'completed', label: '已完成' },
-                { key: 'todo', label: '未完成' },
-                { key: 'overdue', label: '已过期' },
-              ] as const
-            ).map((item) => (
+            {shouldFold ? (
               <button
-                key={item.key}
                 type="button"
-                onClick={() => setStatusFilter(item.key)}
-                className={`text-xs px-3 py-1.5 rounded-full border motion-card motion-press ui-state-hover ui-state-press ${
-                  statusFilter === item.key
-                    ? 'border-blue-400/60 bg-blue-500/15 text-blue-200 shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
-                    : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#7C8499] hover:text-[#E1E8FF] hover:border-[#5A6690] hover:shadow-[0_10px_20px_rgba(0,0,0,0.18)] active:bg-[#252A33]'
-                }`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleExpanded(task.id);
+                }}
+                className="mt-2 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.35)] hover:text-[color:var(--ui-text-strong)]"
               >
-                {item.label}
+                {isExpanded ? '收起' : '展开'}
               </button>
-            ))}
+            ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-[rgba(0,0,0,0.18)] border border-[color:var(--ui-border-soft)] rounded-2xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
-              aria-label="按列表筛选"
-            >
-              <option value="">全部列表</option>
-              {availableCategories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+          <span className="mt-1 text-[13px] text-[color:var(--ui-text-faint)] transition-transform group-hover:translate-x-0.5">›</span>
+        </div>
+      </div>
+    );
+  };
 
-            <select
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-              className="bg-[rgba(0,0,0,0.18)] border border-[color:var(--ui-border-soft)] rounded-2xl px-3 py-1.5 text-xs text-[#CCCCCC] hover:border-[#4A5572] focus:border-[rgba(var(--theme-accent),0.45)] focus:outline-none"
-              aria-label="按标签筛选"
-            >
-              <option value="">全部标签</option>
-              {availableTags.map((t) => (
-                <option key={t} value={t}>
-                  #{t}
-                </option>
-              ))}
-            </select>
+  return (
+    <div className="theme-native-surface flex min-h-0 flex-col gap-3 px-2 pb-4 sm:px-5 sm:pb-6">
+      <section className="timeline-focus-orb motion-enter relative overflow-hidden rounded-[30px] border border-[rgba(var(--theme-accent),0.22)] bg-[linear-gradient(135deg,rgba(var(--theme-accent),0.13),rgba(var(--theme-grad-end),0.07),rgba(255,255,255,0.018))] p-4 shadow-[0_22px_70px_rgba(15,23,42,0.15)] sm:p-5">
+        <div className="relative z-10 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-stretch">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(var(--theme-accent),0.26)] bg-[rgba(var(--theme-accent),0.09)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
+              <span className="timeline-pulse-dot h-1.5 w-1.5 rounded-full bg-[rgba(var(--theme-accent),0.95)]" />
+              现在先看这里
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--ui-text-strong)] sm:text-3xl">
+              {focus.title}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--ui-text-secondary)]">
+              {focus.helper}
+            </p>
 
-            {(categoryFilter || tagFilter || statusFilter !== 'all') && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setStatusFilter(focus.actionFilter)}
+                className="motion-card motion-press rounded-2xl border border-[rgba(var(--theme-accent),0.35)] bg-[rgba(var(--theme-accent),0.15)] px-3.5 py-2 text-sm font-medium text-[color:var(--ui-text-strong)] hover:bg-[rgba(var(--theme-accent),0.22)]"
+              >
+                {focus.actionLabel}
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -429,171 +547,195 @@ export default function TimelinePanel(props: TimelinePanelProps) {
                   setCategoryFilter('');
                   setTagFilter('');
                 }}
-                className="text-xs px-3 py-1.5 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#888888] hover:text-[#F0F4FF] hover:border-[#5A6690] motion-card motion-press ui-state-hover ui-state-press"
+                className="motion-card motion-press rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/70 px-3.5 py-2 text-sm text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]"
               >
-                清除筛选
+                回到全部时间线
               </button>
-            )}
+            </div>
+
+            {focus.tasks.length > 0 ? (
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                {focus.tasks.map((task, index) => (
+                  <button
+                    key={`focus-${task.id}`}
+                    type="button"
+                    onClick={() => onSelectTask(task)}
+                    className="motion-enter motion-card min-w-0 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/64 px-3 py-2.5 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)]"
+                    style={{ animationDelay: `${index * 55}ms` }}
+                  >
+                    <span className="block truncate text-xs font-semibold text-[color:var(--ui-text-strong)]">{task.title}</span>
+                    <span className="mt-1 block text-[10px] text-[color:var(--ui-text-muted)]">
+                      {task.dueDate ? formatZonedDateTime(task.dueDate, getTimezoneOffset(task)) : '未设时间'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/62 p-3.5 backdrop-blur-xl">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[11px] text-[color:var(--ui-text-muted)]">总体完成率</div>
+                <div className="mt-1 text-3xl font-semibold tracking-[-0.05em] text-[color:var(--ui-text-strong)]">{completionRate}%</div>
+              </div>
+              <div className="text-right text-[11px] text-[color:var(--ui-text-muted)]">
+                <div>本周 {summary.week.completed}/{summary.week.total}</div>
+                <div>本月 {summary.month.completed}/{summary.month.total}</div>
+              </div>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)]">
+              <div
+                className="timeline-progress-sweep h-full rounded-full bg-[linear-gradient(90deg,rgba(var(--theme-grad-start),0.86),rgba(var(--theme-accent),0.74),rgba(var(--theme-grad-end),0.82))]"
+                style={{ width: `${completionRate}%` }}
+              />
+            </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              {heatmap.days.map((day, index) => {
+                const level = heatmap.levelOf(day.count);
+                const opacity = level === 0 ? 'opacity-30' : level === 1 ? 'opacity-45' : level === 2 ? 'opacity-62' : level === 3 ? 'opacity-80' : 'opacity-100';
+                return (
+                  <span
+                    key={day.dateKey}
+                    title={`${day.dateKey}：${day.count} 完成`}
+                    className={`timeline-density-cell h-5 flex-1 rounded-full border border-[color:var(--ui-border-soft)] bg-[rgba(var(--theme-accent),0.45)] ${opacity}`}
+                    style={{ animationDelay: `${index * 22}ms` }}
+                  />
+                );
+              })}
+            </div>
+            <div className="mt-2 text-[10px] text-[color:var(--ui-text-muted)]">近 21 天完成密度 · 峰值 {heatmap.max}/天</div>
           </div>
         </div>
+      </section>
 
-        <div className="mt-2 text-[11px] text-[#666666]">
-          当前展示：{filteredTasks.length} / {tasks.length} 项
+      <section className="motion-enter grid gap-2 sm:grid-cols-4">
+        {rhythmItems.map((item, index) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => setStatusFilter(item.filter)}
+            className="motion-card motion-press group relative overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/68 p-3 text-left transition-all hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[color:var(--ui-card-hover-bg)]"
+            style={{ animationDelay: `${index * 42}ms` }}
+          >
+            <span className="timeline-card-sheen absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" />
+            <span className="relative block text-[11px] text-[color:var(--ui-text-muted)]">{item.helper}</span>
+            <span className="relative mt-1 flex items-end justify-between gap-2">
+              <span className="text-sm font-semibold text-[color:var(--ui-text-strong)]">{item.label}</span>
+              <span className="text-2xl font-semibold tracking-[-0.06em] text-[color:var(--ui-text-strong)]">{item.value}</span>
+            </span>
+          </button>
+        ))}
+      </section>
+
+      <section className="motion-enter flex flex-col gap-2 rounded-[26px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/54 p-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {statusFilterOptions.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setStatusFilter(item.key)}
+              className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
+                statusFilter === item.key
+                  ? 'border-[rgba(var(--theme-accent),0.46)] bg-[rgba(var(--theme-accent),0.16)] text-[color:var(--ui-text-strong)] shadow-[0_0_0_4px_rgba(var(--theme-accent),0.08)]'
+                  : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-secondary)] hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]'
+              }`}
+            >
+              {item.label} {statusCounts[item.key]}
+            </button>
+          ))}
         </div>
-      </div>
-      </div>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            className="min-w-0 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-1.5 text-xs text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[rgba(var(--theme-accent),0.28)]"
+            aria-label="按列表筛选"
+          >
+            <option value="">全部列表</option>
+            {availableCategories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+
+          <select
+            value={tagFilter}
+            onChange={(event) => setTagFilter(event.target.value)}
+            className="min-w-0 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-1.5 text-xs text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[rgba(var(--theme-accent),0.28)]"
+            aria-label="按标签筛选"
+          >
+            <option value="">全部标签</option>
+            {availableTags.map((tag) => (
+              <option key={tag} value={tag}>#{tag}</option>
+            ))}
+          </select>
+
+          {(categoryFilter || tagFilter || statusFilter !== 'all') ? (
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter('all');
+                setCategoryFilter('');
+                setTagFilter('');
+              }}
+              className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-3 py-1.5 text-xs text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.28)] hover:text-[color:var(--ui-text-strong)]"
+            >
+              清除
+            </button>
+          ) : null}
+        </div>
+      </section>
 
       {monthGroups.length === 0 ? (
-        <div className="glass-panel-soft border border-dashed border-[color:var(--ui-border-soft)] rounded-[28px] p-4 text-xs text-[#7b8496]">
-          暂无可展示的任务。
-        </div>
+        <section className="motion-enter flex min-h-[18rem] flex-col items-center justify-center rounded-[28px] border border-dashed border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/40 px-6 text-center">
+          <div className="text-base font-semibold text-[color:var(--ui-text-strong)]">没有符合筛选的时间记录</div>
+          <div className="mt-2 text-sm text-[color:var(--ui-text-secondary)]">换个筛选条件，或回到全部时间线看看。</div>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('all');
+              setCategoryFilter('');
+              setTagFilter('');
+            }}
+            className="mt-4 rounded-2xl border border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.12)] px-4 py-2 text-sm text-[color:var(--ui-text-strong)]"
+          >
+            显示全部
+          </button>
+        </section>
       ) : (
-        <div className="grid gap-4">
-          {monthGroups.map((month) => (
-            <div
-              key={month.monthKey}
-              className="glass-panel motion-enter motion-card rounded-[30px] border-[color:var(--ui-border-strong)] p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold tracking-tight text-[#F3F6FF]">{month.monthKey}</div>
-                <div className="text-[11px] text-[#666666]">
-                  {month.days.reduce((acc, d) => acc + d.list.length, 0)} 项
-                </div>
+        <section className="timeline-flow-line relative grid gap-4 pl-3 sm:pl-5">
+          {monthGroups.map((month, monthIndex) => (
+            <div key={month.monthKey} className="motion-enter relative" style={{ animationDelay: `${Math.min(monthIndex * 60, 180)}ms` }}>
+              <div className="sticky top-2 z-10 mb-2 inline-flex rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)]/88 px-3 py-1.5 text-xs font-semibold text-[color:var(--ui-text-strong)] shadow-[0_10px_28px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+                {formatMonthLabel(month.monthKey)}
               </div>
 
-              <div className="mt-3 columns-1 gap-3 xl:columns-2">
+              <div className="grid gap-3">
                 {month.days.map((day) => (
-                  <div
-                    key={day.dateKey}
-                    className="mb-3 break-inside-avoid rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(23,25,31,0.98),rgba(18,20,26,0.98))] p-3.5 scroll-mt-24 motion-enter shadow-[0_12px_28px_rgba(0,0,0,0.14)]"
-                  >
-                    <div className="flex items-center justify-between -mx-1 px-3 py-2 rounded-2xl bg-[rgba(17,19,24,0.86)] backdrop-blur border border-[rgba(255,255,255,0.04)] xl:sticky xl:top-0 xl:z-10">
-                      <div className="text-xs font-semibold text-[#DDDDDD]">
-                        {day.dateKey}
+                  <div key={day.dateKey} className="relative rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/42 p-3 sm:p-3.5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="timeline-pulse-dot h-2 w-2 rounded-full bg-[rgba(var(--theme-accent),0.88)]" />
+                        <div>
+                          <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">{getDateLabel(day.dateKey)}</div>
+                          <div className="text-[11px] text-[color:var(--ui-text-muted)]">{day.dateKey}</div>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-[#666666]">{day.list.length} 项</div>
+                      <div className="rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)]">
+                        {day.list.length} 项
+                      </div>
                     </div>
 
-                    <div className="mt-3 grid gap-2.5 relative before:absolute before:left-2.5 before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-[rgba(var(--theme-grad-start),0.55)] before:via-[rgba(255,255,255,0.08)] before:to-transparent before:content-['']">
-                      {day.dateKey === todayKey ? (
-                        <div className="text-[11px] text-[#A4B1C8] px-2.5 py-1 rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)]">
-                          今天
-                        </div>
-                      ) : null}
-                      {day.list.map((task) => {
-                        const offset = task.dueDate
-                          ? getTimezoneOffset(task)
-                          : (task.timezoneOffset ?? defaultTimezoneOffset);
-                        const dueLabel = task.dueDate
-                          ? formatZonedDateTime(task.dueDate, offset)
-                          : undefined;
-                        const anchorIso = getAnchorIso(task);
-                        const createdLabel = formatZonedDate(anchorIso, offset);
-                        const overdue =
-                          task.status !== 'completed' && Boolean(task.dueDate) && isTaskOverdue(task);
-                        const timelineStatus = getTimelineStatus(task, overdue);
-                        const badge = statusBadge[timelineStatus];
-                        const isExpanded = expandedIds.has(task.id);
-                        const shouldFold = task.title.length >= 80 || task.title.includes('\n');
-                        return (
-                          <button
-                            key={task.id}
-                            type="button"
-                            onClick={() => onSelectTask(task)}
-                            className={`group w-full text-left rounded-[26px] border motion-enter motion-card motion-press p-4 relative overflow-hidden transition-[transform,border-color,background-color,box-shadow] duration-[var(--motion-slow)] ${isExpanded ? 'border-[rgba(var(--theme-accent),0.34)] bg-[linear-gradient(180deg,rgba(32,38,48,0.94),rgba(22,27,35,0.98))] shadow-[0_18px_42px_rgba(0,0,0,0.26)] -translate-y-[1px]' : 'border-[rgba(255,255,255,0.06)] bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.03))] shadow-[0_10px_24px_rgba(0,0,0,0.14)] hover:-translate-y-[2px] hover:border-[rgba(var(--theme-accent),0.26)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))] hover:shadow-[0_18px_34px_rgba(0,0,0,0.2)]'}`}
-                            style={{ animationDelay: `${Math.min(160, (day.list.indexOf(task) % 6) * 30)}ms` }}
-                          >
-                            <div className={`absolute inset-y-3 left-0 w-[3px] rounded-full bg-gradient-to-b ${badge.railClassName}`} />
-                            <div className="relative flex items-start justify-between gap-3.5 pl-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2.5">
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      onToggleTaskStatus(task.id);
-                                    }}
-                                    className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all duration-[var(--motion-base)] ${
-                                      task.status === 'completed'
-                                        ? 'border-green-400/70 bg-green-500/18 text-green-100 shadow-[0_0_0_4px_rgba(34,197,94,0.10)] group-hover:scale-[1.05]'
-                                        : 'border-[#4A4A4A] text-[#8FA0C2] hover:border-blue-400/60 hover:bg-blue-500/12 hover:text-blue-100 hover:scale-[1.06]'
-                                    }`}
-                                    aria-label={task.status === 'completed' ? '取消完成任务' : '完成任务'}
-                                  >
-                                    {task.status === 'completed' ? '✓' : '○'}
-                                  </button>
-                                  <span className={`text-[10px] px-2.5 py-1 rounded-full border ${badge.className}`}>
-                                    {badge.label}
-                                  </span>
-                                  {task.category ? (
-                                    <span className="text-[10px] text-indigo-100/90 bg-indigo-500/10 border border-indigo-400/16 px-2.5 py-1 rounded-full">
-                                      {task.category}
-                                    </span>
-                                  ) : null}
-                                </div>
-
-                                <div className={`mt-2.5 grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out ${isExpanded || !shouldFold ? 'grid-rows-[1fr]' : 'grid-rows-[0.34fr]'}`}>
-                                  <div
-                                    className={`overflow-hidden text-[14px] sm:text-[14.5px] font-medium leading-[1.45] break-words tracking-[-0.01em] ${
-                                      task.status === 'completed'
-                                        ? 'line-through text-[#7C8495]'
-                                        : 'text-[#F6F8FF]'
-                                    } ${!isExpanded && shouldFold ? 'line-clamp-2' : ''}`}
-                                  >
-                                    {task.title}
-                                  </div>
-                                </div>
-
-                                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-[#8A94A7]">
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-white/18" />
-                                    {dueLabel ? `截止 ${dueLabel}` : `创建 ${createdLabel}`}
-                                  </span>
-                                  {(task.subtasks?.length ?? 0) > 0 ? (
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <span className="h-1.5 w-1.5 rounded-full bg-white/18" />
-                                      子任务 {task.subtasks?.filter((s) => s.completed).length}/{task.subtasks?.length}
-                                    </span>
-                                  ) : null}
-                                  {(task.tags?.length ?? 0) > 0 ? (
-                                    <span className="truncate text-[#707C92]">
-                                      {task.tags
-                                        .filter(Boolean)
-                                        .slice(0, 4)
-                                        .map((t) => `#${t}`)
-                                        .join(' ')}
-                                    </span>
-                                  ) : null}
-                                </div>
-
-                                {shouldFold && (
-                                  <div className="mt-3">
-                                    <button
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        toggleExpanded(task.id);
-                                      }}
-                                      className="text-[11px] px-2.5 py-1 rounded-full border border-[var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] text-[#8F98B0] hover:text-[#E7ECFB] hover:border-[rgba(var(--theme-accent),0.35)] motion-card motion-press"
-                                    >
-                                      {isExpanded ? '收起详情' : '展开详情'}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className={`shrink-0 pt-0.5 text-[11px] text-[#616B7E] transition-all duration-[var(--motion-base)] ${isExpanded ? 'translate-x-0.5 text-[#AAB4C8]' : 'group-hover:translate-x-0.5 group-hover:text-[#8FA0C2]'}`}>›</div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                    <div className="grid gap-2.5">
+                      {day.list.map((task, index) => renderTaskCard(task, index))}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           ))}
-        </div>
+        </section>
       )}
     </div>
   );

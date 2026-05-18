@@ -1028,6 +1028,117 @@ body.theme-light .settings-modal-root [class*="border-white/"] {
   transform: translateY(-1px);
 }
 
+.timeline-focus-orb::before,
+.timeline-focus-orb::after,
+.timeline-card-sheen {
+  content: '';
+  pointer-events: none;
+}
+
+.timeline-focus-orb::before {
+  position: absolute;
+  inset: -38% auto auto -12%;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(var(--theme-accent), 0.22), transparent 62%);
+  filter: blur(2px);
+  animation: timelineOrbDrift 9s ease-in-out infinite;
+}
+
+.timeline-focus-orb::after {
+  position: absolute;
+  right: -8%;
+  bottom: -42%;
+  width: 20rem;
+  height: 20rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(var(--theme-grad-end), 0.16), transparent 64%);
+  animation: timelineOrbDrift 11s ease-in-out infinite reverse;
+}
+
+.timeline-pulse-dot {
+  animation: timelinePulse 1.8s ease-in-out infinite;
+}
+
+.timeline-progress-sweep {
+  position: relative;
+  overflow: hidden;
+  transition: width var(--motion-slow) var(--ease-emphasis);
+}
+
+.timeline-progress-sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.34), transparent);
+  animation: timelineSweep 2.4s ease-in-out infinite;
+}
+
+.timeline-density-cell {
+  animation: timelineCellRise 420ms var(--ease-emphasis) both;
+}
+
+.timeline-card-sheen {
+  background: linear-gradient(120deg, transparent 0%, rgba(var(--theme-accent), 0.08) 42%, transparent 72%);
+}
+
+.timeline-flow-line::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(var(--theme-accent), 0.4), rgba(var(--theme-accent-soft), 0.08), transparent);
+}
+
+@keyframes timelineOrbDrift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate3d(12px, -8px, 0) scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes timelinePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(var(--theme-accent), 0.24);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(var(--theme-accent), 0);
+  }
+}
+
+@keyframes timelineSweep {
+  0% {
+    transform: translateX(-110%);
+    opacity: 0;
+  }
+  30%, 70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(240%);
+    opacity: 0;
+  }
+}
+
+@keyframes timelineCellRise {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.35);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
 .ambient-shell {
   --ambient-pointer-x: 78%;
   --ambient-pointer-y: 18%;
