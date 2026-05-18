@@ -3691,16 +3691,73 @@ const normalizeTimeoutSec = (value: number) => {
     }
   };
 
-  const clearCasualChatContext = () => {
+  const clearStoredAiContext = async () => {
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'clear-context',
+          sessionId,
+          redisConfig: {
+            host: redisHost,
+            port: redisPort,
+            db: redisDb,
+            password: redisPassword,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const data = await readAiResponseBody(res);
+        throw new Error(buildAiResponseErrorMessage(res, data, 'clear-context request failed'));
+      }
+    } catch (error) {
+      console.warn('Failed to clear stored AI context', error);
+      setStatusFeedback({
+        id: createId(),
+        level: 'warning',
+        message: '本地上下文已清空',
+        detail: '远端会话缓存暂时没有清理成功，稍后可再点一次清除上下文。',
+      });
+    }
+  };
+
+  const clearAiAssistantContext = () => {
+    agentAbortControllerRef.current?.abort();
+    agentAbortControllerRef.current = null;
+    casualChatAbortControllerRef.current?.abort();
+    casualChatAbortControllerRef.current = null;
     casualChatQueuedSendRef.current = null;
+
+    setAgentMessages([]);
+    setAgentInput('');
+    setAgentImages([]);
+    setAgentError(null);
+    setAgentItems([]);
+    setAgentDecisions([]);
+    setAgentGuidance([]);
+    setAddedAgentItemIds(new Set());
+    setAddedAgentTaskMap({});
+    setExpandedAgentSubtaskIds(new Set());
+    setAppliedAgentDecisionIds(new Set());
+    setIsAgentGuidanceOpen(false);
+
+    setManageAgentMessages([]);
+    setManageAgentInput('');
+    setManageAgentError(null);
+    setManageRecommendations([]);
+    setManageRecActions({});
+
     setCasualChatMessages([]);
     setCasualChatInput('');
+
     setStatusFeedback({
       id: createId(),
       level: 'info',
-      message: '已清空聊天上下文',
-      detail: '知识库不会被删除，后续对话会重新开始。',
+      message: '已清空 AI 助手上下文',
+      detail: '聊天、记录和管理助手会从新上下文开始，知识库不会被删除。',
     });
+    void clearStoredAiContext();
   };
 
   const handleCancelCasualChatSend = (nextRequest?: { content: string; history: AgentMessage[] }) => {
@@ -5909,6 +5966,24 @@ const headerTitle = activeFilter === 'category'
   const canSendManageAgentPrompt = hasApiKey
     && !manageAgentLoading
     && (Boolean(manageAgentInput.trim()) || Boolean(manageAgentInputPlaceholder.trim()));
+  const hasAiAssistantContext = agentMessages.length > 0
+    || Boolean(agentInput.trim())
+    || agentImages.length > 0
+    || agentItems.length > 0
+    || agentDecisions.length > 0
+    || agentGuidance.length > 0
+    || Boolean(agentError)
+    || manageAgentMessages.length > 0
+    || Boolean(manageAgentInput.trim())
+    || Boolean(manageAgentError)
+    || manageRecommendations.length > 0
+    || Object.keys(manageRecActions).length > 0
+    || casualChatMessages.length > 0
+    || Boolean(casualChatInput.trim());
+  const canClearAiAssistantContext = hasAiAssistantContext
+    && !agentLoading
+    && !manageAgentLoading
+    && !casualChatLoading;
   const visibleKnowledgeEntries = knowledgeSearchInput.trim()
     ? getRelevantKnowledgeEntries(knowledgeSearchInput, 40, false)
     : knowledgeEntries;
@@ -7223,18 +7298,17 @@ const headerTitle = activeFilter === 'category'
                       <span>知识库</span>
                       <span className="rounded-full bg-[rgba(var(--theme-accent),0.12)] px-1.5 text-[10px]">{knowledgeEntries.length}</span>
                     </button>
-                    {aiAssistantMode === 'chat' && (
-                      <button
-                        type="button"
-                        onClick={clearCasualChatContext}
-                        disabled={casualChatLoading || casualChatMessages.length === 0}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-rose-300/40 hover:bg-rose-400/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-45"
-                        title="清空当前聊天上下文"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>清空</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={clearAiAssistantContext}
+                      disabled={!canClearAiAssistantContext}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-rose-300/40 hover:bg-rose-400/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-45"
+                      title="清除 AI 助手上下文"
+                      aria-label="清除 AI 助手上下文"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>清除上下文</span>
+                    </button>
                     <div className="flex items-center">
                       <ModelSelect
                         models={parseModelList(modelListText)}

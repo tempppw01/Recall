@@ -211,6 +211,37 @@ async function appendContextEntry(
   }
 }
 
+async function clearContextMessages(redisConfig: any, sessionId: string) {
+  if (!sessionId) return;
+  MEMORY_CONTEXT_CACHE.delete(sessionId);
+
+  if (!redisConfig || !redisConfig.host) return;
+
+  let redis: Redis | null = null;
+  try {
+    redis = new Redis({
+      host: redisConfig.host,
+      port: Number(redisConfig.port) || 6379,
+      password: redisConfig.password || undefined,
+      db: Number(redisConfig.db) || 0,
+      connectTimeout: 2000,
+      lazyConnect: true,
+    });
+    await redis.del(`session:${sessionId}:context`);
+  } catch (error) {
+    console.error('Redis context clear failed:', error);
+    throw error;
+  } finally {
+    if (redis) {
+      try {
+        redis.disconnect();
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+}
+
 /**
  * 向 AI API 发送聊天请求（支持多端点故障转移）
  * 按顺序尝试每个端点，第一个成功的即返回
@@ -1454,6 +1485,11 @@ export async function POST(req: NextRequest) {
         serverTime: networkNow.toISOString(),
         serverTimeText: formatShanghaiDateTime(networkNow),
       });
+    }
+
+    if (mode === 'clear-context') {
+      await clearContextMessages(redisConfig, sessionId);
+      return NextResponse.json({ ok: true });
     }
 
     const normalizedInput = typeof input === 'string' ? input : '';
