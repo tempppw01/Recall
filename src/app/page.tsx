@@ -58,7 +58,6 @@ import {
   formatZonedTime,
   getDefaultRepeatRule,
   getNextRepeatDate,
-  getRecentDays,
   getTimezoneOffset,
   getZonedDate,
   getTodayKey,
@@ -92,6 +91,7 @@ import type { CalendarViewMode } from '@/app/components/calendar/calendarTypes';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
 import ReviewPanel from '@/app/components/review/ReviewPanel';
 import ItemsPanel from '@/app/components/items/ItemsPanel';
+import HabitPanel from '@/app/components/habits/HabitPanel';
 import StatsPanel from '@/app/components/stats/StatsPanel';
 import LogsModal from '@/app/components/logs/LogsModal';
 import AboutModal from '@/app/components/about/AboutModal';
@@ -101,7 +101,7 @@ import {
   Calendar, Inbox, Sun, Star, Trash2,
   X, CheckCircle2,
   Flag, Tag as TagIcon, Hash, ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
-  CheckSquare, LayoutGrid, Timer, Flame, Settings, Cloud, CloudSun, CloudRain, CloudFog, CloudSnow,
+  CheckSquare, LayoutGrid, Timer, Settings, Cloud, CloudSun, CloudRain, CloudFog, CloudSnow,
   ImagePlus, Monitor, Paperclip, Upload,
   Phone,
   Info,
@@ -8543,158 +8543,21 @@ const headerTitle = activeFilter === 'category'
               }}
             />
           ) : activeFilter === 'habit' ? (
-            <div className="space-y-5 sm:space-y-6">
-              <div className="rounded-[26px] border border-[#2C2C2C] bg-[linear-gradient(180deg,rgba(32,32,32,0.98),rgba(23,23,23,0.98))] px-4 py-3.5 shadow-[0_16px_42px_rgba(0,0,0,0.18)] sm:px-5 sm:py-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-[10px] text-[#6F7F98]">
-                    {hasApiKey ? '有 AI 时自动拆解，无 AI 时直接创建习惯' : '当前按直接创建模式工作'}
-                  </div>
-                  <div className="text-[11px] text-[#555555]">今天 {getTodayKey().slice(5)}</div>
-                </div>
-
-                <div className="mt-2.5 rounded-[20px] border border-[#2E3750] bg-[#141B2A] p-2.5 space-y-2.5 sm:p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-[11px] text-[#8FA1C8]">
-                      同一个输入框：有 AI 就拆解，无 AI 自动创建
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-blue-400/40 bg-blue-500/10 text-blue-200">
-                      {hasApiKey ? 'habit-agent' : 'fallback'}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
-                      type="text"
-                      value={habitAgentInput}
-                      onChange={(e) => setHabitAgentInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                          e.preventDefault();
-                          handleHabitAgentSend();
-                        }
-                      }}
-                      placeholder={hasApiKey ? '例如：我想学习英语' : '例如：学英语（将直接创建习惯）'}
-                      className="flex-1 rounded-xl border border-[#334155] bg-[#0F172A] px-3 py-2.5 text-sm text-[#E2E8FF] focus:outline-none focus:border-blue-400 disabled:opacity-60"
-                      disabled={habitAgentLoading}
-                    />
-                    <button
-                      onClick={handleHabitAgentSend}
-                      disabled={!habitAgentInput.trim() || habitAgentLoading}
-                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
-                    >
-                      {habitAgentLoading ? '拆解中…' : hasApiKey ? 'AI 拆解' : '创建习惯'}
-                    </button>
-                  </div>
-
-                  {habitAgentError && (
-                    <div className="whitespace-pre-wrap rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-300">
-                      {habitAgentError}
-                    </div>
-                  )}
-
-                  {habitAgentItems.length > 0 && (
-                    <div className="space-y-2">
-                      {habitAgentItems.map((item) => {
-                        const isAdded = addedHabitAgentItemIds.has(item.id);
-                        return (
-                          <div key={item.id} className="rounded-[18px] border border-[#334155] bg-[#0F172A] px-3 py-2.5">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm text-[#E2E8F0] font-medium">{item.title}</div>
-                                <div className="mt-1 text-[11px] text-[#94A3B8]">
-                                  {item.frequency ? `频率：${item.frequency} · ` : ''}
-                                  {item.checkInDueDate ? `检查时间：${formatZonedDateTime(item.checkInDueDate, DEFAULT_TIMEZONE_OFFSET)}` : '检查时间：今晚 20:00'}
-                                </div>
-                                {item.reason && <div className="text-xs text-[#7DD3FC] mt-1">拆解说明：{item.reason}</div>}
-                              </div>
-                              <button
-                                onClick={() => handleAddHabitAgentItem(item)}
-                                disabled={isAdded}
-                                className={`shrink-0 rounded-full border px-3 py-1 text-[11px] transition-colors ${
-                                  isAdded
-                                    ? 'border-[#374151] text-[#6B7280]'
-                                    : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                                }`}
-                              >
-                                {isAdded ? '已添加' : '加入习惯+检查任务'}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {habits.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-56 text-[#444444]">
-                  <Flame className="w-12 h-12 mb-3 opacity-20" />
-                  <p className="text-sm">还没有习惯，先创建一个吧</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {habits.map((habit) => {
-                    const today = getTodayKey();
-                    const hasToday = habit.logs.some((log) => log.date === today);
-                    const streak = getHabitStreak(habit);
-                    const recentDays = getRecentDays(7);
-                    const logSet = new Set(habit.logs.map((log) => log.date));
-                    return (
-                      <div key={habit.id} className="bg-[#202020] border border-[#2C2C2C] rounded-2xl p-4 space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-300 text-sm font-semibold">
-                              {habit.title.slice(0, 1)}
-                            </div>
-                            <div>
-                              <h4 className="text-base font-semibold text-[#EEEEEE]">{habit.title}</h4>
-                              <p className="text-xs text-[#666666] mt-1">连续 {streak} 天</p>
-                            </div>
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                            <button
-                              onClick={() => toggleHabitToday(habit.id)}
-                              disabled={hasToday}
-                              className={`w-full sm:w-auto px-3 py-2 text-sm rounded-lg border transition-colors ${
-                                hasToday
-                                  ? 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-muted)]'
-                                  : 'border-blue-500 text-blue-200 hover:bg-blue-500/10'
-                              }`}
-                            >
-                              {hasToday ? '已打卡' : '今日打卡'}
-                            </button>
-                            <button
-                              onClick={() => removeHabit(habit.id)}
-                              className="w-full sm:w-auto px-3 py-2 text-sm rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10"
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-7 gap-2 sm:gap-3">
-                          {recentDays.map((day) => {
-                            const checked = logSet.has(day);
-                            return (
-                              <div key={day} className="flex flex-col items-center gap-1">
-                                {checked ? (
-                                  <div className="w-5 h-5 rounded-full border border-orange-400/60 bg-gradient-to-b from-orange-400/25 to-amber-500/25 flex items-center justify-center shadow-[0_0_10px_rgba(251,146,60,0.35)]">
-                                    <Flame className="w-3.5 h-3.5 text-orange-300" />
-                                  </div>
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full border border-[#444444]" />
-                                )}
-                                <span className="text-[10px] text-[#666666]">{day.slice(5)}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <HabitPanel
+              habits={habits}
+              hasApiKey={hasApiKey}
+              habitAgentInput={habitAgentInput}
+              habitAgentLoading={habitAgentLoading}
+              habitAgentError={habitAgentError}
+              habitAgentItems={habitAgentItems}
+              addedHabitAgentItemIds={addedHabitAgentItemIds}
+              setHabitAgentInput={setHabitAgentInput}
+              onHabitAgentSend={handleHabitAgentSend}
+              onAddHabitAgentItem={handleAddHabitAgentItem}
+              onToggleHabitToday={toggleHabitToday}
+              onRemoveHabit={removeHabit}
+              getHabitStreak={getHabitStreak}
+            />
           ) : (
             <div className="space-y-4">
               {sortedTasks.length === 0 ? (
