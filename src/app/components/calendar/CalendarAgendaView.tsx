@@ -31,18 +31,18 @@ export default function CalendarAgendaView({
 
   if (sections.length === 0) {
     return (
-      <div className="flex min-h-[16rem] items-center justify-center rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/90 text-sm text-[color:var(--ui-text-secondary)]">
+      <div className="flex min-h-[16rem] items-center justify-center rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/90 text-sm text-[color:var(--ui-text-secondary)]">
         近期还没有排入日程的任务
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {sections.map((section) => (
         <section
           key={section.dateKey}
-          className="rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/92 p-4 sm:p-5"
+          className="rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/92 p-3.5 sm:p-4"
         >
           <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] pb-3">
             <div>
@@ -56,7 +56,7 @@ export default function CalendarAgendaView({
             )}
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 space-y-2">
             {section.tasks.map((task) => {
               const tone = getCalendarTaskTone(task);
               return (
@@ -64,7 +64,7 @@ export default function CalendarAgendaView({
                   key={task.id}
                   type="button"
                   onClick={() => onSelectTask?.(task)}
-                  className="flex w-full items-start gap-4 rounded-[22px] border px-4 py-3 text-left transition-transform hover:-translate-y-[1px]"
+                  className="flex w-full min-w-0 items-start gap-2.5 rounded-[18px] border px-3 py-2.5 text-left transition-transform hover:-translate-y-[1px] sm:gap-4 sm:px-4 sm:py-3"
                   style={{
                     background: tone.background,
                     borderColor: tone.border,
@@ -72,7 +72,7 @@ export default function CalendarAgendaView({
                     boxShadow: tone.shadow,
                   }}
                 >
-                  <div className="w-24 shrink-0 text-[14px] font-medium">
+                  <div className="w-16 shrink-0 text-[12px] font-medium sm:w-24 sm:text-[14px]">
                     {task.dueDate ? formatZonedTime(task.dueDate, getTimezoneOffset(task)) : '未设时间'}
                   </div>
                   <div className="min-w-0">

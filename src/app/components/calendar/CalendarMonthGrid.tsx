@@ -38,12 +38,12 @@ export default function CalendarMonthGrid({
   const activeWeekIndex = anchorIndex >= 0 ? Math.floor(anchorIndex / 7) : -1;
 
   return (
-    <div className="overflow-x-auto rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/92 shadow-[0_24px_60px_rgba(0,0,0,0.16)]">
-      <div className={`grid min-w-[920px] grid-cols-7 ${dense ? '' : ''}`}>
+    <div className="overflow-hidden rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/92 shadow-[0_24px_60px_rgba(0,0,0,0.16)]">
+      <div className={`grid min-w-0 grid-cols-7 ${dense ? '' : ''}`}>
         {weekdayLabels.map((label) => (
           <div
             key={label}
-            className="border-b border-r border-[color:var(--ui-border-soft)] px-3 py-3 text-center text-[12px] text-[color:var(--ui-text-secondary)] last:border-r-0"
+            className="border-b border-r border-[color:var(--ui-border-soft)] px-1.5 py-2 text-center text-[11px] text-[color:var(--ui-text-secondary)] last:border-r-0 sm:px-3 sm:py-3 sm:text-[12px]"
           >
             {label}
           </div>
@@ -55,7 +55,7 @@ export default function CalendarMonthGrid({
               <div
                 key={`empty-${index}`}
                 className={`border-b border-r border-[color:var(--ui-border-soft)] last:border-r-0 ${
-                  dense ? 'min-h-[8rem]' : 'min-h-[9.75rem]'
+                  dense ? 'min-h-[5.75rem] sm:min-h-[7rem] lg:min-h-[8rem]' : 'min-h-[6.5rem] sm:min-h-[8.25rem] lg:min-h-[9.75rem]'
                 } bg-[color:var(--ui-surface-0)]/36`}
               />
             );
@@ -79,8 +79,8 @@ export default function CalendarMonthGrid({
               key={cell.dateKey}
               type="button"
               onClick={() => onSelectDate(cell.dateKey as string)}
-              className={`flex flex-col border-b border-r border-[color:var(--ui-border-soft)] px-3 py-2.5 text-left transition-colors last:border-r-0 ${
-                dense ? 'min-h-[8rem]' : 'min-h-[9.75rem]'
+              className={`flex min-w-0 flex-col overflow-hidden border-b border-r border-[color:var(--ui-border-soft)] px-1.5 py-1.5 text-left transition-colors last:border-r-0 sm:px-2 sm:py-2 lg:px-3 lg:py-2.5 ${
+                dense ? 'min-h-[5.75rem] sm:min-h-[7rem] lg:min-h-[8rem]' : 'min-h-[6.5rem] sm:min-h-[8.25rem] lg:min-h-[9.75rem]'
               } ${
                 isSelected
                   ? 'bg-[rgba(var(--theme-accent),0.12)]'
@@ -89,7 +89,7 @@ export default function CalendarMonthGrid({
                     : 'bg-[color:var(--ui-surface-0)]/74 hover:bg-[color:var(--ui-hover-bg)]'
               }`}
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 items-start justify-between gap-1 sm:gap-2">
                 <div className="min-w-0">
                   <div className={`text-[13px] font-semibold ${
                     isSelected
@@ -109,20 +109,20 @@ export default function CalendarMonthGrid({
                   )}
                 </div>
                 {isToday && (
-                  <span className="rounded-full border border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.16)] px-2 py-0.5 text-[10px] text-[rgba(var(--theme-accent),0.94)]">
+                  <span className="hidden rounded-full border border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.16)] px-2 py-0.5 text-[10px] text-[rgba(var(--theme-accent),0.94)] sm:inline-flex">
                     今天
                   </span>
                 )}
               </div>
 
-              <div className="mt-2 space-y-1.5">
+              <div className="mt-1.5 min-w-0 space-y-1 sm:mt-2 sm:space-y-1.5">
                 {tasks.slice(0, maxEventsPerDay).map((task) => {
                   const tone = getCalendarTaskTone(task);
                   const timeText = task.dueDate ? formatZonedTime(task.dueDate, getTimezoneOffset(task)) : '';
                   return (
                     <div
                       key={task.id}
-                      className="rounded-[12px] border px-2.5 py-1.5"
+                      className="min-w-0 rounded-[10px] border px-1.5 py-1 sm:rounded-[12px] sm:px-2 sm:py-1.5 lg:px-2.5"
                       style={{
                         background: tone.background,
                         borderColor: tone.border,
@@ -130,7 +130,7 @@ export default function CalendarMonthGrid({
                         boxShadow: tone.shadow,
                       }}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full"
                           style={{ background: tone.dot }}
@@ -138,14 +138,14 @@ export default function CalendarMonthGrid({
                         <span className="truncate text-[11px] font-medium">{task.title}</span>
                       </div>
                       {timeText && (
-                        <div className="mt-1 text-[10px] opacity-85">{timeText}</div>
+                        <div className="mt-0.5 truncate text-[10px] opacity-85 sm:mt-1">{timeText}</div>
                       )}
                     </div>
                   );
                 })}
 
                 {overflowCount > 0 && (
-                  <div className="pl-1 text-[11px] text-[color:var(--ui-text-secondary)]">
+                  <div className="truncate pl-1 text-[10px] text-[color:var(--ui-text-secondary)] sm:text-[11px]">
                     +{overflowCount} 项安排
                   </div>
                 )}

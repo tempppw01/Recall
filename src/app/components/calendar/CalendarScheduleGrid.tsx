@@ -48,13 +48,13 @@ export default function CalendarScheduleGrid({
     (_, index) => visibleStartHour + index,
   );
   const hasAnyTask = dateKeys.some((dateKey) => (tasksByDate[dateKey] || []).length > 0);
-  const columnWidth = dateKeys.length <= 1 ? 360 : dateKeys.length <= 3 ? 240 : dateKeys.length <= 7 ? 170 : 140;
+  const timeColumnWidth = dateKeys.length <= 3 ? 64 : 52;
 
   return (
-    <div className="overflow-x-auto rounded-[28px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/92 shadow-[0_24px_60px_rgba(0,0,0,0.16)]">
+    <div className="overflow-hidden rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/92 shadow-[0_24px_60px_rgba(0,0,0,0.16)]">
       <div
-        className="grid min-w-full"
-        style={{ gridTemplateColumns: `72px repeat(${dateKeys.length}, minmax(${columnWidth}px, 1fr))` }}
+        className="grid min-w-0"
+        style={{ gridTemplateColumns: `${timeColumnWidth}px repeat(${dateKeys.length}, minmax(0, 1fr))` }}
       >
         <div className="sticky left-0 z-[6] border-b border-r border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/96 backdrop-blur" />
         {dateKeys.map((dateKey) => {
@@ -65,17 +65,17 @@ export default function CalendarScheduleGrid({
               key={`header-${dateKey}`}
               type="button"
               onClick={() => onSelectDate?.(dateKey)}
-              className={`relative z-[1] flex min-h-[72px] flex-col items-start justify-center gap-1 border-b border-r border-[color:var(--ui-border-soft)] px-4 text-left backdrop-blur transition-colors last:border-r-0 ${
+              className={`relative z-[1] flex min-h-[58px] min-w-0 flex-col items-start justify-center gap-0.5 border-b border-r border-[color:var(--ui-border-soft)] px-1.5 text-left backdrop-blur transition-colors last:border-r-0 sm:min-h-[64px] sm:px-3 ${
                 isToday
                   ? 'bg-[rgba(var(--theme-accent),0.14)]'
                   : 'bg-[color:var(--ui-surface-1)]/96 hover:bg-[color:var(--ui-hover-bg)]'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className={`text-xl font-semibold ${isToday ? 'text-[rgba(var(--theme-accent),0.96)]' : 'text-[color:var(--ui-text-strong)]'}`}>
+              <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                <span className={`text-lg font-semibold sm:text-xl ${isToday ? 'text-[rgba(var(--theme-accent),0.96)]' : 'text-[color:var(--ui-text-strong)]'}`}>
                   {date.getDate()}
                 </span>
-                <span className="text-sm text-[color:var(--ui-text-secondary)]">{WEEKDAY_LABELS[date.getDay()]}</span>
+                <span className="truncate text-[11px] text-[color:var(--ui-text-secondary)] sm:text-sm">{WEEKDAY_LABELS[date.getDay()]}</span>
               </div>
               {calendarNotes?.[dateKey] && (
                 <span className="max-w-full truncate text-[11px] text-emerald-300/90">{calendarNotes[dateKey]}</span>
@@ -86,7 +86,7 @@ export default function CalendarScheduleGrid({
 
         {hours.map((hour) => (
           <div key={`hour-${hour}`} className="contents">
-            <div className="sticky left-0 z-[5] flex min-h-[88px] items-start justify-end border-b border-r border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/94 px-3 py-3 text-[12px] text-[color:var(--ui-text-secondary)] backdrop-blur">
+            <div className="sticky left-0 z-[5] flex min-h-[72px] items-start justify-end border-b border-r border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-1)]/94 px-1.5 py-2.5 text-[10px] text-[color:var(--ui-text-secondary)] backdrop-blur sm:min-h-[82px] sm:px-3 sm:text-[12px]">
               {String(hour).padStart(2, '0')}:00
             </div>
             {dateKeys.map((dateKey) => {
@@ -95,9 +95,9 @@ export default function CalendarScheduleGrid({
               return (
                 <div
                   key={`${dateKey}-${hour}`}
-                  className="min-h-[88px] border-b border-r border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-0)]/80 px-2 py-2 last:border-r-0"
+                  className="min-h-[72px] min-w-0 border-b border-r border-[color:var(--ui-border-soft)] bg-[color:var(--ui-surface-0)]/80 px-1 py-1.5 last:border-r-0 sm:min-h-[82px] sm:px-2 sm:py-2"
                 >
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     {bucket.map((task) => {
                       const tone = getCalendarTaskTone(task);
                       const timeLabel = task.dueDate ? formatZonedTime(task.dueDate, getTimezoneOffset(task)) : '未设时间';
@@ -106,7 +106,7 @@ export default function CalendarScheduleGrid({
                           key={task.id}
                           type="button"
                           onClick={() => onSelectTask?.(task)}
-                          className="w-full rounded-[18px] border px-3 py-2 text-left transition-transform hover:-translate-y-[1px]"
+                          className="w-full min-w-0 rounded-[14px] border px-1.5 py-1.5 text-left transition-transform hover:-translate-y-[1px] sm:rounded-[16px] sm:px-2.5 sm:py-2"
                           style={{
                             background: tone.background,
                             borderColor: tone.border,
@@ -114,14 +114,14 @@ export default function CalendarScheduleGrid({
                             boxShadow: tone.shadow,
                           }}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                             <span
-                              className="h-2 w-2 shrink-0 rounded-full"
+                              className="h-1.5 w-1.5 shrink-0 rounded-full sm:h-2 sm:w-2"
                               style={{ background: tone.dot }}
                             />
-                            <span className="truncate text-[13px] font-medium">{task.title}</span>
+                            <span className="truncate text-[11px] font-medium sm:text-[13px]">{task.title}</span>
                           </div>
-                          <div className="mt-1 text-[11px] opacity-85">{timeLabel}</div>
+                          <div className="mt-0.5 truncate text-[10px] opacity-85 sm:mt-1 sm:text-[11px]">{timeLabel}</div>
                         </button>
                       );
                     })}

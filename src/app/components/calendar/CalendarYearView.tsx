@@ -24,7 +24,7 @@ export default function CalendarYearView({
   const today = parseDateKey(todayKey);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13.5rem),1fr))] gap-3">
       {Array.from({ length: 12 }, (_, monthIndex) => {
         const monthStart = new Date(year, monthIndex, 1);
         const firstWeekday = monthStart.getDay();
@@ -37,13 +37,13 @@ export default function CalendarYearView({
         return (
           <section
             key={`${year}-${monthIndex}`}
-            className={`overflow-hidden rounded-[24px] border px-3 py-3.5 transition-colors ${
+            className={`overflow-hidden rounded-[22px] border px-3 py-3 transition-colors ${
               selectedMonth === monthIndex
                 ? 'border-[rgba(var(--theme-accent),0.32)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(10,10,12,0.08))]'
                 : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/90'
             }`}
           >
-            <div className="mb-2.5 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between">
               <h3 className="text-base font-semibold text-[color:var(--ui-text-strong)]">{MONTH_LABELS[monthIndex]}</h3>
               <span className="text-[11px] text-[color:var(--ui-text-muted)]">{daysInMonth} 天</span>
             </div>
@@ -56,10 +56,10 @@ export default function CalendarYearView({
               ))}
             </div>
 
-            <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+            <div className="mt-2 grid grid-cols-7 gap-0.5 text-sm sm:gap-1">
               {cells.map((day, cellIndex) => {
                 if (!day) {
-                  return <div key={`empty-${monthIndex}-${cellIndex}`} className="h-8 rounded-xl" />;
+                  return <div key={`empty-${monthIndex}-${cellIndex}`} className="h-7 rounded-xl sm:h-8" />;
                 }
 
                 const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -73,7 +73,7 @@ export default function CalendarYearView({
                     key={dateKey}
                     type="button"
                     onClick={() => onSelectDate(dateKey)}
-                    className={`relative flex h-8 items-center justify-center rounded-xl text-[13px] transition-all ${
+                    className={`relative flex h-7 items-center justify-center rounded-xl text-[12px] transition-all sm:h-8 sm:text-[13px] ${
                       isSelected
                         ? 'bg-[rgba(var(--theme-accent),0.9)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.28)]'
                         : isToday
