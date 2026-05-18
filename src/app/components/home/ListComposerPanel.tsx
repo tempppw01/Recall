@@ -253,26 +253,25 @@ export default function ListComposerPanel({
           )}
 
           <div className="grid min-w-0 grid-cols-2 gap-2 lg:ml-auto lg:flex lg:flex-wrap lg:items-center">
-            <button
-              type="button"
-              onClick={onToggleShowCompleted}
-              disabled={completedTasks === 0}
-              className={`inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] transition-colors lg:px-3 lg:text-[12px] ${
-                showCompletedTasks
-                  ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-300'
-                  : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-primary)] hover:border-[color:var(--ui-border-strong)]'
-              } disabled:cursor-not-allowed disabled:opacity-45`}
-              title={showCompletedTasks ? '隐藏已完成任务' : '显示已完成任务'}
-              aria-pressed={showCompletedTasks}
-            >
-              {showCompletedTasks ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              <span className="truncate">{showCompletedTasks ? '隐藏已完成' : '显示已完成'}</span>
-              {completedTasks > 0 && (
+            {completedTasks > 0 ? (
+              <button
+                type="button"
+                onClick={onToggleShowCompleted}
+                className={`inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] transition-colors lg:px-3 lg:text-[12px] ${
+                  showCompletedTasks
+                    ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-300'
+                    : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-primary)] hover:border-[color:var(--ui-border-strong)]'
+                }`}
+                title={showCompletedTasks ? '隐藏已完成任务' : '显示已完成任务'}
+                aria-pressed={showCompletedTasks}
+              >
+                {showCompletedTasks ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                <span className="truncate">{showCompletedTasks ? '隐藏已完成' : '显示已完成'}</span>
                 <span className="rounded-full bg-[rgba(var(--theme-accent),0.10)] px-1.5 py-0.5 text-[10px] tabular-nums">
                   {completedTasks > 99 ? '99+' : completedTasks}
                 </span>
-              )}
-            </button>
+              </button>
+            ) : null}
 
             {showCompletedTasks && completedTasks > 0 ? (
               <button
