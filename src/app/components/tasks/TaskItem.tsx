@@ -587,7 +587,7 @@ const TaskItem = ({
                           event.stopPropagation();
                           onTitleClick?.();
                         }}
-                        className={`min-w-0 flex-1 text-left text-[13px] font-medium leading-snug ${
+                        className={`min-w-0 flex-1 text-left text-sm font-semibold leading-snug tracking-[-0.01em] ${
                           compactText ? 'truncate' : 'break-words [overflow-wrap:anywhere]'
                         } ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
@@ -598,7 +598,7 @@ const TaskItem = ({
                       </button>
                     ) : (
                       <p
-                        className={`min-w-0 flex-1 text-[13px] font-medium leading-snug ${
+                        className={`min-w-0 flex-1 text-sm font-semibold leading-snug tracking-[-0.01em] ${
                           compactText ? 'truncate' : 'break-words [overflow-wrap:anywhere]'
                         } ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'

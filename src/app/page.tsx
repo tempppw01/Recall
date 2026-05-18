@@ -8733,12 +8733,12 @@ const headerTitle = activeFilter === 'category'
                         return (
                           <div key={group.key} className="space-y-2 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] p-2.5">
                             <div className="flex">
-                              <div className={`flex w-full max-w-full items-center justify-between gap-2 border-b border-[color:var(--ui-border-soft)] px-2 pb-2 ${meta.tone}`}>
+                              <div className={`flex w-full max-w-full items-start justify-between gap-3 rounded-[18px] border-b border-[color:var(--ui-border-soft)] px-2.5 pb-2.5 pt-1.5 ${meta.tone}`}>
                                 <div className="min-w-0">
-                                  <div className="text-sm font-semibold leading-tight text-[#EEF2FF]">{group.label}</div>
-                                  <div className="truncate text-xs leading-tight text-[#8F9BB3]">{meta.summary}</div>
+                                  <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#EEF2FF]">{group.label}</div>
+                                  <div className="mt-0.5 truncate text-[11px] font-normal leading-tight text-[#7F8AA3]">{meta.summary}</div>
                                 </div>
-                                <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${meta.chipTone}`}>{group.items.length} 项</span>
+                                <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.chipTone}`}>{group.items.length} 项</span>
                               </div>
                             </div>
                             <div className="space-y-1">
