@@ -646,11 +646,11 @@ const SettingsModal = ({
         onClick={() => setShowSettings(false)}
       >
         <div
-          className="settings-modal-surface theme-native-surface relative flex h-[min(88dvh,760px)] w-full max-w-[1080px] flex-col overflow-hidden rounded-[28px] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-modal-bg)] shadow-[0_24px_64px_rgba(0,0,0,0.24)] lg:flex-row"
+          className="settings-modal-surface theme-native-surface relative flex h-[min(86dvh,690px)] w-full max-w-[900px] flex-col overflow-hidden rounded-[24px] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-modal-bg)] shadow-[0_22px_56px_rgba(0,0,0,0.24)] lg:flex-row"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(var(--theme-accent),0.15),transparent_70%)] opacity-80" />
-          <aside className="settings-modal-nav relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] lg:w-[216px] lg:border-b-0 lg:border-r">
+          <aside className="settings-modal-nav relative z-10 flex w-full shrink-0 flex-col border-b border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] lg:w-[212px] lg:border-b-0 lg:border-r">
             <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-4.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-h-9 items-center">
@@ -671,18 +671,18 @@ const SettingsModal = ({
                     key={key}
                     type="button"
                     onClick={() => scrollToSection(key)}
-                    className={`group flex min-w-[132px] items-center gap-2.5 rounded-[14px] border px-2.5 py-2 text-left transition-all lg:min-w-0 ${
+                    className={`group flex min-w-[124px] items-center gap-2 rounded-[10px] border px-2.5 py-2 text-left transition-all lg:min-w-0 ${
                       activeSection === key
-                        ? 'border-[rgba(var(--theme-accent),0.2)] bg-[rgba(var(--theme-accent),0.1)]'
-                        : 'border-transparent bg-transparent hover:border-[color:var(--ui-border-soft)] hover:bg-[color:var(--ui-hover-bg)]'
+                        ? 'border-transparent bg-[color:var(--ui-hover-bg)]'
+                        : 'border-transparent bg-transparent hover:bg-[color:var(--ui-hover-bg)]'
                     }`}
                   >
-                    <span className={`flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-[12px] border transition-all ${
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] border transition-all ${
                       activeSection === key
-                        ? 'border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.14)] text-[color:rgb(var(--theme-accent))]'
+                        ? 'border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.12)] text-[color:rgb(var(--theme-accent))]'
                         : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] group-hover:text-[color:var(--ui-text-strong)]'
                     }`}>
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-3.5 w-3.5" />
                     </span>
                     <span className="min-w-0 truncate text-[13px] font-semibold text-[color:var(--ui-text-strong)]">{label}</span>
                   </button>
@@ -692,9 +692,9 @@ const SettingsModal = ({
           </aside>
 
           <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] px-4 py-3 sm:px-5 lg:px-6">
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border-soft)] px-4 py-2.5 sm:px-5 lg:px-6">
               <div className="min-w-0">
-                <h3 className="text-[17px] font-semibold text-[color:var(--ui-text-strong)] sm:text-[18px]">
+                <h3 className="text-[16px] font-semibold text-[color:var(--ui-text-strong)]">
                   {activeSectionMeta.label}
                 </h3>
               </div>
@@ -949,14 +949,14 @@ const SettingsModal = ({
 
                 <div
                   ref={appearanceSectionRef}
-                  className="scroll-mt-6 overflow-hidden rounded-[24px] border border-[rgba(var(--theme-accent),0.1)] bg-[rgba(255,255,255,0.035)] shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
+                  className="scroll-mt-6 overflow-hidden rounded-[18px] bg-transparent"
                 >
-                  <div className="border-b border-[color:var(--ui-border-soft)] px-3.5 py-3.5">
+                  <div className="px-0 pb-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <div className="ui-section-label text-[11px] sm:text-xs">外观设置</div>
+                        <div className="text-[15px] font-semibold text-[color:var(--ui-text-strong)]">外观设置</div>
                       </div>
-                      <div className="inline-flex w-fit rounded-full border border-white/8 bg-black/20 p-1">
+                      <div className="inline-flex w-fit rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-hover-bg)] p-0.5">
                         {([
                           ['theme', '主题'],
                           ['display', '显示'],
@@ -965,10 +965,10 @@ const SettingsModal = ({
                             key={tab}
                             type="button"
                             onClick={() => setAppearanceTab(tab)}
-                            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                            className={`rounded-full px-3.5 py-1 text-[12px] font-medium transition-all ${
                               appearanceTab === tab
-                                ? 'bg-white text-slate-900 shadow-[0_10px_24px_rgba(255,255,255,0.16)]'
-                                : 'text-[color:var(--ui-text-muted)] hover:text-white'
+                                ? 'bg-[color:var(--ui-card-hover-bg)] text-[color:var(--ui-text-strong)] shadow-[0_8px_18px_rgba(0,0,0,0.12)]'
+                                : 'text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]'
                             }`}
                           >
                             {label}
@@ -978,24 +978,24 @@ const SettingsModal = ({
                     </div>
                   </div>
 
-                  <div className="space-y-5 px-3.5 py-4">
+                  <div className="space-y-4 px-0 py-0">
                     {appearanceTab === 'theme' ? (
                       <>
                         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.8fr)]">
-                          <div className="space-y-3">
-                            <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-3.5">
+                          <div className="space-y-2">
+                            <div className="rounded-[14px] border border-transparent bg-[color:var(--ui-hover-bg)] px-3.5 py-3">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-white">界面样式</p>
-                                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                  <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">界面样式</p>
+                                  <p className="mt-1 text-[11px] text-[color:var(--ui-text-muted)]">
                                     当前使用 {selectedGradientTheme.label} 氛围和 {selectedAccentTheme.label} 主色。
                                   </p>
                                 </div>
-                                <span className="shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-strong)]">
+                                <span className="shrink-0 rounded-full border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.10)] px-2.5 py-0.5 text-[10px] text-[color:var(--ui-text-strong)]">
                                   {themeModeLabel}
                                 </span>
                               </div>
-                              <div className="mt-3 flex flex-wrap gap-2">
+                              <div className="mt-2.5 flex flex-wrap gap-1.5">
                                 {([
                                   ['system', '跟随系统'],
                                   ['light', '浅色'],
@@ -1005,7 +1005,7 @@ const SettingsModal = ({
                                     key={mode}
                                     type="button"
                                     onClick={() => setThemePreference(mode)}
-                                    className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                                    className={`rounded-full border px-2.5 py-1 text-[11px] transition-all ${
                                       themePreference === mode
                                         ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
                                         : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
@@ -1020,15 +1020,15 @@ const SettingsModal = ({
                             <button
                               type="button"
                               onClick={() => setThemePreference(themePreference === 'system' ? 'dark' : 'system')}
-                              className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] px-3.5 py-3 text-left transition-all hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[rgba(255,255,255,0.04)]"
+                              className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-transparent bg-[color:var(--ui-hover-bg)] px-3.5 py-3 text-left transition-all hover:bg-[color:var(--ui-card-hover-bg)]"
                             >
                               <div className="min-w-0">
-                                <p className="text-sm font-semibold text-white">跟随系统切换暗色主题</p>
-                                <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">跟随系统切换暗色主题</p>
+                                <p className="mt-1 text-[11px] text-[color:var(--ui-text-muted)]">
                                   根据设备明暗模式自动切换主题。
                                 </p>
                               </div>
-                              <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] ${
+                              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] ${
                                 themePreference === 'system'
                                   ? 'border border-emerald-400/35 bg-emerald-400/14 text-emerald-100'
                                   : 'border border-[color:var(--ui-border-soft)] bg-white/[0.04] text-[color:var(--ui-text-muted)]'
@@ -1038,74 +1038,74 @@ const SettingsModal = ({
                             </button>
                           </div>
 
-                          <div className="relative overflow-hidden rounded-[26px] border border-[rgba(var(--theme-accent),0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4">
+                          <div className="relative overflow-hidden rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-3">
                             <div className="pointer-events-none absolute -right-10 top-0 h-28 w-28 rounded-full bg-[rgba(var(--theme-accent),0.14)] blur-3xl" />
                             <div className="relative">
-                              <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">当前组合</p>
-                              <div className={`mt-3 h-24 rounded-[22px] ${selectedGradientTheme.previewClassName}`} />
-                              <div className="mt-3 flex items-center justify-between gap-3">
+                              <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">当前组合</p>
+                              <div className={`mt-2.5 h-20 rounded-[14px] ${selectedGradientTheme.previewClassName}`} />
+                              <div className="mt-2.5 flex items-center justify-between gap-3">
                                 <div>
-                                  <p className="text-sm font-semibold text-white">{selectedGradientTheme.cityLabel}</p>
-                                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{selectedGradientTheme.subtitle}</p>
+                                  <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">{selectedGradientTheme.cityLabel}</p>
+                                  <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">{selectedGradientTheme.subtitle}</p>
                                 </div>
-                                <div className={`h-11 w-11 rounded-2xl border border-white/10 ${selectedAccentTheme.previewClassName}`} />
+                                <div className={`h-9 w-9 rounded-[12px] border border-white/10 ${selectedAccentTheme.previewClassName}`} />
                               </div>
                             </div>
                           </div>
                         </div>
 
                         <div>
-                          <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="mb-2.5 flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-white">颜色系列</p>
-                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">先决定主色，再决定整页情绪。</p>
+                              <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">颜色系列</p>
+                              <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">先决定主色，再决定整页情绪。</p>
                             </div>
-                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
                               当前：{selectedAccentTheme.label}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 min-[520px]:grid-cols-4">
+                          <div className="grid grid-cols-3 gap-x-3 gap-y-4 min-[520px]:grid-cols-4 sm:grid-cols-6">
                             {ACCENT_THEME_OPTIONS.map(({ value, label, previewClassName, glowClassName }) => (
                               <button
                                 key={value}
                                 type="button"
                                 onClick={() => setAccentTheme(value)}
-                                className={`group rounded-[22px] border p-3 text-center transition-all ${
+                                className={`group rounded-[14px] border px-2 py-2 text-center transition-all ${
                                   accentTheme === value
-                                    ? `border-[rgba(var(--theme-accent),0.34)] bg-[rgba(var(--theme-accent),0.12)] ${glowClassName}`
-                                    : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-[rgba(255,255,255,0.05)]'
+                                    ? `border-[rgba(var(--theme-accent),0.30)] bg-[rgba(var(--theme-accent),0.10)] ${glowClassName}`
+                                    : 'border-transparent bg-transparent hover:bg-[color:var(--ui-hover-bg)]'
                                 }`}
                               >
-                                <span className={`mx-auto block h-14 w-14 rounded-[18px] ${previewClassName}`} />
-                                <span className="mt-3 block text-xs font-medium text-[color:var(--ui-text-primary)]">{label}</span>
+                                <span className={`mx-auto block h-12 w-12 rounded-[10px] ${previewClassName}`} />
+                                <span className="mt-2 block text-[11px] font-medium text-[color:var(--ui-text-primary)]">{label}</span>
                               </button>
                             ))}
                           </div>
                         </div>
 
                         <div>
-                          <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="mb-2.5 flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-white">城市系列</p>
-                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">用大一点的预览挑氛围，而不是靠抽象名字想象。</p>
+                              <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">城市系列</p>
+                              <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">用预览挑氛围，而不是靠抽象名字想象。</p>
                             </div>
-                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
                               当前：{selectedGradientTheme.cityLabel}
                             </span>
                           </div>
-                          <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 xl:grid-cols-4">
+                          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                             {GRADIENT_THEME_OPTIONS.map(({ value, label, cityLabel, subtitle, previewClassName, glowClassName }, index) => (
                               <button
                                 key={value}
                                 type="button"
                                 onClick={() => setGradientTheme(value)}
-                                className={`group overflow-hidden rounded-[22px] border text-left transition-all ${
+                                className={`group overflow-hidden rounded-[12px] border text-left transition-all ${
                                   gradientTheme === value
                                     ? `border-[rgba(var(--theme-accent),0.34)] bg-[rgba(var(--theme-accent),0.12)] ${glowClassName}`
                                     : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-[rgba(255,255,255,0.05)]'
                                 }`}
                               >
-                                <div className={`relative h-24 overflow-hidden ${previewClassName}`}>
+                                <div className={`relative h-[68px] overflow-hidden ${previewClassName}`}>
                                   <span className="absolute left-3 top-3 h-5 w-10 rounded-full bg-amber-200/80 blur-[1px]" />
                                   <span className="absolute right-4 top-4 h-3 w-3 rounded-full bg-white/50" />
                                   <span className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/30 to-transparent" />
@@ -1118,19 +1118,19 @@ const SettingsModal = ({
                                     }}
                                   />
                                   {gradientTheme === value ? (
-                                    <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                                    <span className="absolute left-2 top-2 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-900">
                                       当前
                                     </span>
                                   ) : null}
                                 </div>
-                                <div className="px-3 py-3">
+                                <div className="px-2.5 py-2">
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="truncate text-sm font-semibold text-white">{cityLabel}</span>
-                                    <span className="rounded-full border border-white/8 px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
+                                    <span className="truncate text-[12px] font-semibold text-[color:var(--ui-text-strong)]">{cityLabel}</span>
+                                    <span className="rounded-full border border-white/8 px-1.5 py-0.5 text-[9px] text-[color:var(--ui-text-muted)]">
                                       {label}
                                     </span>
                                   </div>
-                                  <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">{subtitle}</p>
+                                  <p className="mt-0.5 truncate text-[10px] text-[color:var(--ui-text-muted)]">{subtitle}</p>
                                 </div>
                               </button>
                             ))}
@@ -1139,20 +1139,20 @@ const SettingsModal = ({
                       </>
                     ) : (
                       <>
-                        <div className="grid gap-3 lg:grid-cols-2">
-                          <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-3.5">
+                        <div className="grid gap-2 lg:grid-cols-2">
+                          <div className="rounded-[14px] border border-transparent bg-[color:var(--ui-hover-bg)] px-3.5 py-3">
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-sm font-semibold text-white">当前主题模式</p>
-                                <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                                <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">当前主题模式</p>
+                                <p className="mt-1 text-[11px] text-[color:var(--ui-text-muted)]">
                                   决定界面整体的明暗感和对比度。
                                 </p>
                               </div>
-                              <span className="rounded-full border border-[rgba(var(--theme-accent),0.22)] bg-[rgba(var(--theme-accent),0.12)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-strong)]">
+                              <span className="rounded-full border border-[rgba(var(--theme-accent),0.18)] bg-[rgba(var(--theme-accent),0.10)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-strong)]">
                                 {themeModeLabel}
                               </span>
                             </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-2.5 flex flex-wrap gap-1.5">
                               {([
                                 ['system', '跟随系统'],
                                 ['light', '浅色'],
@@ -1162,7 +1162,7 @@ const SettingsModal = ({
                                   key={mode}
                                   type="button"
                                   onClick={() => setThemePreference(mode)}
-                                  className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                                  className={`rounded-full border px-2.5 py-1 text-[11px] transition-all ${
                                     themePreference === mode
                                       ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
                                       : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
@@ -1177,15 +1177,15 @@ const SettingsModal = ({
                           <button
                             type="button"
                             onClick={() => setThemePreference(themePreference === 'system' ? 'dark' : 'system')}
-                            className="flex items-center justify-between gap-3 rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] px-3.5 py-3.5 text-left transition-all hover:border-[rgba(var(--theme-accent),0.24)] hover:bg-[rgba(255,255,255,0.04)]"
+                            className="flex items-center justify-between gap-3 rounded-[14px] border border-transparent bg-[color:var(--ui-hover-bg)] px-3.5 py-3 text-left transition-all hover:bg-[color:var(--ui-card-hover-bg)]"
                           >
                             <div>
-                              <p className="text-sm font-semibold text-white">跟随系统切换暗色主题</p>
-                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                              <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">跟随系统切换暗色主题</p>
+                              <p className="mt-1 text-[11px] text-[color:var(--ui-text-muted)]">
                                 适合在白天和夜间自动适配。
                               </p>
                             </div>
-                            <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] ${
+                            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] ${
                               themePreference === 'system'
                                 ? 'border border-emerald-400/35 bg-emerald-400/14 text-emerald-100'
                                 : 'border border-[color:var(--ui-border-soft)] bg-white/[0.04] text-[color:var(--ui-text-muted)]'
@@ -1195,23 +1195,23 @@ const SettingsModal = ({
                           </button>
                         </div>
 
-                        <div className="rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-3.5">
+                        <div className="rounded-[14px] border border-transparent bg-[color:var(--ui-hover-bg)] px-3.5 py-3">
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-white">倒数日信息显示</p>
-                              <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">
+                              <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">倒数日信息显示</p>
+                              <p className="mt-1 text-[11px] text-[color:var(--ui-text-muted)]">
                                 控制倒数日卡片右侧显示剩余天数还是目标日期。
                               </p>
                             </div>
-                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2.5 py-1 text-[11px] text-[color:var(--ui-text-muted)]">
+                            <span className="rounded-full border border-[color:var(--ui-border-soft)] px-2 py-0.5 text-[10px] text-[color:var(--ui-text-muted)]">
                               {countdownDisplayMode === 'days' ? '剩余天数' : '目标日期'}
                             </span>
                           </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          <div className="mt-2.5 flex flex-wrap gap-1.5">
                             <button
                               type="button"
                               onClick={() => setCountdownDisplayMode('days')}
-                              className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                              className={`rounded-full border px-2.5 py-1 text-[11px] transition-all ${
                                 countdownDisplayMode === 'days'
                                   ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
                                   : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
@@ -1222,7 +1222,7 @@ const SettingsModal = ({
                             <button
                               type="button"
                               onClick={() => setCountdownDisplayMode('date')}
-                              className={`rounded-full border px-3 py-1.5 text-[12px] transition-all ${
+                              className={`rounded-full border px-2.5 py-1 text-[11px] transition-all ${
                                 countdownDisplayMode === 'date'
                                   ? 'border-[rgba(var(--theme-accent),0.32)] bg-[rgba(var(--theme-accent),0.18)] text-white shadow-[0_0_0_4px_rgba(var(--theme-accent),0.10)]'
                                   : 'border-[color:var(--ui-border-soft)] bg-white/[0.03] text-[color:var(--ui-text-secondary)] hover:text-white'
@@ -1233,15 +1233,15 @@ const SettingsModal = ({
                           </div>
                         </div>
 
-                        <div className="rounded-[24px] border border-[rgba(var(--theme-accent),0.18)] bg-[linear-gradient(135deg,rgba(var(--theme-accent),0.14),rgba(var(--theme-grad-end),0.08),rgba(255,255,255,0.02))] p-4">
-                          <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">显示预览</p>
-                          <div className="mt-3 rounded-[20px] border border-white/8 bg-[rgba(10,14,24,0.52)] p-3">
+                        <div className="rounded-[16px] border border-[rgba(var(--theme-accent),0.14)] bg-[linear-gradient(135deg,rgba(var(--theme-accent),0.10),rgba(var(--theme-grad-end),0.06),rgba(255,255,255,0.02))] p-3">
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">显示预览</p>
+                          <div className="mt-2.5 rounded-[14px] border border-white/8 bg-[rgba(10,14,24,0.52)] p-2.5">
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-sm font-semibold text-white">春节</p>
-                                <p className="mt-1 text-xs text-[color:var(--ui-text-muted)]">目标日期：2026-02-17</p>
+                                <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">春节</p>
+                                <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-muted)]">目标日期：2026-02-17</p>
                               </div>
-                              <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[color:var(--ui-text-secondary)]">
+                              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-[color:var(--ui-text-secondary)]">
                                 {countdownDisplayMode === 'days' ? '还有 77 天' : '2026-02-17'}
                               </span>
                             </div>
