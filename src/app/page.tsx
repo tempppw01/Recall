@@ -634,24 +634,21 @@ const LUNAR_FESTIVALS = [
 
 const AgentThinkingBubble = ({ label, accent = 'cyan' }: { label: string; accent?: 'cyan' | 'violet' }) => {
   const accentClass = accent === 'violet'
-    ? 'border-violet-400/20 bg-[color:var(--ui-card-bg)] text-violet-200'
-    : 'border-cyan-400/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]';
+    ? 'border-violet-400/18 bg-[color:var(--ui-input-bg)] text-violet-200'
+    : 'border-cyan-400/18 bg-[color:var(--ui-input-bg)] text-cyan-100';
 
   const dotClass = accent === 'violet' ? 'bg-violet-300/85' : 'bg-cyan-300/85';
 
   return (
     <div className="flex justify-start">
-      <div className={`max-w-[86%] rounded-2xl border px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] ${accentClass}`}>
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5" aria-hidden="true">
-            <span className={`h-2 w-2 rounded-full ${dotClass} animate-pulse`} />
-            <span className={`h-2 w-2 rounded-full ${dotClass} animate-pulse [animation-delay:160ms]`} />
-            <span className={`h-2 w-2 rounded-full ${dotClass} animate-pulse [animation-delay:320ms]`} />
+      <div className={`max-w-[86%] rounded-full border px-3 py-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.015)] ${accentClass}`}>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1" aria-hidden="true">
+            <span className={`h-1.5 w-1.5 rounded-full ${dotClass} animate-pulse`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${dotClass} animate-pulse [animation-delay:160ms]`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${dotClass} animate-pulse [animation-delay:320ms]`} />
           </div>
-          <div>
-            <div className="text-sm font-medium">{label}</div>
-            <div className="mt-0.5 text-[11px] text-[color:var(--ui-text-secondary)]">正在组织回复，你可以稍等一下。</div>
-          </div>
+          <div className="text-[12px] font-medium leading-5">{label}</div>
         </div>
       </div>
     </div>
@@ -7705,8 +7702,8 @@ const headerTitle = activeFilter === 'category'
                               <div
                                 className={`w-fit max-w-[min(100%,40rem)] rounded-[22px] border px-3.5 py-2.5 text-sm break-words [overflow-wrap:anywhere] shadow-[0_8px_24px_rgba(15,23,42,0.10)] ${
                                   message.role === 'user'
-                                    ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
-                                    : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
+                                    ? 'border-[rgba(var(--theme-accent),0.46)] bg-[rgba(var(--theme-accent),0.24)] text-[color:var(--ui-text-strong)] shadow-[0_10px_26px_rgba(var(--theme-accent),0.13)]'
+                                    : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-primary)]'
                                 }`}
                               >
                                 {message.role === 'assistant' ? (
@@ -7940,8 +7937,8 @@ const headerTitle = activeFilter === 'category'
                                 <div
                                   className={`w-fit max-w-[min(100%,40rem)] rounded-[22px] border px-3.5 py-2.5 text-sm shadow-[0_8px_24px_rgba(15,23,42,0.10)] ${
                                     message.role === 'user'
-                                      ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
-                                      : 'border border-cyan-500/20 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
+                                      ? 'border-[rgba(var(--theme-accent),0.46)] bg-[rgba(var(--theme-accent),0.24)] text-[color:var(--ui-text-strong)] shadow-[0_10px_26px_rgba(var(--theme-accent),0.13)]'
+                                      : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-primary)]'
                                   }`}
                                 >
                                   {message.role === 'assistant' ? (
@@ -8120,10 +8117,10 @@ const headerTitle = activeFilter === 'category'
                             <div
                               className={`w-fit max-w-[min(100%,42rem)] rounded-2xl border px-3 py-2 text-sm leading-6 break-words [overflow-wrap:anywhere] ${
                                 message.role === 'user'
-                                  ? 'border-[rgba(var(--theme-accent),0.28)] bg-[rgba(var(--theme-accent),0.14)] text-[color:var(--ui-text-strong)]'
+                                  ? 'border-[rgba(var(--theme-accent),0.46)] bg-[rgba(var(--theme-accent),0.24)] text-[color:var(--ui-text-strong)] shadow-[0_10px_26px_rgba(var(--theme-accent),0.13)]'
                                   : message.variant === 'error'
                                     ? 'border-red-400/30 bg-red-500/10 text-red-200'
-                                    : 'border-sky-400/18 bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-primary)]'
+                                    : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] text-[color:var(--ui-text-primary)]'
                               }`}
                             >
                               {message.role === 'assistant' ? (
