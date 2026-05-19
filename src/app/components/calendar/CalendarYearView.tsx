@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Task } from '@/lib/store';
 import { parseDateKey } from '@/app/homeUtils';
 
@@ -19,16 +20,49 @@ export default function CalendarYearView({
   todayKey,
   onSelectDate,
 }: CalendarYearViewProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState(4);
   const selectedDate = parseDateKey(selectedDateKey);
   const selectedMonth = selectedDate.getMonth();
   const today = parseDateKey(todayKey);
+  const focusMonth = selectedDate.getFullYear() === year
+    ? selectedMonth
+    : today.getFullYear() === year
+      ? today.getMonth()
+      : 0;
+  const focusRow = Math.floor(focusMonth / columnCount);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const updateColumnCount = () => {
+      const templateColumns = window.getComputedStyle(grid).gridTemplateColumns;
+      const nextColumnCount = templateColumns && templateColumns !== 'none'
+        ? templateColumns.split(' ').filter(Boolean).length
+        : 1;
+      setColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount));
+    };
+
+    updateColumnCount();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateColumnCount);
+      return () => window.removeEventListener('resize', updateColumnCount);
+    }
+
+    const observer = new ResizeObserver(updateColumnCount);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13.5rem),1fr))] gap-3">
+    <div ref={gridRef} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13.5rem),1fr))] gap-3">
       {Array.from({ length: 12 }, (_, monthIndex) => {
         const monthStart = new Date(year, monthIndex, 1);
         const firstWeekday = monthStart.getDay();
         const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+        const isFocusRow = Math.floor(monthIndex / columnCount) === focusRow;
         const cells: Array<number | null> = [
           ...Array.from({ length: firstWeekday }, () => null),
           ...Array.from({ length: daysInMonth }, (_, dayIndex) => dayIndex + 1),
@@ -37,10 +71,14 @@ export default function CalendarYearView({
         return (
           <section
             key={`${year}-${monthIndex}`}
-            className={`overflow-hidden rounded-[22px] border px-3 py-3 transition-colors ${
+            className={`overflow-hidden rounded-[22px] border px-3 py-3 transition-all duration-300 ${
               selectedMonth === monthIndex
                 ? 'border-[rgba(var(--theme-accent),0.32)] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(10,10,12,0.08))]'
                 : 'border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/90'
+            } ${
+              isFocusRow
+                ? 'opacity-100 blur-0 saturate-100'
+                : 'scale-[0.985] opacity-45 blur-[1px] saturate-75 hover:scale-100 hover:opacity-100 hover:blur-0 hover:saturate-100'
             }`}
           >
             <div className="mb-2 flex items-center justify-between">
