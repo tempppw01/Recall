@@ -260,6 +260,43 @@ button {
   overscroll-behavior: contain;
 }
 
+.app-hover-scroll {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.app-hover-scroll::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: transparent;
+}
+
+.app-hover-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-hover-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+
+.app-hover-scroll:hover {
+  scrollbar-color: rgba(var(--theme-accent-soft), 0.28) transparent;
+}
+
+.app-hover-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(var(--theme-accent-soft), 0.24);
+}
+
+body.theme-light .app-hover-scroll:hover {
+  scrollbar-color: rgba(15, 23, 42, 0.18) transparent;
+}
+
+body.theme-light .app-hover-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.16);
+}
+
 /* Keep scroll ability, but hide visible scrollbars for a cleaner app shell */
 * {
   -ms-overflow-style: none;
@@ -544,6 +581,31 @@ body.theme-light .glass-panel-soft {
 
 .app-clamp-2 {
   -webkit-line-clamp: 2;
+}
+
+.app-task-title {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.app-quadrant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20.5rem), 1fr));
+  grid-auto-rows: minmax(13rem, 1fr);
+  align-content: start;
+}
+
+@media (min-width: 1024px) {
+  .app-quadrant-grid {
+    grid-template-columns: repeat(2, minmax(20.5rem, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+  }
 }
 
 .glass-card {

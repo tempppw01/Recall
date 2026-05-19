@@ -172,7 +172,7 @@ export default function CalendarTopPanel({
             )}
 
             {showCityDropdown && (
-              <div className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-30 overflow-hidden rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+              <div className="app-hover-scroll absolute left-0 right-0 top-[calc(100%+0.55rem)] z-30 max-h-64 overflow-y-auto rounded-[22px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-modal-bg)] shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-xl">
                 {isSearchingWeatherCity ? (
                   <div className="px-3 py-2.5 text-sm text-[color:var(--ui-text-secondary)]">城市搜索中...</div>
                 ) : weatherCities.length > 0 ? (

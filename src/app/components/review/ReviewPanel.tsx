@@ -812,7 +812,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
             ) : null}
           </div>
 
-          <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="app-hover-scroll mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="space-y-2">
               {activeGroupOptions.map((item) => {
                 const active = reviewMode === 'time'
@@ -955,7 +955,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                   {(focusTask.subtasks?.length ?? 0) > 0 ? (
                     <div className="mt-4 rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.03)] px-3.5 py-3">
                       <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--ui-text-muted)]">子任务</div>
-                      <div className="mt-2 max-h-40 space-y-2 overflow-y-auto pr-1">
+                      <div className="app-hover-scroll mt-2 max-h-40 space-y-2 overflow-y-auto pr-1">
                         {focusTask.subtasks?.map((subtask) => (
                           <div key={subtask.id} className="flex items-center gap-2 text-sm">
                             <span className={`h-2 w-2 rounded-full ${subtask.completed ? 'bg-emerald-400' : 'bg-[#63708A]'}`} />
@@ -978,7 +978,7 @@ export default function ReviewPanel(props: ReviewPanelProps) {
                     </span>
                   </div>
 
-                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
+                  <div className="app-hover-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
                     {reviewList.map((task) => {
                       const offset = task.dueDate
                         ? getTimezoneOffset(task)

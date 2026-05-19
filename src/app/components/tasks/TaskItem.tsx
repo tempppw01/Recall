@@ -587,9 +587,7 @@ const TaskItem = ({
                           event.stopPropagation();
                           onTitleClick?.();
                         }}
-                        className={`min-w-0 flex-1 text-left text-sm font-semibold leading-snug tracking-[-0.01em] ${
-                          compactText ? 'truncate' : 'break-words [overflow-wrap:anywhere]'
-                        } ${
+                        className={`app-task-title min-w-0 flex-1 text-left text-sm font-semibold tracking-[-0.01em] ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                         }`}
                         title={task.title}
@@ -598,9 +596,7 @@ const TaskItem = ({
                       </button>
                     ) : (
                       <p
-                        className={`min-w-0 flex-1 text-sm font-semibold leading-snug tracking-[-0.01em] ${
-                          compactText ? 'truncate' : 'break-words [overflow-wrap:anywhere]'
-                        } ${
+                        className={`app-task-title min-w-0 flex-1 text-sm font-semibold tracking-[-0.01em] ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                         }`}
                         title={task.title}

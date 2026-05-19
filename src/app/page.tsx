@@ -7303,7 +7303,7 @@ const headerTitle = activeFilter === 'category'
                 </span>
               </div>
 
-              <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 grid-rows-4 gap-2.5 min-[640px]:grid-cols-2 min-[640px]:grid-rows-2 sm:gap-3">
+              <div className="app-quadrant-grid app-hover-scroll min-h-0 flex-1 gap-2.5 overflow-y-auto overscroll-contain sm:gap-3">
                 {quadrantGroups.map((group) => {
                   const currentSortMode = quadrantSortModes[group.key] ?? 'dueDate';
                   const currentSortLabel = QUADRANT_SORT_OPTIONS.find((option) => option.value === currentSortMode)?.label ?? '时间';
@@ -7474,7 +7474,7 @@ const headerTitle = activeFilter === 'category'
                         </form>
                       )}
 
-                      <div className="flex-1 min-h-0 space-y-2 overflow-y-auto overscroll-contain pr-1">
+                      <div className="app-hover-scroll flex-1 min-h-0 space-y-2 overflow-y-auto overscroll-contain pr-1">
                         {sortedItems.length === 0 ? (
                           <div className={`flex min-h-full items-center justify-center rounded-[18px] px-3 py-6 text-center text-[11px] ${
                             isDragTarget

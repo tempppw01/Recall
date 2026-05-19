@@ -664,7 +664,7 @@ const SettingsModal = ({
               </div>
             </div>
 
-            <div className="overflow-x-auto px-2.5 py-2.5 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:py-3">
+            <div className="app-hover-scroll overflow-x-auto px-2.5 py-2.5 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:py-3">
               <div className="flex gap-2 lg:flex-col">
                 {SETTINGS_SECTIONS.map(({ key, label, icon: Icon }) => (
                   <button
@@ -707,7 +707,7 @@ const SettingsModal = ({
               </div>
             </div>
 
-            <div className="min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 lg:px-6">
+            <div className="app-hover-scroll min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 lg:px-6">
               <div className="space-y-3 text-sm">
           <details
             ref={aiSectionRef}
@@ -1349,7 +1349,7 @@ const SettingsModal = ({
                       />
                     </div>
 
-                    <div className="mt-3 max-h-[42vh] space-y-2 overflow-y-auto pr-1">
+                    <div className="app-hover-scroll mt-3 max-h-[42vh] space-y-2 overflow-y-auto pr-1">
                       {visibleKnowledgeEntries.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-[color:var(--ui-border-soft)] px-4 py-8 text-center text-sm text-[color:var(--ui-text-muted)]">
                           还没有知识。继续使用 AI 助手时，可复用资料会自动沉淀到这里。

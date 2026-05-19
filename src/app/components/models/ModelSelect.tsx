@@ -305,7 +305,7 @@ const ModelSelect = ({
           role="listbox"
           aria-label={ariaLabel}
         >
-          <div className="max-h-72 overflow-y-auto">
+          <div className="app-hover-scroll max-h-72 overflow-y-auto">
             {models.map((model) => {
               const active = model === selectedValue;
               return (
