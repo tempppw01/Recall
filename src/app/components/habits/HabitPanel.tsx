@@ -254,7 +254,7 @@ export default function HabitPanel({
                   type="button"
                   onClick={() => onToggleHabitToday(habit.id)}
                   disabled={hasToday}
-                  className={`motion-press relative mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[18px] border text-sm font-semibold transition-all ${
+                  className={`motion-press relative mt-4 inline-flex h-10 w-fit items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold transition-all ${
                     hasToday
                       ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200'
                       : 'border-orange-300/35 bg-orange-400/10 text-orange-100 hover:bg-orange-400/16 hover:shadow-[0_14px_34px_rgba(249,115,22,0.16)]'
