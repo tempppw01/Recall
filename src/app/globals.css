@@ -16,6 +16,7 @@
   --theme-accent-soft: 96, 165, 250;
   --theme-grad-start: 59, 130, 246;
   --theme-grad-end: 168, 85, 247;
+  --theme-city-image: none;
 
   /* Semantic UI surfaces (v1.0 UI system baseline) */
   --ui-surface-0: #0e1117;
@@ -87,6 +88,7 @@
 :root[data-gradient-theme='ocean'] {
   --theme-grad-start: 6, 182, 212;
   --theme-grad-end: 59, 130, 246;
+  --theme-city-image: url('/themes/guangzhou-bauhaus.webp');
 }
 
 :root[data-gradient-theme='mono'] {
@@ -216,6 +218,28 @@ body.theme-light .theme-native-root {
   color: var(--ui-text-primary);
   background: var(--ui-surface-0);
   filter: none;
+}
+
+:root[data-gradient-theme='ocean'] .theme-native-root > section.theme-native-surface {
+  background:
+    linear-gradient(90deg, rgba(8, 12, 20, 0.93), rgba(8, 12, 20, 0.80) 48%, rgba(8, 12, 20, 0.91)),
+    radial-gradient(circle at 78% 14%, rgba(var(--theme-grad-end), 0.18), transparent 34%),
+    var(--theme-city-image),
+    linear-gradient(180deg, var(--ui-surface-0), var(--ui-surface-1), var(--ui-surface-0));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: auto, auto, cover, auto;
+}
+
+:root[data-gradient-theme='ocean'] body.theme-light .theme-native-root > section.theme-native-surface {
+  background:
+    linear-gradient(90deg, rgba(244, 247, 251, 0.94), rgba(244, 247, 251, 0.80) 48%, rgba(244, 247, 251, 0.93)),
+    radial-gradient(circle at 78% 14%, rgba(var(--theme-grad-end), 0.14), transparent 34%),
+    var(--theme-city-image),
+    linear-gradient(180deg, var(--ui-surface-0), var(--ui-surface-1), var(--ui-surface-0));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: auto, auto, cover, auto;
 }
 
 input,

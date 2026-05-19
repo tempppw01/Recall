@@ -207,6 +207,7 @@ const GRADIENT_THEME_OPTIONS: Array<{
   cityLabel: string;
   subtitle: string;
   previewClassName: string;
+  previewImage?: string;
   glowClassName: string;
 }> = [
   {
@@ -231,6 +232,7 @@ const GRADIENT_THEME_OPTIONS: Array<{
     cityLabel: '广州',
     subtitle: '清透蓝绿',
     previewClassName: 'bg-[linear-gradient(135deg,#38BDF8_0%,#2563EB_45%,#0F172A_100%)]',
+    previewImage: '/themes/guangzhou-bauhaus.webp',
     glowClassName: 'shadow-[0_0_24px_rgba(37,99,235,0.20)]',
   },
   {
@@ -1042,7 +1044,18 @@ const SettingsModal = ({
                             <div className="pointer-events-none absolute -right-10 top-0 h-28 w-28 rounded-full bg-[rgba(var(--theme-accent),0.14)] blur-3xl" />
                             <div className="relative">
                               <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">当前组合</p>
-                              <div className={`mt-2.5 h-20 rounded-[14px] ${selectedGradientTheme.previewClassName}`} />
+                              <div
+                                className={`mt-2.5 h-20 rounded-[14px] ${
+                                  selectedGradientTheme.previewImage
+                                    ? 'bg-cover bg-center'
+                                    : selectedGradientTheme.previewClassName
+                                }`}
+                                style={
+                                  selectedGradientTheme.previewImage
+                                    ? { backgroundImage: `url(${selectedGradientTheme.previewImage})` }
+                                    : undefined
+                                }
+                              />
                               <div className="mt-2.5 flex items-center justify-between gap-3">
                                 <div>
                                   <p className="text-[13px] font-semibold text-[color:var(--ui-text-strong)]">{selectedGradientTheme.cityLabel}</p>
@@ -1094,7 +1107,7 @@ const SettingsModal = ({
                             </span>
                           </div>
                           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                            {GRADIENT_THEME_OPTIONS.map(({ value, label, cityLabel, subtitle, previewClassName, glowClassName }, index) => (
+                            {GRADIENT_THEME_OPTIONS.map(({ value, label, cityLabel, subtitle, previewClassName, previewImage, glowClassName }, index) => (
                               <button
                                 key={value}
                                 type="button"
@@ -1105,18 +1118,27 @@ const SettingsModal = ({
                                     : 'border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(var(--theme-accent),0.18)] hover:bg-[rgba(255,255,255,0.05)]'
                                 }`}
                               >
-                                <div className={`relative h-[68px] overflow-hidden ${previewClassName}`}>
-                                  <span className="absolute left-3 top-3 h-5 w-10 rounded-full bg-amber-200/80 blur-[1px]" />
-                                  <span className="absolute right-4 top-4 h-3 w-3 rounded-full bg-white/50" />
+                                <div
+                                  className={`relative h-[68px] overflow-hidden ${
+                                    previewImage ? 'bg-cover bg-center' : previewClassName
+                                  }`}
+                                  style={previewImage ? { backgroundImage: `url(${previewImage})` } : undefined}
+                                >
+                                  {previewImage ? null : (
+                                    <>
+                                      <span className="absolute left-3 top-3 h-5 w-10 rounded-full bg-amber-200/80 blur-[1px]" />
+                                      <span className="absolute right-4 top-4 h-3 w-3 rounded-full bg-white/50" />
+                                      <span
+                                        className="absolute bottom-0 left-0 right-0 h-10 opacity-90"
+                                        style={{
+                                          background: index % 2 === 0
+                                            ? 'linear-gradient(90deg, rgba(255,255,255,0.18) 8%, transparent 8%, transparent 14%, rgba(255,255,255,0.14) 14%, rgba(255,255,255,0.14) 19%, transparent 19%, transparent 26%, rgba(255,255,255,0.16) 26%, rgba(255,255,255,0.16) 33%, transparent 33%, transparent 42%, rgba(255,255,255,0.13) 42%, rgba(255,255,255,0.13) 46%, transparent 46%, transparent 58%, rgba(255,255,255,0.18) 58%, rgba(255,255,255,0.18) 66%, transparent 66%, transparent 74%, rgba(255,255,255,0.15) 74%, rgba(255,255,255,0.15) 82%, transparent 82%)'
+                                            : 'linear-gradient(90deg, transparent 6%, rgba(255,255,255,0.18) 6%, rgba(255,255,255,0.18) 12%, transparent 12%, transparent 22%, rgba(255,255,255,0.12) 22%, rgba(255,255,255,0.12) 28%, transparent 28%, transparent 38%, rgba(255,255,255,0.17) 38%, rgba(255,255,255,0.17) 48%, transparent 48%, transparent 60%, rgba(255,255,255,0.12) 60%, rgba(255,255,255,0.12) 67%, transparent 67%, transparent 78%, rgba(255,255,255,0.18) 78%, rgba(255,255,255,0.18) 86%, transparent 86%)',
+                                        }}
+                                      />
+                                    </>
+                                  )}
                                   <span className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/30 to-transparent" />
-                                  <span
-                                    className="absolute bottom-0 left-0 right-0 h-10 opacity-90"
-                                    style={{
-                                      background: index % 2 === 0
-                                        ? 'linear-gradient(90deg, rgba(255,255,255,0.18) 8%, transparent 8%, transparent 14%, rgba(255,255,255,0.14) 14%, rgba(255,255,255,0.14) 19%, transparent 19%, transparent 26%, rgba(255,255,255,0.16) 26%, rgba(255,255,255,0.16) 33%, transparent 33%, transparent 42%, rgba(255,255,255,0.13) 42%, rgba(255,255,255,0.13) 46%, transparent 46%, transparent 58%, rgba(255,255,255,0.18) 58%, rgba(255,255,255,0.18) 66%, transparent 66%, transparent 74%, rgba(255,255,255,0.15) 74%, rgba(255,255,255,0.15) 82%, transparent 82%)'
-                                        : 'linear-gradient(90deg, transparent 6%, rgba(255,255,255,0.18) 6%, rgba(255,255,255,0.18) 12%, transparent 12%, transparent 22%, rgba(255,255,255,0.12) 22%, rgba(255,255,255,0.12) 28%, transparent 28%, transparent 38%, rgba(255,255,255,0.17) 38%, rgba(255,255,255,0.17) 48%, transparent 48%, transparent 60%, rgba(255,255,255,0.12) 60%, rgba(255,255,255,0.12) 67%, transparent 67%, transparent 78%, rgba(255,255,255,0.18) 78%, rgba(255,255,255,0.18) 86%, transparent 86%)',
-                                    }}
-                                  />
                                   {gradientTheme === value ? (
                                     <span className="absolute left-2 top-2 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-900">
                                       当前
