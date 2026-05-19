@@ -222,8 +222,8 @@ body.theme-light .theme-native-root {
 
 :root[data-gradient-theme='ocean'] .theme-native-root > section.theme-native-surface {
   background:
-    linear-gradient(90deg, rgba(8, 12, 20, 0.93), rgba(8, 12, 20, 0.80) 48%, rgba(8, 12, 20, 0.91)),
-    radial-gradient(circle at 78% 14%, rgba(var(--theme-grad-end), 0.18), transparent 34%),
+    linear-gradient(90deg, rgba(8, 12, 20, 0.985), rgba(8, 12, 20, 0.955) 48%, rgba(8, 12, 20, 0.982)),
+    radial-gradient(circle at 78% 14%, rgba(var(--theme-grad-end), 0.12), transparent 34%),
     var(--theme-city-image),
     linear-gradient(180deg, var(--ui-surface-0), var(--ui-surface-1), var(--ui-surface-0));
   background-position: center;
@@ -233,8 +233,8 @@ body.theme-light .theme-native-root {
 
 :root[data-gradient-theme='ocean'] body.theme-light .theme-native-root > section.theme-native-surface {
   background:
-    linear-gradient(90deg, rgba(244, 247, 251, 0.94), rgba(244, 247, 251, 0.80) 48%, rgba(244, 247, 251, 0.93)),
-    radial-gradient(circle at 78% 14%, rgba(var(--theme-grad-end), 0.14), transparent 34%),
+    linear-gradient(90deg, rgba(244, 247, 251, 0.985), rgba(244, 247, 251, 0.955) 48%, rgba(244, 247, 251, 0.982)),
+    radial-gradient(circle at 78% 14%, rgba(var(--theme-grad-end), 0.10), transparent 34%),
     var(--theme-city-image),
     linear-gradient(180deg, var(--ui-surface-0), var(--ui-surface-1), var(--ui-surface-0));
   background-position: center;
