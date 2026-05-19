@@ -6,6 +6,8 @@
  * 写操作会同时异步同步到远端数据库。
  */
 
+import { isOnboardingTask } from '@/lib/onboardingTasks';
+
 // ─── 数据模型定义 ───────────────────────────────────────────
 
 /** 任务 */
@@ -36,6 +38,9 @@ export interface Task {
   reminderAt?: string;
   /** 提醒模式 */
   reminderPreset?: 'none' | '9am' | 'custom';
+  /** 系统或 AI 来源标记，用于避免同步新手引导等临时任务 */
+  source?: 'manual' | 'ai' | 'system' | 'onboarding' | string;
+  systemType?: string;
   createdAt: string;
   updatedAt?: string;
   /** 手动排序序号 */
@@ -193,6 +198,7 @@ const getPgHeaders = (): Record<string, string> => {
 const syncToPg = async (endpoint: string, method: string, payload: any) => {
   const headers = getPgHeaders();
   if (Object.keys(headers).length === 0) return; // 未配置 PG，仅本地
+  if (endpoint.startsWith('/api/tasks') && isOnboardingTask(payload)) return;
   try {
     await fetch(endpoint, {
       method,

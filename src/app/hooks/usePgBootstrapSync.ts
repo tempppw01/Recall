@@ -188,7 +188,8 @@ export function usePgBootstrapSync<
         ]);
 
         const sanitizedRemoteTasks = sanitizeTasks ? sanitizeTasks(remoteTasks) : remoteTasks;
-        const localTasks = taskStore.getAll();
+        const rawLocalTasks = taskStore.getAll();
+        const localTasks = sanitizeTasks ? sanitizeTasks(rawLocalTasks) : rawLocalTasks;
         const uploadableLocalTasks = filterTaskUploadItems ? filterTaskUploadItems(localTasks) : localTasks;
         if (sanitizedRemoteTasks.length === 0 && uploadableLocalTasks.length > 0) {
           pushLogRef.current('info', 'PG database is empty', 'Uploading local task data...');
@@ -197,7 +198,7 @@ export function usePgBootstrapSync<
             .catch((error) => pushLogRef.current('error', 'Task upload failed', String(error)));
         } else {
           const { merged, hasChange } = mergeData(localTasks, sanitizedRemoteTasks);
-          if (hasChange || localTasks.length !== merged.length) {
+          if (hasChange || rawLocalTasks.length !== merged.length) {
             taskStore.replaceAll(merged);
             setTasksRef.current(merged);
           }

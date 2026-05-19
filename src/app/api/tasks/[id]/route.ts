@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { getRequestDbContext } from '@/lib/request-db';
 import { normalizeTaskPayload } from '@/lib/server/record-normalizers';
+import { isOnboardingTask } from '@/lib/onboardingTasks';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -32,6 +33,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     if (!normalized.title) {
       return NextResponse.json({ error: 'Invalid payload', details: 'title is required' }, { status: 400 });
+    }
+
+    if (isOnboardingTask({ ...payload, title: normalized.title })) {
+      return NextResponse.json({ skipped: true, id });
     }
 
     const task = await client.task.update({

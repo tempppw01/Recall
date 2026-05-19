@@ -15,6 +15,7 @@ import { getRequestDbContext } from '@/lib/request-db';
 import { prisma, ensureLocalUser } from '@/lib/prisma';
 import { buildPaginatedListResult, getPaginationParams } from '@/lib/server/pagination';
 import { normalizeTaskPayload } from '@/lib/server/record-normalizers';
+import { filterOutOnboardingTasks, isOnboardingTask } from '@/lib/onboardingTasks';
 
 /**
  * 安全解析 JSON 字段
@@ -72,12 +73,12 @@ export async function GET(request: Request) {
         take: pagination.limit + 1,
       });
 
-      return NextResponse.json(buildPaginatedListResult(tasks.map(mapTask), pagination));
+      return NextResponse.json(buildPaginatedListResult(filterOutOnboardingTasks(tasks.map(mapTask)), pagination));
     }
 
     const tasks = await client.task.findMany(baseQuery);
 
-    return NextResponse.json(tasks.map(mapTask));
+    return NextResponse.json(filterOutOnboardingTasks(tasks.map(mapTask)));
   } catch (error) {
     console.error('API Error', error);
     return NextResponse.json({ error: 'Database Error', details: String(error) }, { status: 500 });
@@ -95,6 +96,10 @@ export async function POST(request: Request) {
 
     if (!normalized.title) {
       return NextResponse.json({ error: 'Invalid payload', details: 'title is required' }, { status: 400 });
+    }
+
+    if (isOnboardingTask({ ...payload, title: normalized.title })) {
+      return NextResponse.json({ skipped: true, id: normalized.id ?? null });
     }
 
     if (client !== prisma) {

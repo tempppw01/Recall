@@ -1,3 +1,5 @@
+import { filterOutOnboardingTasks } from '@/lib/onboardingTasks';
+
 export function buildExportPayload(params: {
   appVersion: string;
   tasks: any[];
@@ -29,7 +31,7 @@ export function buildExportPayload(params: {
     version: appVersion,
     exportedAt: new Date().toISOString(),
     data: {
-      tasks,
+      tasks: filterOutOnboardingTasks(tasks),
       habits,
       countdowns,
       items,
@@ -80,7 +82,7 @@ export function buildSyncPayload(params: {
     version: appVersion,
     exportedAt: new Date().toISOString(),
     data: {
-      tasks,
+      tasks: filterOutOnboardingTasks(tasks),
       habits,
       countdowns,
       items,

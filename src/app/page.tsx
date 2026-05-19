@@ -27,7 +27,7 @@ import {
 import { readDeletedMap, markDeleted, normalizeDeletedMap, mergeDeletedMap, filterByDeletions, persistDeletedMap } from '@/app/services/deletions';
 import { useTaskFilters } from '@/app/hooks/useTaskFilters';
 import { extractPhoneNumbers, buildTelHref } from '@/app/utils/phone';
-import { DEFAULT_ONBOARDING_TASK_TITLES, filterOutOnboardingTasks } from '@/lib/onboardingTasks';
+import { DEFAULT_ONBOARDING_TASK_TITLES, ONBOARDING_TASK_SOURCE, filterOutOnboardingTasks } from '@/lib/onboardingTasks';
 import type {
   AgentDecision,
   AgentItem,
@@ -2240,6 +2240,8 @@ export default function Home() {
             tags: [],
             pinned: index === 0,
             subtasks: [],
+            source: ONBOARDING_TASK_SOURCE,
+            systemType: ONBOARDING_TASK_SOURCE,
             createdAt: now.toISOString(),
             updatedAt: now.toISOString(),
           };
@@ -2330,6 +2332,17 @@ export default function Home() {
     setCountdowns,
     setItems,
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !settingsLoaded) return;
+    if (!pgHost && !redisHost) return;
+    const currentTasks = taskStore.getAll();
+    const sanitizedTasks = filterOutOnboardingTasks(currentTasks);
+    if (sanitizedTasks.length === currentTasks.length) return;
+    taskStore.replaceAll(sanitizedTasks);
+    setTasks(sanitizedTasks);
+    refreshTasks();
+  }, [settingsLoaded, pgHost, redisHost, refreshTasks]);
 
 
   useEffect(() => {
@@ -4614,7 +4627,7 @@ const normalizeTimeoutSec = (value: number) => {
         ? convertLegacyMemoriesToKnowledgeEntries(payload.settings.userMemories)
         : []),
     ]));
-    const currentTasks = ensureUpdatedAt(taskStore.getAll());
+    const currentTasks = ensureUpdatedAt(filterOutOnboardingTasks(taskStore.getAll()));
     const currentHabits = ensureUpdatedAt(habitStore.getAll());
     const currentCountdowns = ensureUpdatedAt(countdownStore.getAll());
     const currentItems = ensureUpdatedAt(itemStore.getAll());
@@ -4682,7 +4695,9 @@ const normalizeTimeoutSec = (value: number) => {
     const { filtered: filteredKnowledgeEntries, nextDeleted: nextDeletedKnowledgeEntries } =
       filterByDeletions(nextKnowledgeEntries, mergedDeletedKnowledgeEntries);
 
-    taskStore.replaceAll(filteredTasks);
+    const syncedTasks = filterOutOnboardingTasks(filteredTasks);
+
+    taskStore.replaceAll(syncedTasks);
     habitStore.replaceAll(filteredHabits);
     countdownStore.replaceAll(filteredCountdowns);
     itemStore.replaceAll(filteredItems);
@@ -4694,14 +4709,14 @@ const normalizeTimeoutSec = (value: number) => {
     persistDeletedMap(DELETED_ITEMS_KEY, nextDeletedItems);
     persistDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY, nextDeletedKnowledgeEntries);
 
-    setTasks(filteredTasks);
+    setTasks(syncedTasks);
     setHabits(filteredHabits);
     setCountdowns(filteredCountdowns);
     setItems(filteredItems);
     setKnowledgeEntries(filteredKnowledgeEntries);
 
-    const nextCategories = Array.from(new Set(filteredTasks.map((task) => task.category).filter(Boolean))) as string[];
-    const nextTags = Array.from(new Set(filteredTasks.flatMap((task) => task.tags || [])));
+    const nextCategories = Array.from(new Set(syncedTasks.map((task) => task.category).filter(Boolean))) as string[];
+    const nextTags = Array.from(new Set(syncedTasks.flatMap((task) => task.tags || [])));
     setListItems(nextCategories);
     setTagItems(nextTags);
   };

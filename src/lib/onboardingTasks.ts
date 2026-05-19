@@ -5,6 +5,8 @@ export const DEFAULT_ONBOARDING_TASK_TITLES = [
   '完成后点小圆圈 ✅，感受一下流程',
 ] as const;
 
+export const ONBOARDING_TASK_SOURCE = 'onboarding';
+
 const ONBOARDING_TASK_TITLE_SET = new Set(
   DEFAULT_ONBOARDING_TASK_TITLES.map((title) => title.trim()),
 );
@@ -15,8 +17,10 @@ export const isOnboardingTaskTitle = (title: string | null | undefined) => (
 
 export const isOnboardingTask = <T extends object>(task: T | null | undefined) => {
   if (!task || typeof task !== 'object') return false;
+  const source = (task as { source?: string | null }).source;
+  const systemType = (task as { systemType?: string | null }).systemType;
   const title = (task as { title?: string | null }).title;
-  return isOnboardingTaskTitle(title);
+  return source === ONBOARDING_TASK_SOURCE || systemType === ONBOARDING_TASK_SOURCE || isOnboardingTaskTitle(title);
 };
 
 export const filterOutOnboardingTasks = <T extends object>(tasks: T[]) => (
