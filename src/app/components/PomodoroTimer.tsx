@@ -154,7 +154,7 @@ export default function PomodoroTimer() {
           </div>
         </div>
 
-        <PomodoroAmbientSound isRunning={state.isRunning} />
+        <PomodoroAmbientSound isRunning={state.isRunning} enablePlayback={false} />
       </div>
 
       <div className="app-section-quiet rounded-[22px] px-3.5 py-3">

@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ExternalLink, SlidersHorizontal, Volume2, Wind } from 'lucide-react';
+import { usePomodoroState } from '@/lib/pomodoro';
 
 export const POMODORO_AMBIENT_REQUEST_EVENT = 'recall:pomodoro-ambient-request';
+export const POMODORO_AMBIENT_CONFIG_EVENT = 'recall:pomodoro-ambient-config';
 
 const SOUNDBOX_HOME_URL = 'https://soundbox.fun/sounds/';
 const AMBIENT_CONFIG_KEY = 'recall_pomodoro_ambient_config';
@@ -38,6 +40,8 @@ type SoundPreset = {
 
 type PomodoroAmbientSoundProps = {
   isRunning: boolean;
+  showControls?: boolean;
+  enablePlayback?: boolean;
 };
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, Math.round(value)));
@@ -143,9 +147,15 @@ const getSoundBoxUrl = (levels: Record<SoundId, number>) => {
   return slug ? `${SOUNDBOX_HOME_URL}${slug}/` : SOUNDBOX_HOME_URL;
 };
 
-export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSoundProps) {
+export default function PomodoroAmbientSound({
+  isRunning,
+  showControls = true,
+  enablePlayback = true,
+}: PomodoroAmbientSoundProps) {
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const configSignatureRef = useRef('');
   const [config, setConfig] = useState<AmbientConfig>(defaultConfig);
+  const [isConfigReady, setIsConfigReady] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,18 +163,61 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const raw = window.localStorage.getItem(AMBIENT_CONFIG_KEY);
-    if (!raw) return;
+    if (!raw) {
+      configSignatureRef.current = JSON.stringify(defaultConfig);
+      setIsConfigReady(true);
+      return;
+    }
     try {
-      setConfig(normalizeConfig(JSON.parse(raw) as Partial<AmbientConfig>));
+      const storedConfig = normalizeConfig(JSON.parse(raw) as Partial<AmbientConfig>);
+      configSignatureRef.current = JSON.stringify(storedConfig);
+      setConfig(storedConfig);
     } catch {
+      configSignatureRef.current = JSON.stringify(defaultConfig);
       setConfig(defaultConfig);
     }
+    setIsConfigReady(true);
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!isConfigReady) return;
     window.localStorage.setItem(AMBIENT_CONFIG_KEY, JSON.stringify(config));
-  }, [config]);
+    configSignatureRef.current = JSON.stringify(config);
+    window.dispatchEvent(new CustomEvent(POMODORO_AMBIENT_CONFIG_EVENT, { detail: config }));
+  }, [config, isConfigReady]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncConfig = (source: Partial<AmbientConfig> | null | undefined) => {
+      const nextConfig = normalizeConfig(source);
+      const nextSignature = JSON.stringify(nextConfig);
+      if (nextSignature === configSignatureRef.current) return;
+      configSignatureRef.current = nextSignature;
+      setConfig(nextConfig);
+    };
+
+    const handleConfigEvent = (event: Event) => {
+      syncConfig((event as CustomEvent<Partial<AmbientConfig>>).detail);
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== AMBIENT_CONFIG_KEY || !event.newValue) return;
+      try {
+        syncConfig(JSON.parse(event.newValue) as Partial<AmbientConfig>);
+      } catch {
+        syncConfig(defaultConfig);
+      }
+    };
+
+    window.addEventListener(POMODORO_AMBIENT_CONFIG_EVENT, handleConfigEvent);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener(POMODORO_AMBIENT_CONFIG_EVENT, handleConfigEvent);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   const selectedSounds = useMemo(
     () => SOUND_LIBRARY.filter((sound) => config.levels[sound.id] > 0),
@@ -178,6 +231,7 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
   }, [config.levels, config.presetId]);
 
   useEffect(() => {
+    if (!enablePlayback) return;
     SOUND_LIBRARY.forEach((sound) => {
       const audio = audioRefs.current[sound.id];
       if (!audio) return;
@@ -186,14 +240,19 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
       audio.volume = clampVolume((level / 100) * config.masterVolume);
       if (level <= 0) audio.pause();
     });
-  }, [config]);
+  }, [config, enablePlayback]);
 
   const stopAmbientSound = useCallback(() => {
+    if (!enablePlayback) {
+      setIsPlaying(false);
+      return;
+    }
     Object.values(audioRefs.current).forEach((audio) => audio?.pause());
     setIsPlaying(false);
-  }, []);
+  }, [enablePlayback]);
 
   const playAmbientSound = useCallback(async () => {
+    if (!enablePlayback) return;
     setError(null);
     const audioElements = SOUND_LIBRARY
       .map((sound) => {
@@ -215,17 +274,19 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
       setIsPlaying(false);
       setError('浏览器拦截了自动播放，请点击番茄“开始”后重试。');
     }
-  }, [config.levels, stopAmbientSound]);
+  }, [config.levels, enablePlayback, stopAmbientSound]);
 
   useEffect(() => {
+    if (!enablePlayback) return;
     if (isRunning) {
       void playAmbientSound();
       return;
     }
     stopAmbientSound();
-  }, [isRunning, playAmbientSound, stopAmbientSound]);
+  }, [enablePlayback, isRunning, playAmbientSound, stopAmbientSound]);
 
   useEffect(() => {
+    if (!enablePlayback) return;
     const handleAmbientRequest = (event: Event) => {
       const shouldPlay = Boolean((event as CustomEvent<{ isRunning?: boolean }>).detail?.isRunning);
       if (shouldPlay) {
@@ -239,14 +300,15 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
     return () => {
       window.removeEventListener(POMODORO_AMBIENT_REQUEST_EVENT, handleAmbientRequest);
     };
-  }, [playAmbientSound, stopAmbientSound]);
+  }, [enablePlayback, playAmbientSound, stopAmbientSound]);
 
   useEffect(() => {
+    if (!enablePlayback) return;
     const audioMap = audioRefs.current;
     return () => {
       Object.values(audioMap).forEach((audio) => audio?.pause());
     };
-  }, []);
+  }, [enablePlayback]);
 
   const updateLevel = (soundId: SoundId, level: number) => {
     setConfig((previous) => normalizeConfig({
@@ -284,20 +346,28 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
     : '已静音';
   const masterVolumePercent = Math.round(config.masterVolume * 100);
   const activeSoundBoxUrl = getSoundBoxUrl(config.levels);
+  const playbackLabel = enablePlayback
+    ? (isRunning && isPlaying ? '播放中' : '开始后播放')
+    : (isRunning ? '跟随专注' : '开始后播放');
+  const audioNodes = enablePlayback ? SOUND_LIBRARY.map((sound) => (
+    <audio
+      key={sound.id}
+      ref={(node) => {
+        audioRefs.current[sound.id] = node;
+      }}
+      src={sound.src}
+      preload="none"
+      loop
+    />
+  )) : null;
+
+  if (!showControls) {
+    return <div className="hidden" aria-hidden="true">{audioNodes}</div>;
+  }
 
   return (
     <div className="mt-3 overflow-hidden rounded-[20px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/70">
-      {SOUND_LIBRARY.map((sound) => (
-        <audio
-          key={sound.id}
-          ref={(node) => {
-            audioRefs.current[sound.id] = node;
-          }}
-          src={sound.src}
-          preload="none"
-          loop
-        />
-      ))}
+      {audioNodes}
 
       <button
         type="button"
@@ -317,7 +387,7 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
                   ? 'border-emerald-300/30 bg-emerald-400/10 text-emerald-300'
                   : 'border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)]'
               }`}>
-                {isRunning && isPlaying ? '播放中' : '开始后播放'}
+                {playbackLabel}
               </span>
             </span>
             <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-muted)]">
@@ -427,5 +497,16 @@ export default function PomodoroAmbientSound({ isRunning }: PomodoroAmbientSound
         </div>
       )}
     </div>
+  );
+}
+
+export function PomodoroAmbientController() {
+  const { isReady, state } = usePomodoroState();
+
+  return (
+    <PomodoroAmbientSound
+      isRunning={Boolean(isReady && state?.isRunning)}
+      showControls={false}
+    />
   );
 }
