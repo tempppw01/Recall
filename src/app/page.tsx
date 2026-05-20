@@ -6362,8 +6362,8 @@ const headerTitle = activeFilter === 'category'
       <AmbientBackdrop />
 
       {statusFeedback && (
-        <div className="fixed top-[calc(0.7rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[70] w-[min(92vw,720px)] px-2 sm:px-0">
-          <div className={`status-feedback motion-modal-surface px-3 py-2.5 sm:px-4 sm:py-3 ${
+        <div className="fixed top-[calc(0.55rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[70] w-[min(90vw,520px)] px-2 sm:px-0">
+          <div className={`status-feedback motion-modal-surface px-3 py-2 sm:px-3.5 ${
             statusFeedback.level === 'error'
               ? 'status-feedback-error'
               : statusFeedback.level === 'warning'
@@ -6372,30 +6372,30 @@ const headerTitle = activeFilter === 'category'
                   ? 'status-feedback-success'
                   : 'status-feedback-info'
           }`}>
-            <div className="flex items-start gap-2.5">
-              <div className="mt-0.5 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="shrink-0">
                 {statusFeedback.level === 'error' ? (
-                  <XCircle className="w-4 h-4 text-red-500" />
+                  <XCircle className="h-3.5 w-3.5 text-red-500" />
                 ) : statusFeedback.level === 'warning' ? (
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                 ) : statusFeedback.level === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                 ) : (
-                  <Info className="w-4 h-4 text-blue-500" />
+                  <Info className="h-3.5 w-3.5 text-blue-500" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm text-[color:var(--ui-text-strong)]">{statusFeedback.message}</div>
+                <div className="truncate text-[13px] font-medium leading-5 text-[color:var(--ui-text-strong)]">{statusFeedback.message}</div>
                 {statusFeedback.detail && (
-                  <div className="mt-0.5 text-xs text-[color:var(--ui-text-primary)]">{statusFeedback.detail}</div>
+                  <div className="truncate text-[11px] leading-4 text-[color:var(--ui-text-secondary)]">{statusFeedback.detail}</div>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 {statusFeedback.actionLabel && statusFeedback.onAction && (
                   <button
                     type="button"
                     onClick={statusFeedback.onAction}
-                    className="ui-chip text-[11px] rounded-md px-2 py-1 ui-state-hover ui-state-press"
+                    className="ui-chip rounded-md px-2 py-1 text-[10px] ui-state-hover ui-state-press"
                   >
                     {statusFeedback.actionLabel}
                   </button>
@@ -6403,7 +6403,7 @@ const headerTitle = activeFilter === 'category'
                 <button
                   type="button"
                   onClick={() => setShowLogs(true)}
-                  className="ui-chip text-[11px] rounded-md px-2 py-1 ui-state-hover ui-state-press"
+                  className="ui-chip rounded-md px-2 py-1 text-[10px] ui-state-hover ui-state-press"
                 >
                   查看日志
                 </button>
@@ -6413,7 +6413,7 @@ const headerTitle = activeFilter === 'category'
                   className="rounded-md p-1 text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] ui-state-hover ui-state-press"
                   aria-label="关闭状态提示"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>

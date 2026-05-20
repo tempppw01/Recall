@@ -1656,29 +1656,29 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 
 
 .status-feedback {
-  border-radius: 0.9rem;
+  border-radius: 0.8rem;
   border: 1px solid var(--ui-border-soft);
   background-color: var(--ui-modal-bg);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(0, 0, 0, 0.16);
   transition: transform var(--motion-base) var(--ease-emphasis), border-color var(--motion-base) var(--ease-standard), background-color var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
 }
 
 .status-feedback-info {
-  background: linear-gradient(180deg, rgba(var(--theme-accent), 0.16), rgba(var(--theme-accent), 0.04)), var(--ui-modal-bg);
+  background: linear-gradient(180deg, rgba(var(--theme-accent), 0.12), rgba(var(--theme-accent), 0.035)), var(--ui-modal-bg);
   border-color: rgba(96, 165, 250, 0.35);
 }
 
 .status-feedback-success {
-  background: linear-gradient(180deg, rgba(5, 150, 105, 0.18), rgba(5, 150, 105, 0.04)), var(--ui-modal-bg);
+  background: linear-gradient(180deg, rgba(5, 150, 105, 0.13), rgba(5, 150, 105, 0.035)), var(--ui-modal-bg);
   border-color: rgba(52, 211, 153, 0.35);
 }
 
 .status-feedback-warning {
-  background: linear-gradient(180deg, rgba(180, 83, 9, 0.18), rgba(180, 83, 9, 0.04)), var(--ui-modal-bg);
+  background: linear-gradient(180deg, rgba(180, 83, 9, 0.13), rgba(180, 83, 9, 0.035)), var(--ui-modal-bg);
   border-color: rgba(251, 191, 36, 0.35);
 }
 
 .status-feedback-error {
-  background: linear-gradient(180deg, rgba(153, 27, 27, 0.18), rgba(153, 27, 27, 0.04)), var(--ui-modal-bg);
+  background: linear-gradient(180deg, rgba(153, 27, 27, 0.13), rgba(153, 27, 27, 0.035)), var(--ui-modal-bg);
   border-color: rgba(248, 113, 113, 0.38);
 }
