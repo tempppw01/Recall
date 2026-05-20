@@ -5752,6 +5752,12 @@ const normalizeTimeoutSec = (value: number) => {
     };
   });
   const weekDateKeys = weekDays.map((day) => day.dateKey);
+  const todayIndexInWeek = weekDateKeys.indexOf(todayKey);
+  const shouldHideEmptyPastWeekDays = todayIndexInWeek > 0
+    && weekDateKeys.slice(0, todayIndexInWeek).every((dateKey) => (tasksByDate[dateKey] || []).length === 0);
+  const visibleWeekDateKeys = shouldHideEmptyPastWeekDays
+    ? weekDateKeys.slice(todayIndexInWeek)
+    : weekDateKeys;
   const multiDayDateKeys = Array.from(
     { length: 3 },
     (_, index) => formatDateKey(addDays(selectedCalendarDateObject, index)),
@@ -5803,7 +5809,7 @@ const normalizeTimeoutSec = (value: number) => {
     return { start: rangeStart, end: rangeEnd };
   };
 
-  const weekHourWindow = getCalendarRangeHourWindow(weekDateKeys);
+  const weekHourWindow = getCalendarRangeHourWindow(visibleWeekDateKeys);
   const multiDayHourWindow = getCalendarRangeHourWindow(multiDayDateKeys);
   const multiDayEndLabel = formatDateKey(addDays(selectedCalendarDateObject, multiDayDateKeys.length - 1));
   const multiWeekEndLabel = formatDateKey(addDays(weekStart, multiWeekCalendarCells.length - 1));
@@ -7078,7 +7084,7 @@ const headerTitle = activeFilter === 'category'
                   />
                 ) : calendarView === 'week' ? (
                   <CalendarScheduleGrid
-                    dateKeys={weekDateKeys}
+                    dateKeys={visibleWeekDateKeys}
                     tasksByDate={tasksByDate}
                     todayKey={todayKey}
                     calendarNotes={calendarNotes}
