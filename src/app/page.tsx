@@ -9639,7 +9639,10 @@ const headerTitle = activeFilter === 'category'
         appVersion={APP_VERSION}
       />
 
-      <PomodoroFloatingWidget onOpenPomodoro={() => setActiveFilter('pomodoro')} />
+      <PomodoroFloatingWidget
+        isHidden={activeFilter === 'pomodoro'}
+        onOpenPomodoro={() => setActiveFilter('pomodoro')}
+      />
 
     </div>
   );

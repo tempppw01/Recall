@@ -19,6 +19,7 @@ import { POMODORO_AMBIENT_REQUEST_EVENT } from '@/app/components/PomodoroAmbient
 
 type PomodoroFloatingWidgetProps = {
   onOpenPomodoro: () => void;
+  isHidden?: boolean;
 };
 
 type WidgetPosition = {
@@ -122,7 +123,7 @@ const getDockedX = (x: number, width: number) => {
 
 const getSurfaceTitle = (phaseLabel: string) => `点击回到番茄时钟，拖动可移动悬浮窗。当前阶段：${phaseLabel}`;
 
-export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloatingWidgetProps) {
+export default function PomodoroFloatingWidget({ onOpenPomodoro, isHidden = false }: PomodoroFloatingWidgetProps) {
   const { isReady, state, toggleRunning, reset } = usePomodoroState();
   const [dismissed, setDismissed] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -291,7 +292,7 @@ export default function PomodoroFloatingWidget({ onOpenPomodoro }: PomodoroFloat
     };
   }, [isDragging, position]);
 
-  if (!isReady || !state || !state.hasActiveSession || dismissed || !position) return null;
+  if (isHidden || !isReady || !state || !state.hasActiveSession || dismissed || !position) return null;
 
   const phaseLabel = PHASE_LABELS[state.phase];
   const activeTheme = flashActive ? FLASH_THEME : PHASE_THEMES[state.phase];
