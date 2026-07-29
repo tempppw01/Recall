@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ensureActiveDatabase, getDatabaseReadiness, prisma } from '@/lib/prisma';
 
 // Health endpoint:
 // - shallow: no auth / no DB dependency, suitable for container liveness
@@ -30,6 +30,18 @@ export async function GET(request: NextRequest) {
   };
 
   try {
+    const status = getDatabaseReadiness();
+    if (!status.configured) {
+      return NextResponse.json({
+        ok: false,
+        mode: 'deep',
+        service: 'recall',
+        ts: new Date().toISOString(),
+        requestId,
+        checks: { db: { ok: false, detail: 'database setup required' } },
+      }, { status: 503 });
+    }
+    await ensureActiveDatabase();
     await prisma.$queryRaw`SELECT 1`;
     checks.db = { ok: true };
   } catch (error) {

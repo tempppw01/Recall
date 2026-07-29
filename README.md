@@ -54,8 +54,8 @@ In short: **Recall helps you focus on execution, not tool maintenance.**
   - **Todo Agent** for turning rough input into actionable tasks
   - **Manage Agent** for surfacing priorities and suggesting one-click actions
 
-- **Local-first storage**  
-  Works out of the box with LocalStorage, with optional Redis / PostgreSQL / WebDAV support depending on your setup.
+- **Server-side database with offline cache**
+  Docker deployments use MySQL when `DATABASE_URL` is provided; otherwise the first-run screen initializes SQLite under `/app/data`. Browser LocalStorage remains an offline cache and migration source.
 
 - **PWA support**  
   Installable, cacheable, and notification-friendly.
@@ -93,7 +93,7 @@ These actions reuse the existing task update flow rather than creating a separat
 - **Next.js** (App Router)
 - **React 18** + **TypeScript**
 - **Tailwind CSS** + **Lucide Icons**
-- **Prisma** (optional database layer)
+- **Prisma** (MySQL + SQLite database layer)
 - **Redis** (optional sync / queue capability)
 - **WebDAV** (optional attachment storage)
 
@@ -143,7 +143,8 @@ docker pull 34v0wphix/recall:latest
 
 docker run -d \
   --name recall_app \
-  -p 3789:3789 \
+  -p 3789:3000 \
+  -v recall_app_data:/app/data \
   --restart always \
   34v0wphix/recall:latest
 ```
@@ -165,36 +166,37 @@ curl -fsS http://localhost:3789/api/health?deep=1
 
 ### Docker Compose example
 
-#### Option A: with local PostgreSQL
+#### Option A: with local MySQL
 
 ```yaml
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
+  mysql:
+    image: mysql:8.4
     profiles: ["local-db"]
     environment:
-      POSTGRES_DB: recall
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      MYSQL_DATABASE: recall
+      MYSQL_USER: recall
+      MYSQL_PASSWORD: recall
+      MYSQL_ROOT_PASSWORD: recall-root
 
   app:
     image: 34v0wphix/recall:latest
     restart: always
     ports:
-      - "3789:3789"
+      - "3789:3000"
     environment:
       NEXTAUTH_URL: http://localhost:3789
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/recall
+      DATABASE_URL: mysql://recall:recall@mysql:3306/recall
 ```
 
 ```bash
 docker compose --profile local-db up -d
 ```
 
-#### Option B: with remote PostgreSQL
+#### Option B: with remote MySQL
 
 ```yaml
 version: '3.8'
@@ -204,24 +206,26 @@ services:
     image: 34v0wphix/recall:latest
     restart: always
     ports:
-      - "3789:3789"
+      - "3789:3000"
     environment:
       NEXTAUTH_URL: http://localhost:3789
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
-      DATABASE_URL: postgresql://USERNAME:PASSWORD@REMOTE_HOST:5432/recall
+      DATABASE_URL: mysql://USERNAME:PASSWORD@REMOTE_HOST:3306/recall
 ```
 
 ```bash
 docker compose up -d
 ```
 
-You can also compose your database config with:
+#### Option C: no MySQL, initialize SQLite
 
-- `DB_HOST`
-- `DB_PORT`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
+Leave `DATABASE_URL` empty and mount `/app/data`:
+
+```bash
+docker compose up -d
+```
+
+Open `http://<your-server-ip>:3789`, click **初始化并开始使用**. The selection is stored in `/app/data/database.json` and the database in `/app/data/recall.db`.
 
 ---
 
@@ -234,49 +238,37 @@ You can also compose your database config with:
 | `EMBEDDING_PROVIDER` | Embedding provider (`openai` / `local`) | `openai` |
 | `NEXTAUTH_URL` | Public app URL for auth | `http://localhost:3789` |
 | `NEXTAUTH_SECRET` | NextAuth secret | - |
-| `DATABASE_URL` | Server-side database URL | `postgresql://postgres:postgres@postgres:5432/recall` |
+| `DATABASE_URL` | MySQL/MariaDB server-side database URL; empty means first-run SQLite selection | - |
+| `RECALL_DATABASE_CONFIG_PATH` | SQLite selection file | `/app/data/database.json` |
+| `RECALL_SQLITE_PATH` | SQLite database file | `/app/data/recall.db` |
 | `REDIS_HOST` | Redis host | - |
 | `REDIS_PORT` | Redis port | `6379` |
 | `REDIS_DB` | Redis database index | `0` |
 | `REDIS_PASSWORD` | Redis password | - |
 
-> The current default server-side persistence path is **PostgreSQL**. Browser-side LocalStorage behavior is still preserved for lightweight usage.
+> The current server-side persistence path is **MySQL or SQLite**. After initialization, tasks, habits, countdowns, and items are loaded from the server database; LocalStorage is retained for offline cache and first-run migration.
 
 ---
 
 ## 🐘 Database notes
 
-Recall’s server-side persistence uses Prisma + PostgreSQL by default.
+Recall’s server-side persistence uses two generated Prisma clients: MySQL for `DATABASE_URL=mysql://...` and SQLite for the first-run fallback. The setup endpoint is `GET/POST /api/setup`.
 More details: `docs/plan/database.md`
 
 ### Quick init
 
 ```bash
-export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/recall'
-npx prisma generate
-npx prisma db push
+export DATABASE_URL='mysql://recall:recall@localhost:3306/recall'
+npm run prebuild
 ```
 
 ### Quick check
 
 ```bash
-DATABASE_URL='postgresql://postgres:postgres@localhost:5432/recall' ./scripts/db-check.sh
+DATABASE_URL='mysql://recall:recall@localhost:3306/recall' ./scripts/db-check.sh
 ```
 
-### Dynamic PG mode
-
-Recall still supports a dynamic PostgreSQL mode via `x-pg-*` headers, but this is intentionally restricted:
-
-- disabled by default
-- requires `ENABLE_DYNAMIC_PG_HEADERS=true`
-- only works for **unauthenticated** requests
-- authenticated sessions always prefer the server database
-
-Recommended when enabling:
-- `PG_HEADERS_TOKEN`
-- `PG_HEADERS_HOST_ALLOWLIST`
-
-Use this only in trusted self-hosted environments.
+The old browser-side PostgreSQL fields are retained only for upgrade compatibility. New deployments should configure the server with `DATABASE_URL`; database credentials are not sent from the browser.
 
 ---
 

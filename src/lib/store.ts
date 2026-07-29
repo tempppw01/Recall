@@ -1,9 +1,9 @@
 /**
- * 本地数据存储模块（LocalStorage + 可选 PG 同步）
+ * 本地数据存储模块（LocalStorage 缓存 + 服务端数据库持久化）
  *
  * 本模块定义了应用的核心数据模型（Task、Habit、Countdown、Pomodoro），
- * 并提供基于 localStorage 的 CRUD 操作。当用户配置了 PostgreSQL 连接后，
- * 写操作会同时异步同步到远端数据库。
+ * 并提供基于 localStorage 的即时缓存与服务端数据库持久化。
+ * LocalStorage 只作为离线缓存；初始化 MySQL 或 SQLite 后，服务端数据库是事实来源。
  */
 
 import { isOnboardingTask } from '@/lib/onboardingTasks';
@@ -156,60 +156,16 @@ type StoreKey =
 /** 记录最后一次本地数据变更的时间戳，用于同步冲突判断 */
 const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 
-// ─── PostgreSQL 动态连接配置（存储在 localStorage） ──────────
-
-const PG_HOST_KEY = 'recall_pg_host';
-const PG_PORT_KEY = 'recall_pg_port';
-const PG_DATABASE_KEY = 'recall_pg_database';
-const PG_USERNAME_KEY = 'recall_pg_username';
-const PG_PASSWORD_KEY = 'recall_pg_password';
-
-/**
- * 从 localStorage 读取 PG 配置，构造自定义请求头
- * 这些请求头会被 API 路由解析，用于动态连接用户指定的数据库
- *
- * @returns 包含 x-pg-* 请求头的对象，未配置时返回空对象
- */
-const getPgHeaders = (): Record<string, string> => {
-  if (typeof window === 'undefined') return {};
-  const host = localStorage.getItem(PG_HOST_KEY);
-  const port = localStorage.getItem(PG_PORT_KEY);
-  const database = localStorage.getItem(PG_DATABASE_KEY);
-  const username = localStorage.getItem(PG_USERNAME_KEY);
-  const password = localStorage.getItem(PG_PASSWORD_KEY);
-  if (!host || !database || !username) return {};
-  return {
-    'x-pg-host': host,
-    'x-pg-port': port || '5432',
-    'x-pg-database': database,
-    'x-pg-username': username,
-    'x-pg-password': password || '',
-  };
-};
-
-/**
- * 将本地数据变更异步同步到 PostgreSQL
- * 如果用户未配置 PG 连接，则静默跳过（仅保留本地数据）
- *
- * @param endpoint - API 路由路径（如 /api/tasks）
- * @param method - HTTP 方法（POST / PUT / DELETE）
- * @param payload - 请求体数据
- */
-const syncToPg = async (endpoint: string, method: string, payload: any) => {
-  const headers = getPgHeaders();
-  if (Object.keys(headers).length === 0) return; // 未配置 PG，仅本地
-  if (endpoint.startsWith('/api/tasks') && isOnboardingTask(payload)) return;
+const syncToDatabase = async (endpoint: string, method: string, payload: unknown) => {
+  if (endpoint.startsWith('/api/tasks') && isOnboardingTask(payload as object | null | undefined)) return;
   try {
     await fetch(endpoint, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
   } catch (error) {
-    console.error('PG Sync Failed', error);
+    console.error('Database sync failed', error);
   }
 };
 
@@ -252,23 +208,39 @@ const safelyWrite = (key: StoreKey, value: unknown) => {
  * 创建一个基于 localStorage 的泛型 CRUD Store
  *
  * 提供 getAll / replaceAll / add / update / remove 五个操作，
- * 写操作在本地持久化的同时，若配置了 apiEndpoint 则异步同步到 PG。
+ * 写操作在本地持久化的同时，若配置了 apiEndpoint 则异步同步到服务端数据库。
  *
  * @param key - localStorage 存储键
- * @param apiEndpoint - 可选的 API 路由前缀，用于 PG 同步
+ * @param apiEndpoint - 可选的 API 路由前缀，用于服务端数据库同步
  */
 const createStore = <T extends { id: string }>(key: StoreKey, apiEndpoint?: string) => {
   /** 获取所有记录 */
   const getAll = (): T[] => safelyRead<T[]>(key, []);
 
-  /** 替换全部记录（用于批量导入/同步） */
-  const replaceAll = (items: T[]) => safelyWrite(key, items);
+  /** 替换全部记录；默认把差异写入服务端数据库。 */
+  const replaceAll = (items: T[], options?: { sync?: boolean }) => {
+    const previous = getAll();
+    safelyWrite(key, items);
+    if (!apiEndpoint || options?.sync === false) return;
+
+    const nextIds = new Set(items.map((item) => item.id));
+    const previousIds = new Set(previous.map((item) => item.id));
+    void Promise.all([
+      ...items.map((item) => syncToDatabase(
+        previousIds.has(item.id) ? `${apiEndpoint}/${item.id}` : apiEndpoint,
+        previousIds.has(item.id) ? 'PUT' : 'POST',
+        item,
+      )),
+      ...previous
+        .filter((item) => !nextIds.has(item.id))
+        .map((item) => syncToDatabase(`${apiEndpoint}/${item.id}`, 'DELETE', {})),
+    ]);
+  };
 
   /** 新增一条记录（插入到列表头部） */
   const add = (item: T) => {
     const current = getAll();
     replaceAll([item, ...current]);
-    if (apiEndpoint) syncToPg(apiEndpoint, 'POST', item);
   };
 
   /** 更新一条记录（按 id 匹配替换） */
@@ -276,14 +248,12 @@ const createStore = <T extends { id: string }>(key: StoreKey, apiEndpoint?: stri
     const current = getAll();
     const next = current.map((existing) => (existing.id === item.id ? item : existing));
     replaceAll(next);
-    if (apiEndpoint) syncToPg(`${apiEndpoint}/${item.id}`, 'PUT', item);
   };
 
   /** 删除一条记录（按 id 过滤） */
   const remove = (id: string) => {
     const current = getAll();
     replaceAll(current.filter((item) => item.id !== id));
-    if (apiEndpoint) syncToPg(`${apiEndpoint}/${id}`, 'DELETE', {});
   };
 
   return { getAll, replaceAll, add, update, remove };
@@ -306,3 +276,36 @@ export const itemStore = createStore<Item>('recall_items', '/api/items');
 /** 番茄钟 Store，仅本地存储（无远端同步） */
 export const pomodoroStore = createStore<PomodoroRecord>('recall_pomodoro_records');
 export const knowledgeStore = createStore<KnowledgeEntry>('recall_knowledge_base');
+
+/**
+ * 首次进入服务端数据库时加载远端数据；远端为空而浏览器有旧数据时，先完成一次迁移。
+ */
+export const hydrateStoresFromDatabase = async () => {
+  const collections = [
+    { endpoint: '/api/tasks', store: taskStore },
+    { endpoint: '/api/habits', store: habitStore },
+    { endpoint: '/api/countdowns', store: countdownStore },
+    { endpoint: '/api/items', store: itemStore },
+  ] as const;
+
+  const results = await Promise.all(collections.map(async ({ endpoint, store }) => {
+    const response = await fetch(endpoint, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`${endpoint} request failed: ${response.status}`);
+    const payload = await response.json();
+    const remoteItems = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : [];
+    const localItems = store.getAll();
+    if (remoteItems.length === 0 && localItems.length > 0) {
+      await Promise.all(localItems.map((item) => syncToDatabase(endpoint, 'POST', item)));
+      return localItems;
+    }
+    store.replaceAll(remoteItems, { sync: false });
+    return remoteItems;
+  }));
+
+  return {
+    tasks: results[0] as Task[],
+    habits: results[1] as Habit[],
+    countdowns: results[2] as Countdown[],
+    items: results[3] as Item[],
+  };
+};

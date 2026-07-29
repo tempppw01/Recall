@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
+import { serializeJsonForDatabase } from '@/lib/database';
 import { normalizeHabitPayload } from '@/lib/server/record-normalizers';
 
 type RouteContext = {
@@ -16,7 +17,7 @@ type RouteContext = {
 /** PUT /api/habits/:id - 鏇存柊涔犳儻鏍囬鍜屾墦鍗¤褰?*/
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  const { client, userId } = await getRequestDbContext(request);
+  const { client, userId, provider } = await getRequestDbContext(request);
 
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -32,7 +33,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       where: { id, userId },
       data: {
         title: normalized.title,
-        logs: normalized.logs,
+        logs: serializeJsonForDatabase(normalized.logs, provider),
       },
     });
 

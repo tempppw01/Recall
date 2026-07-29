@@ -1,19 +1,20 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: recall_postgres
+  mysql:
+    image: mysql:8.4
+    container_name: recall_mysql
     restart: always
     profiles: ["local-db"]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-recall}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-recall}
+      MYSQL_USER: ${MYSQL_USER:-recall}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-recall}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-recall-root}
     volumes:
-      - recall_pgdata:/var/lib/postgresql/data
+      - recall_mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-recall}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u${MYSQL_USER:-recall} -p${MYSQL_PASSWORD:-recall}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -25,15 +26,19 @@ services:
     image: 34v0wphix/recall:latest
     restart: always
     ports:
-      - "3789:3789"
+      - "3789:3000"
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://ai.shuaihong.fun/v1}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3789}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
-      # 默认连远程/外部 PG；若使用内置 postgres profile，可把 DB_HOST 设为 postgres
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-recall}}
+      # 填写后使用 MySQL；留空时由首次启动页要求选择 SQLite。
+      DATABASE_URL: ${DATABASE_URL:-}
+      RECALL_DATABASE_CONFIG_PATH: ${RECALL_DATABASE_CONFIG_PATH:-/app/data/database.json}
+      RECALL_SQLITE_PATH: ${RECALL_SQLITE_PATH:-/app/data/recall.db}
+    volumes:
+      - recall_app_data:/app/data
     networks:
       - recall_network
 
@@ -42,4 +47,5 @@ networks:
     driver: bridge
 
 volumes:
-  recall_pgdata:
+  recall_mysql_data:
+  recall_app_data:

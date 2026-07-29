@@ -82,7 +82,7 @@ import {
   readImageAsDataUrl,
   sortTasks,
 } from '@/app/homeUtils';
-import { taskStore, habitStore, countdownStore, itemStore, knowledgeStore, pomodoroStore, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
+import { taskStore, habitStore, countdownStore, itemStore, knowledgeStore, pomodoroStore, hydrateStoresFromDatabase, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
 import { PomodoroAmbientController } from '@/app/components/PomodoroAmbientSound';
@@ -1536,6 +1536,7 @@ export default function Home() {
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const databaseHydratedRef = useRef(false);
   const [logs, setLogs] = useState<
     {
       id: string;
@@ -2256,6 +2257,23 @@ export default function Home() {
   }, [refreshItems, refreshKnowledge, refreshTasks]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !settingsLoaded || databaseHydratedRef.current) return;
+    databaseHydratedRef.current = true;
+    void hydrateStoresFromDatabase()
+      .then(({ tasks: remoteTasks, habits: remoteHabits, countdowns: remoteCountdowns, items: remoteItems }) => {
+        setTasks(filterOutOnboardingTasks(remoteTasks));
+        setHabits(remoteHabits);
+        setCountdowns(remoteCountdowns);
+        setItems(remoteItems);
+        pushLog('success', '服务端数据库已连接', '任务、习惯、倒计时和物品已从数据库加载。', { silentFeedback: true });
+      })
+      .catch((error) => {
+        databaseHydratedRef.current = false;
+        pushLog('error', '服务端数据库加载失败', String((error as Error)?.message || error), { silentFeedback: true });
+      });
+  }, [settingsLoaded, pushLog]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(AGENT_MESSAGES_KEY, JSON.stringify(agentMessages.slice(-aiContextLimit)));
   }, [agentMessages, aiContextLimit]);
@@ -2344,7 +2362,7 @@ export default function Home() {
 
 
   useEffect(() => {
-    pushLog('info', '应用已启动', pgHost ? `数据存储：PG (${pgHost})` : '数据存储：浏览器 localStorage');
+    pushLog('info', '应用已启动', '数据存储：服务端 MySQL/SQLite；浏览器 localStorage 仅作为离线缓存。');
   }, [pgHost, pushLog]);
 
   useEffect(() => {

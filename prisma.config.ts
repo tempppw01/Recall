@@ -9,7 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // ts: prisma config 需要 string，这里在未配置时回退为空串，避免编译期报错。
+    // MySQL 是默认生产客户端；SQLite 使用 prisma/schema.sqlite.prisma 单独生成客户端。
     url: process.env["DATABASE_URL"] ?? "",
   },
 });

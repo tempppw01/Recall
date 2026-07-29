@@ -1,90 +1,53 @@
-# 数据库（Prisma / PostgreSQL）初始化与验证
+# 数据库（Prisma / MySQL + SQLite）初始化与验证
 
-本项目默认可仅用浏览器 LocalStorage；当你需要服务端持久化（任务/习惯/倒计时）时，可启用 PostgreSQL + Prisma。
+Recall 的 Docker 部署使用服务端数据库：填写 MySQL/MariaDB 的 `DATABASE_URL` 时连接 MySQL；未填写时，首次访问会要求选择并初始化 SQLite。浏览器 LocalStorage 只保留为离线缓存和旧数据迁移来源。
 
-> 说明：仓库内存在“动态 PG（x-pg-* header）模式”，用于自部署/受信网络下由前端把 PG 连接信息传给后端。
-> 该模式默认关闭（`ENABLE_DYNAMIC_PG_HEADERS` 不是 true 时不会生效）。
-
-## 1) 配置环境变量
-
-最小必需：
-
-- `DATABASE_URL`：服务端 Prisma 使用的数据库连接串
-
-示例：
+## 1) 配置 MySQL
 
 ```bash
-export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/recall'
+export DATABASE_URL='mysql://recall:recall@localhost:3306/recall'
+npm run prebuild
 ```
 
-## 2) 生成 Prisma Client
+生产容器会在第一次访问 `/api/setup` 时创建缺失的表和索引。远程 MySQL 只需要把主机名替换为实际地址；数据库凭据通过服务端环境变量传入，不从浏览器提交。
+
+## 2) 不配置 MySQL，初始化 SQLite
+
+保持 `DATABASE_URL` 为空并启动容器，打开网页后点击“初始化并开始使用”。初始化会：
+
+1. 在 `/app/data/database.json` 写入 SQLite 选择结果；
+2. 在 `/app/data/recall.db` 创建数据库文件和表结构；
+3. 创建 `local-user`，让自部署实例无需先登录即可使用；
+4. 让任务、习惯、倒计时和物品 API 立即切换到 SQLite。
+
+这两个文件必须位于持久化 Volume 中。仓库 Compose 已挂载 `recall_app_data:/app/data`。
+
+## 3) 初始化接口
+
+- `GET /api/setup`：返回当前 provider、是否需要初始化及连接状态。
+- `POST /api/setup`，请求体 `{ "provider": "sqlite" }`：创建 SQLite 配置、建表并立即切换到 SQLite。
+- `GET /api/health?deep=1`：验证当前数据库是否可用。
+
+## 4) 生成 Prisma Client
+
+项目同时生成 MySQL 和 SQLite 客户端：
 
 ```bash
-npx prisma generate
+npm run prebuild
 ```
 
-## 3) 初始化数据库（创建表）
+MySQL 客户端使用默认的 `@prisma/client`，SQLite 客户端生成到 `src/generated/prisma/sqlite`。SQLite 的 JSON 字段以字符串保存，API 层会统一序列化和解析。
 
-仓库已纳入初始 migrations（见 `prisma/migrations/`），你可以选择两种方式之一：
-
-### 方案 A：开发环境（快速）
+## 5) 快速验证
 
 ```bash
-npx prisma db push
+DATABASE_URL='mysql://...' ./scripts/db-check.sh
+curl -fsS http://localhost:3789/api/health
+curl -fsS http://localhost:3789/api/health?deep=1
 ```
 
-### 方案 B：生产/可追溯迁移（推荐）
+如果没有 MySQL，先完成网页初始化，再执行 deep health check。容器重启后会从 `database.json` 读取 SQLite 选择并复用同一个数据库文件。
 
-1. 生成迁移：
+## 6) 旧版本升级说明
 
-```bash
-npx prisma migrate dev --name init
-```
-
-2. 部署时执行：
-
-```bash
-npx prisma migrate deploy
-```
-
-> 如果你决定走方案 B，我们后续会把 migrations 纳入版本控制，并在发布流程里固定下来。
-
-## 4) 快速验证数据库连通性
-
-仓库提供脚本：
-
-```bash
-DATABASE_URL='postgresql://...' ./scripts/db-check.sh
-```
-
-它会：
-- 检查 prisma client 是否生成
-- 使用 Prisma 执行 `SELECT 1`
-
-## 5) 动态 PG（x-pg-*）模式开关（可选，高级）
-
-仅在自部署/内网下建议开启。
-
-- `ENABLE_DYNAMIC_PG_HEADERS=true`：开启后端解析 `x-pg-*` 请求头
-- `PG_HEADERS_TOKEN=...`：可选，要求请求携带 `x-pg-token` 且匹配
-- `PG_HEADERS_HOST_ALLOWLIST=host1,host2`：可选，限制可连接的 host
-
-相关代码：`src/lib/prisma.ts`。
-
-#### 已有数据库如何接入 migrations（基线）
-
-如果你之前已经用 `prisma db push` 建过表，再切到 migrations 流程，可能会遇到“迁移已存在但数据库也已存在”的状态不一致。
-
-推荐做法（谨慎操作）：
-1) 确保当前数据库结构与 `prisma/schema.prisma` 一致（最好在空库上重建验证一遍）；
-2) 使用 Prisma 将初始迁移标记为已应用（避免重复建表）：
-
-```bash
-npx prisma migrate resolve --applied 20260317_init
-```
-
-然后后续使用：
-
-```bash
-npx prisma migrate deploy
-```
+旧版浏览器 PostgreSQL 设置字段会保留在 LocalStorage 中以避免升级时清空配置，但不再作为新部署的事实来源。新部署应使用 Compose 的 `DATABASE_URL`；没有 MySQL 时使用首次初始化页选择 SQLite。

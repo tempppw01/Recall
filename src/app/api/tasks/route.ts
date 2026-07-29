@@ -10,8 +10,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { getRequestDbContext } from '@/lib/request-db';
+import { serializeJsonForDatabase } from '@/lib/database';
 import { prisma, ensureLocalUser } from '@/lib/prisma';
 import { buildPaginatedListResult, getPaginationParams } from '@/lib/server/pagination';
 import { normalizeTaskPayload } from '@/lib/server/record-normalizers';
@@ -55,7 +55,7 @@ const mapTask = (task: any) => ({
  * 返回时将数据库字段转换为前端友好的格式（日期转 ISO 字符串，JSON 字段解析）
  */
 export async function GET(request: Request) {
-  const { client, userId } = await getRequestDbContext(request);
+  const { client, userId, provider } = await getRequestDbContext(request);
   const pagination = getPaginationParams(request);
 
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { client, userId } = await getRequestDbContext(request);
+  const { client, userId, provider } = await getRequestDbContext(request);
 
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -115,10 +115,10 @@ export async function POST(request: Request) {
         priority: normalized.priority,
         category: normalized.category,
         status: normalized.status,
-        tags: normalized.tags,
-        subtasks: normalized.subtasks,
-        attachments: normalized.attachments,
-        repeat: normalized.repeat ?? Prisma.DbNull,
+        tags: serializeJsonForDatabase(normalized.tags, provider),
+        subtasks: serializeJsonForDatabase(normalized.subtasks, provider),
+        attachments: serializeJsonForDatabase(normalized.attachments, provider),
+        repeat: serializeJsonForDatabase(normalized.repeat, provider),
         createdAt: normalized.createdAt,
         sortOrder: normalized.sortOrder,
       },

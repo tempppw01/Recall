@@ -3,7 +3,7 @@
  *
  * POST /api/test-connection - 测试外部服务连接是否可用
  * 支持三种连接类型：
- * - pg：PostgreSQL 数据库连接测试
+ * - mysql：MySQL 数据库连接测试（兼容旧版 pg 类型）
  * - redis：Redis 连接测试
  * - webdav：WebDAV 服务连接测试
  */
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing type or config' }, { status: 400 });
     }
 
-    if (type === 'pg') {
+    if (type === 'pg' || type === 'mysql') {
       const client = createDynamicPrismaClient(config);
       if (!client) {
         return NextResponse.json({ error: 'Invalid configuration' }, { status: 400 });
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       try {
         await client.$queryRaw`SELECT 1`;
         await disconnectDynamicPrisma(client);
-        return NextResponse.json({ success: true, message: 'PostgreSQL 连接成功' });
+        return NextResponse.json({ success: true, message: 'MySQL 连接成功' });
       } catch (error) {
         await disconnectDynamicPrisma(client);
         return NextResponse.json({ error: '连接失败', details: String(error) }, { status: 500 });

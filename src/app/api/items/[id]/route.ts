@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
+import { serializeJsonForDatabase } from '@/lib/database';
 import { normalizeItemPayload } from '@/lib/server/record-normalizers';
 
 type RouteContext = {
@@ -8,7 +9,7 @@ type RouteContext = {
 
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  const { client, userId } = await getRequestDbContext(request);
+  const { client, userId, provider } = await getRequestDbContext(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
@@ -24,7 +25,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       data: {
         name: normalized.name,
         category: normalized.category,
-        tags: normalized.tags,
+        tags: serializeJsonForDatabase(normalized.tags, provider),
         location: normalized.location,
         quantity: normalized.quantity,
         status: normalized.status,

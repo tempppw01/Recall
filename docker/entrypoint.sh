@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+mkdir -p /app/data
+
 # Startup secret handling:
 # - Prefer user-provided NEXTAUTH_SECRET
 # - If missing (or insecure default), auto-generate a fallback so the app can start

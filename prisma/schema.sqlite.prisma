@@ -1,30 +1,11 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma/sqlite"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
-}
-
-enum TaskStatus {
-  todo
-  in_progress
-  completed
-}
-
-enum SyncJobStatus {
-  pending
-  processing
-  done
-  failed
-}
-
-enum ItemStatus {
-  normal
-  low_stock
-  need_restock
-  missing
+  provider = "sqlite"
+  url      = env("SQLITE_DATABASE_URL")
 }
 
 model User {
@@ -55,8 +36,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
@@ -67,8 +47,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -82,22 +61,21 @@ model VerificationToken {
 }
 
 model Task {
-  id        String     @id @default(cuid())
-  userId    String
-  title     String
-  dueDate   DateTime?
-  priority  Int
-  category  String?
-  status    TaskStatus @default(todo)
-  sortOrder Int        @default(0)
-  tags      Json
-  subtasks  Json
-  attachments Json?
-  repeat    Json?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  dueDate     DateTime?
+  priority    Int
+  category    String?
+  status      String   @default("todo")
+  sortOrder   Int      @default(0)
+  tags        String
+  subtasks    String
+  attachments String?
+  repeat      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
   @@index([userId, dueDate])
@@ -109,11 +87,10 @@ model Habit {
   id        String   @id @default(cuid())
   userId    String
   title     String
-  logs      Json
+  logs      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
@@ -126,8 +103,7 @@ model Countdown {
   pinned     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, pinned])
   @@index([userId, targetDate])
@@ -139,15 +115,14 @@ model Item {
   userId    String
   name      String
   category  String?
-  tags      Json
+  tags      String
   location  String?
   quantity  Int      @default(0)
-  status    ItemStatus
+  status    String   @default("normal")
   note      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
   @@index([userId, category])
@@ -164,16 +139,16 @@ model SyncState {
 }
 
 model SyncJob {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   syncKey     String
   action      String
-  status      SyncJobStatus @default(pending)
-  payload     Json?
-  result      Json?
+  status      String   @default("pending")
+  payload     String?
+  result      String?
   error       String?
   processedAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([syncKey, status, createdAt])
 }

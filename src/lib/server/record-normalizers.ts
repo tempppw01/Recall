@@ -1,5 +1,3 @@
-import type { Prisma } from '@prisma/client';
-
 const TASK_STATUSES = ['todo', 'in_progress', 'completed'] as const;
 const ITEM_STATUSES = ['normal', 'low_stock', 'need_restock', 'missing'] as const;
 
@@ -32,19 +30,17 @@ const normalizeInt = (value: unknown, fallback: number) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const normalizeStringArray = (value: unknown): Prisma.InputJsonValue =>
+const normalizeStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value
         .map((item) => normalizeString(item))
         .filter(Boolean)
-        .map((item) => item as Prisma.InputJsonValue)
     : [];
 
-const normalizeObjectArray = (value: unknown): Prisma.InputJsonValue =>
+const normalizeObjectArray = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value)
     ? value
         .filter((item) => isPlainObject(item))
-        .map((item) => item as Prisma.InputJsonObject)
     : [];
 
 const normalizeTaskStatus = (value: unknown): TaskStatusValue =>
@@ -64,7 +60,7 @@ export const normalizeTaskPayload = (payload: any) => ({
   tags: normalizeStringArray(payload?.tags),
   subtasks: normalizeObjectArray(payload?.subtasks),
   attachments: normalizeObjectArray(payload?.attachments),
-  repeat: (isPlainObject(payload?.repeat) ? (payload.repeat as Prisma.InputJsonObject) : null),
+  repeat: isPlainObject(payload?.repeat) ? payload.repeat : null,
   createdAt: normalizeDate(payload?.createdAt) ?? undefined,
 });
 

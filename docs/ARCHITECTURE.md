@@ -1,65 +1,28 @@
-# Project Structure: Recall (MVP - Browser-based Storage)
+# Recall 架构
+
+## 数据存储路径
 
 ```text
-Recall/
-├── src/
-│   ├── app/                  # Next.js App Router
-│   │   ├── api/              
-│   │   │   └── ai/
-│   │   │       └── process/  # Stateless AI processing (Intent + Embedding)
-│   │   ├── layout.tsx
-│   │   └── page.tsx          # Main Dashboard (Interaction Logic)
-│   ├── components/           
-│   ├── lib/                  
-│   │   ├── embeddings.ts     # Server-side Embedding generation
-│   │   └── store.ts          # Client-side LocalStorage + Vector Similarity logic
-├── docker-compose.yml        # App-only deployment
-├── Dockerfile                
-└── .env                      
+Compose DATABASE_URL=mysql://... ──> MySQL Prisma Client ──┐
+                                                            ├─> 任务 / 习惯 / 倒计时 / 物品 API
+未配置 DATABASE_URL ─> 首次初始化页 ─> /app/data/recall.db ──┘
+                                                            └─> 浏览器 LocalStorage 离线缓存
 ```
 
-## 核心设计思路 (MVP)
+- `src/lib/database.ts` 负责识别 provider、保存 SQLite 选择和幂等建表。
+- `src/lib/prisma.ts` 同时管理 MySQL 与 SQLite Prisma Client；未选择前业务 API 返回未就绪，不会降级成仅浏览器存储。
+- `src/app/api/setup/route.ts` 提供初始化状态和 SQLite 初始化接口。
+- `src/app/components/DatabaseSetupGate.tsx` 在首次启动时阻止业务页面，要求用户明确选择 SQLite 或配置 MySQL 后重启。
+- `src/lib/store.ts` 先读 LocalStorage 以保证离线首屏，数据库就绪后加载服务端数据；旧缓存仅在远端为空时迁移到服务端。
 
-1.  **隐私保护**: 任务内容默认仅存储在用户浏览器 `LocalStorage` 中，未配置外部存储也可正常使用。
-2.  **轻量后端**: 后端以 AI 处理为主，同时提供可选的 Redis 异步同步队列。
-3.  **零成本部署**: 不配置数据库时，VPS 资源消耗极低，适合轻量部署。
-4.  **向量检索**: 在前端使用 JavaScript 实时计算余弦相似度，实现“语义模糊记忆找回”。
+## 连接与安全边界
 
-## 同步与存储分工
+数据库凭据只允许通过服务端 `DATABASE_URL` 传入。浏览器不再把数据库密码作为请求头发送；旧版 PostgreSQL 设置字段仅保留在界面和 LocalStorage 中用于兼容升级。
 
-- **Redis（异步同步）**
-  - 用于同步队列与并发控制。
-  - 同步改为“异步入队 + 轮询结果”，服务端串行合并，避免多端同时同步不一致。
+自部署未登录请求使用固定的 `local-user`，登录请求仍按 NextAuth session 的 user id 隔离数据。`/app/data` 必须挂载持久化 Volume，否则 SQLite 文件会随容器删除而丢失。
 
-- **PostgreSQL（业务数据存储）**
-  - 用于存储任务/习惯/倒数日等结构化数据（可选）。
-  - 未配置 PG 时，继续使用 LocalStorage，不影响使用。
+## 其他服务
 
-- **WebDAV（附件存储）**
-  - 仅用于待办附件文件存储（非数据同步）。
-  - 附件单文件 ≤ 30MB，待办条目拥有附件属性（上传/下载关联）。
-  - 未配置 WebDAV 时，不影响待办使用。
-
-## 接口说明
-- `POST /api/ai/process`: 
-  - `mode: 'create'`: 输入自然语言，返回结构化 Task + Embedding。
-  - `mode: 'search'`: 输入查询词，返回 Embedding。
-
-
-## 动态 PG（x-pg-*）模式边界
-
-项目存在一种“高级模式”：客户端通过请求头 `x-pg-*` 传入 PostgreSQL 连接信息，API 会按需创建动态 PrismaClient。
-
-### 风险与建议
-
-- 该模式会扩大攻击面（服务端可能被当作 DB 代理）。
-- 建议仅在你完全信任调用方的场景使用（自部署/内网）。
-
-### 防护开关
-
-可通过环境变量启用额外保护：
-
-- `PG_HEADERS_TOKEN`：若设置，则请求必须携带 `x-pg-token` 且匹配，否则服务端忽略动态 PG 头。
-- `PG_HEADERS_HOST_ALLOWLIST`：可选，逗号分隔允许的 `x-pg-host` 列表。
-
-默认行为：仍支持动态 PG，但当存在 NextAuth session 时 **优先使用 session user 的服务端数据库**，不会被请求头覆盖。
+- **Redis**：可选同步队列与并发控制。
+- **WebDAV**：可选附件存储，不承载业务数据库。
+- **AI API**：无状态处理自然语言、任务拆解和检索请求。

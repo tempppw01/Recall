@@ -12,7 +12,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV DATABASE_URL="postgresql://postgres:postgres@postgres:5432/recall"
+# 仅用于构建阶段生成 MySQL Prisma Client，不会覆盖运行时的 DATABASE_URL。
+ENV DATABASE_URL="mysql://recall:recall@127.0.0.1:3306/recall"
 RUN mkdir -p /app/data
 RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -26,10 +27,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 # NextAuth 在 production 必须设置 secret，否则 /api/auth/session 会 500。
 # 生产部署请务必覆盖该值（不要使用默认值）。
-ENV DATABASE_URL="postgresql://postgres:postgres@postgres:5432/recall"
 ENV HOSTNAME="0.0.0.0"
 
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
+import { serializeJsonForDatabase } from '@/lib/database';
 import { prisma, ensureLocalUser } from '@/lib/prisma';
 import { buildPaginatedListResult, getPaginationParams } from '@/lib/server/pagination';
 import { normalizeItemPayload } from '@/lib/server/record-normalizers';
@@ -28,7 +29,7 @@ const mapItem = (item: any) => ({
 });
 
 export async function GET(request: Request) {
-  const { client, userId } = await getRequestDbContext(request);
+  const { client, userId, provider } = await getRequestDbContext(request);
   const pagination = getPaginationParams(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { client, userId } = await getRequestDbContext(request);
+  const { client, userId, provider } = await getRequestDbContext(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
         userId,
         name: normalized.name,
         category: normalized.category,
-        tags: normalized.tags,
+        tags: serializeJsonForDatabase(normalized.tags, provider),
         location: normalized.location,
         quantity: normalized.quantity,
         status: normalized.status,

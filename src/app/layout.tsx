@@ -9,6 +9,7 @@
 
 import type { Metadata, Viewport } from "next";
 import PWARegister from "@/app/components/PWARegister";
+import DatabaseSetupGate from "@/app/components/DatabaseSetupGate";
 import Providers from "@/app/providers";
 import "./globals.css";
 
@@ -43,7 +44,7 @@ export default function RootLayout({
       <body>
         <Providers>
           <PWARegister />
-          {children}
+          <DatabaseSetupGate>{children}</DatabaseSetupGate>
         </Providers>
       </body>
     </html>

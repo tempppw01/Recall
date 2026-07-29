@@ -8,8 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { getRequestDbContext } from '@/lib/request-db';
+import { serializeJsonForDatabase } from '@/lib/database';
 import { normalizeTaskPayload } from '@/lib/server/record-normalizers';
 import { isOnboardingTask } from '@/lib/onboardingTasks';
 
@@ -23,7 +23,7 @@ type RouteContext = {
  */
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  const { client, userId } = await getRequestDbContext(request);
+  const { client, userId, provider } = await getRequestDbContext(request);
 
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -47,10 +47,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         priority: normalized.priority,
         category: normalized.category,
         status: normalized.status,
-        tags: normalized.tags,
-        subtasks: normalized.subtasks,
-        attachments: normalized.attachments,
-        repeat: normalized.repeat ?? Prisma.DbNull,
+        tags: serializeJsonForDatabase(normalized.tags, provider),
+        subtasks: serializeJsonForDatabase(normalized.subtasks, provider),
+        attachments: serializeJsonForDatabase(normalized.attachments, provider),
+        repeat: serializeJsonForDatabase(normalized.repeat, provider),
         sortOrder: normalized.sortOrder,
       },
     });
