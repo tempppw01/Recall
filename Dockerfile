@@ -29,10 +29,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 生产部署请务必覆盖该值（不要使用默认值）。
 ENV HOSTNAME="0.0.0.0"
 
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
-
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
+
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
