@@ -48,7 +48,7 @@ export default function PageTopBar({
   onToggleTheme,
 }: PageTopBarProps) {
   return (
-    <header className="theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
+    <header className="recall-topbar theme-native-surface topbar-shell sticky top-0 z-20 sticky-glass backdrop-blur-2xl">
       <div className="mx-auto w-full max-w-[1680px] px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10">
         <div className="topbar-panel px-2 py-1.5 sm:px-3 sm:py-2 lg:px-3.5">
           <div className="flex min-h-7 items-center justify-between gap-2 sm:gap-3">

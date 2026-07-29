@@ -6383,7 +6383,7 @@ const headerTitle = activeFilter === 'category'
   };
 
   return (
-    <div className="theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
+    <div className="recall-app-shell theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
       <AmbientBackdrop />
 
       {statusFeedback && (
@@ -6492,7 +6492,7 @@ const headerTitle = activeFilter === 'category'
       <section
         onPointerDownCapture={handleTaskSelectionPointerDownCapture}
         onClickCapture={handleTaskSelectionClickCapture}
-        className={`theme-native-surface relative flex flex-1 flex-col min-w-0 ${
+        className={`recall-main-surface theme-native-surface relative flex flex-1 flex-col min-w-0 ${
           activeFilter === 'quadrant' || isFixedPanelView
             ? 'overflow-hidden overscroll-none'
             : 'overflow-y-auto mobile-scroll'
@@ -6561,7 +6561,7 @@ const headerTitle = activeFilter === 'category'
           />
         )}
 
-        <div className={`relative flex-1 w-full ${
+        <div className={`recall-content-column relative flex-1 w-full ${isListView ? 'recall-list-view' : ''} ${
           activeFilter === 'quadrant'
             ? 'max-w-none px-1.5 sm:px-2.5 lg:px-3.5 xl:px-4.5 2xl:px-5'
             : 'max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-7 xl:px-8 2xl:px-10'
@@ -8769,7 +8769,7 @@ const headerTitle = activeFilter === 'category'
                     ? futureAwareGroupedTasks.map((group) => {
                         const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];
                         return (
-                          <div key={group.key} className="space-y-2 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] p-2.5">
+                          <div key={group.key} className="recall-task-group space-y-2 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] p-2.5">
                             <div className="flex">
                               <div className={`flex w-full max-w-full items-start justify-between gap-3 rounded-[18px] border-b border-[color:var(--ui-border-soft)] px-2.5 pb-2.5 pt-1.5 ${meta.tone}`}>
                                 <div className="min-w-0">
@@ -8840,7 +8840,7 @@ const headerTitle = activeFilter === 'category'
                         );
                       })
                     : groupedTasks.map((group) => (
-                        <div key={group.key} className="space-y-1">
+                        <div key={group.key} className="recall-task-group-simple space-y-1">
                           {taskGroupMode !== 'none' && (
                             <div className="flex items-center justify-between px-1 pt-3 pb-1 text-[11px] text-[#666666]">
                               <span className="font-semibold text-[#AAAAAA]">{group.label}</span>
@@ -8923,7 +8923,7 @@ const headerTitle = activeFilter === 'category'
               title="关闭任务详情"
             />
           )}
-          <aside className={`theme-native-surface fixed z-50 bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1))] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_36px_rgba(0,0,0,0.18)] ${
+          <aside className={`recall-detail-drawer theme-native-surface fixed z-50 bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1))] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_36px_rgba(0,0,0,0.18)] ${
             isTaskDetailFullscreen
               ? 'inset-0 w-full border-l-0'
               : 'inset-y-0 right-0 w-[440px] 2xl:w-[480px] border-l border-[color:var(--ui-border-strong)]'

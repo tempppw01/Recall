@@ -1682,3 +1682,302 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
   background: linear-gradient(180deg, rgba(153, 27, 27, 0.13), rgba(153, 27, 27, 0.035)), var(--ui-modal-bg);
   border-color: rgba(248, 113, 113, 0.38);
 }
+
+/* TickTick-inspired workspace skin: dense, quiet and split into clear panes. */
+.recall-app-shell {
+  --recall-workspace-bg: #1c1c1c;
+  --recall-sidebar-bg: #202020;
+  --recall-panel-bg: #242424;
+  --recall-hover-bg: rgba(255, 255, 255, 0.06);
+  --recall-selected-bg: rgba(255, 255, 255, 0.09);
+  --recall-divider: rgba(255, 255, 255, 0.08);
+  --recall-text: rgba(255, 255, 255, 0.9);
+  --recall-text-secondary: rgba(255, 255, 255, 0.58);
+  --recall-text-muted: rgba(255, 255, 255, 0.38);
+  background: var(--recall-workspace-bg) !important;
+}
+
+.recall-app-shell .ambient-shell {
+  display: none;
+}
+
+.recall-main-surface {
+  background: var(--recall-workspace-bg) !important;
+  color: var(--recall-text);
+}
+
+.recall-sidebar {
+  background: var(--recall-sidebar-bg) !important;
+  border-right-color: var(--recall-divider) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.recall-sidebar::before,
+.recall-sidebar::after {
+  display: none !important;
+}
+
+.recall-sidebar .sidebar-nav {
+  padding: 0.25rem 0.65rem 1rem !important;
+}
+
+.recall-sidebar .sidebar-section {
+  margin-bottom: 0.75rem;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.recall-sidebar .sidebar-section-toggle {
+  padding: 0.5rem 0.55rem !important;
+  border-radius: 0.45rem !important;
+  font-size: 0.65rem !important;
+  letter-spacing: 0.12em !important;
+}
+
+.recall-sidebar .sidebar-section-toggle:hover {
+  background: var(--recall-hover-bg);
+}
+
+.recall-sidebar .sidebar-nav-item,
+.recall-sidebar .sidebar-nav-item:hover {
+  min-height: 2.1rem;
+  border: 1px solid transparent !important;
+  border-radius: 0.5rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+.recall-sidebar .sidebar-nav-item.is-active {
+  border-color: transparent !important;
+  background: var(--recall-selected-bg) !important;
+  color: var(--recall-text) !important;
+}
+
+.recall-sidebar .sidebar-nav-item::before {
+  display: none !important;
+}
+
+.recall-sidebar .sidebar-nav-item > div:first-child {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0 !important;
+  border-radius: 0.4rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.recall-sidebar [class*="grid-cols-"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.recall-sidebar .sidebar-nav > .sidebar-section:nth-child(2) .sidebar-nav-item {
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem !important;
+}
+
+.recall-sidebar .sidebar-nav > .sidebar-section:nth-child(2) .sidebar-nav-item > div:first-child {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.recall-sidebar .sidebar-nav > .sidebar-section:nth-child(2) .sidebar-nav-item svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.recall-sidebar .sidebar-nav > .sidebar-section:nth-child(2) > div > div > div {
+  padding-top: 0.15rem;
+  padding-bottom: 0.15rem;
+}
+
+.recall-sidebar h1 {
+  font-size: 1rem !important;
+  letter-spacing: -0.02em !important;
+}
+
+.recall-sidebar .sidebar-shell {
+  background: transparent !important;
+}
+
+.recall-topbar {
+  background: var(--recall-workspace-bg) !important;
+  border-bottom: 1px solid var(--recall-divider) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.recall-topbar::before,
+.recall-topbar::after {
+  display: none !important;
+}
+
+.recall-topbar > div {
+  max-width: none !important;
+  padding: 0 1.25rem !important;
+}
+
+.recall-topbar .topbar-panel {
+  padding: 0.85rem 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.recall-topbar .btn,
+.recall-topbar button {
+  box-shadow: none !important;
+}
+
+.recall-composer {
+  padding: 0.75rem 1.25rem 0.25rem !important;
+  background: var(--recall-workspace-bg) !important;
+}
+
+.recall-composer .app-toolbar {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.recall-quick-add {
+  min-height: 2.65rem;
+  background: var(--recall-panel-bg) !important;
+  border-color: var(--recall-divider) !important;
+  transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
+}
+
+.recall-quick-add:focus-within {
+  border-color: rgba(var(--theme-accent), 0.45) !important;
+  background: #292929 !important;
+}
+
+.recall-composer .app-micro-card {
+  min-width: 7.5rem;
+  padding: 0.25rem 0.5rem !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.recall-composer .app-micro-card > div > span:first-child {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.recall-list-view {
+  max-width: 62rem !important;
+  padding: 0 1.25rem 4rem !important;
+}
+
+.recall-list-view .recall-task-group {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.recall-list-view .recall-task-group > div:first-child > div {
+  padding: 0.75rem 0.5rem 0.45rem !important;
+  border-bottom-color: var(--recall-divider) !important;
+  border-radius: 0 !important;
+}
+
+.recall-list-view .recall-task-group-simple {
+  border-top: 1px solid var(--recall-divider);
+}
+
+.recall-list-view .recall-task-item {
+  border-bottom: 1px solid var(--recall-divider);
+}
+
+.recall-list-view .recall-task-card {
+  min-height: 3rem;
+  padding: 0.65rem 0.5rem 0.65rem 0.25rem !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.recall-list-view .recall-task-card:hover {
+  border: 0 !important;
+  background: var(--recall-hover-bg) !important;
+  box-shadow: none !important;
+}
+
+.recall-list-view .recall-task-card.ui-state-selected {
+  background: var(--recall-selected-bg) !important;
+  box-shadow: none !important;
+}
+
+.recall-list-view .recall-task-card > .recall-task-tone {
+  left: 0.05rem;
+  width: 0.1rem;
+  box-shadow: none !important;
+  opacity: 0.55;
+}
+
+.recall-list-view .recall-task-card > .recall-task-progress {
+  border-radius: 0 !important;
+  opacity: 0.35;
+}
+
+.recall-list-view .recall-task-card button.mt-0\.5 {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.recall-list-view .recall-task-card .app-task-title {
+  font-size: 0.83rem !important;
+  font-weight: 500 !important;
+}
+
+.recall-detail-drawer {
+  background: var(--recall-sidebar-bg) !important;
+  border-left-color: var(--recall-divider) !important;
+  box-shadow: -16px 0 36px rgba(0, 0, 0, 0.12) !important;
+}
+
+body.theme-light .recall-app-shell {
+  --recall-workspace-bg: #f7f7f7;
+  --recall-sidebar-bg: #fbfbfb;
+  --recall-panel-bg: #ffffff;
+  --recall-hover-bg: rgba(15, 23, 42, 0.045);
+  --recall-selected-bg: rgba(15, 23, 42, 0.075);
+  --recall-divider: rgba(15, 23, 42, 0.1);
+  --recall-text: rgba(15, 23, 42, 0.9);
+  --recall-text-secondary: rgba(15, 23, 42, 0.58);
+  --recall-text-muted: rgba(15, 23, 42, 0.4);
+}
+
+body.theme-light .recall-quick-add:focus-within {
+  background: #ffffff !important;
+}
+
+@media (max-width: 639px) {
+  .recall-topbar > div,
+  .recall-composer,
+  .recall-list-view {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .recall-list-view {
+    padding-bottom: 3rem !important;
+  }
+}

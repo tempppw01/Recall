@@ -494,7 +494,7 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
       <aside
         ref={sidebarRef}
         className={`
-          theme-native-surface sidebar-shell fixed inset-y-0 left-0 z-40 flex flex-col overflow-visible
+          recall-sidebar theme-native-surface sidebar-shell fixed inset-y-0 left-0 z-40 flex flex-col overflow-visible
           border-r border-[color:var(--ui-border-soft)] bg-[var(--ui-surface-1)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.18)]
           ${isSidebarOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-full opacity-0 pointer-events-none'}
           sm:relative sm:translate-x-0 sm:opacity-100 sm:pointer-events-auto sm:shadow-none

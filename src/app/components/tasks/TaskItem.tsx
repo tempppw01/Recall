@@ -460,7 +460,7 @@ const TaskItem = ({
   return (
     <div
       data-task-drag-select-id={multiSelectEnabled ? task.id : undefined}
-      className={`relative rounded-[24px] ${isDueEditorOpen ? 'z-40' : ''} ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
+      className={`recall-task-item relative rounded-[24px] ${isDueEditorOpen ? 'z-40' : ''} ${isDragging ? 'ring-2 ring-[rgba(var(--theme-accent),0.55)] scale-[0.98]' : ''}`}
       draggable={canDrag}
       onDragStart={handleDragStart}
       onDragOver={(event) => {
@@ -496,7 +496,7 @@ const TaskItem = ({
       </div>
       <div
         onClick={handleClick}
-        className={`group relative overflow-visible rounded-[20px] p-2.5 pl-3.5 motion-card motion-press ui-state-hover ui-state-press border sm:p-3 sm:pl-4 ${cardCursorClass} ${
+        className={`recall-task-card group relative overflow-visible rounded-[20px] p-2.5 pl-3.5 motion-card motion-press ui-state-hover ui-state-press border sm:p-3 sm:pl-4 ${cardCursorClass} ${
           selected
             ? 'ui-state-selected border-[rgba(var(--theme-accent),0.42)] bg-[rgba(var(--theme-accent),0.14)] shadow-[0_0_0_1px_rgba(var(--theme-accent),0.10),0_14px_34px_rgba(0,0,0,0.24)]'
             : isCompleted
@@ -509,12 +509,12 @@ const TaskItem = ({
         }}
       >
         <div
-          className="absolute bottom-3 left-1.5 top-3 w-[3px] rounded-full opacity-70"
+          className="recall-task-tone absolute bottom-3 left-1.5 top-3 w-[3px] rounded-full opacity-70"
           style={{ background: taskTone, boxShadow: `0 0 6px ${taskTone}` }}
         />
         {subtaskTotal > 0 && (
           <div
-            className="absolute inset-y-0 left-0 rounded-l-[20px] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(var(--theme-grad-end),0.08))] transition-all duration-[var(--motion-slow)]"
+            className="recall-task-progress absolute inset-y-0 left-0 rounded-l-[20px] bg-[linear-gradient(180deg,rgba(var(--theme-accent),0.12),rgba(var(--theme-grad-end),0.08))] transition-all duration-[var(--motion-slow)]"
             style={{ width: `${subtaskProgress}%` }}
           />
         )}

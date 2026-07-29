@@ -1,4 +1,4 @@
-import { CalendarDays, CalendarRange, CheckCircle2, Clock3, Eye, EyeOff, Inbox, ListTodo, Plus, Send, Trash2, X } from 'lucide-react';
+import { CalendarDays, CalendarRange, CheckCircle2, Clock3, Eye, EyeOff, Inbox, ListTodo, Plus, Send, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 type SelectOption = { value: string; label: string };
@@ -142,35 +142,12 @@ export default function ListComposerPanel({
   onTaskScopeChange,
 }: ListComposerPanelProps) {
   const [randomPlaceholder, setRandomPlaceholder] = useState(TASK_PLACEHOLDERS[0]);
-  const [isQuickComposerOpen, setIsQuickComposerOpen] = useState(false);
   const quickInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const index = Math.floor(Math.random() * TASK_PLACEHOLDERS.length);
     setRandomPlaceholder(TASK_PLACEHOLDERS[index]);
   }, []);
-
-  useEffect(() => {
-    if (!isQuickComposerOpen) return;
-
-    const focusTimer = window.setTimeout(() => {
-      quickInputRef.current?.focus();
-    }, 80);
-
-    return () => {
-      window.clearTimeout(focusTimer);
-    };
-  }, [isQuickComposerOpen]);
-
-  useEffect(() => {
-    if (showQuickAdd) return;
-    setIsQuickComposerOpen(false);
-  }, [showQuickAdd]);
-
-  const appendInputToken = (token: string) => {
-    const nextInput = `${input.trim()}${input.trim() ? ' ' : ''}${token}`.trim();
-    setInput(nextInput);
-  };
 
   const submitComposer = () => {
     if (!input.trim() || loading) return;
@@ -180,7 +157,7 @@ export default function ListComposerPanel({
 
   return (
     <>
-    <div className="theme-native-surface px-3 pt-3 sm:px-6 sm:pt-4">
+    <div className="recall-composer theme-native-surface px-3 pt-3 sm:px-6 sm:pt-4">
       <div className="app-toolbar rounded-[20px] px-2.5 py-2 lg:rounded-[22px] lg:px-3 lg:py-2.5">
         {shouldShowTaskScopes && (
           <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 p-1 sm:flex sm:items-center">
@@ -218,6 +195,38 @@ export default function ListComposerPanel({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {showQuickAdd && (
+          <div className="recall-quick-add mb-2 flex items-center gap-2 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-2 sm:px-3">
+            <Plus className="h-4 w-4 shrink-0 text-[color:var(--ui-text-muted)]" aria-hidden="true" />
+            <input
+              ref={quickInputRef}
+              type="text"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  submitComposer();
+                }
+              }}
+              placeholder={randomPlaceholder}
+              className="min-w-0 flex-1 border-none bg-transparent px-1 py-1 text-sm text-[color:var(--ui-text-strong)] outline-none placeholder:text-[color:var(--ui-text-muted)]"
+              disabled={loading}
+              aria-label="快速添加任务"
+            />
+            <button
+              type="button"
+              onClick={submitComposer}
+              disabled={!input.trim() || loading}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(var(--theme-accent),0.16)] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[rgba(var(--theme-accent),0.26)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={loading ? '正在创建任务' : '创建任务'}
+              title={loading ? '正在创建任务' : '创建任务'}
+            >
+              <Send className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
 
@@ -342,106 +351,6 @@ export default function ListComposerPanel({
         ) : null}
       </div>
     </div>
-    {showQuickAdd && (
-      <>
-        {isQuickComposerOpen && (
-          <button
-            type="button"
-            className="fixed inset-0 z-[55] cursor-default bg-transparent"
-            aria-label="关闭快速创建任务"
-            onClick={() => setIsQuickComposerOpen(false)}
-          />
-        )}
-
-        <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[60] flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3 sm:right-6">
-          {isQuickComposerOpen && (
-            <div
-              className="motion-modal-surface w-[min(30rem,calc(100vw-2rem))] rounded-[24px] border border-[rgba(var(--theme-accent-soft),0.18)] bg-[color:var(--ui-modal-bg)] p-3 shadow-[0_18px_42px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-3"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-center justify-between gap-3 px-1 pb-2">
-                <div className="text-sm font-semibold text-[color:var(--ui-text-strong)]">快速创建</div>
-                <button
-                  type="button"
-                  onClick={() => setIsQuickComposerOpen(false)}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border-soft)] text-[color:var(--ui-text-muted)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
-                  aria-label="收起快速创建任务"
-                  title="收起"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              <div className="rounded-[18px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] p-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={quickInputRef}
-                    type="text"
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        submitComposer();
-                      }
-                    }}
-                    placeholder={randomPlaceholder}
-                    className="min-w-0 flex-1 border-none bg-transparent px-2 py-2 text-sm text-[color:var(--ui-text-strong)] outline-none placeholder:text-[color:var(--ui-text-muted)]"
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={submitComposer}
-                    disabled={!input.trim() || loading}
-                    className="btn btn-primary h-10 w-10 shrink-0 rounded-2xl p-0 shadow-[0_10px_24px_rgba(37,99,235,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label={loading ? '正在创建任务' : '创建任务'}
-                    title={loading ? '正在创建任务' : '创建任务'}
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-[rgba(255,255,255,0.05)] pt-2">
-                  {[
-                    ['高', '高优先级'],
-                    ['中', '中优先级'],
-                    ['低', '低优先级'],
-                    ['#标签', '#Recall'],
-                    ['今天', '今天'],
-                    ['明天', '明天'],
-                    ['今晚', '今晚'],
-                    ['备注', '备注：'],
-                  ].map(([label, token]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => {
-                        appendInputToken(token);
-                        quickInputRef.current?.focus();
-                      }}
-                      className="h-7 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-2.5 text-[11px] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsQuickComposerOpen((previous) => !previous)}
-            className={`motion-card motion-press surface-sheen inline-flex h-14 w-14 items-center justify-center rounded-[22px] border border-[rgba(var(--theme-accent),0.34)] bg-[linear-gradient(135deg,rgba(var(--theme-accent),0.92),rgba(var(--theme-grad-end),0.82))] text-white shadow-[0_18px_42px_rgba(var(--theme-accent),0.26)] transition-transform hover:scale-[1.03] ${
-              isQuickComposerOpen ? 'rotate-45' : ''
-            }`}
-            aria-label={isQuickComposerOpen ? '收起快速创建任务' : '展开快速创建任务'}
-            title={isQuickComposerOpen ? '收起快速创建任务' : '新建任务'}
-          >
-            <Plus className="h-6 w-6" />
-          </button>
-        </div>
-      </>
-    )}
     </>
   );
 }
