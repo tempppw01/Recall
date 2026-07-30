@@ -1954,11 +1954,11 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 }
 
 body.theme-light .recall-app-shell {
-  --recall-workspace-bg: #f7f7f7;
-  --recall-sidebar-bg: #fbfbfb;
+  --recall-workspace-bg: #f5f7fa;
+  --recall-sidebar-bg: #eef2f5;
   --recall-panel-bg: #ffffff;
-  --recall-hover-bg: rgba(15, 23, 42, 0.045);
-  --recall-selected-bg: rgba(15, 23, 42, 0.075);
+  --recall-hover-bg: rgba(39, 174, 154, 0.08);
+  --recall-selected-bg: rgba(39, 174, 154, 0.12);
   --recall-divider: rgba(15, 23, 42, 0.1);
   --recall-text: rgba(15, 23, 42, 0.9);
   --recall-text-secondary: rgba(15, 23, 42, 0.58);
@@ -1966,7 +1966,87 @@ body.theme-light .recall-app-shell {
 }
 
 body.theme-light .recall-quick-add:focus-within {
-  background: #ffffff !important;
+  background: var(--recall-panel-bg) !important;
+}
+
+/* Interaction surfaces: one palette for menus, tooltips and focused controls. */
+.sidebar-brand-button {
+  background: var(--recall-panel-bg);
+  border-color: rgba(var(--theme-accent), 0.2);
+}
+
+.sidebar-brand-button > span {
+  opacity: 0.3;
+}
+
+.sidebar-brand-menu {
+  background: var(--recall-panel-bg);
+  border-color: var(--recall-divider);
+}
+
+.sidebar-brand-menu-icon,
+.sidebar-brand-menu-item-icon {
+  background: rgba(var(--theme-accent), 0.1);
+  border-color: rgba(var(--theme-accent), 0.18);
+}
+
+.sidebar-brand-menu-item:hover,
+.sidebar-brand-menu-item:focus-visible {
+  background: var(--recall-hover-bg);
+  outline: none;
+}
+
+.sidebar-brand-menu-item:focus-visible {
+  box-shadow: 0 0 0 2px rgba(var(--theme-accent), 0.24);
+}
+
+.recall-sidebar button:focus {
+  outline: none;
+}
+
+.recall-sidebar button:focus-visible {
+  outline: 2px solid rgba(var(--theme-accent), 0.42);
+  outline-offset: -2px;
+}
+
+.sidebar-rail-tooltip {
+  background: var(--recall-panel-bg);
+  border-color: var(--recall-divider);
+  color: var(--recall-text);
+  transform: translate3d(-0.25rem, -50%, 0);
+}
+
+body.theme-light::before {
+  background: linear-gradient(180deg, #f8fafc 0%, #f2f5f8 100%);
+}
+
+body.theme-light::after {
+  opacity: 0.08;
+}
+
+body.theme-light .status-feedback {
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+body.theme-light .recall-topbar,
+body.theme-light .recall-composer {
+  background: var(--recall-workspace-bg) !important;
+}
+
+body.theme-light .recall-sidebar {
+  box-shadow: 1px 0 0 rgba(15, 23, 42, 0.03) !important;
+}
+
+body.theme-light .recall-quick-add {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-rail-tooltip,
+  .sidebar-brand-button,
+  .sidebar-brand-menu-item {
+    transition: none !important;
+  }
 }
 
 @media (max-width: 639px) {

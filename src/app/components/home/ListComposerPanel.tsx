@@ -199,7 +199,7 @@ export default function ListComposerPanel({
         )}
 
         {showQuickAdd && (
-          <div className="recall-quick-add mb-2 flex items-center gap-2 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-2 sm:px-3">
+          <div className="recall-quick-add mb-2 flex items-center gap-2 rounded-[12px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-2 sm:px-3">
             <Plus className="h-4 w-4 shrink-0 text-[color:var(--ui-text-muted)]" aria-hidden="true" />
             <input
               ref={quickInputRef}
@@ -227,6 +227,7 @@ export default function ListComposerPanel({
             >
               <Send className="h-3.5 w-3.5" />
             </button>
+            <kbd className="hidden rounded-md border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-muted)] sm:inline-flex">Enter</kbd>
           </div>
         )}
 

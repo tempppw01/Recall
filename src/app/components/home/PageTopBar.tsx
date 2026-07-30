@@ -62,7 +62,7 @@ export default function PageTopBar({
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <h2
                   className="flex min-w-0 items-center gap-2 text-[14px] font-semibold tracking-tight text-[color:var(--ui-text-strong)] sm:text-[15px]"
                   title={headerSubtitle ?? headerTitle}
@@ -70,6 +70,9 @@ export default function PageTopBar({
                   {activeFilter === 'habit' && <Flame className="h-[18px] w-[18px] shrink-0 text-orange-400" />}
                   <span className="truncate">{headerTitle}</span>
                 </h2>
+                {headerSubtitle && headerSubtitle !== headerTitle && (
+                  <span className="hidden truncate text-xs text-[color:var(--ui-text-muted)] xl:inline">{headerSubtitle}</span>
+                )}
               </div>
             </div>
 
@@ -92,7 +95,7 @@ export default function PageTopBar({
 
               <button
                 onClick={onSync}
-                className={`shrink-0 ${iconButtonClassName}`}
+                className={`${actionButtonClassName} hidden w-auto items-center justify-center gap-1.5 px-2.5 text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)] sm:inline-flex`}
                 title={isSyncingNow ? '正在同步' : '执行同步'}
                 aria-label={isSyncingNow ? '正在同步' : '执行同步'}
                 disabled={isSyncingNow}
@@ -102,6 +105,7 @@ export default function PageTopBar({
                 ) : (
                   <Cloud className="h-4 w-4" />
                 )}
+                <span className="hidden lg:inline">{isSyncingNow ? '同步中' : '同步'}</span>
               </button>
 
               {isSyncingNow && (
