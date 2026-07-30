@@ -5765,6 +5765,8 @@ const headerTitle = activeFilter === 'category'
     ? (activeCategory ?? FILTER_LABELS.category)
     : activeFilter === 'tag'
     ? (activeTag ? `#${activeTag}` : FILTER_LABELS.tag)
+    : activeFilter === 'completed'
+    ? '已完成'
     : activeFilter === 'timeline'
     ? '时间轴'
     : activeFilter === 'review'
@@ -6264,6 +6266,15 @@ const headerTitle = activeFilter === 'category'
         agentItems={agentItems}
         hasCalendarTasks={hasCalendarTasks}
         countdowns={countdowns}
+        listItems={categoryButtons}
+        tagItems={visibleTagItems}
+        activeCategory={activeCategory}
+        activeTag={activeTag}
+        onSelectCategory={setActiveCategory}
+        onSelectTag={setActiveTag}
+        onAddList={() => setIsAddingList(true)}
+        onRenameList={renameCategory}
+        onDeleteList={removeListItem}
         APP_VERSION={APP_VERSION}
         sidebarWidth={sidebarWidth}
         setSidebarWidth={(width) => {

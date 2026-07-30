@@ -6,6 +6,7 @@ export type ActiveFilter =
   | 'inbox'
   | 'today'
   | 'next7'
+  | 'completed'
   | 'calendar'
   | 'quadrant'
   | 'countdown'
@@ -46,6 +47,7 @@ export function useTaskFilters(params: {
 
     const filtered = tasks.filter((t) => {
       if (activeFilter === 'agent') return true;
+      if (activeFilter === 'completed') return t.status === 'completed';
       if (activeFilter === 'inbox') {
         return canShowTask(t) && !t.dueDate;
       }

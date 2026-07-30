@@ -12,11 +12,16 @@ import {
   Flame,
   GripVertical,
   History,
+  Inbox,
+  List,
   LayoutGrid,
-  Package2,
+  Plus,
   Settings,
   Smile,
+  Sun,
+  Tag,
   Timer,
+  CheckCircle2,
   X,
 } from 'lucide-react';
 import { Countdown, Task } from '@/lib/store';
@@ -36,6 +41,15 @@ type SidebarProps = {
   agentItems: Array<{ id: string }>;
   hasCalendarTasks: boolean;
   countdowns: Countdown[];
+  listItems?: string[];
+  tagItems?: string[];
+  activeCategory?: string | null;
+  activeTag?: string | null;
+  onSelectCategory?: (value: string | null) => void;
+  onSelectTag?: (value: string | null) => void;
+  onAddList?: () => void;
+  onRenameList?: (value: string) => void;
+  onDeleteList?: (value: string) => void;
   APP_VERSION: string;
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
@@ -56,7 +70,6 @@ type ToolItemKey =
   | 'quadrant'
   | 'countdown'
   | 'habit'
-  | 'items'
   | 'pomodoro';
 
 type SidebarAction = {
@@ -76,8 +89,36 @@ const sidebarAccentStyle = (accentRgb?: string) => ({
   '--sidebar-item-accent': accentRgb ?? 'var(--theme-accent)',
 }) as React.CSSProperties;
 
+const SecondaryNavItem = ({
+  icon: Icon,
+  label,
+  count = 0,
+  active = false,
+  onClick,
+  onEdit,
+  onDelete,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  count?: number;
+  active?: boolean;
+  onClick: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) => (
+  <div className={`group/secondary flex items-center rounded-lg transition-colors ${active ? 'bg-[rgba(var(--theme-accent),0.12)]' : 'hover:bg-[color:var(--ui-card-hover-bg)]'}`}>
+    <button type="button" onClick={onClick} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] ${active ? 'text-[color:var(--ui-text-strong)]' : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-strong)]'}`}>
+      <Icon className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-[rgb(var(--theme-accent))]' : 'text-[color:var(--ui-text-muted)]'}`} />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count > 0 ? <span className="shrink-0 text-[10px] tabular-nums text-[color:var(--ui-text-muted)]">{count > 99 ? '99+' : count}</span> : null}
+    </button>
+    {onEdit ? <button type="button" onClick={onEdit} className="mr-1 hidden rounded p-1 text-[color:var(--ui-text-faint)] hover:text-[color:var(--ui-text-strong)] group-hover/secondary:block" aria-label={`重命名${label}`}>✎</button> : null}
+    {onDelete ? <button type="button" onClick={onDelete} className="mr-1 hidden rounded p-1 text-[color:var(--ui-text-faint)] hover:text-rose-400 group-hover/secondary:block" aria-label={`删除${label}`}>×</button> : null}
+  </div>
+);
+
 const TOOL_ORDER_KEY = 'recall_sidebar_tool_order';
-const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'items', 'pomodoro'];
+const DEFAULT_TOOL_ORDER: ToolItemKey[] = ['todo', 'calendar', 'timeline', 'review', 'quadrant', 'countdown', 'habit', 'pomodoro'];
 
 const Sidebar = ({
   isSidebarOpen,
@@ -93,6 +134,15 @@ const Sidebar = ({
   agentItems,
   hasCalendarTasks,
   countdowns,
+  listItems = [],
+  tagItems = [],
+  activeCategory = null,
+  activeTag = null,
+  onSelectCategory,
+  onSelectTag,
+  onAddList,
+  onRenameList,
+  onDeleteList,
   APP_VERSION,
   sidebarWidth,
   setSidebarWidth,
@@ -204,8 +254,11 @@ const Sidebar = ({
   }, [draggingToolKey]);
 
   const isMobile = viewportWidth > 0 ? viewportWidth < 640 : true;
-  const isRailLayout = viewportWidth >= 640 && viewportWidth < 1024;
-  const isDesktopExpanded = viewportWidth >= 1024;
+  // TickTick keeps the primary icon dock and the list navigator together on
+  // tablet widths. Collapsing to a single icon rail here made Recall lose
+  // the task context at the exact viewport where the reference app remains usable.
+  const isRailLayout = viewportWidth >= 640;
+  const isDesktopExpanded = viewportWidth >= 1280;
 
   useEffect(() => {
     setIsSmileMenuOpen(false);
@@ -301,15 +354,6 @@ const Sidebar = ({
       iconColor: 'text-orange-400',
       accentRgb: '249, 115, 22',
     },
-    items: {
-      icon: Package2,
-      label: '物品管理',
-      count: 0,
-      active: activeFilter === 'items',
-      onClick: () => changeFilter('items'),
-      iconColor: 'text-teal-400',
-      accentRgb: '20, 184, 166',
-    },
     pomodoro: {
       icon: Timer,
       label: '番茄时钟',
@@ -349,13 +393,9 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
       title: '节律',
       keys: ['countdown', 'habit', 'pomodoro'],
     },
-    {
-      title: '物品',
-      keys: ['items'],
-    },
   ];
 
-  const resolvedSidebarWidth = isRailLayout ? COLLAPSED_WIDTH : isDesktopExpanded ? sidebarWidth : undefined;
+  const resolvedSidebarWidth = isRailLayout ? 292 : isDesktopExpanded ? sidebarWidth : undefined;
   const toolGridColumnsClass = isDesktopExpanded && sidebarWidth >= 340 ? 'grid-cols-3' : 'grid-cols-2';
   const renderSmileMenu = (placement: 'rail' | 'sidebar') => {
     const isRail = placement === 'rail';
@@ -508,26 +548,15 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
         <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[rgba(var(--theme-accent),0.26)] to-transparent opacity-45" />
         <div className="pointer-events-none absolute -left-16 top-14 h-44 w-44 rounded-full bg-[rgba(var(--theme-accent),0.045)] blur-3xl" />
         {isRailLayout ? (
-          <div className="relative z-10 hidden h-full flex-col sm:flex">
-            <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-3">
-              {renderSmileMenu('rail')}
-            </div>
-            <div className="hidden border-b border-[color:var(--ui-border-soft)] px-2 py-2.5">
-              <button
-                type="button"
-                onClick={() => setIsSidebarCollapsed(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] text-[color:var(--ui-text-secondary)] transition-colors hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
-                title="展开侧边栏"
-                aria-label="展开侧边栏"
+          <div className="relative z-10 hidden h-full flex-row sm:flex">
+            <div className="flex w-[54px] shrink-0 flex-col border-r border-[color:var(--ui-border-soft)]">
+              <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-3">
+                {renderSmileMenu('rail')}
+              </div>
+              <nav
+                className="flex-1 space-y-1 overflow-y-auto py-3"
+                onMouseLeave={() => setHoveredRailIndex(null)}
               >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
-
-            <nav
-              className="flex-1 space-y-1 overflow-y-auto py-3"
-              onMouseLeave={() => setHoveredRailIndex(null)}
-            >
               {collapsedRailItems.map((item, index) => {
                 const Icon = item.icon;
                 const dock = getRailDockMetrics(index, item.active);
@@ -589,8 +618,118 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
                   </button>
                 );
               })}
-            </nav>
+              </nav>
+            </div>
 
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--ui-surface-1)]">
+              <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[15px] font-semibold tracking-[-0.02em] text-[color:var(--ui-text-strong)]">我的任务</p>
+                    <p className="mt-0.5 text-[10px] text-[color:var(--ui-text-muted)]">清单与工作台</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onAddList}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[color:var(--ui-text-muted)] transition-colors hover:bg-[color:var(--ui-card-hover-bg)] hover:text-[color:var(--ui-text-strong)]"
+                    title="新建列表"
+                    aria-label="新建列表"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <nav className="mobile-scroll flex-1 overflow-y-auto px-2.5 py-3" aria-label="任务清单">
+                <div className="space-y-0.5">
+                  <SecondaryNavItem
+                    icon={Sun}
+                    label="今天"
+                    count={tasks.filter((task) => task.status !== 'completed' && task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString()).length}
+                    active={activeFilter === 'today'}
+                    onClick={() => { onSelectCategory?.(null); onSelectTag?.(null); changeFilter('today', refreshTasks); }}
+                  />
+                  <SecondaryNavItem
+                    icon={Calendar}
+                    label="最近 7 天"
+                    count={tasks.filter((task) => task.status !== 'completed' && Boolean(task.dueDate)).length}
+                    active={activeFilter === 'next7'}
+                    onClick={() => { onSelectCategory?.(null); onSelectTag?.(null); changeFilter('next7', refreshTasks); }}
+                  />
+                  <SecondaryNavItem
+                    icon={Inbox}
+                    label="收集箱"
+                    count={tasks.filter((task) => task.status !== 'completed' && !task.dueDate).length}
+                    active={activeFilter === 'inbox'}
+                    onClick={() => { onSelectCategory?.(null); onSelectTag?.(null); changeFilter('inbox', refreshTasks); }}
+                  />
+                  <SecondaryNavItem
+                    icon={List}
+                    label="全部任务"
+                    count={tasks.filter((task) => task.status !== 'completed').length}
+                    active={activeFilter === 'todo' && !activeCategory && !activeTag}
+                    onClick={() => { onSelectCategory?.(null); onSelectTag?.(null); changeFilter('todo', refreshTasks); }}
+                  />
+                  <SecondaryNavItem
+                    icon={CheckCircle2}
+                    label="已完成"
+                    count={tasks.filter((task) => task.status === 'completed').length}
+                    active={activeFilter === 'completed'}
+                    onClick={() => { onSelectCategory?.(null); onSelectTag?.(null); changeFilter('completed', refreshTasks); }}
+                  />
+                </div>
+
+                <div className="my-4 h-px bg-[color:var(--ui-border-soft)]" />
+                <div className="flex items-center justify-between px-2 pb-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">列表</span>
+                  <button type="button" onClick={onAddList} className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]" aria-label="新增列表">
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="space-y-0.5">
+                  {listItems.map((name) => (
+                    <SecondaryNavItem
+                      key={name}
+                      icon={List}
+                      label={name}
+                      count={tasks.filter((task) => task.status !== 'completed' && task.category === name).length}
+                      active={activeFilter === 'category' && activeCategory === name}
+                      onClick={() => { onSelectCategory?.(name); onSelectTag?.(null); changeFilter('category', refreshTasks); }}
+                      onEdit={onRenameList ? () => onRenameList(name) : undefined}
+                      onDelete={onDeleteList ? () => onDeleteList(name) : undefined}
+                    />
+                  ))}
+                  {listItems.length === 0 ? <p className="px-2 py-2 text-[11px] text-[color:var(--ui-text-muted)]">还没有自定义列表</p> : null}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between px-2 pb-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">标签</span>
+                  <Tag className="h-3.5 w-3.5 text-[color:var(--ui-text-faint)]" />
+                </div>
+                <div className="space-y-0.5">
+                  {tagItems.slice(0, 12).map((name) => (
+                    <SecondaryNavItem
+                      key={name}
+                      icon={Tag}
+                      label={`#${name}`}
+                      count={tasks.filter((task) => task.status !== 'completed' && (task.tags || []).includes(name)).length}
+                      active={activeFilter === 'tag' && activeTag === name}
+                      onClick={() => { onSelectTag?.(name); onSelectCategory?.(null); changeFilter('tag', refreshTasks); }}
+                    />
+                  ))}
+                  {tagItems.length === 0 ? <p className="px-2 py-2 text-[11px] text-[color:var(--ui-text-muted)]">添加任务标签后会显示在这里</p> : null}
+                </div>
+
+                <div className="my-4 h-px bg-[color:var(--ui-border-soft)]" />
+                <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-faint)]">工作台</p>
+                <div className="space-y-0.5">
+                  {toolOrder.map((key) => {
+                    const item = toolConfig[key];
+                    return <SecondaryNavItem key={key} icon={item.icon} label={item.label} count={item.count} active={item.active} onClick={item.onClick} />;
+                  })}
+                </div>
+              </nav>
+            </div>
           </div>
         ) : (
           <>
