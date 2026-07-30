@@ -19,12 +19,12 @@ Exit criteria:
 
 Focus:
 - Improve day-to-day usability
-- Expand item management workflows
+- Consolidate task, review, and focus workflows
 - Strengthen page structure and interaction consistency
 
 Exit criteria:
 - `docs/plan/stages/v0.2.md` is complete
-- Core item-management scenarios are covered by regression checks
+- Core task-management scenarios are covered by regression checks
 
 ## Stage v0.3
 

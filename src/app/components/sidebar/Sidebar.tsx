@@ -549,12 +549,12 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
         <div className="pointer-events-none absolute -left-16 top-14 h-44 w-44 rounded-full bg-[rgba(var(--theme-accent),0.045)] blur-3xl" />
         {isRailLayout ? (
           <div className="relative z-10 hidden h-full flex-row sm:flex">
-            <div className="flex w-[54px] shrink-0 flex-col border-r border-[color:var(--ui-border-soft)]">
+            <div className="recall-primary-rail flex w-[54px] shrink-0 flex-col border-r border-[color:var(--ui-border-soft)]">
               <div className="border-b border-[color:var(--ui-border-soft)] px-2 py-3">
                 {renderSmileMenu('rail')}
               </div>
               <nav
-                className="flex-1 space-y-1 overflow-y-auto py-3"
+                className="recall-rail-nav flex-1 space-y-1 overflow-y-auto py-3"
                 onMouseLeave={() => setHoveredRailIndex(null)}
               >
               {collapsedRailItems.map((item, index) => {
@@ -570,7 +570,7 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
                     onFocus={() => setHoveredRailIndex(index)}
                     onBlur={() => setHoveredRailIndex(null)}
                     aria-current={item.active ? 'page' : undefined}
-                    className="group/rail relative mx-1.5 flex h-[54px] w-[calc(100%-0.75rem)] items-center justify-center rounded-[18px] transition-[transform,opacity] duration-[var(--motion-base)]"
+                    className="recall-rail-item group/rail relative mx-1.5 flex h-[54px] w-[calc(100%-0.75rem)] items-center justify-center rounded-[18px] transition-[transform,opacity] duration-[var(--motion-base)]"
                     style={{
                       ...sidebarAccentStyle(item.accentRgb),
                       opacity: dock.opacity,
@@ -621,7 +621,7 @@ const toolGroups: Array<{ title: string; keys: ToolItemKey[] }> = [
               </nav>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--ui-surface-1)]">
+            <div className="recall-secondary-pane flex min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--ui-surface-1)]">
               <div className="border-b border-[color:var(--ui-border-soft)] px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>

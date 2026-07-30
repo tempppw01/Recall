@@ -1685,6 +1685,10 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 
 /* TickTick-inspired workspace skin: dense, quiet and split into clear panes. */
 .recall-app-shell {
+  --theme-accent: 51, 185, 154;
+  --theme-accent-soft: 110, 231, 183;
+  --theme-grad-start: 45, 183, 155;
+  --theme-grad-end: 20, 153, 137;
   --recall-workspace-bg: #1c1c1c;
   --recall-sidebar-bg: #202020;
   --recall-panel-bg: #242424;
@@ -1712,6 +1716,19 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+.recall-primary-rail {
+  background: #191a1b !important;
+  border-right-color: var(--recall-divider) !important;
+}
+
+.recall-secondary-pane {
+  background: var(--recall-sidebar-bg) !important;
+}
+
+.recall-rail-item {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .recall-sidebar::before,
@@ -1852,6 +1869,14 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
   -webkit-backdrop-filter: none !important;
 }
 
+.recall-composer-controls {
+  min-height: 2rem;
+}
+
+.recall-composer-actions select {
+  min-height: 2rem;
+}
+
 .recall-quick-add {
   min-height: 2.65rem;
   background: var(--recall-panel-bg) !important;
@@ -1903,6 +1928,7 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 
 .recall-list-view .recall-task-item {
   border-bottom: 1px solid var(--recall-divider);
+  border-radius: 0 !important;
 }
 
 .recall-list-view .recall-task-card {
@@ -1947,6 +1973,15 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
   font-weight: 500 !important;
 }
 
+.recall-list-view .recall-task-group-title {
+  color: var(--recall-text) !important;
+  font-size: 0.78rem !important;
+}
+
+.recall-list-view .recall-task-group-summary {
+  display: none;
+}
+
 .recall-detail-drawer {
   background: var(--recall-sidebar-bg) !important;
   border-left-color: var(--recall-divider) !important;
@@ -1954,15 +1989,38 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 }
 
 body.theme-light .recall-app-shell {
-  --recall-workspace-bg: #f5f7fa;
-  --recall-sidebar-bg: #eef2f5;
+  --theme-accent: 48, 183, 153;
+  --theme-accent-soft: 110, 231, 183;
+  --theme-grad-start: 62, 196, 164;
+  --theme-grad-end: 28, 171, 144;
+  --recall-workspace-bg: #ffffff;
+  --recall-sidebar-bg: #edf8f5;
   --recall-panel-bg: #ffffff;
   --recall-hover-bg: rgba(39, 174, 154, 0.08);
-  --recall-selected-bg: rgba(39, 174, 154, 0.12);
-  --recall-divider: rgba(15, 23, 42, 0.1);
+  --recall-selected-bg: rgba(39, 174, 154, 0.13);
+  --recall-divider: rgba(30, 125, 105, 0.13);
   --recall-text: rgba(15, 23, 42, 0.9);
   --recall-text-secondary: rgba(15, 23, 42, 0.58);
   --recall-text-muted: rgba(15, 23, 42, 0.4);
+}
+
+body.theme-light .recall-primary-rail {
+  background: #65c7ad !important;
+  border-right-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+body.theme-light .recall-primary-rail .recall-rail-item {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+body.theme-light .recall-primary-rail .recall-rail-item:not(:hover) > span {
+  border-color: rgba(255, 255, 255, 0.26) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
+}
+
+body.theme-light .recall-secondary-pane {
+  background: #edf8f5 !important;
 }
 
 body.theme-light .recall-quick-add:focus-within {
@@ -2059,5 +2117,37 @@ body.theme-light .recall-quick-add {
 
   .recall-list-view {
     padding-bottom: 3rem !important;
+  }
+}
+
+@media (min-width: 640px) {
+  .recall-scope-tabs {
+    display: none !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .recall-composer-metrics {
+    display: none !important;
+  }
+
+  .recall-composer-controls {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    border-top: 1px solid var(--recall-divider);
+    padding-top: 0.5rem;
+  }
+
+  .recall-composer-actions {
+    display: flex !important;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .recall-composer-actions select {
+    max-width: min(46vw, 13rem);
   }
 }

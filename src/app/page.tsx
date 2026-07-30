@@ -6260,7 +6260,7 @@ const headerTitle = activeFilter === 'category'
         } ${
           isFixedPanelView
             ? 'pt-2 sm:pt-3'
-            : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'items', 'stats'].includes(activeFilter)
+            : ['calendar', 'quadrant', 'countdown', 'habit', 'pomodoro', 'stats'].includes(activeFilter)
               ? 'pt-3 sm:pt-4'
               : 'pt-3 sm:pt-4'
         } ${
@@ -8309,8 +8309,8 @@ const headerTitle = activeFilter === 'category'
                             <div className="flex">
                               <div className={`flex w-full max-w-full items-start justify-between gap-3 rounded-[18px] border-b border-[color:var(--ui-border-soft)] px-2.5 pb-2.5 pt-1.5 ${meta.tone}`}>
                                 <div className="min-w-0">
-                                  <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#EEF2FF]">{group.label}</div>
-                                  <div className="mt-0.5 truncate text-[11px] font-normal leading-tight text-[#7F8AA3]">{meta.summary}</div>
+                                  <div className="recall-task-group-title text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#EEF2FF]">{group.label}</div>
+                                  <div className="recall-task-group-summary mt-0.5 truncate text-[11px] font-normal leading-tight text-[#7F8AA3]">{meta.summary}</div>
                                 </div>
                                 <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.chipTone}`}>{group.items.length} 项</span>
                               </div>

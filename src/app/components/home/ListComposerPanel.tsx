@@ -160,7 +160,7 @@ export default function ListComposerPanel({
     <div className="recall-composer theme-native-surface px-3 pt-3 sm:px-6 sm:pt-4">
       <div className="app-toolbar rounded-[20px] px-2.5 py-2 lg:rounded-[22px] lg:px-3 lg:py-2.5">
         {shouldShowTaskScopes && (
-          <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 p-1 sm:flex sm:items-center">
+          <div className="recall-scope-tabs mb-2 grid grid-cols-2 gap-1.5 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 p-1 sm:flex sm:items-center">
             {taskScopeOptions?.map((option) => {
               const active = option.value === taskScope;
               const ScopeIcon = TASK_SCOPE_ICONS[option.value];
@@ -231,9 +231,9 @@ export default function ListComposerPanel({
           </div>
         )}
 
-        <div className="grid gap-2 text-xs text-[color:var(--ui-text-secondary)] lg:flex lg:flex-wrap lg:items-center lg:gap-2.5">
+        <div className="recall-composer-controls grid gap-2 text-xs text-[color:var(--ui-text-secondary)] lg:flex lg:flex-wrap lg:items-center lg:gap-2.5">
           {totalTasks > 0 && (
-            <div className="grid min-w-0 grid-cols-2 gap-2 lg:flex lg:flex-1 lg:flex-wrap lg:items-center">
+            <div className="recall-composer-metrics grid min-w-0 grid-cols-2 gap-2 lg:flex lg:flex-1 lg:flex-wrap lg:items-center">
               <MetricProgressPill
                 icon={CheckCircle2}
                 label="完成率"
@@ -282,7 +282,7 @@ export default function ListComposerPanel({
             </div>
           )}
 
-          <div className="grid min-w-0 grid-cols-2 gap-2 lg:ml-auto lg:flex lg:flex-wrap lg:items-center">
+          <div className="recall-composer-actions grid min-w-0 grid-cols-2 gap-2 lg:ml-auto lg:flex lg:flex-wrap lg:items-center">
             {completedTasks > 0 ? (
               <button
                 type="button"

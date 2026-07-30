@@ -4,7 +4,7 @@
 
 ```text
 Compose DATABASE_URL=mysql://... ──> MySQL Prisma Client ──┐
-                                                            ├─> 任务 / 习惯 / 倒计时 / 物品 API
+                                                            ├─> 任务 / 习惯 / 倒计时 API
 未配置 DATABASE_URL ─> 首次初始化页 ─> /app/data/recall.db ──┘
                                                             └─> 浏览器 LocalStorage 离线缓存
 ```

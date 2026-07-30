@@ -80,7 +80,7 @@ export default function DatabaseSetupGate({ children }: { children: React.ReactN
         <div className="mb-8 max-w-2xl">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65"><Database className="h-3.5 w-3.5" />首次初始化</div>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">选择 Recall 的数据存储</h1>
-          <p className="mt-3 text-sm leading-6 text-white/60 sm:text-base">当前 Compose 没有检测到 MySQL。请选择 SQLite 后，任务、习惯、倒计时和物品会写入服务端持久化数据库。</p>
+          <p className="mt-3 text-sm leading-6 text-white/60 sm:text-base">当前 Compose 没有检测到 MySQL。请选择 SQLite 后，任务、习惯和倒计时会写入服务端持久化数据库。</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <article className="rounded-[28px] border border-sky-300/25 bg-sky-300/[0.08] p-6 shadow-[0_18px_70px_rgba(14,165,233,0.12)]">
