@@ -109,20 +109,6 @@ export interface Countdown {
   updatedAt?: string;
 }
 
-/** 物品 */
-export interface Item {
-  id: string;
-  name: string;
-  category?: string;
-  tags: string[];
-  location?: string;
-  quantity: number;
-  status: 'normal' | 'low_stock' | 'need_restock' | 'missing';
-  note?: string;
-  createdAt: string;
-  updatedAt?: string;
-}
-
 /** 番茄钟记录 */
 export interface PomodoroRecord {
   id: string;
@@ -149,7 +135,6 @@ type StoreKey =
   | 'recall_tasks'
   | 'recall_habits'
   | 'recall_countdowns'
-  | 'recall_items'
   | 'recall_pomodoro_records'
   | 'recall_knowledge_base';
 
@@ -270,9 +255,6 @@ export const habitStore = createStore<Habit>('recall_habits', '/api/habits');
 /** 倒计时 Store，同步到 /api/countdowns */
 export const countdownStore = createStore<Countdown>('recall_countdowns', '/api/countdowns');
 
-/** 物品 Store，同步到 /api/items */
-export const itemStore = createStore<Item>('recall_items', '/api/items');
-
 /** 番茄钟 Store，仅本地存储（无远端同步） */
 export const pomodoroStore = createStore<PomodoroRecord>('recall_pomodoro_records');
 export const knowledgeStore = createStore<KnowledgeEntry>('recall_knowledge_base');
@@ -285,7 +267,6 @@ export const hydrateStoresFromDatabase = async () => {
     { endpoint: '/api/tasks', store: taskStore },
     { endpoint: '/api/habits', store: habitStore },
     { endpoint: '/api/countdowns', store: countdownStore },
-    { endpoint: '/api/items', store: itemStore },
   ] as const;
 
   const results = await Promise.all(collections.map(async ({ endpoint, store }) => {
@@ -306,6 +287,5 @@ export const hydrateStoresFromDatabase = async () => {
     tasks: results[0] as Task[],
     habits: results[1] as Habit[],
     countdowns: results[2] as Countdown[],
-    items: results[3] as Item[],
   };
 };

@@ -246,7 +246,7 @@ Open `http://<your-server-ip>:3789`, click **初始化并开始使用**. The sel
 | `REDIS_DB` | Redis database index | `0` |
 | `REDIS_PASSWORD` | Redis password | - |
 
-> The current server-side persistence path is **MySQL or SQLite**. After initialization, tasks, habits, countdowns, and items are loaded from the server database; LocalStorage is retained for offline cache and first-run migration.
+> The current server-side persistence path is **MySQL or SQLite**. After initialization, tasks, habits, and countdowns are loaded from the server database; LocalStorage is retained for offline cache and first-run migration.
 
 ---
 

@@ -80,7 +80,7 @@ import {
   readImageAsDataUrl,
   sortTasks,
 } from '@/app/homeUtils';
-import { taskStore, habitStore, countdownStore, itemStore, knowledgeStore, pomodoroStore, hydrateStoresFromDatabase, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown, Item } from '@/lib/store';
+import { taskStore, habitStore, countdownStore, knowledgeStore, pomodoroStore, hydrateStoresFromDatabase, Task, Subtask, Attachment, RepeatType, TaskRepeatRule, Habit, Countdown } from '@/lib/store';
 import PomodoroTimer from '@/app/components/PomodoroTimer';
 import PomodoroFloatingWidget from '@/app/components/PomodoroFloatingWidget';
 import { PomodoroAmbientController } from '@/app/components/PomodoroAmbientSound';
@@ -101,7 +101,6 @@ import type { CalendarViewMode } from '@/app/components/calendar/calendarTypes';
 import CountdownPanel from '@/app/components/countdown/CountdownPanel';
 import TimelinePanel from '@/app/components/timeline/TimelinePanel';
 import ReviewPanel from '@/app/components/review/ReviewPanel';
-import ItemsPanel from '@/app/components/items/ItemsPanel';
 import HabitPanel from '@/app/components/habits/HabitPanel';
 import StatsPanel from '@/app/components/stats/StatsPanel';
 import LogsModal from '@/app/components/logs/LogsModal';
@@ -148,7 +147,6 @@ const CALENDAR_CITY_KEY = 'recall_calendar_city';
 const DELETED_TASKS_KEY = 'recall_deleted_tasks';
 const DELETED_COUNTDOWNS_KEY = 'recall_deleted_countdowns';
 const DELETED_HABITS_KEY = 'recall_deleted_habits';
-const DELETED_ITEMS_KEY = 'recall_deleted_items';
 const DELETED_KNOWLEDGE_ENTRIES_KEY = 'recall_deleted_knowledge_entries';
 const COUNTDOWN_DISPLAY_MODE_KEY = 'recall_countdown_display_mode';
 const AI_RETENTION_KEY = 'recall_ai_retention';
@@ -559,7 +557,6 @@ const FILTER_LABELS: Record<string, string> = {
   today: '今日',
   next7: '未来 7 天',
   review: '检查',
-  items: '物品管理',
   stats: '统计',
 };
 const ACTIVE_FILTER_VALUES = new Set([
@@ -577,7 +574,6 @@ const ACTIVE_FILTER_VALUES = new Set([
   'today',
   'next7',
   'review',
-  'items',
   'stats',
   'timeline',
 ]);
@@ -1378,16 +1374,6 @@ export default function Home() {
     setTasks(filtered);
   }, []);
 
-  const refreshItems = useCallback(() => {
-    const all = itemStore.getAll();
-    const deletedMap = readDeletedMap(DELETED_ITEMS_KEY);
-    const { filtered, nextDeleted } = filterByDeletions(all, deletedMap);
-    if (Object.keys(deletedMap).length !== Object.keys(nextDeleted).length) {
-      persistDeletedMap(DELETED_ITEMS_KEY, nextDeleted);
-    }
-    setItems(filtered);
-  }, []);
-
   const refreshKnowledge = useCallback(() => {
     const all = normalizeKnowledgeEntries(knowledgeStore.getAll());
     const deletedMap = readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY);
@@ -1424,7 +1410,6 @@ export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // PC端侧边栏是否折叠
   const [habits, setHabits] = useState<Habit[]>([]);
   const [countdowns, setCountdowns] = useState<Countdown[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
   const [showCountdownForm, setShowCountdownForm] = useState(false);
   const [showClearCompletedConfirm, setShowClearCompletedConfirm] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
@@ -1432,15 +1417,6 @@ export default function Home() {
   const [countdownTitle, setCountdownTitle] = useState('');
   const [countdownDate, setCountdownDate] = useState('');
   const [newHabitTitle, setNewHabitTitle] = useState('');
-  const [itemNameInput, setItemNameInput] = useState('');
-  const [itemCategoryInput, setItemCategoryInput] = useState('');
-  const [itemLocationInput, setItemLocationInput] = useState('');
-  const [itemQuantityInput, setItemQuantityInput] = useState('1');
-  const [itemTagsInput, setItemTagsInput] = useState('');
-  const [itemNoteInput, setItemNoteInput] = useState('');
-  const [itemSearch, setItemSearch] = useState('');
-  const [itemStatusFilter, setItemStatusFilter] = useState('all');
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isTodoOpen, setIsTodoOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -2130,8 +2106,6 @@ export default function Home() {
       refreshTasks();
       refreshHabits();
       refreshCountdowns();
-      refreshItems();
-
       const seedDefaultTasks = () => {
         if (typeof window === 'undefined') return;
         const seeded = localStorage.getItem(DEFAULT_TASK_SEED_KEY);
@@ -2168,18 +2142,17 @@ export default function Home() {
 
       setSettingsLoaded(true);
     }
-  }, [refreshItems, refreshKnowledge, refreshTasks]);
+  }, [refreshKnowledge, refreshTasks]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded || databaseHydratedRef.current) return;
     databaseHydratedRef.current = true;
     void hydrateStoresFromDatabase()
-      .then(({ tasks: remoteTasks, habits: remoteHabits, countdowns: remoteCountdowns, items: remoteItems }) => {
+      .then(({ tasks: remoteTasks, habits: remoteHabits, countdowns: remoteCountdowns }) => {
         setTasks(filterOutOnboardingTasks(remoteTasks));
         setHabits(remoteHabits);
         setCountdowns(remoteCountdowns);
-        setItems(remoteItems);
-        pushLog('success', '服务端数据库已连接', '任务、习惯、倒计时和物品已从数据库加载。', { silentFeedback: true });
+        pushLog('success', '服务端数据库已连接', '任务、习惯和倒计时已从数据库加载。', { silentFeedback: true });
       })
       .catch((error) => {
         databaseHydratedRef.current = false;
@@ -2945,44 +2918,6 @@ export default function Home() {
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const totalTasks = tasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-  const deriveItemStatusFromQuantity = (quantity: number): Item['status'] => {
-  if (quantity <= 0) return 'missing';
-  if (quantity <= 2) return 'low_stock';
-  return 'normal';
-};
-
-const applyCompletedItemAction = (item: Item, action: string) => {
-  const safeQuantity = Math.max(0, Number(item.quantity) || 0);
-
-  if (action === 'restock') {
-    const nextQuantity = Math.max(safeQuantity, 3);
-    return {
-      quantity: nextQuantity,
-      status: deriveItemStatusFromQuantity(nextQuantity),
-    };
-  }
-
-  if (action === 'buy') {
-    const nextQuantity = safeQuantity + 1;
-    return {
-      quantity: nextQuantity,
-      status: deriveItemStatusFromQuantity(nextQuantity),
-    };
-  }
-
-  if (action === 'put_back') {
-    return {
-      quantity: safeQuantity,
-      status: item.status === 'missing' ? deriveItemStatusFromQuantity(Math.max(safeQuantity, 1)) : item.status,
-    };
-  }
-
-  return {
-    quantity: safeQuantity,
-    status: item.status,
-  };
-};
 
 const normalizeTimeoutSec = (value: number) => {
     const numeric = Number(value);
@@ -4246,12 +4181,10 @@ const normalizeTimeoutSec = (value: number) => {
     tasks: taskStore.getAll(),
     habits: habitStore.getAll(),
     countdowns: countdownStore.getAll(),
-    items: itemStore.getAll(),
     knowledgeEntries,
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
-    deletedItems: readDeletedMap(DELETED_ITEMS_KEY),
     deletedKnowledgeEntries: readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY),
   });
 
@@ -4260,12 +4193,10 @@ const normalizeTimeoutSec = (value: number) => {
     tasks: filterOutOnboardingTasks(taskStore.getAll()),
     habits: habitStore.getAll(),
     countdowns: countdownStore.getAll(),
-    items: itemStore.getAll(),
     knowledgeEntries,
     deletedTasks: readDeletedMap(DELETED_TASKS_KEY),
     deletedCountdowns: readDeletedMap(DELETED_COUNTDOWNS_KEY),
     deletedHabits: readDeletedMap(DELETED_HABITS_KEY),
-    deletedItems: readDeletedMap(DELETED_ITEMS_KEY),
     deletedKnowledgeEntries: readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY),
     settings: {
       apiBaseUrl,
@@ -4432,7 +4363,6 @@ const normalizeTimeoutSec = (value: number) => {
     const tasksImport = ensureUpdatedAt(filterOutOnboardingTasks(normalizeImportList<Task>(payload?.data?.tasks ?? payload?.tasks)));
     const habitsImport = ensureUpdatedAt(normalizeImportList<Habit>(payload?.data?.habits ?? payload?.habits));
     const countdownsImport = ensureUpdatedAt(normalizeImportList<Countdown>(payload?.data?.countdowns ?? payload?.countdowns));
-    const itemsImport = ensureUpdatedAt(normalizeImportList<Item>(payload?.data?.items ?? payload?.items));
     const hasKnowledgePayload =
       Array.isArray(payload?.data?.knowledgeEntries)
       || Array.isArray(payload?.knowledgeEntries)
@@ -4451,7 +4381,6 @@ const normalizeTimeoutSec = (value: number) => {
     const currentTasks = ensureUpdatedAt(filterOutOnboardingTasks(taskStore.getAll()));
     const currentHabits = ensureUpdatedAt(habitStore.getAll());
     const currentCountdowns = ensureUpdatedAt(countdownStore.getAll());
-    const currentItems = ensureUpdatedAt(itemStore.getAll());
     const currentKnowledgeEntries = ensureUpdatedAt(normalizeKnowledgeEntries(knowledgeStore.getAll()));
 
     const nextTasks = mode === 'overwrite'
@@ -4463,9 +4392,6 @@ const normalizeTimeoutSec = (value: number) => {
     const nextCountdowns = mode === 'overwrite'
       ? countdownsImport
       : mergeById(currentCountdowns, countdownsImport);
-    const nextItems = mode === 'overwrite'
-      ? itemsImport
-      : mergeById(currentItems, itemsImport);
     const nextKnowledgeEntries = !hasKnowledgePayload
       ? currentKnowledgeEntries
       : mode === 'overwrite'
@@ -4499,15 +4425,6 @@ const normalizeTimeoutSec = (value: number) => {
     const { filtered: filteredHabits, nextDeleted: nextDeletedHabits } =
       filterByDeletions(nextHabits, mergedDeletedHabits);
 
-    // Deletions: Items
-    const localDeletedItems = readDeletedMap(DELETED_ITEMS_KEY);
-    const incomingDeletedItems = normalizeDeletedMap(
-      payload?.deletions?.items ?? payload?.deletedItems,
-    );
-    const mergedDeletedItems = mergeDeletedMap(localDeletedItems, incomingDeletedItems);
-    const { filtered: filteredItems, nextDeleted: nextDeletedItems } =
-      filterByDeletions(nextItems, mergedDeletedItems);
-
     const localDeletedKnowledgeEntries = readDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY);
     const incomingDeletedKnowledgeEntries = hasKnowledgePayload
       ? normalizeDeletedMap(payload?.deletions?.knowledgeEntries ?? payload?.deletedKnowledgeEntries)
@@ -4521,19 +4438,16 @@ const normalizeTimeoutSec = (value: number) => {
     taskStore.replaceAll(syncedTasks);
     habitStore.replaceAll(filteredHabits);
     countdownStore.replaceAll(filteredCountdowns);
-    itemStore.replaceAll(filteredItems);
     knowledgeStore.replaceAll(filteredKnowledgeEntries);
     
     persistDeletedMap(DELETED_TASKS_KEY, nextDeletedTasks);
     persistDeletedMap(DELETED_COUNTDOWNS_KEY, nextDeletedCountdowns);
     persistDeletedMap(DELETED_HABITS_KEY, nextDeletedHabits);
-    persistDeletedMap(DELETED_ITEMS_KEY, nextDeletedItems);
     persistDeletedMap(DELETED_KNOWLEDGE_ENTRIES_KEY, nextDeletedKnowledgeEntries);
 
     setTasks(syncedTasks);
     setHabits(filteredHabits);
     setCountdowns(filteredCountdowns);
-    setItems(filteredItems);
     setKnowledgeEntries(filteredKnowledgeEntries);
 
     const nextCategories = Array.from(new Set(syncedTasks.map((task) => task.category).filter(Boolean))) as string[];
@@ -5073,34 +4987,6 @@ const normalizeTimeoutSec = (value: number) => {
       const updated: Task = { ...target, status: isCompleting ? 'completed' : 'todo' };
       let nextTask: Task | null = null;
       if (isCompleting) {
-        const itemIdTag = (target.tags || []).find((tag) => tag.startsWith('item:'));
-        const itemActionTag = (target.tags || []).find((tag) => tag.startsWith('item-action:'));
-        if (itemIdTag && itemActionTag) {
-          const itemId = itemIdTag.slice('item:'.length);
-          const itemAction = itemActionTag.slice('item-action:'.length);
-          const linkedItem = itemStore.getAll().find((entry) => entry.id === itemId);
-          if (linkedItem) {
-            const statusLabelMap: Record<Item['status'], string> = {
-              normal: '正常',
-              low_stock: '库存低',
-              need_restock: '待补货',
-              missing: '缺失',
-            };
-            const nextItem = applyCompletedItemAction(linkedItem, itemAction);
-            itemStore.update({
-              ...linkedItem,
-              quantity: nextItem.quantity,
-              status: nextItem.status,
-              updatedAt: new Date().toISOString(),
-            });
-            refreshItems();
-            pushLog(
-              'success',
-              '已同步物品状态',
-              `${linkedItem.name}：${statusLabelMap[linkedItem.status]} → ${statusLabelMap[nextItem.status]}，数量 ${linkedItem.quantity} → ${nextItem.quantity}`,
-            );
-          }
-        }
         const nextDate = getNextRepeatDate(target);
         if (nextDate) {
           nextTask = {
@@ -5771,8 +5657,6 @@ const headerTitle = activeFilter === 'category'
     ? '时间轴'
     : activeFilter === 'review'
     ? '检查'
-    : activeFilter === 'items'
-    ? '物品管理'
     : activeFilter === 'stats'
     ? '统计'
     : (FILTER_LABELS[activeFilter] ?? '待办');
@@ -5788,8 +5672,6 @@ const headerTitle = activeFilter === 'category'
     ? '把重要日子放在眼前，提醒自己持续推进'
     : activeFilter === 'habit'
     ? '追踪长期习惯，把重复的小事慢慢养成'
-    : activeFilter === 'items'
-    ? '记录物品位置、库存状态和补货提醒'
     : activeFilter === 'stats'
     ? '把任务、专注和习惯放在一个视角里，先看趋势，再决定下一步怎么推进'
     : activeFilter === 'pomodoro'
@@ -5806,7 +5688,7 @@ const headerTitle = activeFilter === 'category'
     ? '按标签聚合同类任务，方便快速筛选和处理'
     : '集中处理当前任务，减少拖延，往前推进';
   const isFixedPanelView = activeFilter === 'agent';
-  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'review', 'items', 'stats', 'timeline'].includes(activeFilter);
+  const isListView = !['pomodoro', 'calendar', 'countdown', 'quadrant', 'habit', 'agent', 'review', 'stats', 'timeline'].includes(activeFilter);
   const isManualSortEnabled = taskSortMode === 'manual' && taskGroupMode === 'none';
   const categoryButtons = Array.from(new Set([...CATEGORY_OPTIONS, ...listItems]));
   const hasCalendarTasks = Object.values(tasksByDate).some((list) => list.length > 0);
@@ -8392,157 +8274,7 @@ const headerTitle = activeFilter === 'category'
                 </div>
               </div>
             </div>
-          ) : activeFilter === 'items' ? (
-            <ItemsPanel
-              items={items
-                .filter((item) => {
-                  const keyword = itemSearch.trim().toLowerCase();
-                  const matchesKeyword = !keyword || [item.name, item.category, item.location, item.note, ...(item.tags || [])]
-                    .filter(Boolean)
-                    .some((value) => String(value).toLowerCase().includes(keyword));
-                  const matchesStatus = itemStatusFilter === 'all' || item.status === itemStatusFilter;
-                  return matchesKeyword && matchesStatus;
-                })
-                .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())}
-              itemNameInput={itemNameInput}
-              setItemNameInput={setItemNameInput}
-              itemCategoryInput={itemCategoryInput}
-              setItemCategoryInput={setItemCategoryInput}
-              itemLocationInput={itemLocationInput}
-              setItemLocationInput={setItemLocationInput}
-              itemQuantityInput={itemQuantityInput}
-              setItemQuantityInput={setItemQuantityInput}
-              itemTagsInput={itemTagsInput}
-              setItemTagsInput={setItemTagsInput}
-              itemNoteInput={itemNoteInput}
-              setItemNoteInput={setItemNoteInput}
-              itemSearch={itemSearch}
-              setItemSearch={setItemSearch}
-              itemStatusFilter={itemStatusFilter}
-              setItemStatusFilter={setItemStatusFilter}
-              editingItemId={editingItemId}
-              onCancelItemForm={() => {
-                setEditingItemId(null);
-                setItemNameInput('');
-                setItemCategoryInput('');
-                setItemLocationInput('');
-                setItemQuantityInput('1');
-                setItemTagsInput('');
-                setItemNoteInput('');
-              }}
-              onCreateItem={() => {
-                const name = itemNameInput.trim();
-                if (!name) {
-                  pushLog('warning', '请先填写物品名称');
-                  return;
-                }
-                const quantity = Math.max(0, Number(itemQuantityInput) || 0);
-                const nowIso = new Date().toISOString();
-                const nextPayload = {
-                  name,
-                  category: itemCategoryInput.trim() || undefined,
-                  location: itemLocationInput.trim() || undefined,
-                  quantity,
-                  status: deriveItemStatusFromQuantity(quantity),
-                  tags: itemTagsInput.split(/[，,]/).map((tag) => tag.trim()).filter(Boolean),
-                  note: itemNoteInput.trim() || undefined,
-                  updatedAt: nowIso,
-                };
-                if (editingItemId) {
-                  const current = itemStore.getAll().find((entry) => entry.id === editingItemId);
-                  if (!current) return;
-                  itemStore.update({ ...current, ...nextPayload });
-                } else {
-                  itemStore.add({
-                    id: createId(),
-                    ...nextPayload,
-                    createdAt: nowIso,
-                  });
-                }
-                refreshItems();
-                setEditingItemId(null);
-                setItemNameInput('');
-                setItemCategoryInput('');
-                setItemLocationInput('');
-                setItemQuantityInput('1');
-                setItemTagsInput('');
-                setItemNoteInput('');
-                pushLog('success', editingItemId ? '已更新物品' : '已添加物品', `物品：${name}`);
-              }}
-              onQuickCreateItem={(template) => {
-                const nowIso = new Date().toISOString();
-                itemStore.add({
-                  id: createId(),
-                  name: template.name,
-                  category: template.category,
-                  location: undefined,
-                  quantity: 1,
-                  status: 'normal',
-                  tags: template.tags || [],
-                  note: template.note,
-                  createdAt: nowIso,
-                  updatedAt: nowIso,
-                });
-                refreshItems();
-                setItemSearch('');
-                setItemStatusFilter('all');
-                pushLog('success', '已快速添加物品', `物品：${template.name}`);
-              }}
-              onEditItem={(item) => {
-                setEditingItemId(item.id);
-                setItemNameInput(item.name);
-                setItemCategoryInput(item.category || '');
-                setItemLocationInput(item.location || '');
-                setItemQuantityInput(String(item.quantity));
-                setItemTagsInput((item.tags || []).join(', '));
-                setItemNoteInput(item.note || '');
-              }}
-              onUpdateItemStatus={(id, status) => {
-                const current = itemStore.getAll().find((entry) => entry.id === id);
-                if (!current) return;
-                itemStore.update({ ...current, status, updatedAt: new Date().toISOString() });
-                refreshItems();
-                pushLog('success', '物品状态已更新');
-              }}
-              onDeleteItem={(id) => {
-                const current = itemStore.getAll().find((entry) => entry.id === id);
-                if (!current) return;
-                markDeleted(DELETED_ITEMS_KEY, id);
-                itemStore.remove(id);
-                refreshItems();
-                pushLog('success', '已删除物品', current.name);
-              }}
-              onCreateItemTask={(item, action) => {
-                const actionLabel = action === 'restock' ? '补货' : action === 'buy' ? '购买' : '归位';
-                const prefix = action === 'restock' ? '补货' : action === 'buy' ? '购买' : '把';
-                const title = action === 'put_back'
-                  ? `${prefix}${item.name}放回${item.location || '指定位置'}`
-                  : `${prefix}${item.name}`;
-                const detailParts = [
-                  item.category ? `分类：${item.category}` : '',
-                  item.location ? `位置：${item.location}` : '',
-                  typeof item.quantity === 'number' ? `当前数量：${item.quantity}` : '',
-                  item.note ? `备注：${item.note}` : '',
-                ].filter(Boolean);
-                const task: Task = {
-                  id: createId(),
-                  title,
-                  timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
-                  priority: action === 'buy' ? 2 : action === 'restock' ? 1 : 0,
-                  category: item.category || '物品管理',
-                  status: 'todo',
-                  tags: Array.from(new Set(['物品管理', actionLabel, `item:${item.id}`, `item-action:${action}`, ...(item.tags || [])])),
-                  pinned: false,
-                  subtasks: detailParts.length > 0 ? detailParts.map((part) => ({ id: createId(), title: part, completed: false })) : [],
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                };
-                taskStore.add(task);
-                refreshTasks();
-                pushLog('success', `已创建${actionLabel}任务`, title);
-              }}
-            />
-          ) : activeFilter === 'habit' ? (
+         ) : activeFilter === 'habit' ? (
             <HabitPanel
               habits={habits}
               hasApiKey={hasApiKey}

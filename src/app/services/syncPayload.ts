@@ -5,12 +5,10 @@ export function buildExportPayload(params: {
   tasks: any[];
   habits: any[];
   countdowns: any[];
-  items: any[];
   knowledgeEntries: any[];
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
-  deletedItems: Record<string, string>;
   deletedKnowledgeEntries: Record<string, string>;
 }) {
   const {
@@ -18,12 +16,10 @@ export function buildExportPayload(params: {
     tasks,
     habits,
     countdowns,
-    items,
     knowledgeEntries,
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
-    deletedItems,
     deletedKnowledgeEntries,
   } = params;
 
@@ -34,14 +30,12 @@ export function buildExportPayload(params: {
       tasks: filterOutOnboardingTasks(tasks),
       habits,
       countdowns,
-      items,
       knowledgeEntries,
     },
     deletions: {
       tasks: deletedTasks,
       countdowns: deletedCountdowns,
       habits: deletedHabits,
-      items: deletedItems,
       knowledgeEntries: deletedKnowledgeEntries,
     },
   };
@@ -52,12 +46,10 @@ export function buildSyncPayload(params: {
   tasks: any[];
   habits: any[];
   countdowns: any[];
-  items: any[];
   knowledgeEntries: any[];
   deletedTasks: Record<string, string>;
   deletedCountdowns: Record<string, string>;
   deletedHabits: Record<string, string>;
-  deletedItems: Record<string, string>;
   deletedKnowledgeEntries: Record<string, string>;
   settings: Record<string, any>;
   secrets: Record<string, any>;
@@ -67,12 +59,10 @@ export function buildSyncPayload(params: {
     tasks,
     habits,
     countdowns,
-    items,
     knowledgeEntries,
     deletedTasks,
     deletedCountdowns,
     deletedHabits,
-    deletedItems,
     deletedKnowledgeEntries,
     settings,
     secrets,
@@ -85,14 +75,12 @@ export function buildSyncPayload(params: {
       tasks: filterOutOnboardingTasks(tasks),
       habits,
       countdowns,
-      items,
       knowledgeEntries,
     },
     deletions: {
       tasks: deletedTasks,
       countdowns: deletedCountdowns,
       habits: deletedHabits,
-      items: deletedItems,
       knowledgeEntries: deletedKnowledgeEntries,
     },
     settings,

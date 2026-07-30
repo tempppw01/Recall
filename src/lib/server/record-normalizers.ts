@@ -1,8 +1,6 @@
 const TASK_STATUSES = ['todo', 'in_progress', 'completed'] as const;
-const ITEM_STATUSES = ['normal', 'low_stock', 'need_restock', 'missing'] as const;
 
 export type TaskStatusValue = (typeof TASK_STATUSES)[number];
-export type ItemStatusValue = (typeof ITEM_STATUSES)[number];
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -46,9 +44,6 @@ const normalizeObjectArray = (value: unknown): Record<string, unknown>[] =>
 const normalizeTaskStatus = (value: unknown): TaskStatusValue =>
   TASK_STATUSES.includes(value as TaskStatusValue) ? (value as TaskStatusValue) : 'todo';
 
-export const normalizeItemStatus = (value: unknown): ItemStatusValue =>
-  ITEM_STATUSES.includes(value as ItemStatusValue) ? (value as ItemStatusValue) : 'normal';
-
 export const normalizeTaskPayload = (payload: any) => ({
   id: normalizeOptionalId(payload?.id),
   title: normalizeString(payload?.title),
@@ -76,17 +71,5 @@ export const normalizeCountdownPayload = (payload: any) => ({
   title: normalizeString(payload?.title),
   targetDate: normalizeDate(payload?.targetDate),
   pinned: Boolean(payload?.pinned),
-  createdAt: normalizeDate(payload?.createdAt) ?? undefined,
-});
-
-export const normalizeItemPayload = (payload: any) => ({
-  id: normalizeOptionalId(payload?.id),
-  name: normalizeString(payload?.name),
-  category: normalizeNullableString(payload?.category),
-  tags: normalizeStringArray(payload?.tags),
-  location: normalizeNullableString(payload?.location),
-  quantity: Math.max(normalizeInt(payload?.quantity, 0), 0),
-  status: normalizeItemStatus(payload?.status),
-  note: normalizeNullableString(payload?.note),
   createdAt: normalizeDate(payload?.createdAt) ?? undefined,
 });

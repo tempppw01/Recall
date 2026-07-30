@@ -20,7 +20,6 @@ model User {
   tasks         Task[]
   habits        Habit[]
   countdowns    Countdown[]
-  items         Item[]
 }
 
 model Account {
@@ -107,25 +106,6 @@ model Countdown {
 
   @@index([userId, pinned])
   @@index([userId, targetDate])
-  @@index([userId, createdAt])
-}
-
-model Item {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  category  String?
-  tags      String
-  location  String?
-  quantity  Int      @default(0)
-  status    String   @default("normal")
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, status])
-  @@index([userId, category])
   @@index([userId, createdAt])
 }
 

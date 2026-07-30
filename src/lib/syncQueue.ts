@@ -33,7 +33,6 @@ type SyncConflictSummary = {
   tasks: number;
   habits: number;
   countdowns: number;
-  items: number;
   knowledgeEntries: number;
   settings: boolean;
   secrets: boolean;
@@ -324,15 +323,12 @@ const mergeSyncPayload = (
   const incomingHabits = ensureUpdatedAt(normalizeList(resolvePayloadItems(incomingPayload, 'habits')));
   const currentCountdowns = ensureUpdatedAt(normalizeList(resolvePayloadItems(existingPayload, 'countdowns')));
   const incomingCountdowns = ensureUpdatedAt(normalizeList(resolvePayloadItems(incomingPayload, 'countdowns')));
-  const currentItems = ensureUpdatedAt(normalizeList(resolvePayloadItems(existingPayload, 'items')));
-  const incomingItems = ensureUpdatedAt(normalizeList(resolvePayloadItems(incomingPayload, 'items')));
   const currentKnowledgeEntries = ensureUpdatedAt(normalizeList(resolveKnowledgePayloadItems(existingPayload)));
   const incomingKnowledgeEntries = ensureUpdatedAt(normalizeList(resolveKnowledgePayloadItems(incomingPayload)));
 
   const mergedTasks = mergeById(currentTasks, incomingTasks);
   const mergedHabits = mergeById(currentHabits, incomingHabits);
   const mergedCountdowns = mergeById(currentCountdowns, incomingCountdowns);
-  const mergedItems = mergeById(currentItems, incomingItems);
   const mergedKnowledgeEntries = mergeById(currentKnowledgeEntries, incomingKnowledgeEntries);
 
   // 合并任务删除记录，并过滤已删除任务
@@ -356,17 +352,6 @@ const mergeSyncPayload = (
   const mergedDeletedCountdowns = mergeDeletedMap(existingDeletedCountdowns, incomingDeletedCountdowns);
   const { filtered: filteredCountdowns, nextDeleted: nextDeletedCountdowns } =
     filterByDeletions(mergedCountdowns, mergedDeletedCountdowns);
-
-  // 合并 items 删除记录，并过滤已删除 items
-  const existingDeletedItems = normalizeDeletedMap(
-    existingPayload?.deletions?.items ?? existingPayload?.deletedItems,
-  );
-  const incomingDeletedItems = normalizeDeletedMap(
-    incomingPayload?.deletions?.items ?? incomingPayload?.deletedItems,
-  );
-  const mergedDeletedItems = mergeDeletedMap(existingDeletedItems, incomingDeletedItems);
-  const { filtered: filteredItems, nextDeleted: nextDeletedItems } =
-    filterByDeletions(mergedItems, mergedDeletedItems);
 
   // settings / secrets 根据 lastLocalChange 决定优先方
   const existingDeletedHabits = normalizeDeletedMap(
@@ -410,7 +395,6 @@ const mergeSyncPayload = (
     tasks: countConflictsById(currentTasks, incomingTasks),
     habits: countConflictsById(currentHabits, incomingHabits),
     countdowns: countConflictsById(currentCountdowns, incomingCountdowns),
-    items: countConflictsById(currentItems, incomingItems),
     knowledgeEntries: countConflictsById(currentKnowledgeEntries, incomingKnowledgeEntries),
     settings: Boolean(existingPayload?.settings && incomingPayload?.settings && !incomingWins),
     secrets: Boolean(existingPayload?.secrets && incomingPayload?.secrets && !incomingWins),
@@ -424,14 +408,12 @@ const mergeSyncPayload = (
         tasks: filteredTasks,
         habits: filteredHabits,
         countdowns: filteredCountdowns,
-        items: filteredItems,
         knowledgeEntries: filteredKnowledgeEntries,
       },
       deletions: {
         tasks: nextDeletedTasks,
         habits: nextDeletedHabits,
         countdowns: nextDeletedCountdowns,
-        items: nextDeletedItems,
         knowledgeEntries: nextDeletedKnowledgeEntries,
       },
       settings: mergedSettings,
