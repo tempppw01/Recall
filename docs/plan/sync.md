@@ -92,6 +92,6 @@ Recall 当前的 Redis 云同步是“任务队列 + 服务端合并”的模型
 
 ## 安全收敛
 
-- `POST /api/sync` 仅在服务端环境变量未配置 Redis 时，才接受客户端传入的 Redis 连接参数作为 fallback。
-- `GET /api/sync` 不再接受 query string 中的 Redis 凭据参数，避免凭据暴露在 URL / 日志 / 代理层。
-- 推荐生产环境统一通过服务端 `REDIS_*` 环境变量配置。
+- `POST /api/sync` 和 `GET /api/sync` 均只读取服务端 `REDIS_*` 环境变量。
+- 浏览器请求不再携带 Redis host、端口、DB 或密码，避免凭据暴露在 URL、请求体、日志或代理层。
+- 生产环境必须在 Compose/Railway 等部署环境中配置 `REDIS_HOST`、`REDIS_PORT`、`REDIS_DB` 和 `REDIS_PASSWORD`。

@@ -82,6 +82,17 @@ type ContextEntry = {
 /** 内存级上下文缓存（Redis 不可用时的降级方案） */
 const MEMORY_CONTEXT_CACHE = new Map<string, ContextEntry[]>();
 
+const resolveServerRedisConfig = () => {
+  const host = process.env.REDIS_HOST?.trim();
+  if (!host) return undefined;
+  return {
+    host,
+    port: Number(process.env.REDIS_PORT || 6379),
+    db: Number(process.env.REDIS_DB || 0),
+    password: process.env.REDIS_PASSWORD || undefined,
+  };
+};
+
 /** 上下文条数由设置页传入，默认使用 DEFAULT_AI_CONTEXT_LIMIT。 */
 /** 将 Redis 中的原始字符串数组解析为结构化的上下文条目 */
 function normalizeContextEntries(raw: string[]): ContextEntry[] {
@@ -1770,8 +1781,9 @@ function normalizeTodoAgentDecisions(
  */
 export async function POST(req: NextRequest) {
   try {
-    const { input, mode, images, tasks, knowledge, chatHistory, webSearch, apiKey, apiBaseUrl, chatModel, embeddingModel, rerankModel, redisConfig, sessionId, retentionDays, contextLimit } = await req.json();
+    const { input, mode, images, tasks, knowledge, chatHistory, webSearch, apiKey, apiBaseUrl, chatModel, embeddingModel, rerankModel, sessionId, retentionDays, contextLimit } = await req.json();
     const effectiveContextLimit = normalizeAiContextLimit(contextLimit);
+    const redisConfig = resolveServerRedisConfig();
     const webSearchConfig = normalizeWebSearchConfig(webSearch);
 
     const resolvedBaseUrl = apiBaseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;

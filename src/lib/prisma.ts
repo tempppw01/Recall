@@ -65,66 +65,6 @@ export const ensureActiveDatabase = async () => {
 
 export const getDatabaseReadiness = () => getDatabaseStatus();
 
-export type MysqlConfig = {
-  host?: string;
-  port?: string | number;
-  database?: string;
-  username?: string;
-  password?: string;
-};
-
-// 兼容旧设置页的字段名；新部署推荐直接通过 DATABASE_URL 配置 MySQL。
-export type PgConfig = MysqlConfig;
-export const DEFAULT_DYNAMIC_PG_USER_ID = 'local-user';
-
-const normalizePort = (value?: string | number) => {
-  const parsed = Number(String(value || '3306').trim());
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) return null;
-  return String(parsed);
-};
-
-const normalizeConfig = (config: MysqlConfig): Required<MysqlConfig> | null => {
-  const host = config.host?.trim();
-  const database = config.database?.trim();
-  const username = config.username?.trim();
-  const port = normalizePort(config.port);
-  if (!host || !database || !username || !port) return null;
-  return { host, port, database, username, password: config.password || '' };
-};
-
-const buildMysqlUrl = (config: Required<MysqlConfig>) =>
-  `mysql://${encodeURIComponent(config.username)}:${encodeURIComponent(config.password)}@${config.host}:${config.port}/${config.database}`;
-
-export const createDynamicPrismaClient = (config: MysqlConfig) => {
-  const normalized = normalizeConfig(config);
-  if (!normalized) return null;
-  return new MysqlPrismaClient({
-    datasources: { db: { url: buildMysqlUrl(normalized) } },
-    log: ['error', 'warn'],
-  });
-};
-
-export const disconnectDynamicPrisma = async (client: AppPrismaClient) => {
-  if (!client) return;
-  await client.$disconnect().catch((error: unknown) => {
-    console.error('[prisma] failed to disconnect dynamic client', error);
-  });
-};
-
-export const getPgConfigFromHeaders = (headers: Headers): PgConfig | null => {
-  const host = headers.get('x-pg-host');
-  const database = headers.get('x-pg-database');
-  const username = headers.get('x-pg-username');
-  if (!host || !database || !username) return null;
-  return {
-    host,
-    port: headers.get('x-pg-port') || '3306',
-    database,
-    username,
-    password: headers.get('x-pg-password') || '',
-  };
-};
-
 export type RequestDbContext = {
   client: AppPrismaClient;
   userId: string;
@@ -132,8 +72,10 @@ export type RequestDbContext = {
   provider: Exclude<DatabaseProvider, 'none'> | null;
 };
 
+const DEFAULT_LOCAL_USER_ID = 'local-user';
+
 export const ensureLocalUser = async (client: AppPrismaClient, userId: string) => {
-  if (userId !== DEFAULT_DYNAMIC_PG_USER_ID) return;
+  if (userId !== DEFAULT_LOCAL_USER_ID) return;
   await client.user.upsert({
     where: { id: userId },
     update: {},
@@ -156,10 +98,10 @@ export const resolveRequestDbContext = async (
     return { client: prisma, userId, source: 'session', provider };
   }
 
-  await ensureLocalUser(prisma, DEFAULT_DYNAMIC_PG_USER_ID);
+  await ensureLocalUser(prisma, DEFAULT_LOCAL_USER_ID);
   return {
     client: prisma,
-    userId: DEFAULT_DYNAMIC_PG_USER_ID,
+    userId: DEFAULT_LOCAL_USER_ID,
     source: 'local-database',
     provider,
   };

@@ -17,12 +17,12 @@ Compose DATABASE_URL=mysql://... ──> MySQL Prisma Client ──┐
 
 ## 连接与安全边界
 
-数据库凭据只允许通过服务端 `DATABASE_URL` 传入。浏览器不再把数据库密码作为请求头发送；旧版 PostgreSQL 设置字段仅保留在界面和 LocalStorage 中用于兼容升级。
+数据库凭据只允许通过服务端 `DATABASE_URL` 传入。浏览器不保存或传输数据库连接信息。Redis 同步队列和 AI 会话上下文同样只读取服务端 `REDIS_*` 环境变量。
 
 自部署未登录请求使用固定的 `local-user`，登录请求仍按 NextAuth session 的 user id 隔离数据。`/app/data` 必须挂载持久化 Volume，否则 SQLite 文件会随容器删除而丢失。
 
 ## 其他服务
 
-- **Redis**：可选同步队列与并发控制。
+- **Redis**：可选服务端同步队列、并发控制与 AI 会话上下文；不提供浏览器端连接设置。
 - **WebDAV**：可选附件存储，不承载业务数据库。
 - **AI API**：无状态处理自然语言、任务拆解和检索请求。

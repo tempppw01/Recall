@@ -4,15 +4,12 @@
  * GET  /api/tasks  - 获取当前用户的所有任务
  * POST /api/tasks  - 创建新任务
  *
- * 支持两种认证模式：
- * 1. NextAuth session（默认）—— 从 JWT 中获取 userId
- * 2. 动态 PG 连接（通过 x-pg-* 请求头）—— 使用固定的 local-user ID
+ * 支持登录用户和未登录本地用户两种模式；数据库连接统一由服务端配置决定。
  */
 
 import { NextResponse } from 'next/server';
 import { getRequestDbContext } from '@/lib/request-db';
 import { serializeJsonForDatabase } from '@/lib/database';
-import { prisma, ensureLocalUser } from '@/lib/prisma';
 import { buildPaginatedListResult, getPaginationParams } from '@/lib/server/pagination';
 import { normalizeTaskPayload } from '@/lib/server/record-normalizers';
 import { filterOutOnboardingTasks, isOnboardingTask } from '@/lib/onboardingTasks';
@@ -100,10 +97,6 @@ export async function POST(request: Request) {
 
     if (isOnboardingTask({ ...payload, title: normalized.title })) {
       return NextResponse.json({ skipped: true, id: normalized.id ?? null });
-    }
-
-    if (client !== prisma) {
-      await ensureLocalUser(client, userId);
     }
 
     const task = await client.task.create({

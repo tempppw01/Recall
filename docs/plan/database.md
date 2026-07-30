@@ -48,6 +48,6 @@ curl -fsS http://localhost:3789/api/health?deep=1
 
 如果没有 MySQL，先完成网页初始化，再执行 deep health check。容器重启后会从 `database.json` 读取 SQLite 选择并复用同一个数据库文件。
 
-## 6) 旧版本升级说明
+## 6) 升级说明
 
-旧版浏览器 PostgreSQL 设置字段会保留在 LocalStorage 中以避免升级时清空配置，但不再作为新部署的事实来源。新部署应使用 Compose 的 `DATABASE_URL`；没有 MySQL 时使用首次初始化页选择 SQLite。
+数据库连接设置已收敛到服务端：使用 Compose 的 `DATABASE_URL` 配置 MySQL/MariaDB；没有 MySQL 时使用首次初始化页选择 SQLite。浏览器不会再保存或提交数据库连接凭据。

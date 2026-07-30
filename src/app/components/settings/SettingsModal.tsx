@@ -1,8 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Bot, ChevronDown, Cloud, Database, Library, Palette, Pencil, Sparkles, Trash2 } from 'lucide-react';
 import ModelSelect from '@/app/components/models/ModelSelect';
-import PgSettings from '@/app/components/PgSettings';
-import RedisSettings from '@/app/components/RedisSettings';
 import type { KnowledgeEntry } from '@/app/homeTypes';
 import {
   WEB_SEARCH_MAX_RESULT_OPTIONS,
@@ -71,24 +69,6 @@ type SettingsModalProps = {
   sendTestNotification: () => void;
   isApiSettingsOpen: boolean;
   setIsApiSettingsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  pgHost: string;
-  pgPort: string;
-  pgDatabase: string;
-  pgUsername: string;
-  pgPassword: string;
-  setPgHost: React.Dispatch<React.SetStateAction<string>>;
-  setPgPort: React.Dispatch<React.SetStateAction<string>>;
-  setPgDatabase: React.Dispatch<React.SetStateAction<string>>;
-  setPgUsername: React.Dispatch<React.SetStateAction<string>>;
-  setPgPassword: React.Dispatch<React.SetStateAction<string>>;
-  redisHost: string;
-  redisPort: string;
-  redisDb: string;
-  redisPassword: string;
-  setRedisHost: React.Dispatch<React.SetStateAction<string>>;
-  setRedisPort: React.Dispatch<React.SetStateAction<string>>;
-  setRedisDb: React.Dispatch<React.SetStateAction<string>>;
-  setRedisPassword: React.Dispatch<React.SetStateAction<string>>;
   syncNamespace: string;
   setSyncNamespace: React.Dispatch<React.SetStateAction<string>>;
   DEFAULT_SYNC_NAMESPACE: string;
@@ -134,15 +114,6 @@ type SettingsModalProps = {
     countdownDisplayMode: CountdownDisplayMode;
     aiRetentionDays: number;
     aiContextLimit: number;
-    pgHost: string;
-    pgPort: string;
-    pgDatabase: string;
-    pgUsername: string;
-    pgPassword: string;
-    redisHost: string;
-    redisPort: string;
-    redisDb: string;
-    redisPassword: string;
     syncNamespace: string;
     calendarSubscription: string;
     themePreference: ThemePreference;
@@ -345,24 +316,6 @@ const SettingsModal = ({
   sendTestNotification,
   isApiSettingsOpen,
   setIsApiSettingsOpen,
-  pgHost,
-  pgPort,
-  pgDatabase,
-  pgUsername,
-  pgPassword,
-  setPgHost,
-  setPgPort,
-  setPgDatabase,
-  setPgUsername,
-  setPgPassword,
-  redisHost,
-  redisPort,
-  redisDb,
-  redisPassword,
-  setRedisHost,
-  setRedisPort,
-  setRedisDb,
-  setRedisPassword,
   syncNamespace,
   setSyncNamespace,
   DEFAULT_SYNC_NAMESPACE,
@@ -455,16 +408,16 @@ const SettingsModal = ({
     [activeSection],
   );
 
-  const getSectionTarget = (section: SettingsSectionKey) => {
+  const getSectionTarget = useCallback((section: SettingsSectionKey) => {
     if (section === 'ai') return aiSectionRef.current;
     if (section === 'appearance') return appearanceSectionRef.current;
     if (section === 'knowledge') return knowledgeSectionRef.current;
     if (section === 'notifications') return notificationsSectionRef.current;
     if (section === 'sync') return serverSettingsRef.current;
     return dataSectionRef.current;
-  };
+  }, []);
 
-  const scrollToSection = (section: SettingsSectionKey) => {
+  const scrollToSection = useCallback((section: SettingsSectionKey) => {
     setActiveSection(section);
     if (section === 'ai') {
       setIsApiSettingsOpen(true);
@@ -480,7 +433,7 @@ const SettingsModal = ({
       }
       target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
-  };
+  }, [getSectionTarget, setIsApiSettingsOpen]);
 
   const handleFetchModelList = async (mode: 'auto' | 'manual' = 'manual') => {
     if (!hasApiKey || isFetchingModels) return;
@@ -529,15 +482,6 @@ const SettingsModal = ({
         countdownDisplayMode,
         aiRetentionDays,
         aiContextLimit,
-        pgHost,
-        pgPort,
-        pgDatabase,
-        pgUsername,
-        pgPassword,
-        redisHost,
-        redisPort,
-        redisDb,
-        redisPassword,
         syncNamespace,
         calendarSubscription,
         themePreference,
@@ -577,15 +521,6 @@ const SettingsModal = ({
     countdownDisplayMode,
     aiRetentionDays,
     aiContextLimit,
-    pgHost,
-    pgPort,
-    pgDatabase,
-    pgUsername,
-    pgPassword,
-    redisHost,
-    redisPort,
-    redisDb,
-    redisPassword,
     syncNamespace,
     calendarSubscription,
     themePreference,
@@ -608,7 +543,7 @@ const SettingsModal = ({
         autoSavedNoticeTimerRef.current = null;
       }
     }
-  }, [settingsFocusTarget, showSettings]);
+  }, [settingsFocusTarget, scrollToSection, setIsApiSettingsOpen, showSettings]);
 
   useEffect(() => {
     if (!showSettings) return;
@@ -633,7 +568,7 @@ const SettingsModal = ({
     }
     setActiveSection('ai');
     setIsApiSettingsOpen(true);
-  }, [settingsFocusTarget, showSettings]);
+  }, [settingsFocusTarget, scrollToSection, setIsApiSettingsOpen, showSettings]);
 
   if (!showSettings) return null;
 
@@ -1476,30 +1411,9 @@ const SettingsModal = ({
             </summary>
             <div className="grid transition-[grid-template-rows,opacity] duration-[var(--motion-slow)] ease-out group-open:grid-rows-[1fr] group-open:opacity-100 grid-rows-[0fr] opacity-85">
               <div className="space-y-4 overflow-hidden mt-3">
-                <PgSettings
-                  host={pgHost}
-                  port={pgPort}
-                  database={pgDatabase}
-                  username={pgUsername}
-                  password={pgPassword}
-                  onHostChange={setPgHost}
-                  onPortChange={setPgPort}
-                  onDatabaseChange={setPgDatabase}
-                  onUsernameChange={setPgUsername}
-                  onPasswordChange={setPgPassword}
-                />
-
-                <RedisSettings
-                  host={redisHost}
-                  port={redisPort}
-                  db={redisDb}
-                  password={redisPassword}
-                  onHostChange={setRedisHost}
-                  onPortChange={setRedisPort}
-                  onDbChange={setRedisDb}
-                  onPasswordChange={setRedisPassword}
-                  focusHost={settingsFocusTarget === 'sync'}
-                />
+                <div className="rounded-2xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.025)] px-3.5 py-3 text-xs leading-5 text-[color:var(--ui-text-muted)]">
+                  数据库和 Redis 由部署环境统一配置：数据库使用服务端的 <code>DATABASE_URL</code>，未配置 MySQL 时在初始化页选择 SQLite；云同步和 AI 会话 Redis 使用服务端的 <code>REDIS_*</code> 环境变量。浏览器不再保存或传输这些连接凭据。
+                </div>
 
                 <div className="space-y-3">
                   <div className="ui-section-label text-[11px] sm:text-xs">同步设置</div>

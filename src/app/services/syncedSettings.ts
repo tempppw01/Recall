@@ -27,15 +27,6 @@ export type ResolveSyncedSettingsParams = {
 
     apiKey: string;
     tavilyApiKey: string;
-    pgHost: string;
-    pgPort: string;
-    pgDatabase: string;
-    pgUsername: string;
-    pgPassword: string;
-    redisHost: string;
-    redisPort: string;
-    redisDb: string;
-    redisPassword: string;
     calendarSubscription: string;
     syncNamespace: string;
   };
@@ -89,15 +80,6 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
 
   const nextApiKey = typeof secrets.apiKey === 'string' ? secrets.apiKey : current.apiKey;
   const nextTavilyApiKey = typeof secrets.tavilyApiKey === 'string' ? secrets.tavilyApiKey : current.tavilyApiKey;
-  const nextPgHost = typeof settings.pgHost === 'string' ? settings.pgHost : current.pgHost;
-  const nextPgPort = typeof settings.pgPort === 'string' ? settings.pgPort : current.pgPort;
-  const nextPgDatabase = typeof settings.pgDatabase === 'string' ? settings.pgDatabase : current.pgDatabase;
-  const nextPgUsername = typeof settings.pgUsername === 'string' ? settings.pgUsername : current.pgUsername;
-  const nextPgPassword = typeof secrets.pgPassword === 'string' ? secrets.pgPassword : current.pgPassword;
-  const nextRedisHost = typeof settings.redisHost === 'string' ? settings.redisHost : current.redisHost;
-  const nextRedisPort = typeof settings.redisPort === 'string' ? settings.redisPort : current.redisPort;
-  const nextRedisDb = typeof settings.redisDb === 'string' ? settings.redisDb : current.redisDb;
-  const nextRedisPassword = typeof secrets.redisPassword === 'string' ? secrets.redisPassword : current.redisPassword;
   const nextCalendarSubscription = typeof settings.calendarSubscription === 'string'
     ? settings.calendarSubscription
     : current.calendarSubscription;
@@ -122,15 +104,6 @@ export function resolveSyncedSettings(params: ResolveSyncedSettingsParams) {
     nextAiRetentionDays,
     nextAiContextLimit,
     nextApiKey,
-    nextPgHost,
-    nextPgPort,
-    nextPgDatabase,
-    nextPgUsername,
-    nextPgPassword,
-    nextRedisHost,
-    nextRedisPort,
-    nextRedisDb,
-    nextRedisPassword,
     nextCalendarSubscription,
     nextSyncNamespace,
   };

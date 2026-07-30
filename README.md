@@ -94,7 +94,7 @@ These actions reuse the existing task update flow rather than creating a separat
 - **React 18** + **TypeScript**
 - **Tailwind CSS** + **Lucide Icons**
 - **Prisma** (MySQL + SQLite database layer)
-- **Redis** (optional sync / queue capability)
+- **Redis** (optional server-side sync / queue capability)
 - **WebDAV** (optional attachment storage)
 
 ---
@@ -268,7 +268,7 @@ npm run prebuild
 DATABASE_URL='mysql://recall:recall@localhost:3306/recall' ./scripts/db-check.sh
 ```
 
-The old browser-side PostgreSQL fields are retained only for upgrade compatibility. New deployments should configure the server with `DATABASE_URL`; database credentials are not sent from the browser.
+Database and Redis credentials are server-only. Configure the database with `DATABASE_URL`; configure optional sync and AI session context with `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, and `REDIS_PASSWORD`. The browser does not expose or transmit either set of connection credentials.
 
 ---
 

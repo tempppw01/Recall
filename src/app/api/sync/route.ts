@@ -8,7 +8,7 @@
  * 1. 客户端 POST 创建同步任务 → 返回 jobId（HTTP 202）
  * 2. 客户端轮询 GET ?jobId=xxx → 服务端处理队列并返回结果
  *
- * Redis 配置优先级：环境变量 > 客户端传入的配置
+ * Redis 连接只从服务端 REDIS_* 环境变量读取，不接受浏览器传入的凭据。
  */
 
 import { randomUUID } from 'crypto';
@@ -84,45 +84,22 @@ const buildErrorResponse = (
     { status },
   );
 
-/**
- * 解析 Redis 连接配置
- * 优先使用环境变量，回退到客户端传入的配置
- */
-const resolveRedisConfig = (fallback?: RedisConfig, options?: { allowClientFallback?: boolean }) => {
-  const allowClientFallback = options?.allowClientFallback ?? false;
-  const host = process.env.REDIS_HOST || (allowClientFallback ? fallback?.host : undefined);
+/** 解析服务端 Redis 连接配置。浏览器永远不能覆盖这些值。 */
+const resolveRedisConfig = (): RedisConfig | null => {
+  const host = normalizeString(process.env.REDIS_HOST);
   if (!host) return null;
   return {
     host,
-    port: Number(process.env.REDIS_PORT || (allowClientFallback ? fallback?.port : undefined) || 6379),
-    password: process.env.REDIS_PASSWORD || (allowClientFallback ? fallback?.password : undefined) || undefined,
-    db: Number(process.env.REDIS_DB || (allowClientFallback ? fallback?.db : undefined) || 0),
-  };
-};
-
-
-const resolveRedisFallbackFromRequest = (request: NextRequest, searchParams: URLSearchParams): RedisConfig | undefined => {
-  const host = normalizeString(searchParams.get('redisHost') || '');
-  if (!host) return undefined;
-
-  const portRaw = normalizeString(searchParams.get('redisPort') || '');
-  const dbRaw = normalizeString(searchParams.get('redisDb') || '');
-  const headerPassword = normalizeString(request.headers.get('x-sync-redis-password') || '');
-  const queryPassword = normalizeString(searchParams.get('redisPassword') || '');
-  const password = headerPassword || queryPassword || undefined;
-
-  return {
-    host,
-    port: Number(portRaw || '6379'),
-    db: Number(dbRaw || '0'),
-    password,
+    port: Number(process.env.REDIS_PORT || 6379),
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: Number(process.env.REDIS_DB || 0),
   };
 };
 
 /**
  * POST /api/sync
  * 创建同步任务并入队，立即返回 jobId（异步处理模式）
- * 请求体：{ action: 'push'|'pull'|'sync', namespace?: string, payload?: any, redisConfig?: RedisConfig }
+ * 请求体：{ action: 'push'|'pull'|'sync', namespace?: string, payload?: any }
  */
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
@@ -141,7 +118,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { action, namespace, payload, redisConfig } = body;
+    const { action, namespace, payload } = body;
 
     if (!['push', 'pull', 'sync'].includes(action)) {
       return buildErrorResponse(
@@ -155,12 +132,12 @@ export async function POST(request: NextRequest) {
 
     const normalizedNamespace = normalizeString(namespace) || DEFAULT_SYNC_NAMESPACE;
 
-    const resolvedRedis = resolveRedisConfig(redisConfig, { allowClientFallback: true });
+    const resolvedRedis = resolveRedisConfig();
     if (!resolvedRedis) {
       return buildErrorResponse(
         requestId,
         SYNC_ERROR.REDIS_CONFIG_MISSING,
-        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env. Client-side Redis params are only accepted on POST enqueue.',
+        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env.',
         400,
       );
     }
@@ -206,14 +183,13 @@ export async function GET(request: NextRequest) {
       return buildErrorResponse(requestId, SYNC_ERROR.JOB_ID_REQUIRED, 'jobId is required', 400);
     }
 
-    const redisFallback = resolveRedisFallbackFromRequest(request, searchParams);
-    const resolvedRedis = resolveRedisConfig(redisFallback, { allowClientFallback: true });
+    const resolvedRedis = resolveRedisConfig();
 
     if (!resolvedRedis) {
       return buildErrorResponse(
         requestId,
         SYNC_ERROR.REDIS_CONFIG_MISSING,
-        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env, or pass redisHost/redisPort/redisDb and x-sync-redis-password during sync polling.',
+        'Redis config missing. Set REDIS_HOST/PORT/DB/PASSWORD in server env.',
         400,
       );
     }

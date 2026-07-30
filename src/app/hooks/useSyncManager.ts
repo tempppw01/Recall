@@ -3,10 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type SyncAction = 'push' | 'pull' | 'sync';
 
 export type SyncManagerParams = {
-  redisHost: string;
-  redisPort: number;
-  redisDb: number;
-  redisPassword: string;
   syncNamespace: string;
   autoSyncEnabled: boolean;
   autoSyncIntervalMin: number;
@@ -15,7 +11,6 @@ export type SyncManagerParams = {
   applyImportedData: (payload: any, mode: 'merge' | 'overwrite') => void;
   applySyncedSettings: (payload: any) => void;
   pushLog: (level: 'info' | 'success' | 'warning' | 'error', title: string, detail?: string, options?: { silentFeedback?: boolean }) => void;
-  onNeedSettings?: () => void;
 };
 
 type SyncErrorShape = {
@@ -52,7 +47,7 @@ const classifySyncErrorMessage = (error: unknown) => {
   if (code === 'SYNC_REDIS_CONFIG_MISSING' || msg.includes('redis config missing')) {
     return {
       title: '云同步配置不完整',
-      detail: '请检查 Redis Host/Port/DB/Password 配置',
+      detail: '请在服务端配置 REDIS_HOST、REDIS_PORT、REDIS_DB 和 REDIS_PASSWORD',
     };
   }
 
@@ -90,10 +85,6 @@ const classifySyncErrorMessage = (error: unknown) => {
 
 export function useSyncManager(params: SyncManagerParams) {
   const {
-    redisHost,
-    redisPort,
-    redisDb,
-    redisPassword,
     syncNamespace,
     autoSyncEnabled,
     autoSyncIntervalMin,
@@ -102,7 +93,6 @@ export function useSyncManager(params: SyncManagerParams) {
     applyImportedData,
     applySyncedSettings,
     pushLog,
-    onNeedSettings,
   } = params;
 
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
@@ -112,13 +102,7 @@ export function useSyncManager(params: SyncManagerParams) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
       const query = new URLSearchParams({ jobId });
-      if (redisHost) query.set('redisHost', redisHost);
-      if (Number.isFinite(redisPort)) query.set('redisPort', String(redisPort));
-      if (Number.isFinite(redisDb)) query.set('redisDb', String(redisDb));
-
-      const res = await fetch(`/api/sync?${query.toString()}`, {
-        headers: redisPassword ? { 'x-sync-redis-password': redisPassword } : undefined,
-      });
+      const res = await fetch(`/api/sync?${query.toString()}`);
 
       let data: any = null;
       try {
@@ -151,18 +135,10 @@ export function useSyncManager(params: SyncManagerParams) {
       await sleep(1000);
     }
     throw new Error('同步超时');
-  }, [redisDb, redisHost, redisPassword, redisPort]);
+  }, []);
 
   const handleSync = useCallback(async (action: SyncAction, options?: { silent?: boolean }) => {
     if (syncStatus === 'syncing') return;
-
-    if (!redisHost) {
-      if (!options?.silent) {
-        pushLog('warning', 'Redis 配置不完整', '请填写 Redis Host 以开启云同步');
-        onNeedSettings?.();
-      }
-      return;
-    }
 
     setSyncStatus('syncing');
     setIsSyncingNow(true);
@@ -181,12 +157,6 @@ export function useSyncManager(params: SyncManagerParams) {
           body: JSON.stringify({
             action: requestAction,
             namespace: syncNamespace,
-            redisConfig: {
-              host: redisHost,
-              port: redisPort,
-              db: redisDb,
-              password: redisPassword,
-            },
             ...(requestAction !== 'pull'
               ? { payload: { data: buildSyncPayload(), meta: { lastLocalChange } } }
               : {}),
@@ -275,17 +245,12 @@ export function useSyncManager(params: SyncManagerParams) {
     }
   }, [
     syncStatus,
-    redisHost,
-    redisPort,
-    redisDb,
-    redisPassword,
     syncNamespace,
     buildSyncPayload,
     getLastLocalChange,
     applyImportedData,
     applySyncedSettings,
     pushLog,
-    onNeedSettings,
     pollSyncJob,
   ]);
 
@@ -298,15 +263,13 @@ export function useSyncManager(params: SyncManagerParams) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!autoSyncEnabled) return;
-    if (!redisHost) return;
-
     const intervalMs = Math.max(1, autoSyncIntervalMin) * 60 * 1000;
     const timer = window.setInterval(() => {
       syncRef.current('sync', { silent: true });
     }, intervalMs);
 
     return () => window.clearInterval(timer);
-  }, [autoSyncEnabled, autoSyncIntervalMin, redisHost]);
+  }, [autoSyncEnabled, autoSyncIntervalMin]);
 
   return {
     syncStatus,

@@ -4,8 +4,6 @@ import { useState, useEffect, useRef, useCallback, type DragEvent as ReactDragEv
 import { useThemeSettings } from '@/app/hooks/useThemeSettings';
 import { useSyncManager } from '@/app/hooks/useSyncManager';
 import { useAppVersionMigration } from '@/app/hooks/useAppVersionMigration';
-import { usePgBootstrapSync } from '@/app/hooks/usePgBootstrapSync';
-import { usePgMirrorSync } from '@/app/hooks/usePgMirrorSync';
 import { APP_VERSION, APP_VERSION_STORAGE_KEY } from '@/app/config/appVersion';
 import { buildExportPayload as buildExportPayloadData, buildSyncPayload as buildSyncPayloadData } from '@/app/services/syncPayload';
 import { normalizeImportList, ensureUpdatedAt, mergeById } from '@/app/services/importMerge';
@@ -133,8 +131,6 @@ const DEFAULT_MODEL_LIST = ['deepseek-v4-flash'];
 const LEGACY_DEFAULT_MODEL_LIST = ['gemini-2.5-flash-lite'];
 const DEFAULT_FALLBACK_TIMEOUT_SEC = 2;
 const DEFAULT_SESSION_ID_KEY = 'recall_session_id';
-const DEFAULT_REDIS_DB = 0;
-const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_WEBDAV_URL = 'https://disk.shuaihong.fun/dav';
 const DEFAULT_WEBDAV_PATH = 'recall-sync.json';
 const DEFAULT_TASK_SEED_KEY = 'recall_default_tasks_seeded';
@@ -145,15 +141,6 @@ const WEBDAV_USERNAME_KEY = 'recall_webdav_username';
 const WEBDAV_PASSWORD_KEY = 'recall_webdav_password';
 const WEBDAV_AUTO_SYNC_KEY = 'recall_webdav_auto_sync';
 const WEBDAV_AUTO_SYNC_INTERVAL_KEY = 'recall_webdav_auto_sync_interval';
-const PG_HOST_KEY = 'recall_pg_host';
-const PG_PORT_KEY = 'recall_pg_port';
-const PG_DATABASE_KEY = 'recall_pg_database';
-const PG_USERNAME_KEY = 'recall_pg_username';
-const PG_PASSWORD_KEY = 'recall_pg_password';
-const REDIS_HOST_KEY = 'recall_redis_host';
-const REDIS_PORT_KEY = 'recall_redis_port';
-const REDIS_DB_KEY = 'recall_redis_db';
-const REDIS_PASSWORD_KEY = 'recall_redis_password';
 const SYNC_NAMESPACE_KEY = 'recall_sync_namespace';
 const LAST_LOCAL_CHANGE_KEY = 'recall_last_local_change';
 const CALENDAR_SUBSCRIPTION_KEY = 'recall_calendar_subscription';
@@ -1322,11 +1309,6 @@ export default function Home() {
   const [webdavPath, setWebdavPath] = useState(DEFAULT_WEBDAV_PATH);
   const [webdavUsername, setWebdavUsername] = useState('');
   const [webdavPassword, setWebdavPassword] = useState('');
-  const [pgHost, setPgHost] = useState('');
-  const [pgPort, setPgPort] = useState('');
-  const [pgDatabase, setPgDatabase] = useState('');
-  const [pgUsername, setPgUsername] = useState('');
-  const [pgPassword, setPgPassword] = useState('');
 
   useEffect(() => {
     if (!quadrantMenuOpenKey) return;
@@ -1416,22 +1398,7 @@ export default function Home() {
     setKnowledgeEntries(normalizeKnowledgeEntries(filtered));
   }, []);
 
-  const { syncToPg } = usePgMirrorSync({
-    enabled: Boolean(pgHost),
-    config: {
-      pgHost,
-      pgPort,
-      pgDatabase,
-      pgUsername,
-      pgPassword,
-    },
-    pushLog,
-  });
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
-  const [redisHost, setRedisHost] = useState('');
-  const [redisPort, setRedisPort] = useState(String(DEFAULT_REDIS_PORT));
-  const [redisDb, setRedisDb] = useState(String(DEFAULT_REDIS_DB));
-  const [redisPassword, setRedisPassword] = useState('');
   const [syncNamespace, setSyncNamespace] = useState(DEFAULT_SYNC_NAMESPACE);
   const [calendarSubscription, setCalendarSubscription] = useState('');
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
@@ -1442,10 +1409,6 @@ export default function Home() {
 
 
   const syncManager = useSyncManager({
-    redisHost,
-    redisPort: Number(redisPort) || DEFAULT_REDIS_PORT,
-    redisDb: Number(redisDb) || DEFAULT_REDIS_DB,
-    redisPassword,
     syncNamespace,
     autoSyncEnabled,
     autoSyncIntervalMin: autoSyncInterval,
@@ -1454,10 +1417,6 @@ export default function Home() {
     applyImportedData: (payload, mode) => applyImportedData(payload, mode),
     applySyncedSettings: (payload) => applySyncedSettings(payload),
     pushLog,
-    onNeedSettings: () => {
-      setSettingsFocusTarget('sync');
-      setShowSettings(true);
-    },
   });
   const { syncStatus, isSyncingNow } = syncManager;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1732,15 +1691,6 @@ export default function Home() {
     countdownDisplayMode: CountdownDisplayMode;
     aiRetentionDays: number;
     aiContextLimit: number;
-    pgHost: string;
-    pgPort: string;
-    pgDatabase: string;
-    pgUsername: string;
-    pgPassword: string;
-    redisHost: string;
-    redisPort: string;
-    redisDb: string;
-    redisPassword: string;
     syncNamespace: string;
     calendarSubscription: string;
     themePreference: 'light' | 'dark' | 'system';
@@ -1767,15 +1717,6 @@ export default function Home() {
     localStorage.setItem(COUNTDOWN_DISPLAY_MODE_KEY, next.countdownDisplayMode);
     localStorage.setItem(AI_RETENTION_KEY, String(next.aiRetentionDays));
     localStorage.setItem(AI_CONTEXT_LIMIT_STORAGE_KEY, String(normalizeAiContextLimit(next.aiContextLimit)));
-    localStorage.setItem(PG_HOST_KEY, next.pgHost);
-    localStorage.setItem(PG_PORT_KEY, next.pgPort);
-    localStorage.setItem(PG_DATABASE_KEY, next.pgDatabase);
-    localStorage.setItem(PG_USERNAME_KEY, next.pgUsername);
-    localStorage.setItem(PG_PASSWORD_KEY, next.pgPassword);
-    localStorage.setItem(REDIS_HOST_KEY, next.redisHost);
-    localStorage.setItem(REDIS_PORT_KEY, next.redisPort);
-    localStorage.setItem(REDIS_DB_KEY, next.redisDb);
-    localStorage.setItem(REDIS_PASSWORD_KEY, next.redisPassword);
     localStorage.setItem(SYNC_NAMESPACE_KEY, next.syncNamespace);
     localStorage.setItem(CALENDAR_SUBSCRIPTION_KEY, next.calendarSubscription);
     if (next.themePreference === 'system') {
@@ -1951,15 +1892,6 @@ export default function Home() {
             WEBDAV_AUTO_SYNC_KEY,
             WEBDAV_AUTO_SYNC_INTERVAL_KEY,
             COUNTDOWN_DISPLAY_MODE_KEY,
-            PG_HOST_KEY,
-            PG_PORT_KEY,
-            PG_DATABASE_KEY,
-            PG_USERNAME_KEY,
-            PG_PASSWORD_KEY,
-            REDIS_HOST_KEY,
-            REDIS_PORT_KEY,
-            REDIS_DB_KEY,
-            REDIS_PASSWORD_KEY,
             SYNC_NAMESPACE_KEY,
             CALENDAR_SUBSCRIPTION_KEY,
             CALENDAR_CITY_KEY,
@@ -2017,15 +1949,6 @@ export default function Home() {
       const nextStoredAiContextLimit = storedAiContextLimit
         ? normalizeAiContextLimit(storedAiContextLimit)
         : DEFAULT_AI_CONTEXT_LIMIT;
-      const storedPgHost = localStorage.getItem(PG_HOST_KEY);
-      const storedPgPort = localStorage.getItem(PG_PORT_KEY);
-      const storedPgDatabase = localStorage.getItem(PG_DATABASE_KEY);
-      const storedPgUsername = localStorage.getItem(PG_USERNAME_KEY);
-      const storedPgPassword = localStorage.getItem(PG_PASSWORD_KEY);
-      const storedRedisHost = localStorage.getItem(REDIS_HOST_KEY);
-      const storedRedisPort = localStorage.getItem(REDIS_PORT_KEY);
-      const storedRedisDb = localStorage.getItem(REDIS_DB_KEY);
-      const storedRedisPassword = localStorage.getItem(REDIS_PASSWORD_KEY);
       const storedCalendarSubscription = localStorage.getItem(CALENDAR_SUBSCRIPTION_KEY);
       const storedSyncNamespace = localStorage.getItem(SYNC_NAMESPACE_KEY);
       const storedCalendarCity = localStorage.getItem(CALENDAR_CITY_KEY);
@@ -2092,15 +2015,6 @@ export default function Home() {
           setAutoSyncInterval(parsedInterval);
         }
       }
-      if (storedPgHost) setPgHost(storedPgHost);
-      if (storedPgPort) setPgPort(storedPgPort);
-      if (storedPgDatabase) setPgDatabase(storedPgDatabase);
-      if (storedPgUsername) setPgUsername(storedPgUsername);
-      if (storedPgPassword) setPgPassword(storedPgPassword);
-      if (storedRedisHost) setRedisHost(storedRedisHost);
-      if (storedRedisPort) setRedisPort(storedRedisPort);
-      if (storedRedisDb) setRedisDb(storedRedisDb);
-      if (storedRedisPassword) setRedisPassword(storedRedisPassword);
       if (storedCalendarSubscription) setCalendarSubscription(storedCalendarSubscription);
       if (storedSyncNamespace) setSyncNamespace(storedSyncNamespace);
       if (storedCalendarCity) {
@@ -2328,42 +2242,20 @@ export default function Home() {
   // 注意：apiKey 的持久化已移至 persistSettings 函数中统一处理
   // 避免在用户编辑设置时意外丢失密钥
 
-  // PG 数据加载逻辑
-  usePgBootstrapSync({
-    enabled: Boolean(pgHost) && settingsLoaded,
-    pgHost,
-    pgPort,
-    pgDatabase,
-    pgUsername,
-    pgPassword,
-    pushLog,
-    taskStore,
-    sanitizeTasks: filterOutOnboardingTasks,
-    filterTaskUploadItems: filterOutOnboardingTasks,
-    habitStore,
-    countdownStore,
-    itemStore,
-    setTasks,
-    setHabits,
-    setCountdowns,
-    setItems,
-  });
-
   useEffect(() => {
     if (typeof window === 'undefined' || !settingsLoaded) return;
-    if (!pgHost && !redisHost) return;
     const currentTasks = taskStore.getAll();
     const sanitizedTasks = filterOutOnboardingTasks(currentTasks);
     if (sanitizedTasks.length === currentTasks.length) return;
     taskStore.replaceAll(sanitizedTasks);
     setTasks(sanitizedTasks);
     refreshTasks();
-  }, [settingsLoaded, pgHost, redisHost, refreshTasks]);
+  }, [settingsLoaded, refreshTasks]);
 
 
   useEffect(() => {
     pushLog('info', '应用已启动', '数据存储：服务端 MySQL/SQLite；浏览器 localStorage 仅作为离线缓存。');
-  }, [pgHost, pushLog]);
+  }, [pushLog]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2874,8 +2766,6 @@ export default function Home() {
     countdownStore.remove(itemId);
     markDeleted(DELETED_COUNTDOWNS_KEY, itemId);
     refreshCountdowns();
-    // PG 同步
-    syncToPg('countdowns', 'DELETE', { id: itemId });
     if (editingCountdown?.id === itemId) {
       resetCountdownForm();
     }
@@ -2906,8 +2796,6 @@ export default function Home() {
     habitStore.remove(habitId);
     markDeleted(DELETED_HABITS_KEY, habitId);
     refreshHabits();
-    // PG 同步
-    syncToPg('habits', 'DELETE', { id: habitId });
   };
 
   const getHabitStreak = (habit: Habit) => {
@@ -3551,12 +3439,6 @@ const normalizeTimeoutSec = (value: number) => {
           rerankModel: rerankModel?.trim() || undefined,
           sessionId,
           contextLimit: aiContextLimit,
-          redisConfig: {
-            host: redisHost,
-            port: redisPort,
-            db: redisDb,
-            password: redisPassword,
-          },
         }),
       });
       const data = await readAiResponseBody(res);
@@ -3718,12 +3600,6 @@ const normalizeTimeoutSec = (value: number) => {
           rerankModel: rerankModel?.trim() || undefined,
           sessionId,
           contextLimit: aiContextLimit,
-          redisConfig: {
-            host: redisHost,
-            port: redisPort,
-            db: redisDb,
-            password: redisPassword,
-          },
         }),
       });
       const data = await readAiResponseBody(res);
@@ -3796,12 +3672,6 @@ const normalizeTimeoutSec = (value: number) => {
         body: JSON.stringify({
           mode: 'clear-context',
           sessionId,
-          redisConfig: {
-            host: redisHost,
-            port: redisPort,
-            db: redisDb,
-            password: redisPassword,
-          },
         }),
       });
       if (!res.ok) {
@@ -3894,12 +3764,6 @@ const normalizeTimeoutSec = (value: number) => {
           sessionId,
           retentionDays: aiRetentionDays,
           contextLimit: aiContextLimit,
-          redisConfig: {
-            host: redisHost,
-            port: redisPort,
-            db: redisDb,
-            password: redisPassword,
-          },
         }),
       });
       const data = await readAiResponseBody(res);
@@ -4040,7 +3904,6 @@ const normalizeTimeoutSec = (value: number) => {
     }
     taskStore.add(task);
     refreshTasks();
-    syncToPg('tasks', 'POST', task);
   };
 
   const toggleAgentSuggestionSubtasks = (itemId: string) => {
@@ -4074,7 +3937,6 @@ const normalizeTimeoutSec = (value: number) => {
     });
     newTasks.forEach((task) => {
       taskStore.add(task);
-      syncToPg('tasks', 'POST', task);
     });
     setAddedAgentTaskMap((prev) => {
       const next = { ...prev };
@@ -4222,12 +4084,6 @@ const normalizeTimeoutSec = (value: number) => {
           sessionId,
           retentionDays: aiRetentionDays,
           contextLimit: aiContextLimit,
-          redisConfig: {
-            host: redisHost,
-            port: redisPort,
-            db: redisDb,
-            password: redisPassword,
-          },
         }),
       });
       const data = await readAiResponseBody(res);
@@ -4307,12 +4163,6 @@ const normalizeTimeoutSec = (value: number) => {
           sessionId,
           retentionDays: aiRetentionDays,
           contextLimit: aiContextLimit,
-          redisConfig: {
-            host: redisHost,
-            port: redisPort,
-            db: redisDb,
-            password: redisPassword,
-          },
         }),
       });
       const data = await readAiResponseBody(res);
@@ -4433,21 +4283,12 @@ const normalizeTimeoutSec = (value: number) => {
       countdownDisplayMode,
       aiRetentionDays,
       aiContextLimit,
-      pgHost,
-      pgPort,
-      pgDatabase,
-      pgUsername,
-      redisHost,
-      redisPort,
-      redisDb,
       calendarSubscription,
       knowledgeEntries,
     },
     secrets: {
       apiKey,
       tavilyApiKey,
-      pgPassword,
-      redisPassword,
     },
   });
 
@@ -4469,15 +4310,6 @@ const normalizeTimeoutSec = (value: number) => {
       nextAiRetentionDays,
       nextAiContextLimit,
       nextApiKey,
-      nextPgHost,
-      nextPgPort,
-      nextPgDatabase,
-      nextPgUsername,
-      nextPgPassword,
-      nextRedisHost,
-      nextRedisPort,
-      nextRedisDb,
-      nextRedisPassword,
       nextCalendarSubscription,
       nextSyncNamespace,
     } = resolveSyncedSettings({
@@ -4499,15 +4331,6 @@ const normalizeTimeoutSec = (value: number) => {
         aiContextLimit,
         apiKey,
         tavilyApiKey,
-        pgHost,
-        pgPort,
-        pgDatabase,
-        pgUsername,
-        pgPassword,
-        redisHost,
-        redisPort,
-        redisDb,
-        redisPassword,
         calendarSubscription,
         syncNamespace,
       },
@@ -4524,15 +4347,6 @@ const normalizeTimeoutSec = (value: number) => {
     });
 
     setApiKey(nextApiKey);
-    setPgHost(nextPgHost);
-    setPgPort(nextPgPort);
-    setPgDatabase(nextPgDatabase);
-    setPgUsername(nextPgUsername);
-    setPgPassword(nextPgPassword);
-    setRedisHost(nextRedisHost);
-    setRedisPort(nextRedisPort);
-    setRedisDb(nextRedisDb);
-    setRedisPassword(nextRedisPassword);
     setCalendarSubscription(nextCalendarSubscription);
     setSyncNamespace(nextSyncNamespace);
     setAiContextLimit(nextAiContextLimit);
@@ -4576,15 +4390,6 @@ const normalizeTimeoutSec = (value: number) => {
       countdownDisplayMode: nextCountdownDisplayMode as CountdownDisplayMode,
       aiRetentionDays: nextAiRetentionDays,
       aiContextLimit: nextAiContextLimit,
-      pgHost: nextPgHost,
-      pgPort: nextPgPort,
-      pgDatabase: nextPgDatabase,
-      pgUsername: nextPgUsername,
-      pgPassword: nextPgPassword,
-      redisHost: nextRedisHost,
-      redisPort: nextRedisPort,
-      redisDb: nextRedisDb,
-      redisPassword: nextRedisPassword,
       syncNamespace: nextSyncNamespace,
       calendarSubscription: nextCalendarSubscription,
       themePreference,
@@ -4786,10 +4591,9 @@ const normalizeTimeoutSec = (value: number) => {
     refreshTasks();
     
     // 异步同步到 PG
-    syncToPg('tasks', 'POST', task);
 
     setInput('');
-  }, [refreshTasks, syncToPg]);
+  }, [refreshTasks]);
 
   const handleMagicInput = async () => {
     if (!input.trim()) return;
@@ -4808,12 +4612,6 @@ const normalizeTimeoutSec = (value: number) => {
       sessionId,
       retentionDays: aiRetentionDays,
       contextLimit: aiContextLimit,
-      redisConfig: {
-        host: redisHost,
-        port: redisPort,
-        db: redisDb,
-        password: redisPassword,
-      },
     };
 
     const controller = new AbortController();
@@ -4885,7 +4683,6 @@ const normalizeTimeoutSec = (value: number) => {
     refreshTasks();
     
     // 异步同步到 PG
-    syncToPg('tasks', 'PUT', nextTask);
 
     if (selectedTask?.id === updatedTask.id) {
       setSelectedTask(nextTask);
@@ -5160,7 +4957,6 @@ const normalizeTimeoutSec = (value: number) => {
     setLastRemovedTask(removedTask ?? null);
     
     // 异步同步到 PG
-    syncToPg('tasks', 'DELETE', { id: taskId });
 
     if (selectedTask?.id === taskId) {
       setSelectedTask(null);
@@ -5178,10 +4974,9 @@ const normalizeTimeoutSec = (value: number) => {
     }
     taskStore.add(restoredTask);
     refreshTasks();
-    syncToPg('tasks', 'POST', restoredTask);
     setSelectedTask(restoredTask);
     setLastRemovedTask(null);
-  }, [lastRemovedTask, refreshTasks, syncToPg]);
+  }, [lastRemovedTask, refreshTasks]);
 
   useEffect(() => {
     const handleGlobalKeydown = async (event: KeyboardEvent) => {
@@ -5264,7 +5059,6 @@ const normalizeTimeoutSec = (value: number) => {
     if (selectedTask?.status === 'completed') {
       setSelectedTask(null);
     }
-    completedIds.forEach((taskId) => syncToPg('tasks', 'DELETE', { id: taskId }));
     const nextCategories = Array.from(new Set(remaining.map((task) => task.category).filter(Boolean))) as string[];
     const nextTags = Array.from(new Set(remaining.flatMap((task) => task.tags || [])));
     setListItems(nextCategories);
@@ -5655,7 +5449,6 @@ const normalizeTimeoutSec = (value: number) => {
 
     taskStore.add(task);
     refreshTasks();
-    syncToPg('tasks', 'POST', task);
     setQuadrantDrafts((prev) => ({ ...prev, [quadrantKey]: '' }));
     setQuadrantComposerKey(null);
     setQuadrantMenuOpenKey(null);
@@ -9470,24 +9263,6 @@ const headerTitle = activeFilter === 'category'
         sendTestNotification={sendTestNotification}
         isApiSettingsOpen={isApiSettingsOpen}
         setIsApiSettingsOpen={setIsApiSettingsOpen}
-        pgHost={pgHost}
-        pgPort={pgPort}
-        pgDatabase={pgDatabase}
-        pgUsername={pgUsername}
-        pgPassword={pgPassword}
-        setPgHost={setPgHost}
-        setPgPort={setPgPort}
-        setPgDatabase={setPgDatabase}
-        setPgUsername={setPgUsername}
-        setPgPassword={setPgPassword}
-        redisHost={redisHost}
-        redisPort={redisPort}
-        redisDb={redisDb}
-        redisPassword={redisPassword}
-        setRedisHost={setRedisHost}
-        setRedisPort={setRedisPort}
-        setRedisDb={setRedisDb}
-        setRedisPassword={setRedisPassword}
         syncNamespace={syncNamespace}
         setSyncNamespace={setSyncNamespace}
         DEFAULT_SYNC_NAMESPACE={DEFAULT_SYNC_NAMESPACE}
