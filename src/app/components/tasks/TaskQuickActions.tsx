@@ -19,11 +19,10 @@ export default function TaskQuickActions({
   onStartAddSubtask,
 }: TaskQuickActionsProps) {
   const actionButtonClassName =
-    'inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--ui-border-soft)] bg-transparent px-2 text-[11px] leading-none text-[color:var(--ui-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.3)] hover:bg-[rgba(var(--theme-accent),0.06)] hover:text-[color:var(--ui-text-strong)]';
+    'inline-flex h-7 min-w-0 items-center justify-center gap-1.5 rounded-md border border-transparent bg-transparent px-2 text-[11px] leading-none text-[color:var(--ui-text-secondary)] transition-colors hover:border-[color:var(--recall-divider)] hover:bg-[color:var(--recall-hover-bg)] hover:text-[color:var(--ui-text-strong)]';
 
   return (
-    <div className="mb-4 space-y-2.5 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.028)] p-2.5 sm:mb-5">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,1fr))] gap-1.5">
+    <div className="mb-4 flex flex-wrap gap-1 sm:mb-5">
         <button onClick={() => onSetDuePreset(task.id, 'today')} className={actionButtonClassName}>
           <Sunrise className="h-3.5 w-3.5 text-amber-400" /> 今天
         </button>
@@ -45,16 +44,14 @@ export default function TaskQuickActions({
         >
           <ListPlus className="h-3.5 w-3.5 text-emerald-400" /> 子任务
         </button>
-      </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,1fr))] gap-1.5">
         {[2, 1, 0].map((level) => (
           <button
             key={level}
             onClick={() => onSetPriority(task.id, level)}
             className={`${actionButtonClassName} ${
               task.priority === level
-                ? 'border-blue-400 text-white bg-blue-500/10'
+                ? 'border-[rgba(var(--theme-accent),0.55)] bg-[rgba(var(--theme-accent),0.1)] text-[color:var(--ui-text-strong)]'
                 : ''
             }`}
           >
@@ -70,7 +67,6 @@ export default function TaskQuickActions({
           {task.pinned ? <PinOff className="h-3.5 w-3.5 text-violet-300" /> : <Pin className="h-3.5 w-3.5 text-violet-300" />}
           {task.pinned ? '取消置顶' : '置顶'}
         </button>
-      </div>
     </div>
   );
 }

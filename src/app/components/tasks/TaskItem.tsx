@@ -10,6 +10,7 @@ import {
   Flag,
   Pin,
   Pencil,
+  Repeat2,
   Trash2,
   Bell,
   Sunrise,
@@ -58,6 +59,57 @@ const formatDueCountdownLabel = (dueDate?: string, nowMs?: number) => {
     label: minutes > 0 ? `${prefix} ${hours} 小时 ${minutes} 分` : `${prefix} ${hours} 小时`,
     isOverdue,
   };
+};
+
+const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+const TICK_DUE_RED = '#e03131';
+const TICK_DUE_BLUE = '#4772fa';
+
+/**
+ * 滴答清单风格的任务日期标签：今天 / 明天 / 昨天 / 周三 / 10月21日。
+ * tone: soon = 未来日期（蓝），late = 已过期（红）。
+ */
+const formatTickDueLabel = (
+  dueDate?: string,
+  offsetMinutes?: number,
+  nowMs?: number,
+): { text: string; tone: 'soon' | 'late' | 'normal'; hasTime: boolean } | null => {
+  if (!dueDate) return null;
+  const dueMs = new Date(dueDate).getTime();
+  if (!Number.isFinite(dueMs)) return null;
+
+  const offset = offsetMinutes ?? 0;
+  const dueZoned = new Date(dueMs + offset * MINUTE_MS);
+  const nowZoned = new Date((nowMs ?? Date.now()) + offset * MINUTE_MS);
+
+  const dueDayKey = Date.UTC(dueZoned.getUTCFullYear(), dueZoned.getUTCMonth(), dueZoned.getUTCDate());
+  const nowDayKey = Date.UTC(nowZoned.getUTCFullYear(), nowZoned.getUTCMonth(), nowZoned.getUTCDate());
+  const dayDiff = Math.round((dueDayKey - nowDayKey) / DAY_MS);
+
+  const hours = dueZoned.getUTCHours();
+  const minutes = dueZoned.getUTCMinutes();
+  const hasTime = hours !== 0 || minutes !== 0;
+  const sameYear = dueZoned.getUTCFullYear() === nowZoned.getUTCFullYear();
+
+  let text: string;
+  if (dayDiff === 0) text = '今天';
+  else if (dayDiff === 1) text = '明天';
+  else if (dayDiff === -1) text = '昨天';
+  else if (dayDiff > 1 && dayDiff <= 7) text = WEEKDAY_LABELS[dueZoned.getUTCDay()];
+  else if (sameYear) text = `${dueZoned.getUTCMonth() + 1}月${dueZoned.getUTCDate()}日`;
+  else text = `${dueZoned.getUTCFullYear()}年${dueZoned.getUTCMonth() + 1}月${dueZoned.getUTCDate()}日`;
+
+  const tone: 'soon' | 'late' | 'normal' = dayDiff < 0 ? 'late' : 'soon';
+
+  return { text, tone, hasTime };
+};
+
+/** 滴答清单优先级描边色：高=红、中=橙，低优先级保持中性描边。 */
+const priorityBorderColor = (priority: number) => {
+  if (priority >= 2) return '#e13e39';
+  if (priority === 1) return '#faa80c';
+  return null;
 };
 
 /**
@@ -192,6 +244,7 @@ const TaskItem = ({
     ? (isTaskOverdue(task) ? 'text-red-400' : 'text-[color:var(--ui-text-secondary)]')
     : 'text-[color:var(--ui-text-faint)]';
   const dueCountdown = isCompleted ? null : formatDueCountdownLabel(task.dueDate, nowMs);
+  const tickDueLabel = isCompleted ? null : formatTickDueLabel(task.dueDate, timezoneOffset, nowMs);
   const visibleTags = (task.tags ?? []).slice(0, 2);
   const hiddenTagCount = Math.max(0, (task.tags ?? []).length - visibleTags.length);
   const taskTone = isCompleted
@@ -541,14 +594,16 @@ const TaskItem = ({
               event.stopPropagation();
               onToggle(task.id);
             }}
-            className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
+            style={task.status === 'completed' ? undefined : { borderColor: priorityBorderColor(task.priority) ?? undefined }}
+            className={`mt-0.5 w-5 h-5 sm:w-4 sm:h-4 rounded-[5px] flex items-center justify-center border-[1.5px] transition-colors shrink-0 ${
               task.status === 'completed'
-                ? 'bg-[rgba(var(--theme-accent),0.78)] border-[rgba(var(--theme-accent),0.78)] text-white shadow-[0_0_0_3px_rgba(var(--theme-accent),0.06)]'
-                : 'border-[color:var(--ui-border-strong)] hover:border-[rgba(var(--theme-accent),0.55)] hover:bg-[rgba(var(--theme-accent),0.08)]'
+                ? 'bg-[#4a9eff] border-[#4a9eff] text-white'
+                : 'bg-transparent border-[rgba(255,255,255,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
             }`}
+            aria-label={task.status === 'completed' ? '标记为未完成' : '标记为已完成'}
           >
             {task.status === 'completed' && (
-              <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-[pop-in_280ms_ease-out]" />
+              <CheckCircle2 className="w-3.5 h-3.5 sm:w-3 sm:h-3 animate-[pop-in_280ms_ease-out]" />
             )}
           </button>
 
@@ -587,7 +642,7 @@ const TaskItem = ({
                           event.stopPropagation();
                           onTitleClick?.();
                         }}
-                        className={`app-task-title min-w-0 flex-1 text-left text-sm font-semibold tracking-[-0.01em] ${
+                        className={`app-task-title min-w-0 flex-1 text-left text-[14px] font-normal tracking-[0] ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                         }`}
                         title={task.title}
@@ -596,7 +651,7 @@ const TaskItem = ({
                       </button>
                     ) : (
                       <p
-                        className={`app-task-title min-w-0 flex-1 text-sm font-semibold tracking-[-0.01em] ${
+                        className={`app-task-title min-w-0 flex-1 text-[14px] font-normal tracking-[0] ${
                           task.status === 'completed' ? 'text-[color:var(--ui-text-faint)] line-through' : 'text-[color:var(--ui-text-strong)]'
                         }`}
                         title={task.title}
@@ -608,18 +663,28 @@ const TaskItem = ({
                 </div>
               </div>
               <div className={`flex shrink-0 items-center gap-1.5 ${compactText ? 'max-w-[7rem] flex-wrap justify-end' : ''}`}>
-                {showDueCountdown && dueCountdown && (
-                  <span
-                    className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border px-1.5 text-[10px] font-medium leading-none tracking-[-0.01em] ${
-                      compactText ? 'max-w-[6.25rem] truncate' : ''
-                    } ${
-                      dueCountdown.isOverdue
-                        ? 'border-red-500/25 bg-red-500/10 text-red-300'
-                        : 'border-sky-500/20 bg-sky-500/10 text-sky-200'
-                    }`}
-                    title={dueLabel}
-                  >
-                    {dueCountdown.label}
+                {showDueCountdown && tickDueLabel && (
+                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    {task.repeat && task.repeat.type !== 'none' && (
+                      <Repeat2 className="h-3.5 w-3.5 shrink-0 text-[rgba(255,255,255,0.4)]" aria-label="重复任务" />
+                    )}
+                    {task.reminderAt && (
+                      <Bell className="h-3.5 w-3.5 shrink-0 text-[rgba(255,255,255,0.4)]" aria-label="已设置提醒" />
+                    )}
+                    <span
+                      className={`shrink-0 whitespace-nowrap text-[12px] font-normal leading-none ${
+                        compactText ? 'max-w-[6.25rem] truncate' : ''
+                      } ${
+                        tickDueLabel.tone === 'late'
+                          ? 'text-[#e03131]'
+                          : tickDueLabel.tone === 'soon'
+                            ? 'text-[#4772fa]'
+                            : 'text-[color:var(--ui-text-muted)]'
+                      }`}
+                      title={dueCountdown ? `${dueLabel} · ${dueCountdown.label}` : dueLabel}
+                    >
+                      {tickDueLabel.text}
+                    </span>
                   </span>
                 )}
                 {canDrag && showDragHandle && (

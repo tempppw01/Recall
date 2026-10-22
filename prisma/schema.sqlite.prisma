@@ -67,6 +67,7 @@ model Task {
   priority    Int
   category    String?
   status      String   @default("todo")
+  assignee    String?
   sortOrder   Int      @default(0)
   tags        String
   subtasks    String

@@ -29,7 +29,8 @@ export function useThemeSettings(options: UseThemeSettingsOptions = {}) {
   };
 
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
-  const [isSystemTheme, setIsSystemTheme] = useState(true);
+  const [isSystemTheme, setIsSystemTheme] = useState(false);
+  const [arePreferencesLoaded, setArePreferencesLoaded] = useState(false);
   const [accentTheme, setAccentTheme] = useState<AccentTheme>('blue');
   const [gradientTheme, setGradientTheme] = useState<GradientTheme>('aurora');
 
@@ -68,9 +69,12 @@ export function useThemeSettings(options: UseThemeSettingsOptions = {}) {
     } else if (storedTheme === 'dark') {
       setThemeMode('dark');
       setIsSystemTheme(false);
-    } else {
+    } else if (storedTheme === 'system') {
       setThemeMode(getSystemTheme());
       setIsSystemTheme(true);
+    } else {
+      setThemeMode('dark');
+      setIsSystemTheme(false);
     }
 
     const storedAccentTheme = localStorage.getItem(accentStorageKey);
@@ -82,9 +86,13 @@ export function useThemeSettings(options: UseThemeSettingsOptions = {}) {
     if (isGradientTheme(storedGradientTheme)) {
       setGradientTheme(storedGradientTheme);
     }
+
+    setArePreferencesLoaded(true);
   }, [themeStorageKey, accentStorageKey, gradientStorageKey]);
 
   useEffect(() => {
+    if (!arePreferencesLoaded) return;
+
     const body = document.body;
     const root = document.documentElement;
 
@@ -106,7 +114,7 @@ export function useThemeSettings(options: UseThemeSettingsOptions = {}) {
       localStorage.setItem(accentStorageKey, accentTheme);
       localStorage.setItem(gradientStorageKey, gradientTheme);
     }
-  }, [themeMode, isSystemTheme, accentTheme, gradientTheme, themeStorageKey, accentStorageKey, gradientStorageKey]);
+  }, [arePreferencesLoaded, themeMode, isSystemTheme, accentTheme, gradientTheme, themeStorageKey, accentStorageKey, gradientStorageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

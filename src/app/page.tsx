@@ -87,9 +87,9 @@ import { PomodoroAmbientController } from '@/app/components/PomodoroAmbientSound
 import Sidebar from '@/app/components/sidebar/Sidebar';
 import SettingsModal from '@/app/components/settings/SettingsModal';
 import TaskItem from '@/app/components/tasks/TaskItem';
+import TaskRow from '@/app/components/tasks/TaskRow';
 import TaskQuickActions from '@/app/components/tasks/TaskQuickActions';
 import PageTopBar from '@/app/components/home/PageTopBar';
-import AmbientBackdrop from '@/app/components/home/AmbientBackdrop';
 import ListComposerPanel from '@/app/components/home/ListComposerPanel';
 import ModelSelect from '@/app/components/models/ModelSelect';
 import CalendarTopPanel from '@/app/components/calendar/CalendarTopPanel';
@@ -169,7 +169,7 @@ const DEFAULT_RERANK_MODEL = 'jina-reranker-v3';
 const AUTO_SYNC_INTERVAL_OPTIONS = [5, 15, 30, 60, 120];
 const TASK_SCOPES = ['todo', 'inbox', 'today', 'next7'] as const;
 const TASK_SCOPE_VALUES = new Set<string>(TASK_SCOPES);
-const LEGACY_TASK_FILTER_VALUES = new Set<string>(['inbox', 'today', 'next7']);
+const LEGACY_TASK_FILTER_VALUES = new Set<string>(['today', 'next7']);
 
 type TaskScope = (typeof TASK_SCOPES)[number];
 
@@ -555,7 +555,10 @@ const FILTER_LABELS: Record<string, string> = {
   tag: '标签',
   inbox: '收件箱',
   today: '今日',
+  tomorrow: '明天',
   next7: '未来 7 天',
+  assigned: '指派给我',
+  abandoned: '已放弃',
   review: '检查',
   stats: '统计',
 };
@@ -572,7 +575,10 @@ const ACTIVE_FILTER_VALUES = new Set([
   'tag',
   'inbox',
   'today',
+  'tomorrow',
   'next7',
+  'assigned',
+  'abandoned',
   'review',
   'stats',
   'timeline',
@@ -1292,7 +1298,7 @@ export default function Home() {
   const [sessionId, setSessionId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [settingsFocusTarget, setSettingsFocusTarget] = useState<'sync' | 'knowledge' | null>(null);
-  const [activeFilter, setActiveFilter] = useState('agent');
+  const [activeFilter, setActiveFilter] = useState('inbox');
   const [taskScope, setTaskScope] = useState<TaskScope>('todo');
   const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('dueDate');
   const [taskGroupMode, setTaskGroupMode] = useState<TaskGroupMode>('dueDate');
@@ -1524,6 +1530,7 @@ export default function Home() {
   const [casualChatMessages, setCasualChatMessages] = useState<AgentMessage[]>([]);
   const [casualChatInput, setCasualChatInput] = useState('');
   const [casualChatLoading, setCasualChatLoading] = useState(false);
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [isAiModeMenuOpen, setIsAiModeMenuOpen] = useState(false);
   const [assistantBriefingSummary, setAssistantBriefingSummary] = useState('');
   const [assistantBriefingLoading, setAssistantBriefingLoading] = useState(false);
@@ -1604,7 +1611,12 @@ export default function Home() {
   );
   const shouldShowTaskDetail = Boolean(selectedTask && activeFilter !== 'quadrant');
   const isTaskDetailFullscreen = shouldShowTaskDetail && viewportWidth > 0 && viewportWidth < 1280;
-  const isTaskDetailDocked = shouldShowTaskDetail && !isTaskDetailFullscreen;
+  const shouldShowDockedAssistant =
+    isAiPanelOpen && !selectedTask && activeFilter !== 'agent' && activeFilter !== 'quadrant';
+  const isAssistantPanelFullscreen =
+    shouldShowDockedAssistant && viewportWidth > 0 && viewportWidth < 1280;
+  const isRightPanelFullscreen = isTaskDetailFullscreen || isAssistantPanelFullscreen;
+  const shouldRenderRightPanel = shouldShowTaskDetail || shouldShowDockedAssistant;
   const taskItemHelpers = {
     getTimezoneOffset,
     formatZonedDateTime,
@@ -1623,6 +1635,12 @@ export default function Home() {
       setSelectedTask(null);
     }
   }, [activeFilter, selectedTask]);
+
+  useEffect(() => {
+    if (selectedTask) {
+      setIsAiPanelOpen(false);
+    }
+  }, [selectedTask]);
 
   useEffect(() => {
     const syncViewportWidth = () => {
@@ -2862,7 +2880,7 @@ export default function Home() {
   const taskScopeSource = showCompletedTasks ? tasks : tasks.filter((task) => task.status !== 'completed');
   const taskScopeCounts: Record<TaskScope, number> = {
     todo: taskScopeSource.length,
-    inbox: taskScopeSource.filter((task) => !task.dueDate).length,
+    inbox: taskScopeSource.filter((task) => !task.category).length,
     today: taskScopeSource.filter((task) => isTaskDueToday(task, filterNow)).length,
     next7: taskScopeSource.filter((task) => isTaskDueWithinDays(task, filterNow, 7)).length,
   };
@@ -2877,7 +2895,7 @@ export default function Home() {
       value: 'inbox' as const,
       label: '收件箱',
       count: taskScopeCounts.inbox,
-      hint: showCompletedTasks ? '没有安排日期的任务，包含已完成' : '还没有安排日期的任务',
+      hint: showCompletedTasks ? '未归类任务，包含已完成' : '尚未归入清单的任务',
     },
     {
       value: 'today' as const,
@@ -4483,7 +4501,7 @@ const normalizeTimeoutSec = (value: number) => {
     // 优化：直接使用本地时间，提高响应速度
     const now = new Date();
     const parsed = parseLocalTaskInput(raw, now);
-    const category = overrideCategory ?? classifyCategory(raw);
+    const category = overrideCategory ?? (activeFilter === 'category' ? activeCategory : null);
     const priority = typeof parsed.priority === 'number'
       ? parsed.priority
       : evaluatePriority(parsed.dueDate, 0, now.getTime());
@@ -4493,7 +4511,7 @@ const normalizeTimeoutSec = (value: number) => {
       dueDate: parsed.dueDate,
       timezoneOffset: DEFAULT_TIMEZONE_OFFSET,
       priority,
-      category,
+      category: category ?? undefined,
       status: 'todo',
       tags: parsed.tags,
       pinned: false,
@@ -4507,7 +4525,7 @@ const normalizeTimeoutSec = (value: number) => {
     // 异步同步到 PG
 
     setInput('');
-  }, [refreshTasks]);
+  }, [activeCategory, activeFilter, refreshTasks]);
 
   const handleMagicInput = async () => {
     if (!input.trim()) return;
@@ -4560,7 +4578,7 @@ const normalizeTimeoutSec = (value: number) => {
           ...data.task,
           priority: typeof data.task?.priority === 'number' ? data.task.priority : recommendedPriority,
           timezoneOffset: data.task?.timezoneOffset ?? DEFAULT_TIMEZONE_OFFSET,
-          category: forcedCategory ?? data.task?.category ?? classifyCategory(rawInput),
+          category: forcedCategory ?? null,
           pinned: Boolean(data.task?.pinned),
         };
         taskStore.add(taskToAdd);
@@ -5659,6 +5677,8 @@ const headerTitle = activeFilter === 'category'
     ? '检查'
     : activeFilter === 'stats'
     ? '统计'
+    : activeFilter === 'inbox'
+    ? '收集箱'
     : (FILTER_LABELS[activeFilter] ?? '待办');
   const headerSubtitle = activeFilter === 'timeline'
     ? '按时间回顾任务进展，查看完成、未完成和逾期事项'
@@ -6058,11 +6078,138 @@ const headerTitle = activeFilter === 'category'
       </div>
     );
   };
+  const dockedAssistantPrompts = [
+    '今天有哪些任务？',
+    '创建一个任务',
+    '总结一下今天',
+    '规划今日安排',
+  ];
+  const dockedAssistantGreeting = (() => {
+    const hour = now.getHours();
+    if (hour < 6) return '夜深了，还有什么想记下？';
+    if (hour < 12) return '早上好，今天想先做什么？';
+    if (hour < 18) return '下午好，接下来怎么安排？';
+    return '晚上好，回顾一下今天吧。';
+  })();
+  const openAiSettings = () => {
+    setSettingsFocusTarget(null);
+    setShowSettings(true);
+  };
+  const renderDockedAssistant = (embedded = false) => (
+    <div className={`recall-ai-panel flex min-h-0 flex-1 flex-col bg-[color:var(--recall-panel-bg)] text-[color:var(--recall-text)] ${embedded ? 'px-3 pb-3 pt-3' : 'px-4 pb-4 pt-5'}`}>
+      {embedded && (
+        <div className="mb-3 flex shrink-0 items-center justify-between border-b border-[color:var(--recall-divider)] pb-2.5">
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--recall-text)]">
+            <Sparkles className="h-3.5 w-3.5 text-[color:rgb(var(--theme-accent))]" />
+            AI 助手
+          </div>
+          <button
+            type="button"
+            onClick={openAiSettings}
+            className="rounded p-1 text-[color:var(--recall-text-muted)] transition-colors hover:bg-[color:var(--recall-hover-bg)] hover:text-[color:var(--recall-text)]"
+            aria-label="AI 助手设置"
+            title="AI 助手设置"
+          >
+            <Settings className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {!embedded && (
+        <div className="shrink-0">
+          <h2 className="text-[17px] font-semibold leading-7 text-[color:var(--recall-text)]">{dockedAssistantGreeting}</h2>
+          <div className="mt-1 text-[12px] text-[color:var(--recall-text-secondary)]">今日 {todayTasksForAgent.length} 项待办</div>
+        </div>
+      )}
+
+      <div className={`${embedded ? 'mt-0' : 'mt-4'} flex shrink-0 flex-wrap gap-1.5`}>
+        {dockedAssistantPrompts.map((prompt) => (
+          <button
+            key={prompt}
+            type="button"
+            onClick={() => setCasualChatInput(prompt)}
+            className="rounded-md border border-[color:var(--recall-divider)] bg-[color:var(--recall-hover-bg)] px-2 py-1 text-[11px] text-[color:var(--recall-text-secondary)] transition-colors hover:border-[rgba(var(--theme-accent),0.32)] hover:bg-[rgba(var(--theme-accent),0.08)] hover:text-[color:var(--recall-text)]"
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+
+      {casualChatMessages.length > 0 && (
+        <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto mobile-scroll pr-0.5">
+          {casualChatMessages.slice(-4).map((message, index) => (
+            <div
+              key={`${message.role}-${index}-${message.content.slice(0, 12)}`}
+              className={`rounded-lg border px-2.5 py-2 text-[12px] leading-5 ${
+                message.role === 'user'
+                  ? 'ml-5 border-[rgba(var(--theme-accent),0.24)] bg-[rgba(var(--theme-accent),0.08)] text-[color:var(--recall-text)]'
+                  : message.variant === 'error'
+                    ? 'mr-3 border-red-400/20 bg-red-500/8 text-red-200'
+                    : 'mr-3 border-[color:var(--recall-divider)] bg-[color:var(--recall-hover-bg)] text-[color:var(--recall-text-secondary)]'
+              }`}
+            >
+              {message.content}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-auto shrink-0 pt-3">
+        <div className="flex items-end gap-1.5 rounded-lg border border-[color:var(--recall-divider)] bg-[color:var(--recall-panel-bg)] px-2 py-1.5 transition-colors focus-within:border-[rgba(var(--theme-accent),0.46)]">
+          <textarea
+            value={casualChatInput}
+            onChange={(event) => setCasualChatInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                if (hasApiKey) {
+                  handleCasualChatSend();
+                } else {
+                  openAiSettings();
+                }
+              }
+            }}
+            rows={embedded ? 1 : 2}
+            placeholder={hasApiKey ? '记录你的想法或安排...' : '配置 AI Key 后开始对话'}
+            className="max-h-24 min-h-[24px] min-w-0 flex-1 resize-none bg-transparent py-1 text-[12px] leading-5 text-[color:var(--recall-text)] outline-none placeholder:text-[color:var(--recall-text-muted)]"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (casualChatLoading) {
+                handleCancelCasualChatSend();
+              } else if (hasApiKey) {
+                handleCasualChatSend();
+              } else {
+                openAiSettings();
+              }
+            }}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[color:rgb(var(--theme-accent))] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!casualChatLoading && (!hasApiKey || !casualChatInput.trim())}
+            aria-label={casualChatLoading ? '停止生成' : hasApiKey ? '发送' : '配置 AI Key'}
+            title={casualChatLoading ? '停止生成' : hasApiKey ? '发送' : '配置 AI Key'}
+          >
+            {casualChatLoading ? (
+              <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[color:var(--recall-text-muted)]">
+          <span>内容由 AI 生成，请核查重要信息。</span>
+          {!hasApiKey && (
+            <button type="button" onClick={openAiSettings} className="shrink-0 text-[color:rgb(var(--theme-accent))] hover:opacity-80">
+              配置
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="recall-app-shell theme-native-root theme-native-surface flex h-[100dvh] min-h-[100dvh] overflow-hidden bg-[var(--ui-surface-0)] font-sans text-[color:var(--ui-text-primary)] relative safe-area-top">
-      <AmbientBackdrop />
-
       {statusFeedback && (
         <div className="fixed top-[calc(0.55rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[70] w-[min(90vw,520px)] px-2 sm:px-0">
           <div className={`status-feedback motion-modal-surface px-3 py-2 sm:px-3.5 ${
@@ -6182,9 +6329,7 @@ const headerTitle = activeFilter === 'category'
           activeFilter === 'quadrant' || isFixedPanelView
             ? 'overflow-hidden overscroll-none'
             : 'overflow-y-auto mobile-scroll'
-        } bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1),var(--ui-surface-0))] transition-[filter,padding] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
-          isTaskDetailDocked ? 'xl:pr-[440px] 2xl:pr-[480px]' : ''
-        } ${
+        } bg-[var(--recall-workspace-bg)] transition-[filter] duration-[var(--motion-base)] ease-[var(--ease-standard)] ${
           isTaskSelectionDragging ? 'select-none cursor-default' : ''
         }`}
       >
@@ -6192,11 +6337,14 @@ const headerTitle = activeFilter === 'category'
         <PageTopBar
           activeFilter={activeFilter}
           headerTitle={headerTitle}
-          headerSubtitle={headerSubtitle}
           isListView={isListView}
           isBatchMode={isBatchMode}
           isSyncingNow={isSyncingNow}
           themePreference={themePreference}
+          taskSortMode={taskSortMode}
+          taskGroupMode={taskGroupMode}
+          sortOptions={TASK_SORT_OPTIONS}
+          groupOptions={TASK_GROUP_OPTIONS}
           onOpenSidebar={() => setIsSidebarOpen((previous) => !previous)}
           onToggleBatchMode={() => {
             if (isBatchMode) {
@@ -6213,14 +6361,13 @@ const headerTitle = activeFilter === 'category'
           onOpenAbout={() => setShowAbout(true)}
           onOpenLogs={() => setShowLogs(true)}
           onToggleTheme={handleThemeToggle}
+          onTaskSortModeChange={(mode) => setTaskSortMode(mode as TaskSortMode)}
+          onTaskGroupModeChange={(mode) => setTaskGroupMode(mode as TaskGroupMode)}
         />
 
         {/* 列表工具组件：聚合输入框、批量操作、排序和分组选项。 */}
         {isListView && (
           <ListComposerPanel
-            totalTasks={totalTasks}
-            completionRate={completionRate}
-            procrastinationIndex={procrastinationIndex}
             completedTasks={completedTasks}
             showCompletedTasks={showCompletedTasks}
             loading={loading}
@@ -6228,12 +6375,8 @@ const headerTitle = activeFilter === 'category'
             showQuickAdd={!showSettings}
             isBatchMode={isBatchMode}
             selectedCount={selectedTaskIds.size}
-            taskSortMode={taskSortMode}
-            taskGroupMode={taskGroupMode}
             taskScope={activeFilter === 'todo' ? taskScope : undefined}
             taskScopeOptions={activeFilter === 'todo' ? taskScopeOptions : undefined}
-            sortOptions={TASK_SORT_OPTIONS}
-            groupOptions={TASK_GROUP_OPTIONS}
             setInput={setInput}
             onMagicSubmit={handleMagicInput}
             onBatchComplete={batchCompleteTasks}
@@ -6241,8 +6384,6 @@ const headerTitle = activeFilter === 'category'
             onBatchClear={clearBatchSelection}
             onToggleShowCompleted={() => setShowCompletedTasks((previous) => !previous)}
             onClearCompleted={() => setShowClearCompletedConfirm(true)}
-            onTaskSortModeChange={(mode) => setTaskSortMode(mode as TaskSortMode)}
-            onTaskGroupModeChange={(mode) => setTaskGroupMode(mode as TaskGroupMode)}
             onTaskScopeChange={setTaskScope}
           />
         )}
@@ -8302,22 +8443,8 @@ const headerTitle = activeFilter === 'category'
               ) : (
                 <>
                   {(taskGroupMode === 'dueDate' || effectiveTaskFilter === 'inbox' || effectiveTaskFilter === 'all' || effectiveTaskFilter === 'today' || effectiveTaskFilter === 'next7')
-                    ? futureAwareGroupedTasks.map((group) => {
-                        const meta = FUTURE_TASK_BUCKET_META[group.key as FutureTaskBucketKey];
-                        return (
-                          <div key={group.key} className="recall-task-group space-y-2 rounded-[24px] border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.015)] p-2.5">
-                            <div className="flex">
-                              <div className={`flex w-full max-w-full items-start justify-between gap-3 rounded-[18px] border-b border-[color:var(--ui-border-soft)] px-2.5 pb-2.5 pt-1.5 ${meta.tone}`}>
-                                <div className="min-w-0">
-                                  <div className="recall-task-group-title text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#EEF2FF]">{group.label}</div>
-                                  <div className="recall-task-group-summary mt-0.5 truncate text-[11px] font-normal leading-tight text-[#7F8AA3]">{meta.summary}</div>
-                                </div>
-                                <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.chipTone}`}>{group.items.length} 项</span>
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              {group.items.map(task => (
-                                <div key={task.id} className="space-y-1">
+                    ? sortedTasks.map((task) => (
+                                <div key={task.id} className="-mx-3 sm:-mx-4">
                                   {editingTaskId === task.id ? (
                                     <div className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333333] rounded-2xl px-3 py-2.5">
                                       <input
@@ -8340,41 +8467,22 @@ const headerTitle = activeFilter === 'category'
                                       />
                                     </div>
                                   ) : (
-                                    <TaskItem
+                                    <TaskRow
                                       task={task}
                                       selected={selectedTask?.id === task.id}
                                       onClick={() => setSelectedTask(task)}
                                       onToggle={toggleStatus}
-                                      onDelete={removeTask}
-                                      onUpdateDueDate={updateTaskDueDate}
-                                      onCopyTitle={copyTaskTitle}
-                                      onCopyContent={copyTaskContent}
-                                      onTogglePinned={toggleTaskPinned}
-                                      onQuickSetPriority={quickSetPriority}
-                                      onQuickSetDuePreset={quickSetDuePreset}
-                                      onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
-                                      onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
-                                      onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
-                                      isDragging={isManualSortEnabled && draggingTaskId === task.id}
-                                      onDragEnd={isManualSortEnabled ? () => setDraggingTaskId(null) : undefined}
-                                      dragEnabled={isManualSortEnabled}
                                       onTitleClick={() => {
-                                        setEditingTaskId(task.id);
-                                        setEditingTaskTitle(task.title);
+                                        setSelectedTask(task);
                                       }}
-                                      onToggleSubtask={toggleSubtask}
+                                      getTimezoneOffset={getTimezoneOffset}
                                       multiSelectEnabled={isBatchMode}
                                       isChecked={selectedTaskIds.has(task.id)}
                                       onToggleSelect={toggleTaskSelected}
-                                      helpers={taskItemHelpers}
                                     />
                                   )}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })
+                              ))
                     : groupedTasks.map((group) => (
                         <div key={group.key} className="recall-task-group-simple space-y-1">
                           {taskGroupMode !== 'none' && (
@@ -8407,33 +8515,18 @@ const headerTitle = activeFilter === 'category'
                                   />
                                 </div>
                               ) : (
-                                <TaskItem
+                                  <TaskRow
                                   task={task}
                                   selected={selectedTask?.id === task.id}
                                   onClick={() => setSelectedTask(task)}
                                   onToggle={toggleStatus}
-                                  onDelete={removeTask}
-                                  onUpdateDueDate={updateTaskDueDate}
-                                  onCopyTitle={copyTaskTitle}
-                                  onCopyContent={copyTaskContent}
-                                  onTogglePinned={toggleTaskPinned}
-                                  onQuickSetPriority={quickSetPriority}
-                                  onQuickSetDuePreset={quickSetDuePreset}
-                                  onDragStart={isManualSortEnabled ? handleTaskDragStart : undefined}
-                                  onDragOver={isManualSortEnabled ? handleTaskDragOver : undefined}
-                                  onDrop={isManualSortEnabled ? handleTaskDrop : undefined}
-                                  isDragging={isManualSortEnabled && draggingTaskId === task.id}
-                                  onDragEnd={isManualSortEnabled ? () => setDraggingTaskId(null) : undefined}
-                                  dragEnabled={isManualSortEnabled}
                                   onTitleClick={() => {
-                                    setEditingTaskId(task.id);
-                                    setEditingTaskTitle(task.title);
+                                      setSelectedTask(task);
                                   }}
-                                  onToggleSubtask={toggleSubtask}
+                                    getTimezoneOffset={getTimezoneOffset}
                                   multiSelectEnabled={isBatchMode}
                                   isChecked={selectedTaskIds.has(task.id)}
                                   onToggleSelect={toggleTaskSelected}
-                                  helpers={taskItemHelpers}
                                 />
                               )}
                             </div>
@@ -8447,39 +8540,80 @@ const headerTitle = activeFilter === 'category'
         </div>
       </section>
 
-{/* 3. Detail Sidebar (Right) */}
-      {shouldShowTaskDetail && selectedTask && (
-        <>
-          {isTaskDetailDocked && (
-            <button
-              type="button"
-              onClick={() => setSelectedTask(null)}
-              className="fixed inset-y-0 left-0 right-[440px] z-[45] hidden bg-transparent xl:block 2xl:right-[480px]"
-              aria-label="关闭任务详情"
-              title="关闭任务详情"
-            />
-          )}
-          <aside className={`recall-detail-drawer theme-native-surface fixed z-50 bg-[linear-gradient(180deg,var(--ui-surface-0),var(--ui-surface-1))] text-[color:var(--ui-text-primary)] flex flex-col motion-drawer-surface shadow-[0_0_36px_rgba(0,0,0,0.18)] ${
-            isTaskDetailFullscreen
-              ? 'inset-0 w-full border-l-0'
-              : 'inset-y-0 right-0 w-[440px] 2xl:w-[480px] border-l border-[color:var(--ui-border-strong)]'
+      {!selectedTask &&
+        !isAiPanelOpen &&
+        activeFilter !== 'agent' &&
+        activeFilter !== 'quadrant' && (
+          <button
+            type="button"
+            onClick={() => setIsAiPanelOpen(true)}
+            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--recall-divider)] bg-[color:var(--recall-panel-bg)] text-[color:rgb(var(--theme-accent))] shadow-[0_8px_24px_rgba(0,0,0,0.24)] transition-transform hover:scale-105 hover:bg-[color:var(--recall-hover-bg)] active:scale-95"
+            title="打开 AI 助手"
+            aria-label="打开 AI 助手"
+          >
+            <Sparkles className="h-[18px] w-[18px]" />
+          </button>
+        )}
+
+      {/* 3. Detail Sidebar (Right) */}
+      {shouldRenderRightPanel && (
+          <aside className={`recall-detail-drawer theme-native-surface flex-col text-[color:var(--ui-text-primary)] ${
+            isRightPanelFullscreen
+              ? 'motion-drawer-surface fixed inset-0 z-50 flex w-full border-l-0'
+              : 'hidden w-[400px] shrink-0 border-l border-[color:var(--recall-divider)] xl:flex'
           }`}>
-            <div className="h-11 sm:h-12 md:h-14 border-b border-[color:var(--ui-border-soft)] flex items-center justify-between px-3 md:px-4 shrink-0 bg-[rgba(255,255,255,0.025)]">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-[color:var(--recall-divider)] bg-[color:var(--recall-sidebar-bg)] px-3">
               <button
-                onClick={() => setSelectedTask(null)}
-                className={`${isTaskDetailFullscreen ? 'flex' : 'hidden'} items-center gap-1 text-xs text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]`}
+                onClick={() => {
+                  if (selectedTask) {
+                    setSelectedTask(null);
+                  } else {
+                    setIsAiPanelOpen(false);
+                  }
+                }}
+                className={`${isTaskDetailFullscreen ? 'flex' : 'hidden'} items-center gap-1 text-xs text-[color:var(--recall-text-secondary)] transition-colors hover:text-[color:var(--recall-text)]`}
               >
                 <ChevronLeft className="w-4 h-4" />
                 返回
               </button>
-              <div className="flex items-center gap-2 text-[color:var(--ui-text-muted)]">
-                <span className="text-xs">创建于 {new Date(selectedTask.createdAt).toLocaleDateString()}</span>
-              </div>
-              <button onClick={() => setSelectedTask(null)} className="text-[color:var(--ui-text-muted)] hover:text-[color:var(--ui-text-strong)]">
-                <X className="w-5 h-5" />
-              </button>
+              {selectedTask ? (
+                <>
+                  <div className="flex min-w-0 items-center gap-2 text-[color:var(--recall-text-muted)]">
+                    <span className="truncate text-[12px]">任务详情</span>
+                    <span className="hidden text-[11px] text-[color:var(--recall-text-muted)] xl:inline">
+                      {new Date(selectedTask.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedTask(null)}
+                    className="rounded p-1 text-[color:var(--recall-text-muted)] transition-colors hover:bg-[color:var(--recall-hover-bg)] hover:text-[color:var(--recall-text)]"
+                    aria-label="关闭任务详情"
+                    title="关闭任务详情"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--recall-text)]">
+                    <Sparkles className="h-3.5 w-3.5 text-[color:rgb(var(--theme-accent))]" />
+                    AI 助手
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAiPanelOpen(false)}
+                    className="rounded p-1 text-[color:var(--recall-text-muted)] transition-colors hover:bg-[color:var(--recall-hover-bg)] hover:text-[color:var(--recall-text)]"
+                    aria-label="关闭 AI 助手"
+                    title="关闭 AI 助手"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </>
+              )}
             </div>
 
+            {selectedTask && shouldShowTaskDetail ? (
+              <>
             <div className={`flex-1 overflow-y-auto mobile-scroll safe-scroll-with-footer [--footer-safe-height:1rem] ${
               isTaskDetailFullscreen
                 ? 'px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6'
@@ -8531,7 +8665,7 @@ const headerTitle = activeFilter === 'category'
               onStartAddSubtask={focusSubtaskQuickInput}
             />
 
-            <div className="space-y-4 md:space-y-5">
+            <div className="recall-detail-sections space-y-4 md:space-y-5">
               {/* 子任务管理 */}
               <div className="space-y-2.5 rounded-xl border border-[color:var(--ui-border-soft)] bg-[rgba(255,255,255,0.022)] p-3">
                 <div className="flex items-center justify-between gap-3">
@@ -8947,11 +9081,13 @@ const headerTitle = activeFilter === 'category'
           </div>
           </div>
           
-            <div className="p-4 border-t border-[color:var(--ui-border-soft)] text-xs text-center text-[color:var(--ui-text-faint)]">
-              ID: {selectedTask.id}
-            </div>
+              </>
+            ) : (
+              <div className="flex min-h-0 flex-1">
+                {renderDockedAssistant(false)}
+              </div>
+            )}
           </aside>
-        </>
       )}
 
       <SettingsModal

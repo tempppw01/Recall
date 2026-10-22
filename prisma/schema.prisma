@@ -11,6 +11,7 @@ enum TaskStatus {
   todo
   in_progress
   completed
+  abandoned
 }
 
 enum SyncJobStatus {
@@ -81,6 +82,7 @@ model Task {
   priority  Int
   category  String?
   status    TaskStatus @default(todo)
+  assignee  String?
   sortOrder Int        @default(0)
   tags      Json
   subtasks  Json

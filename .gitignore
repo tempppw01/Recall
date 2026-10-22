@@ -11,3 +11,14 @@ node_modules
 .DS_Store
 
 /src/generated/prisma
+
+# Local runtime, preview data, and Playwright artifacts
+data/
+output/
+.playwright-cli/
+*.log
+
+# One-off local inspection and preview helpers
+.an.py
+scripts/db-inspect.mjs
+scripts/seed-tasks.mjs

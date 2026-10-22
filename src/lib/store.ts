@@ -23,7 +23,9 @@ export interface Task {
   /** 分类标签 */
   category?: string;
   /** 任务状态 */
-  status: 'todo' | 'in_progress' | 'completed';
+  status: 'todo' | 'in_progress' | 'completed' | 'abandoned';
+  /** 负责人：用于「指派给我」视图，缺省视为指派给自己 */
+  assignee?: string;
   /** 自定义标签列表 */
   tags: string[];
   /** 子任务列表 */

@@ -89,7 +89,7 @@ const mysqlTables = [
   `CREATE TABLE IF NOT EXISTS \`Account\` (\`id\` VARCHAR(191) NOT NULL, \`userId\` VARCHAR(191) NOT NULL, \`type\` VARCHAR(191) NOT NULL, \`provider\` VARCHAR(191) NOT NULL, \`providerAccountId\` VARCHAR(191) NOT NULL, \`refresh_token\` TEXT NULL, \`access_token\` TEXT NULL, \`expires_at\` INT NULL, \`token_type\` VARCHAR(191) NULL, \`scope\` VARCHAR(191) NULL, \`id_token\` TEXT NULL, \`session_state\` VARCHAR(191) NULL, PRIMARY KEY (\`id\`), UNIQUE KEY \`Account_provider_providerAccountId_key\` (\`provider\`, \`providerAccountId\`), KEY \`Account_userId_idx\` (\`userId\`), CONSTRAINT \`Account_userId_fkey\` FOREIGN KEY (\`userId\`) REFERENCES \`User\` (\`id\`) ON DELETE CASCADE) ENGINE=InnoDB`,
   `CREATE TABLE IF NOT EXISTS \`Session\` (\`id\` VARCHAR(191) NOT NULL, \`sessionToken\` VARCHAR(191) NOT NULL, \`userId\` VARCHAR(191) NOT NULL, \`expires\` DATETIME(3) NOT NULL, PRIMARY KEY (\`id\`), UNIQUE KEY \`Session_sessionToken_key\` (\`sessionToken\`), KEY \`Session_userId_idx\` (\`userId\`), CONSTRAINT \`Session_userId_fkey\` FOREIGN KEY (\`userId\`) REFERENCES \`User\` (\`id\`) ON DELETE CASCADE) ENGINE=InnoDB`,
   `CREATE TABLE IF NOT EXISTS \`VerificationToken\` (\`identifier\` VARCHAR(191) NOT NULL, \`token\` VARCHAR(191) NOT NULL, \`expires\` DATETIME(3) NOT NULL, UNIQUE KEY \`VerificationToken_token_key\` (\`token\`), UNIQUE KEY \`VerificationToken_identifier_token_key\` (\`identifier\`, \`token\`)) ENGINE=InnoDB`,
-  `CREATE TABLE IF NOT EXISTS \`Task\` (\`id\` VARCHAR(191) NOT NULL, \`userId\` VARCHAR(191) NOT NULL, \`title\` TEXT NOT NULL, \`dueDate\` DATETIME(3) NULL, \`priority\` INT NOT NULL, \`category\` VARCHAR(191) NULL, \`status\` ENUM('todo','in_progress','completed') NOT NULL DEFAULT 'todo', \`sortOrder\` INT NOT NULL DEFAULT 0, \`tags\` JSON NOT NULL, \`subtasks\` JSON NOT NULL, \`attachments\` JSON NULL, \`repeat\` JSON NULL, \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), \`updatedAt\` DATETIME(3) NOT NULL, PRIMARY KEY (\`id\`), KEY \`Task_userId_status_idx\` (\`userId\`, \`status\`), KEY \`Task_userId_dueDate_idx\` (\`userId\`, \`dueDate\`), KEY \`Task_userId_createdAt_idx\` (\`userId\`, \`createdAt\`), KEY \`Task_userId_sortOrder_createdAt_idx\` (\`userId\`, \`sortOrder\`, \`createdAt\`), CONSTRAINT \`Task_userId_fkey\` FOREIGN KEY (\`userId\`) REFERENCES \`User\` (\`id\`) ON DELETE CASCADE) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS \`Task\` (\`id\` VARCHAR(191) NOT NULL, \`userId\` VARCHAR(191) NOT NULL, \`title\` TEXT NOT NULL, \`dueDate\` DATETIME(3) NULL, \`priority\` INT NOT NULL, \`category\` VARCHAR(191) NULL, \`status\` ENUM('todo','in_progress','completed','abandoned') NOT NULL DEFAULT 'todo', \`assignee\` VARCHAR(191) NULL, \`sortOrder\` INT NOT NULL DEFAULT 0, \`tags\` JSON NOT NULL, \`subtasks\` JSON NOT NULL, \`attachments\` JSON NULL, \`repeat\` JSON NULL, \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), \`updatedAt\` DATETIME(3) NOT NULL, PRIMARY KEY (\`id\`), KEY \`Task_userId_status_idx\` (\`userId\`, \`status\`), KEY \`Task_userId_dueDate_idx\` (\`userId\`, \`dueDate\`), KEY \`Task_userId_createdAt_idx\` (\`userId\`, \`createdAt\`), KEY \`Task_userId_sortOrder_createdAt_idx\` (\`userId\`, \`sortOrder\`, \`createdAt\`), CONSTRAINT \`Task_userId_fkey\` FOREIGN KEY (\`userId\`) REFERENCES \`User\` (\`id\`) ON DELETE CASCADE) ENGINE=InnoDB`,
   `CREATE TABLE IF NOT EXISTS \`Habit\` (\`id\` VARCHAR(191) NOT NULL, \`userId\` VARCHAR(191) NOT NULL, \`title\` VARCHAR(191) NOT NULL, \`logs\` JSON NOT NULL, \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), \`updatedAt\` DATETIME(3) NOT NULL, PRIMARY KEY (\`id\`), KEY \`Habit_userId_createdAt_idx\` (\`userId\`, \`createdAt\`), CONSTRAINT \`Habit_userId_fkey\` FOREIGN KEY (\`userId\`) REFERENCES \`User\` (\`id\`) ON DELETE CASCADE) ENGINE=InnoDB`,
   `CREATE TABLE IF NOT EXISTS \`Countdown\` (\`id\` VARCHAR(191) NOT NULL, \`userId\` VARCHAR(191) NOT NULL, \`title\` VARCHAR(191) NOT NULL, \`targetDate\` DATETIME(3) NOT NULL, \`pinned\` BOOLEAN NOT NULL DEFAULT false, \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), \`updatedAt\` DATETIME(3) NOT NULL, PRIMARY KEY (\`id\`), KEY \`Countdown_userId_pinned_idx\` (\`userId\`, \`pinned\`), KEY \`Countdown_userId_targetDate_idx\` (\`userId\`, \`targetDate\`), KEY \`Countdown_userId_createdAt_idx\` (\`userId\`, \`createdAt\`), CONSTRAINT \`Countdown_userId_fkey\` FOREIGN KEY (\`userId\`) REFERENCES \`User\` (\`id\`) ON DELETE CASCADE) ENGINE=InnoDB`,
   `CREATE TABLE IF NOT EXISTS \`Item\` (\`id\` VARCHAR(191) NOT NULL, \`userId\` VARCHAR(191) NOT NULL, \`name\` VARCHAR(191) NOT NULL, \`category\` VARCHAR(191) NULL, \`tags\` JSON NOT NULL, \`location\` VARCHAR(191) NULL, \`quantity\` INT NOT NULL DEFAULT 0, \`status\` ENUM('normal','low_stock','need_restock','missing') NOT NULL, \`note\` TEXT NULL, \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), \`updatedAt\` DATETIME(3) NOT NULL, PRIMARY KEY (\`id\`), KEY \`Item_userId_status_idx\` (\`userId\`, \`status\`), KEY \`Item_userId_category_idx\` (\`userId\`, \`category\`), KEY \`Item_userId_createdAt_idx\` (\`userId\`, \`createdAt\`), CONSTRAINT \`Item_userId_fkey\` FOREIGN KEY (\`userId\`) REFERENCES \`User\` (\`id\`) ON DELETE CASCADE) ENGINE=InnoDB`,
@@ -102,7 +102,7 @@ const sqliteTables = [
   `CREATE TABLE IF NOT EXISTS "Account" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "type" TEXT NOT NULL, "provider" TEXT NOT NULL, "providerAccountId" TEXT NOT NULL, "refresh_token" TEXT, "access_token" TEXT, "expires_at" INTEGER, "token_type" TEXT, "scope" TEXT, "id_token" TEXT, "session_state" TEXT, FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE)`,
   `CREATE TABLE IF NOT EXISTS "Session" ("id" TEXT NOT NULL PRIMARY KEY, "sessionToken" TEXT NOT NULL UNIQUE, "userId" TEXT NOT NULL, "expires" DATETIME NOT NULL, FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE)`,
   `CREATE TABLE IF NOT EXISTS "VerificationToken" ("identifier" TEXT NOT NULL, "token" TEXT NOT NULL UNIQUE, "expires" DATETIME NOT NULL, UNIQUE ("identifier", "token"))`,
-  `CREATE TABLE IF NOT EXISTS "Task" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "title" TEXT NOT NULL, "dueDate" DATETIME, "priority" INTEGER NOT NULL, "category" TEXT, "status" TEXT NOT NULL DEFAULT 'todo', "sortOrder" INTEGER NOT NULL DEFAULT 0, "tags" TEXT NOT NULL, "subtasks" TEXT NOT NULL, "attachments" TEXT, "repeat" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL, FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE)`,
+  `CREATE TABLE IF NOT EXISTS "Task" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "title" TEXT NOT NULL, "dueDate" DATETIME, "priority" INTEGER NOT NULL, "category" TEXT, "status" TEXT NOT NULL DEFAULT 'todo', "assignee" TEXT, "sortOrder" INTEGER NOT NULL DEFAULT 0, "tags" TEXT NOT NULL, "subtasks" TEXT NOT NULL, "attachments" TEXT, "repeat" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL, FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE)`,
   `CREATE TABLE IF NOT EXISTS "Habit" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "title" TEXT NOT NULL, "logs" TEXT NOT NULL, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL, FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE)`,
   `CREATE TABLE IF NOT EXISTS "Countdown" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "title" TEXT NOT NULL, "targetDate" DATETIME NOT NULL, "pinned" BOOLEAN NOT NULL DEFAULT 0, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL, FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE)`,
   `CREATE TABLE IF NOT EXISTS "Item" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "name" TEXT NOT NULL, "category" TEXT, "tags" TEXT NOT NULL, "location" TEXT, "quantity" INTEGER NOT NULL DEFAULT 0, "status" TEXT NOT NULL DEFAULT 'normal', "note" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL, FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE)`,
@@ -129,6 +129,30 @@ const commonIndexes = [
 
 const schemaInitialization = new Map<string, Promise<void>>();
 
+/**
+ * 增量列升级语句。
+ *
+ * CREATE TABLE IF NOT EXISTS 不会给既有表补列，因此这里针对已存在的数据库
+ * 追加一次幂等的 ALTER。重复执行时会报错，需要按「列已存在」忽略。
+ */
+const sqliteColumnUpgrades = [
+  `ALTER TABLE "Task" ADD COLUMN "assignee" TEXT`,
+];
+
+const mysqlColumnUpgrades = [
+  `ALTER TABLE \`Task\` ADD COLUMN \`assignee\` VARCHAR(191) NULL`,
+  `ALTER TABLE \`Task\` MODIFY COLUMN \`status\` ENUM('todo','in_progress','completed','abandoned') NOT NULL DEFAULT 'todo'`,
+];
+
+const isDuplicateColumnError = (error: unknown) => {
+  const message = String((error as { message?: unknown })?.message ?? error).toLowerCase();
+  return (
+    message.includes('duplicate column') ||
+    message.includes('already exists') ||
+    message.includes('duplicate column name')
+  );
+};
+
 export const ensureDatabaseSchema = (client: { $executeRawUnsafe: (sql: string) => Promise<unknown> }, provider: Exclude<DatabaseProvider, 'none'>) => {
   const key = provider;
   const existing = schemaInitialization.get(key);
@@ -154,6 +178,14 @@ export const ensureDatabaseSchema = (client: { $executeRawUnsafe: (sql: string) 
         if (provider === 'sqlite') throw error;
         // MySQL may already have an index from a previous deployment.
         if (!String(error).toLowerCase().includes('duplicate')) throw error;
+      }
+    }
+    const upgrades = provider === 'mysql' ? mysqlColumnUpgrades : sqliteColumnUpgrades;
+    for (const statement of upgrades) {
+      try {
+        await client.$executeRawUnsafe(statement);
+      } catch (error) {
+        if (!isDuplicateColumnError(error)) throw error;
       }
     }
   })();

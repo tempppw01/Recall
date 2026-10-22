@@ -1,4 +1,4 @@
-const TASK_STATUSES = ['todo', 'in_progress', 'completed'] as const;
+const TASK_STATUSES = ['todo', 'in_progress', 'completed', 'abandoned'] as const;
 
 export type TaskStatusValue = (typeof TASK_STATUSES)[number];
 
@@ -51,6 +51,7 @@ export const normalizeTaskPayload = (payload: any) => ({
   priority: normalizeInt(payload?.priority, 0),
   category: normalizeNullableString(payload?.category),
   status: normalizeTaskStatus(payload?.status),
+  assignee: normalizeNullableString(payload?.assignee),
   sortOrder: normalizeInt(payload?.sortOrder, 0),
   tags: normalizeStringArray(payload?.tags),
   subtasks: normalizeObjectArray(payload?.subtasks),

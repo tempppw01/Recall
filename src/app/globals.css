@@ -119,10 +119,7 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(circle at top left, rgba(var(--theme-grad-start), 0.16), transparent 34%),
-    radial-gradient(circle at top right, rgba(var(--theme-grad-end), 0.12), transparent 28%),
-    radial-gradient(circle at bottom center, rgba(var(--theme-accent), 0.10), transparent 32%);
+  background: transparent;
   z-index: 0;
 }
 
@@ -131,12 +128,7 @@ body::after {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.68), transparent 88%);
-  opacity: 0.28;
+  background: transparent;
   z-index: 0;
 }
 
@@ -255,6 +247,14 @@ h3,
 .font-display {
   font-family: var(--font-display);
   letter-spacing: 0.01em;
+}
+
+/* 中文标题使用无衬线字体，避免展示字体缺失导致字形挤压。 */
+h1,
+h2,
+h3 {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
 }
 
 button {
@@ -1685,19 +1685,24 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 
 /* TickTick-inspired workspace skin: dense, quiet and split into clear panes. */
 .recall-app-shell {
-  --theme-accent: 51, 185, 154;
-  --theme-accent-soft: 110, 231, 183;
-  --theme-grad-start: 45, 183, 155;
-  --theme-grad-end: 20, 153, 137;
+  --theme-accent: 71, 114, 250;
+  --theme-accent-soft: 126, 158, 255;
+  --theme-grad-start: 71, 114, 250;
+  --theme-grad-end: 47, 96, 224;
   --recall-workspace-bg: #1c1c1c;
   --recall-sidebar-bg: #202020;
   --recall-panel-bg: #242424;
+  --recall-primary-rail-bg: #191a1b;
+  --recall-rail-selected-bg: #e6e6e6;
+  --recall-rail-selected-text: #1a1a1a;
   --recall-hover-bg: rgba(255, 255, 255, 0.06);
   --recall-selected-bg: rgba(255, 255, 255, 0.09);
   --recall-divider: rgba(255, 255, 255, 0.08);
   --recall-text: rgba(255, 255, 255, 0.9);
   --recall-text-secondary: rgba(255, 255, 255, 0.58);
   --recall-text-muted: rgba(255, 255, 255, 0.38);
+  --recall-due: #6b91ff;
+  --recall-danger: #ef6262;
   background: var(--recall-workspace-bg) !important;
 }
 
@@ -1719,7 +1724,7 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 }
 
 .recall-primary-rail {
-  background: #191a1b !important;
+  background: var(--recall-primary-rail-bg) !important;
   border-right-color: var(--recall-divider) !important;
 }
 
@@ -1848,6 +1853,7 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  overflow: visible !important;
 }
 
 .recall-topbar .btn,
@@ -1886,7 +1892,7 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
 
 .recall-quick-add:focus-within {
   border-color: rgba(var(--theme-accent), 0.45) !important;
-  background: #292929 !important;
+  background: var(--recall-panel-bg) !important;
 }
 
 .recall-composer .app-micro-card {
@@ -1988,39 +1994,66 @@ body.theme-light .theme-native-root [class*="text-[#FFD1DC]"] {
   box-shadow: -16px 0 36px rgba(0, 0, 0, 0.12) !important;
 }
 
+.recall-detail-sections > div {
+  padding: 0.8rem 0 !important;
+  border-width: 1px 0 0 !important;
+  border-color: var(--recall-divider) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.recall-detail-sections > div:first-child {
+  padding-top: 0.2rem !important;
+  border-top: 0 !important;
+}
+
+.recall-detail-sections > div:last-child {
+  padding-bottom: 0.2rem !important;
+}
+
+.recall-detail-sections > div > label,
+.recall-detail-sections > div > div:first-child > label {
+  letter-spacing: 0.08em;
+}
+
 body.theme-light .recall-app-shell {
-  --theme-accent: 48, 183, 153;
-  --theme-accent-soft: 110, 231, 183;
-  --theme-grad-start: 62, 196, 164;
-  --theme-grad-end: 28, 171, 144;
+  --theme-accent: 71, 114, 250;
+  --theme-accent-soft: 126, 158, 255;
+  --theme-grad-start: 71, 114, 250;
+  --theme-grad-end: 47, 96, 224;
   --recall-workspace-bg: #ffffff;
-  --recall-sidebar-bg: #edf8f5;
+  --recall-sidebar-bg: #f5f5f5;
   --recall-panel-bg: #ffffff;
-  --recall-hover-bg: rgba(39, 174, 154, 0.08);
-  --recall-selected-bg: rgba(39, 174, 154, 0.13);
-  --recall-divider: rgba(30, 125, 105, 0.13);
-  --recall-text: rgba(15, 23, 42, 0.9);
-  --recall-text-secondary: rgba(15, 23, 42, 0.58);
-  --recall-text-muted: rgba(15, 23, 42, 0.4);
+  --recall-primary-rail-bg: #ececec;
+  --recall-rail-selected-bg: #ffffff;
+  --recall-rail-selected-text: #1f1f1f;
+  --recall-hover-bg: rgba(17, 24, 39, 0.055);
+  --recall-selected-bg: rgba(17, 24, 39, 0.09);
+  --recall-divider: rgba(17, 24, 39, 0.09);
+  --recall-text: rgba(24, 24, 24, 0.9);
+  --recall-text-secondary: rgba(24, 24, 24, 0.62);
+  --recall-text-muted: rgba(24, 24, 24, 0.42);
+  --recall-due: #4772fa;
+  --recall-danger: #e03131;
 }
 
 body.theme-light .recall-primary-rail {
-  background: #65c7ad !important;
-  border-right-color: rgba(255, 255, 255, 0.22) !important;
+  background: var(--recall-primary-rail-bg) !important;
+  border-right-color: var(--recall-divider) !important;
 }
 
 body.theme-light .recall-primary-rail .recall-rail-item {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--recall-text-muted);
 }
 
 body.theme-light .recall-primary-rail .recall-rail-item:not(:hover) > span {
-  border-color: rgba(255, 255, 255, 0.26) !important;
-  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: var(--recall-divider) !important;
+  background: var(--recall-primary-rail-bg) !important;
   box-shadow: none !important;
 }
 
 body.theme-light .recall-secondary-pane {
-  background: #edf8f5 !important;
+  background: var(--recall-sidebar-bg) !important;
 }
 
 body.theme-light .recall-quick-add:focus-within {
@@ -2075,7 +2108,7 @@ body.theme-light .recall-quick-add:focus-within {
 }
 
 body.theme-light::before {
-  background: linear-gradient(180deg, #f8fafc 0%, #f2f5f8 100%);
+  background: #f7f7f7;
 }
 
 body.theme-light::after {

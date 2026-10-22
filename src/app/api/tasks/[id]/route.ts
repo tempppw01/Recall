@@ -47,6 +47,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         priority: normalized.priority,
         category: normalized.category,
         status: normalized.status,
+        assignee: normalized.assignee,
         tags: serializeJsonForDatabase(normalized.tags, provider),
         subtasks: serializeJsonForDatabase(normalized.subtasks, provider),
         attachments: serializeJsonForDatabase(normalized.attachments, provider),
@@ -79,6 +80,15 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'P2025'
+    ) {
+      return NextResponse.json({ ok: true, alreadyMissing: true });
+    }
+
     console.error('API Error', error);
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
   }

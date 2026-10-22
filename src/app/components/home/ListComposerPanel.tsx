@@ -11,9 +11,6 @@ type TaskScopeOption = {
 };
 
 type ListComposerPanelProps = {
-  totalTasks: number;
-  completionRate: number;
-  procrastinationIndex: number;
   completedTasks: number;
   showCompletedTasks: boolean;
   loading: boolean;
@@ -21,12 +18,8 @@ type ListComposerPanelProps = {
   showQuickAdd?: boolean;
   isBatchMode: boolean;
   selectedCount: number;
-  taskSortMode: string;
-  taskGroupMode: string;
   taskScope?: TaskScope;
   taskScopeOptions?: TaskScopeOption[];
-  sortOptions: SelectOption[];
-  groupOptions: SelectOption[];
   setInput: (value: string) => void;
   onMagicSubmit: () => void;
   onBatchComplete: () => void;
@@ -34,8 +27,6 @@ type ListComposerPanelProps = {
   onBatchClear: () => void;
   onToggleShowCompleted: () => void;
   onClearCompleted: () => void;
-  onTaskSortModeChange: (mode: string) => void;
-  onTaskGroupModeChange: (mode: string) => void;
   onTaskScopeChange?: (scope: TaskScope) => void;
 };
 
@@ -114,9 +105,6 @@ const MetricProgressPill = ({
  * - 批量动作 + 排序分组选项
  */
 export default function ListComposerPanel({
-  totalTasks,
-  completionRate,
-  procrastinationIndex,
   completedTasks,
   showCompletedTasks,
   loading,
@@ -124,12 +112,8 @@ export default function ListComposerPanel({
   showQuickAdd = true,
   isBatchMode,
   selectedCount,
-  taskSortMode,
-  taskGroupMode,
   taskScope,
   taskScopeOptions,
-  sortOptions,
-  groupOptions,
   setInput,
   onMagicSubmit,
   onBatchComplete,
@@ -137,8 +121,6 @@ export default function ListComposerPanel({
   onBatchClear,
   onToggleShowCompleted,
   onClearCompleted,
-  onTaskSortModeChange,
-  onTaskGroupModeChange,
   onTaskScopeChange,
 }: ListComposerPanelProps) {
   const [randomPlaceholder, setRandomPlaceholder] = useState(TASK_PLACEHOLDERS[0]);
@@ -157,8 +139,8 @@ export default function ListComposerPanel({
 
   return (
     <>
-    <div className="recall-composer theme-native-surface px-3 pt-3 sm:px-6 sm:pt-4">
-      <div className="app-toolbar rounded-[20px] px-2.5 py-2 lg:rounded-[22px] lg:px-3 lg:py-2.5">
+    <div className="recall-composer theme-native-surface px-3 pt-1 sm:px-6 sm:pt-1">
+      <div className="app-toolbar px-0 py-0">
         {shouldShowTaskScopes && (
           <div className="recall-scope-tabs mb-2 grid grid-cols-2 gap-1.5 rounded-[16px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)]/35 p-1 sm:flex sm:items-center">
             {taskScopeOptions?.map((option) => {
@@ -199,8 +181,8 @@ export default function ListComposerPanel({
         )}
 
         {showQuickAdd && (
-          <div className="recall-quick-add mb-2 flex items-center gap-2 rounded-[12px] border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-2 sm:px-3">
-            <Plus className="h-4 w-4 shrink-0 text-[color:var(--ui-text-muted)]" aria-hidden="true" />
+          <div className="recall-quick-add mb-2 flex items-center gap-2.5 rounded-[10px] border border-[#3a3a3a] bg-[#242424] px-3 py-2.5 transition-colors focus-within:border-[#4a4a4a]">
+            <Plus className="h-[18px] w-[18px] shrink-0 text-[#7a7a7a]" aria-hidden="true" />
             <input
               ref={quickInputRef}
               type="text"
@@ -212,8 +194,8 @@ export default function ListComposerPanel({
                   submitComposer();
                 }
               }}
-              placeholder={randomPlaceholder}
-              className="min-w-0 flex-1 border-none bg-transparent px-1 py-1 text-sm text-[color:var(--ui-text-strong)] outline-none placeholder:text-[color:var(--ui-text-muted)]"
+              placeholder="添加任务"
+              className="min-w-0 flex-1 border-none bg-transparent px-0 py-1 text-[14px] text-[#e8e8e8] outline-none placeholder:text-[#6f6f6f]"
               disabled={loading}
               aria-label="快速添加任务"
             />
@@ -221,37 +203,16 @@ export default function ListComposerPanel({
               type="button"
               onClick={submitComposer}
               disabled={!input.trim() || loading}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(var(--theme-accent),0.16)] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[rgba(var(--theme-accent),0.26)] hover:text-[color:var(--ui-text-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-[#3a3a3a] text-[#b5b5b5] transition-colors hover:bg-[#454545] hover:text-[#e8e8e8] disabled:cursor-not-allowed disabled:opacity-40"
               aria-label={loading ? '正在创建任务' : '创建任务'}
               title={loading ? '正在创建任务' : '创建任务'}
             >
               <Send className="h-3.5 w-3.5" />
             </button>
-            <kbd className="hidden rounded-md border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-card-bg)] px-1.5 py-0.5 text-[10px] text-[color:var(--ui-text-muted)] sm:inline-flex">Enter</kbd>
           </div>
         )}
 
         <div className="recall-composer-controls grid gap-2 text-xs text-[color:var(--ui-text-secondary)] lg:flex lg:flex-wrap lg:items-center lg:gap-2.5">
-          {totalTasks > 0 && (
-            <div className="recall-composer-metrics grid min-w-0 grid-cols-2 gap-2 lg:flex lg:flex-1 lg:flex-wrap lg:items-center">
-              <MetricProgressPill
-                icon={CheckCircle2}
-                label="完成率"
-                value={completionRate}
-                tone="success"
-              />
-              <MetricProgressPill
-                icon={Clock3}
-                label="拖延指数"
-                value={procrastinationIndex}
-                tone="risk"
-              />
-              <span className="hidden rounded-full border border-[color:var(--ui-border-soft)] px-2 py-1 text-[10px] text-[color:var(--ui-text-muted)] lg:inline-flex">
-                实时 · {totalTasks} 项
-              </span>
-            </div>
-          )}
-
           {isBatchMode && (
             <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--ui-border-soft)] bg-transparent px-2 py-1 lg:w-auto">
               <span className="px-1 text-[11px] text-[color:var(--ui-text-secondary)]">已选 {selectedCount}</span>
@@ -315,41 +276,9 @@ export default function ListComposerPanel({
               </button>
             ) : null}
 
-            <label htmlFor="task-sort-mode" className="sr-only">排序</label>
-            <select
-              id="task-sort-mode"
-              value={taskSortMode}
-              onChange={(event) => onTaskSortModeChange(event.target.value)}
-              className="min-w-0 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-1.5 text-[11px] text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[color:var(--ui-border-strong)] focus:border-[rgba(var(--theme-accent),0.55)] lg:px-3 lg:text-[12px]"
-              aria-label="排序方式"
-            >
-              {sortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  排序：{option.label}
-                </option>
-              ))}
-            </select>
-
-            <label htmlFor="task-group-mode" className="sr-only">分组</label>
-            <select
-              id="task-group-mode"
-              value={taskGroupMode}
-              onChange={(event) => onTaskGroupModeChange(event.target.value)}
-              className="min-w-0 rounded-full border border-[color:var(--ui-border-soft)] bg-[color:var(--ui-input-bg)] px-2.5 py-1.5 text-[11px] text-[color:var(--ui-text-primary)] outline-none transition-colors hover:border-[color:var(--ui-border-strong)] focus:border-[rgba(var(--theme-accent),0.55)] lg:px-3 lg:text-[12px]"
-              aria-label="分组方式"
-            >
-              {groupOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  分组：{option.label}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
-        {taskSortMode === 'manual' && taskGroupMode !== 'none' ? (
-          <div className="mt-2 px-1 text-[11px] text-[color:var(--ui-text-muted)]">分组中暂不支持拖动排序</div>
-        ) : null}
       </div>
     </div>
     </>
